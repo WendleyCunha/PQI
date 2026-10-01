@@ -313,9 +313,13 @@ const SISTEMAS = [
   {
     nome: "Diário de Bordo",
     descricao: "Cadastro, acompanhamento e indicadores de atividades — com ações dentro de cada atividade.",
-    url: "http://127.0.0.1:8000",
+    url: "https://pqi-c2tu.onrender.com",
     icone: "📔",
-    tipo: "servidor",
+    tipo: "nuvem",
+    // [NOVO] Render Free "dorme" depois de ~15 min sem uso. Com isto, o
+    // Home já manda um "acorda" pro servidor assim que abre, e o loader
+    // avisa que a primeira abertura pode demorar.
+    acorda: "https://pqi-c2tu.onrender.com/healthz",
   },
   {
     nome: "RG do Pedido — Acompanhamento",
@@ -418,7 +422,7 @@ function atualizarContextoUsuario() {
   document.getElementById('lblGreeting').textContent = `${saudacao}, ${nomeUsuario}`;
 }
 
-// Atualiza a cada minuto
+// Atualiza a cada 10 segundos
 setInterval(atualizarContextoUsuario, 10000);
 atualizarContextoUsuario();
 
@@ -469,7 +473,9 @@ function ativarAba(chave) {
 
   const jaCarregou = entrada.iframeEl.dataset.carregado === '1';
   document.getElementById('iframeLoader').classList.toggle('loading', !jaCarregou);
-  document.getElementById('loaderText').textContent = `Carregando ${entrada.sistema.nome}...`;
+  document.getElementById('loaderText').textContent = entrada.sistema.acorda
+    ? `Carregando ${entrada.sistema.nome}... (se o servidor estava dormindo, leva até 1 minuto)`
+    : `Carregando ${entrada.sistema.nome}...`;
 
   document.getElementById('badgeIcon').textContent = entrada.sistema.icone || '🔗';
   document.getElementById('badgeName').textContent = entrada.sistema.nome;
@@ -565,8 +571,17 @@ document.getElementById('busca').addEventListener('input', (e) => {
   renderGrid(filtrados);
 });
 
+// [NOVO] Acorda em segundo plano os servidores que dormem (Render Free),
+// pra quando você clicar no card ele já estar de pé ou quase.
+function acordarServidores() {
+  SISTEMAS.filter(s => s.acorda).forEach(s => {
+    fetch(s.acorda, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+  });
+}
+
 // Inicialização
 renderGrid(SISTEMAS);
+acordarServidores();
 </script>
 </body>
 </html>
