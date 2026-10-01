@@ -1,642 +1,572 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark" style="color-scheme: dark;">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Diário de Bordo</title>
+<title>Painel de Sistemas - Shell Unificado</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{
+:root[data-theme="dark"]{
   --void:#06070b; --panel:#0e1017; --panel-2:#151824;
   --line:rgba(232,179,61,0.16); --line-strong:rgba(232,179,61,0.4);
   --gold:#e8b33d; --gold-soft:#f3cd6f; --violet:#8b6cff;
   --ink:#f2f0ea; --ink-muted:#8b8f9c; --ink-faint:#565b6b;
-  --azul:#4fc3f7; --amarelo:#ffd93d; --vermelho:#ff3b4e;
-  --rosa:#ff6fa5; --roxo:#8b5cf6; --laranja:#ff8a34; --cinza:#8b8f9c; --preto:#14121a; --branco:#ffffff;
-  font-family:'Inter',sans-serif;
+  --verde:#3ddc97; --azul:#4fc3f7; --nav-bg:rgba(14, 16, 23, 0.90);
 }
 :root[data-theme="light"]{
-  --void:#f3f1ea; --panel:#ffffff; --panel-2:#ece9e0;
-  --line:rgba(139,109,26,0.18); --line-strong:rgba(139,109,26,0.38);
-  --gold:#a3791b; --gold-soft:#8a6414; --violet:#6f4fd1;
-  --ink:#1c1d22; --ink-muted:#5b5f6b; --ink-faint:#8a8d99;
+  --void:#f4f5f8; --panel:#ffffff; --panel-2:#eaeef5;
+  --line:rgba(200,160,50,0.25); --line-strong:rgba(200,160,50,0.6);
+  --gold:#b38314; --gold-soft:#8c640c; --violet:#6846ff;
+  --ink:#1a1c23; --ink-muted:#5e6375; --ink-faint:#8a90a2;
+  --verde:#109658; --azul:#0288d1; --nav-bg:rgba(255, 255, 255, 0.90);
 }
+
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:var(--void);color:var(--ink);min-height:100%;overflow-x:hidden;}
-::selection{background:var(--gold);color:var(--preto);}
-.field{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(1100px 600px at 12% -10%, rgba(232,179,61,0.14), transparent 60%), radial-gradient(900px 500px at 110% 10%, rgba(139,108,255,0.14), transparent 60%), var(--void);}
-.shell{max-width:1560px;margin:0 auto;padding:20px 20px 80px;}
+html,body{background:var(--void);color:var(--ink);height:100vh;overflow:hidden;transition:background .3s, color .3s;}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+::selection{background:var(--gold);color:var(--void);}
 
-.header-sticky-container{
-  position:sticky;top:0;z-index:100;background:var(--void);
-  padding-top:12px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:28px;
+.field{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(1100px 600px at 12% -10%, rgba(232,179,61,0.12), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(139,108,255,0.1), transparent 60%),
+    var(--void);
+  transition:background .3s;
 }
-.topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;}
-.brand{display:flex;align-items:center;gap:14px;}
-.mark{width:42px;height:42px;border-radius:50%;background:conic-gradient(from 220deg,var(--gold),var(--violet),var(--gold));display:flex;align-items:center;justify-content:center;position:relative;}
-.mark::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--void);}
-.mark span{position:relative;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--gold-soft);}
-.brand-text h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;}
-.brand-text p{font-size:12px;color:var(--ink-faint);margin-top:1px;}
-.clock{font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--ink-muted);text-align:right;}
-.clock b{color:var(--ink);font-weight:600;}
 
-.top-actions{display:flex;align-items:center;gap:14px;}
-.status-api{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-faint);}
-.status-api .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint);}
-.status-api.ok .dot{background:#3ddc97;}
-.status-api.off .dot{background:var(--vermelho);}
-.theme-toggle{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px;cursor:pointer;}
-.theme-toggle .opt{display:flex;align-items:center;justify-content:center;width:30px;height:26px;border-radius:16px;color:var(--ink-faint);transition:all .15s;}
-.theme-toggle .opt.on{background:var(--gold);color:var(--preto);}
-
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.kpi{background:linear-gradient(180deg, var(--panel), var(--panel-2));border:1px solid var(--line);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:border-color .15s, transform .15s;}
-.kpi::after{content:"";position:absolute;top:-40%;right:-20%;width:140px;height:140px;background:radial-gradient(circle,rgba(232,179,61,0.16),transparent 70%);}
-.kpi.clickable{cursor:pointer;}
-.kpi.clickable:hover{border-color:var(--line-strong);transform:translateY(-2px);}
-.kpi.kpi-active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);}
-.kpi .lbl{font-size:11.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.06em;}
-.kpi .val{font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:600;margin:8px 0 6px;position:relative;}
-.kpi .delta{font-size:12px;font-weight:500;}
-.delta.up{color:#3ddc97;} .delta.warn{color:var(--vermelho);}
-
-.switcher{display:flex;gap:34px;margin-top:16px;}
-.switch-btn{background:none;border:none;color:var(--ink-faint);font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:500;padding:8px 2px;cursor:pointer;position:relative;}
-.switch-btn:hover{color:var(--ink-muted);}
-.switch-btn.active{color:var(--ink);}
-.switch-btn.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--gold),var(--violet));border-radius:2px;}
-
-.panel{display:none;}
-.panel.active{display:block;animation:fadein .35s ease;}
-@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-
-.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 28px;margin-top:20px;}
-.card h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;}
-.card .sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:22px;}
-
-.grid-form{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 20px;}
-.f{display:flex;flex-direction:column;gap:7px;}
-.f.span2{grid-column:span 2;}
-.f label{font-size:12px;color:var(--ink-muted);display:flex;align-items:center;gap:6px;}
-.f label .req{color:var(--gold);}
-.f select, .f input, .f textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13.5px;padding:10px 12px;outline:none;transition:border-color .15s;}
-.f select:focus,.f input:focus,.f textarea:focus{border-color:var(--gold);}
-.f textarea{resize:vertical;min-height:64px;}
-.f.erro select,.f.erro input,.f.erro textarea{border-color:var(--vermelho);}
-.f .msg-erro{font-size:11px;color:var(--vermelho);display:none;}
-.f.erro .msg-erro{display:block;}
-
-.form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:26px;}
-.form-msg{font-size:12.5px;color:var(--ink-muted);}
-.form-msg.ok{color:#3ddc97;}
-.form-msg.erro{color:var(--vermelho);}
-.btn{font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600;padding:11px 24px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink-muted);cursor:pointer;transition:all .15s;}
-.btn.primary{background:linear-gradient(90deg,var(--gold),var(--gold-soft));color:var(--preto);border:none;}
-.btn:hover{border-color:var(--line-strong);color:var(--ink);}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
-
-.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
-.chip{font-size:12.5px;padding:8px 16px;border-radius:20px;border:1px solid var(--line);color:var(--ink-muted);cursor:pointer;background:transparent;transition:all .15s;}
-.chip.active{background:var(--panel-2);border-color:var(--line-strong);color:var(--ink);}
-.chip.quick{background:var(--gold);border-color:var(--gold);color:var(--preto);font-weight:600;display:flex;align-items:center;gap:8px;}
-.filters .divider{width:1px;align-self:stretch;background:var(--line);margin:0 4px;}
-
-table{width:100%;border-collapse:collapse;font-size:13px;}
-thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:500;padding:0 14px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
-th.th-filter{cursor:pointer;user-select:none;}
-th.th-filter:hover{color:var(--ink-muted);}
-th.th-filter.col-active{color:var(--gold);}
-th.th-filter .arrow{font-size:9px;margin-left:4px;opacity:.7;}
-tbody td{padding:14px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;}
-tbody tr:hover{background:rgba(255,255,255,0.02);}
-.atv-nome{color:var(--ink);font-weight:500;}
-.atv-area{color:var(--ink-faint);font-size:11.5px;margin-top:2px;}
-.empty-row td{text-align:center;color:var(--ink-faint);padding:34px 14px;font-size:12.5px;}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;}
-
-.status-select{
-  appearance:none;-webkit-appearance:none;border:1px solid rgba(127,127,127,0.28);border-radius:20px;
-  padding:5px 26px 5px 13px;font-size:11.5px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;
-  background-repeat:no-repeat;background-position:right 9px center;background-size:9px;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.4' fill='none' opacity='.45'/%3E%3C/svg%3E");
+/* ── BARRA DE NAVEGAÇÃO FIXA (O "SHELL") ── */
+.navbar {
+  position: sticky; top: 0; z-index: 1000;
+  background: var(--nav-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  height: 72px;
+  flex-shrink: 0;
 }
-.excl-badge{font-size:11px;color:var(--ink-faint);font-style:italic;}
-.icon-btn{background:none;border:1px solid var(--line);border-radius:8px;width:28px;height:28px;color:var(--ink-faint);cursor:pointer;transition:all .15s;}
-.icon-btn:hover{border-color:var(--vermelho);color:var(--vermelho);}
 
-.filter-pop{position:fixed;z-index:200;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:8px;min-width:180px;box-shadow:0 16px 34px rgba(0,0,0,0.4);}
-.filter-pop label{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink-muted);}
-.filter-pop label:hover{background:var(--panel-2);color:var(--ink);}
-.filter-pop input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;}
-.filter-pop .clear{margin-top:4px;padding-top:8px;border-top:1px solid var(--line);text-align:center;font-size:11.5px;color:var(--ink-faint);cursor:pointer;}
-.filter-pop .clear:hover{color:var(--gold);}
-
-.conn-erro{background:rgba(255,59,78,0.08);border:1px solid var(--vermelho);border-radius:12px;padding:14px 18px;color:#ffb3ba;font-size:13px;line-height:1.6;}
-.conn-erro code{background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:5px;}
-
-@media (max-width:860px){
-  .grid-form{grid-template-columns:1fr 1fr;}
-  .f.span2{grid-column:span 2;}
-  .kpis{grid-template-columns:repeat(2,1fr);}
+.nav-left {
+  display: flex; align-items: center; gap: 16px;
 }
+
+.nav-brand {
+  display: flex; align-items: center; gap: 12px; cursor: pointer; text-decoration: none;
+}
+.mark{
+  width:40px;height:40px;border-radius:50%;
+  background:conic-gradient(from 220deg,var(--gold),var(--violet),var(--gold));
+  display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;
+}
+.mark::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--panel);}
+.mark span{position:relative;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;color:var(--gold-soft);}
+.nav-title h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;}
+.nav-title p{font-size:11px;color:var(--ink-muted);}
+
+/* Bloco do Sistema Ativo com o mesmo padrão visual */
+.active-system-display {
+  display: none; align-items: center; gap: 12px;
+  border-left: 1px solid var(--line); padding-left: 16px;
+}
+.active-system-display.visible { display: flex; }
+
+.nav-right {
+  display: flex; align-items: center; gap: 14px;
+}
+
+/* Data, Hora e Saudação do Usuário */
+.user-widget {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  padding: 6px 12px; border-radius: 12px;
+}
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+  border: 1px solid var(--gold); background: var(--panel);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--gold-soft);
+}
+.user-info {
+  display: flex; flex-direction: column; text-align: right;
+}
+.user-greeting { font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.datetime-text { font-size: 10px; color: var(--ink-muted); font-family: 'Space Grotesk', sans-serif; }
+
+.btn-home, .btn-theme, .btn-full {
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+  padding: 8px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 500;
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: border-color .15s, background .15s, transform .1s;
+  font-family: 'Inter', sans-serif; text-decoration: none;
+}
+.btn-home:hover, .btn-theme:hover, .btn-full:hover { border-color: var(--gold); }
+.btn-home svg, .btn-theme svg, .btn-full svg { width: 15px; height: 15px; color: var(--gold-soft); }
+
+/* ── CONTAINER PRINCIPAL (CONTEÚDO DINÂMICO OU HOME) ── */
+.main-container {
+  flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column;
+}
+
+/* Visão de Grid (Início) */
+.home-view {
+  flex: 1; overflow-y: auto; padding: 40px 24px 80px; max-width: 1180px; margin: 0 auto; width: 100%;
+}
+.home-view.hidden { display: none; }
+
+.topo-home{text-align:center;margin-bottom:36px;}
+.topo-home h1{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:600;letter-spacing:-0.01em;}
+.topo-home p{color:var(--ink-muted);font-size:13.5px;margin-top:6px;}
+
+.busca-wrap{max-width:400px;margin:24px auto 0;position:relative;}
+.busca-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--ink-faint);}
+#busca{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:24px;
+  color:var(--ink);font-size:13px;padding:11px 16px 11px 40px;outline:none;transition:border-color .15s;
+  font-family:'Inter',sans-serif;
+}
+#busca:focus{border-color:var(--gold);}
+#busca::placeholder{color:var(--ink-faint);}
+
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:16px;
+  margin-top:32px;
+}
+.card{
+  background:linear-gradient(180deg, var(--panel), var(--panel-2));
+  border:1px solid var(--line);border-radius:16px;padding:20px;
+  cursor:pointer;text-align:left;position:relative;overflow:hidden;
+  transition:border-color .15s, transform .15s;
+  display:flex;flex-direction:column;gap:10px;
+}
+.card::after{content:"";position:absolute;top:-40%;right:-20%;width:120px;height:120px;
+  background:radial-gradient(circle,rgba(232,179,61,0.12),transparent 70%);pointer-events:none;}
+.card:hover{border-color:var(--line-strong);transform:translateY(-2px);}
+.card .topo-card{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.card .icone{font-size:24px;line-height:1;}
+.card .tag{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  padding:3px 8px;border-radius:20px;white-space:nowrap;
+}
+.tag.servidor{background:rgba(139,108,255,0.14);color:var(--violet);}
+.tag.arquivo{background:rgba(61,220,151,0.12);color:var(--verde);}
+.tag.nuvem{background:rgba(79,195,247,0.14);color:var(--azul);}
+.card h3{font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;color:var(--ink);}
+.card p{font-size:12px;color:var(--ink-muted);line-height:1.4;flex:1;}
+.card .ir{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--gold-soft);
+  margin-top:2px;
+}
+.card .ir svg{width:12px;height:12px;transition:transform .15s;}
+.card:hover .ir svg{transform:translateX(3px);}
+
+.vazio{text-align:center;color:var(--ink-faint);font-size:13px;padding:50px 0;grid-column:1/-1;}
+
+/* Visão do Tunel / Iframe */
+.iframe-view {
+  flex: 1; width: 100%; height: 100%; position: relative; display: none;
+}
+.iframe-view.active { display: flex; flex-direction: column; }
+
+/* [NOVO] Container que segura VÁRIOS iframes ao mesmo tempo — cada
+   sistema aberto ganha o seu, que fica vivo (não recarrega) mesmo
+   quando você troca de aba ou volta pro Início. Só um fica visível
+   por vez (display none/block via JS), os outros continuam rodando
+   por trás, escondidos. */
+#iframesContainer { position: relative; flex: 1; width: 100%; height: 100%; }
+.app-iframe {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: var(--void);
+}
+
+/* [NOVO] Barra de abas — aparece assim que existe pelo menos 1 sistema
+   aberto, e continua visível mesmo se você voltar pro Início (é assim
+   que as abas "persistem": elas não desaparecem só porque você não
+   está olhando pra elas no momento). */
+.tabs-bar {
+  display: none; align-items: center; gap: 6px; padding: 8px 20px;
+  background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto;
+}
+.tabs-bar.show { display: flex; }
+.tab-pill {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px 6px 12px; border-radius: 20px;
+  background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; flex: none;
+  font-size: 12.5px; color: var(--ink-muted); transition: all .15s; white-space: nowrap;
+}
+.tab-pill:hover { border-color: var(--line-strong); color: var(--ink); }
+.tab-pill.ativa { background: var(--gold); border-color: var(--gold); color: #14121a; font-weight: 600; }
+.tab-pill .fechar {
+  display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  border-radius: 50%; color: inherit; opacity: .6; font-size: 11px;
+}
+.tab-pill .fechar:hover { opacity: 1; background: rgba(0,0,0,0.15); }
+
+/* Loader elegante enquanto o iframe carrega */
+.iframe-loader {
+  position: absolute; inset: 0; background: var(--void); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; z-index: 10; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.iframe-loader.loading { opacity: 1; pointer-events: auto; }
+.spinner {
+  width: 36px; height: 36px; border: 3px solid var(--line); border-top-color: var(--gold);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.iframe-loader span { font-size: 13px; color: var(--ink-muted); font-family: 'Space Grotesk', sans-serif; }
 </style>
 </head>
 <body>
 <div class="field"></div>
-<div class="shell">
 
-  <div class="header-sticky-container">
-    <div class="topbar">
-      <div class="brand">
-        <div class="mark"><span>DB</span></div>
-        <div class="brand-text">
-          <h1>Diário de Bordo</h1>
-          <p>Registro, acompanhamento e indicadores da operação</p>
-        </div>
-      </div>
-      <div class="top-actions">
-        <div class="status-api" id="statusApi"><span class="dot"></span><span id="statusApiTexto">Conectando à API...</span></div>
-        <div class="clock">29/09/2026<br><b id="relogio">17:40</b></div>
-        <div class="theme-toggle" id="themeToggle">
-          <span class="opt on" data-theme-opt="dark" title="Escuro">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
-          </span>
-          <span class="opt" data-theme-opt="light" title="Claro">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-          </span>
-        </div>
+<!-- BARRA FIXA (SHELL) -->
+<header class="navbar">
+  <div class="nav-left">
+    <div class="nav-brand" onclick="voltarHome()" title="Ir para a página inicial">
+      <div class="mark"><span>PS</span></div>
+      <div class="nav-title">
+        <h2>Painel de Sistemas</h2>
+        <p>Casca Unificada</p>
       </div>
     </div>
 
-    <div class="kpis" id="kpisContainer">
-      <div class="kpi clickable" data-kpi="ativas">
-        <div class="lbl">Atividades ativas</div>
-        <div class="val" id="kpi-ativas">—</div>
-        <div class="delta up">Sincronizado via API</div>
+    <!-- Indicador do sistema ativo no mesmo padrão visual -->
+    <div id="activeSystemDisplay" class="active-system-display">
+      <div class="mark" id="activeMark" style="width: 34px; height: 34px;">
+        <span id="badgeIcon" style="font-size: 11px;">🔗</span>
       </div>
-      <div class="kpi clickable" data-kpi="vencimento">
-        <div class="lbl">Prazos no vencimento</div>
-        <div class="val" id="kpi-venc">—</div>
-        <div class="delta warn" id="kpi-venc-delta">calculando...</div>
-      </div>
-      <div class="kpi clickable" data-kpi="bloqueios">
-        <div class="lbl">Bloqueios abertos</div>
-        <div class="val" id="kpi-bloq">—</div>
-        <div class="delta warn">Ativos no sistema</div>
-      </div>
-      <div class="kpi">
-        <div class="lbl">Valor gerado (mês)</div>
-        <div class="val" id="kpi-valor">R$ 482 mil</div>
-        <div class="delta up">+18% vs. anterior</div>
-      </div>
-    </div>
-
-    <div class="switcher">
-      <button class="switch-btn active" data-panel="cadastro">Cadastro de atividade</button>
-      <button class="switch-btn" data-panel="acompanhamento">Acompanhamento das atividades</button>
-      <button class="switch-btn" data-panel="indicadores">Indicadores</button>
-    </div>
-  </div>
-
-  <!-- ============ CADASTRO ============ -->
-  <div class="panel active" id="p-cadastro">
-    <div class="card">
-      <h3>Nova atividade</h3>
-      <p class="sub">Os campos com <span style="color:var(--gold)">*</span> são obrigatórios — o backend agora rejeita qualquer um deles em branco (era isso que estava deixando atividades sem nome no banco).</p>
-
-      <form id="formAtividade" novalidate>
-        <div class="grid-form">
-          <div class="f" data-campo="data"><label>Data <span class="req">*</span></label><input type="date" id="f-data" value="2026-09-29"><span class="msg-erro">Obrigatório.</span></div>
-          <div class="f" data-campo="responsavel"><label>Responsável <span class="req">*</span></label>
-            <select id="f-resp"><option>Wendley</option><option>Guilherme</option><option>Tiago</option></select><span class="msg-erro">Obrigatório.</span>
-          </div>
-          <div class="f" data-campo="area_impactada"><label>Área impactada <span class="req">*</span></label>
-            <select id="f-area">
-              <option>Diretoria</option><option>Heads</option><option>PQI</option><option>Customer Experience</option>
-              <option>Jurídico</option><option>Financeiro</option><option>Facilities</option><option>TI</option>
-              <option>E-commerce</option><option>Marketing</option><option>Comercial</option><option>Auditoria</option>
-              <option>Compliance</option><option>Fiscal</option><option>Contabilidade</option><option>Recursos Humanos</option>
-              <option>Logística</option><option>Compras</option><option>Qualidade</option><option>Inside Sales</option>
-              <option>Monitoramento</option><option>Manutenção</option>
-            </select><span class="msg-erro">Obrigatório.</span>
-          </div>
-          <div class="f" data-campo="problema_causa"><label>Problema / causa <span class="req">*</span></label>
-            <select id="f-prob"><option>Processo</option><option>Sistema/Ferramenta</option><option>Pessoas</option><option>Qualidade</option><option>Produtividade</option><option>Capacidade</option><option>Governança</option><option>Gestão</option></select><span class="msg-erro">Obrigatório.</span>
-          </div>
-          <div class="f span2" data-campo="demanda"><label>Demanda <span class="req">*</span></label><input type="text" id="f-demanda" placeholder="Ex: Planilha de acompanhamento de fornecedores"><span class="msg-erro">Obrigatório.</span></div>
-          <div class="f span2" data-campo="atividade"><label>Atividade <span class="req">*</span></label><input type="text" id="f-nome" placeholder="Descreva a atividade..."><span class="msg-erro">Obrigatório — este era o campo que estava indo em branco.</span></div>
-          <div class="f" data-campo="prazo_previsto"><label>Prazo previsto <span class="req">*</span></label><input type="date" id="f-prazo" value="2026-10-06"><span class="msg-erro">Obrigatório.</span></div>
-          <div class="f"><label>Prioridade</label><select id="f-prio"><option>Baixa</option><option>Média</option><option>Alta</option></select></div>
-          <div class="f" data-campo="indicador_relacionado"><label>Indicador relacionado <span class="req">*</span></label><input type="text" id="f-ind" placeholder="Ex: SLA de reconciliação de estoque"><span class="msg-erro">Obrigatório.</span></div>
-          <div class="f"><label>Bloqueio / ofensor</label>
-            <select id="f-bloq">
-              <option value="—">— nenhum —</option><option>Dependência Externa</option><option>Falta de Acesso/Permissão</option>
-              <option>Falta de Recurso</option><option>Aprovação Pendente</option><option>Falta de Definição/Informação</option>
-              <option>Sistema/Ferramenta Indisponível</option><option>Outro</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-actions">
-          <span class="form-msg" id="formMsg"></span>
-          <button type="submit" class="btn primary" id="btnCadastrar">Cadastrar atividade</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ============ ACOMPANHAMENTO ============ -->
-  <div class="panel" id="p-acompanhamento">
-    <div class="card">
-      <h3>Atividades em acompanhamento</h3>
-      <p class="sub">Dados reais, vindos da API — clique nos cabeçalhos com ▾ pra filtrar por coluna, ou nos cards do topo pra um atalho rápido.</p>
-
-      <div class="filters">
-        <div class="chip active" data-grupo="ativas">Ativas</div>
-        <div class="chip" data-grupo="concluidas">Concluídas</div>
-        <div class="chip" data-grupo="excluidas">Excluídas</div>
-        <div class="chip quick" id="quickChip" style="display:none;"><span id="quickChipTexto"></span> ✕</div>
-      </div>
-
-      <div id="areaTabela">
-        <table>
-          <thead>
-            <tr>
-              <th>Atividade</th>
-              <th class="th-filter" data-col="responsavel">Responsável<span class="arrow">▾</span></th>
-              <th class="th-filter" data-col="prioridade">Prioridade<span class="arrow">▾</span></th>
-              <th class="th-filter" data-col="status">Status<span class="arrow">▾</span></th>
-              <th>Prazo previsto</th>
-              <th class="th-filter" data-col="bloqueio">Bloqueio<span class="arrow">▾</span></th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tbl-body">
-            <tr class="empty-row"><td colspan="7">Carregando dados da API...</td></tr>
-          </tbody>
-        </table>
+      <div class="nav-title">
+        <h2 id="badgeName">Nome do Sistema</h2>
+        <p>Sistema Ativo</p>
       </div>
     </div>
   </div>
 
-  <!-- ============ INDICADORES ============ -->
-  <div class="panel" id="p-indicadores">
-    <div class="card">
-      <h3>Indicadores gerais</h3>
-      <p class="sub">Painel analítico — versão inicial usa os mesmos KPIs calculados pela API.</p>
-      <div style="padding:20px;text-align:center;color:var(--ink-muted);">
-        Gráficos por indicador (Produtividade, Prazos, Backlog, Bloqueios/Riscos, Valor Gerado, Governança) entram na próxima etapa, quando o histórico tiver dado suficiente pra plotar.
+  <div class="nav-right">
+    <!-- Bloco de Saudação, Avatar e Data/Hora (Preparado para Futuros Logs) -->
+    <div class="user-widget">
+      <!-- Dica: Insira o link da foto do usuário no src da tag <img> abaixo, ou deixe a letra de fallback -->
+      <img src="" id="userAvatarImg" class="user-avatar" style="display:none;" alt="Avatar">
+      <div id="userAvatarFallback" class="user-avatar">W</div>
+      <div class="user-info">
+        <span class="user-greeting" id="lblGreeting">Boa tarde, Wendley</span>
+        <span class="datetime-text" id="lblDatetime">29/09/2026 13:39</span>
       </div>
     </div>
+
+    <button class="btn-home" id="btnHome" onclick="voltarHome()" style="display:none;" title="Voltar ao Menu Principal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Início</span>
+    </button>
+    <button class="btn-home" id="btnNovaAba" onclick="abrirEmNovaAba()" style="display:none;" title="Abrir este sistema numa aba separada — use se ele não carregar direito aqui dentro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      <span>Nova aba</span>
+    </button>
+    <button class="btn-full" onclick="toggleFullScreen()" title="Tela Cheia">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      <span>Expandir</span>
+    </button>
+    <button class="btn-theme" onclick="toggleTheme()" title="Alternar tema Claro/Escuro">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <span id="themeText">Dark</span>
+    </button>
+  </div>
+</header>
+
+<!-- [NOVO] Barra de abas — sistemas abertos ficam aqui, mesmo quando
+     você está olhando o Início. Só suma clicando no ✕ de cada uma. -->
+<div class="tabs-bar" id="tabsBar"></div>
+
+<!-- CORPO CENTRALIZADO -->
+<div class="main-container">
+
+  <!-- TELA INICIAL (GRID DE CARDS) -->
+  <div class="home-view" id="homeView">
+    <div class="topo-home">
+      <h1>Selecione um Sistema</h1>
+      <p>O menu permanece fixo ao redor. O sistema escolhido rodará integrado na janela central.</p>
+      <div class="busca-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="busca" placeholder="Buscar sistema...">
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- TELA DO IFRAME (TUNEL DE EXECUÇÃO) -->
+  <div class="iframe-view" id="iframeView">
+    <div class="iframe-loader" id="iframeLoader">
+      <div class="spinner"></div>
+      <span id="loaderText">Carregando sistema...</span>
+    </div>
+    <div id="iframesContainer"></div>
   </div>
 
 </div>
 
 <script>
-const API = "/api";
+// ═══════════════════════════════════════════════════════════════════
+// REGISTRO DE SISTEMAS — Adicione ou edite seus sistemas aqui.
+// ═══════════════════════════════════════════════════════════════════
+const SISTEMAS = [
+  {
+    nome: "Diário de Bordo",
+    descricao: "Cadastro, acompanhamento e indicadores de atividades — com ações dentro de cada atividade.",
+    url: "https://pqi-c2tu.onrender.com",
+    icone: "📔",
+    tipo: "nuvem",
+  },
+  {
+    nome: "RG do Pedido — Acompanhamento",
+    descricao: "Rastreabilidade do item do pedido origem ao reenvio: cronograma, cenários de teste e GAPs.",
+    url: "rg-pedido-acompanhamento.html",
+    icone: "🧾",
+    tipo: "arquivo",
+  },
+  {
+    nome: "Parque Aliança — Gestão",
+    descricao: "Relatórios, anúncios, passagens e manutenção da congregação.",
+    url: "https://painelparquealianca.streamlit.app/?embedded=true",
+    icone: "🕊️",
+    tipo: "nuvem",
+  },
+  {
+    nome: "Wendley Site",
+    descricao: "Tickets, ChecKing e Home — hub principal de módulos.",
+    url: "https://wendleysite.streamlit.app/?embedded=true",
+    icone: "🗂️",
+    tipo: "nuvem",
+  },
+  {
+    nome: "Wendley Cunha",
+    descricao: "App pessoal no Streamlit Cloud.",
+    url: "https://wendleycunha.streamlit.app/?embedded=true",
+    icone: "👤",
+    tipo: "nuvem",
+  },
+  {
+    // [ATENÇÃO] Infraestrutura de terceiro (não é código seu) e é uma
+    // TELA DE LOGIN — chance real de recusar carregar dentro do túnel
+    // por proteção contra clickjacking do lado deles, sem nada que dê
+    // pra ajustar daqui. Se acontecer, o botão "↗ Nova aba" (agora
+    // sempre visível quando um sistema está aberto) resolve na hora.
+    nome: "Concierge — King Star",
+    descricao: "Portal de operação King Star Colchões.",
+    url: "https://portal.kingstarcolchoes.com.br/operacao/caixa",
+    icone: "🛎️",
+    tipo: "nuvem",
+  },
+];
 
-// ---- cores oficiais de status e prioridade (do documento de especificação) ----
-const STATUS = {
-  'Planejamento': {bg:'var(--rosa)',   fg:'var(--preto)'},
-  'Iniciar':      {bg:'var(--branco)', fg:'var(--preto)'},
-  'Em Andamento': {bg:'var(--laranja)',fg:'var(--branco)'},
-  'Aprovação':    {bg:'var(--roxo)',   fg:'var(--branco)'},
-  'Reprovado':    {bg:'var(--preto)',  fg:'var(--branco)'},
-  'Concluído':    {bg:'var(--azul)',   fg:'var(--branco)'},
-  'Bloqueado':    {bg:'var(--vermelho)',fg:'var(--branco)'},
-  'Pausado':      {bg:'var(--amarelo)',fg:'var(--preto)'},
-  'Cancelado':    {bg:'var(--cinza)',  fg:'var(--branco)'},
-};
-const STATUS_ATIVOS = Object.keys(STATUS).filter(s => !['Concluído','Cancelado','Reprovado'].includes(s));
-const PRIO_COR = {'Baixa':'var(--azul)','Média':'var(--amarelo)','Alta':'var(--vermelho)'};
+const TAG_LABEL = { servidor: "servidor", arquivo: "arquivo local", nuvem: "hospedado" };
 
-// ---- tema claro/escuro ----
-const root = document.documentElement;
-function aplicarTema(t){
-  root.dataset.theme = t;
-  document.querySelectorAll('.theme-toggle .opt').forEach(o=> o.classList.toggle('on', o.dataset.themeOpt===t));
-  try{ localStorage.setItem('db_tema', t); }catch(e){}
-}
-let temaInicial='dark'; try{ temaInicial = localStorage.getItem('db_tema')||'dark'; }catch(e){}
-aplicarTema(temaInicial);
-document.getElementById('themeToggle').addEventListener('click', ()=> aplicarTema(root.dataset.theme==='dark'?'light':'dark'));
-
-// ---- relógio ----
-function tick(){
-  const d = new Date();
-  document.getElementById('relogio').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-}
-tick(); setInterval(tick, 30000);
-
-// ---- abas ----
-function irParaAba(nome){
-  document.querySelectorAll('.switch-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelector('.switch-btn[data-panel="'+nome+'"]').classList.add('active');
-  document.getElementById('p-'+nome).classList.add('active');
-}
-document.querySelectorAll('.switch-btn').forEach(btn=> btn.addEventListener('click', ()=>irParaAba(btn.dataset.panel)));
-
-// ══════════════════════════════════════════════════════════════
-// DADOS — busca na API real (sem mock, sem dado inventado)
-// ══════════════════════════════════════════════════════════════
-let TODAS = [];
-
-function prepararLinha(r){
-  r.responsavel = r.resp;
-  r.prioridade = r.prio;
-  r.prazoDate = r.prazo && r.prazo !== '—' ? new Date(r.prazo+'T00:00:00') : null;
-  r.prazoFmt = r.prazoDate ? r.prazoDate.toLocaleDateString('pt-BR') : '—';
-  r.ativa = !['Concluído','Cancelado','Reprovado'].includes(r.status) && !r.excluida;
-  if (r.prazoDate){
-    const dias = Math.round((r.prazoDate - new Date(new Date().toDateString())) / 86400000);
-    r.venc = r.ativa && dias <= 7;
-  } else { r.venc = false; }
-  return r;
+function iconeSetaCard(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 }
 
-function marcarStatusApi(ok){
-  const el = document.getElementById('statusApi');
-  el.classList.toggle('ok', ok);
-  el.classList.toggle('off', !ok);
-  document.getElementById('statusApiTexto').textContent = ok ? 'API conectada' : 'API offline';
-}
-
-async function carregarTudo(){
-  try{
-    const [ativasResp, excluidasResp, kpisResp] = await Promise.all([
-      fetch(API+'/atividades?excluido=false'),
-      fetch(API+'/atividades?excluido=true'),
-      fetch(API+'/kpis'),
-    ]);
-    if (!ativasResp.ok || !excluidasResp.ok || !kpisResp.ok) throw new Error('resposta não-OK da API');
-
-    const ativas = await ativasResp.json();
-    const excluidas = await excluidasResp.json();
-    const kpis = await kpisResp.json();
-
-    TODAS = [
-      ...ativas.map(r=>({...r, excluida:false})),
-      ...excluidas.map(r=>({...r, excluida:true})),
-    ].map(prepararLinha);
-
-    document.getElementById('kpi-ativas').textContent = kpis.ativas;
-    document.getElementById('kpi-venc').textContent = kpis.vencimento;
-    document.getElementById('kpi-venc-delta').textContent = kpis.vencimento_atrasados > 0
-      ? kpis.vencimento_atrasados + ' já atrasado(s)' : 'nenhum atrasado';
-    document.getElementById('kpi-bloq').textContent = kpis.bloqueios;
-    document.getElementById('kpi-valor').textContent = kpis.valor_mes;
-
-    marcarStatusApi(true);
-    renderTabela();
-  }catch(e){
-    marcarStatusApi(false);
-    document.getElementById('tbl-body').innerHTML = `<tr class="empty-row"><td colspan="7">
-      <div class="conn-erro">
-        Não consegui falar com a API em <code>${API}</code>.<br><br>
-        Rode o backend antes de abrir esta página: <code>python main.py</code>
-        (na mesma pasta do <code>diario.db</code>), e recarregue.
+function renderGrid(lista){
+  const grid = document.getElementById('grid');
+  if (!lista.length){
+    grid.innerHTML = '<div class="vazio">Nenhum sistema encontrado com esse termo.</div>';
+    return;
+  }
+  grid.innerHTML = lista.map((s, i) => `
+    <button class="card" data-ir="${i}">
+      <div class="topo-card">
+        <span class="icone">${s.icone || "🔗"}</span>
+        <span class="tag ${s.tipo}">${TAG_LABEL[s.tipo] || s.tipo}</span>
       </div>
-    </td></tr>`;
-  }
-}
+      <h3>${s.nome}</h3>
+      <p>${s.descricao || ''}</p>
+      <div class="ir">Abrir no Shell ${iconeSetaCard()}</div>
+    </button>
+  `).join('');
 
-// ══════════════════════════════════════════════════════════════
-// FILTROS — status-group (Ativas/Concluídas/Excluídas), coluna,
-// filtro rápido vindo do clique num KPI
-// ══════════════════════════════════════════════════════════════
-const chipGrupo = { ativas:true, concluidas:false, excluidas:false };
-const colFiltro = { responsavel:new Set(), prioridade:new Set(), status:new Set(), bloqueio:new Set() };
-let quickFilter = null;
-const QUICK_LABEL = { ativas:'Atividades ativas', vencimento:'Prazos no vencimento', bloqueios:'Bloqueios abertos' };
-
-function passaFiltros(r){
-  if (quickFilter === 'ativas' && !r.ativa) return false;
-  if (quickFilter === 'vencimento' && !r.venc) return false;
-  if (quickFilter === 'bloqueios' && r.bloqueio === '—') return false;
-
-  if (!quickFilter){
-    const grupos = [];
-    if (chipGrupo.ativas) grupos.push(r.ativa);
-    if (chipGrupo.concluidas) grupos.push(r.status === 'Concluído' && !r.excluida);
-    if (chipGrupo.excluidas) grupos.push(r.excluida);
-    if (grupos.length && !grupos.some(Boolean)) return false;
-  }
-
-  if (colFiltro.responsavel.size && !colFiltro.responsavel.has(r.responsavel)) return false;
-  if (colFiltro.prioridade.size && !colFiltro.prioridade.has(r.prioridade)) return false;
-  if (colFiltro.status.size && !colFiltro.status.has(r.status)) return false;
-  if (colFiltro.bloqueio.size && !colFiltro.bloqueio.has(r.bloqueio)) return false;
-
-  return true;
-}
-
-function renderTabela(){
-  const tbody = document.getElementById('tbl-body');
-  tbody.innerHTML = '';
-  const filtradas = TODAS.filter(passaFiltros);
-
-  if (!filtradas.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhuma atividade encontrada com esses filtros.</td></tr>';
-    return;
-  }
-
-  filtradas.forEach(r=>{
-    const s = STATUS[r.status] || {bg:'var(--panel-2)', fg:'var(--ink)'};
-    const pc = PRIO_COR[r.prioridade] || 'var(--ink-faint)';
-    const tr = document.createElement('tr');
-
-    const opcoesStatus = STATUS_ATIVOS.concat(['Concluído','Cancelado','Reprovado'])
-      .map(st => `<option value="${st}" ${st===r.status?'selected':''}>${st}</option>`).join('');
-
-    tr.innerHTML = `
-      <td><div class="atv-nome">${r.nome}</div><div class="atv-area">${r.area}</div></td>
-      <td>${r.responsavel}</td>
-      <td><span class="dot" style="background:${pc}"></span>${r.prioridade}</td>
-      <td>
-        ${r.excluida
-          ? `<span class="badge" style="background:${s.bg};color:${s.fg};display:inline-flex;align-items:center;padding:5px 13px;border-radius:20px;font-size:11.5px;font-weight:600;">${r.status}</span>`
-          : `<select class="status-select" style="background-color:${s.bg};color:${s.fg}" data-id="${r.id}">${opcoesStatus}</select>`}
-      </td>
-      <td>${r.prazoFmt}</td>
-      <td style="color:var(--ink-faint)">${r.bloqueio}</td>
-      <td>${r.excluida ? '<span class="excl-badge">excluída</span>' : `<button class="icon-btn" title="Excluir (lógico)" data-del="${r.id}">✕</button>`}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  tbody.querySelectorAll('.status-select').forEach(sel=>{
-    sel.addEventListener('change', async ()=>{
-      const id = sel.dataset.id;
-      try{
-        const res = await fetch(`${API}/atividades/${id}/status`, {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({status: sel.value}),
-        });
-        if (!res.ok) throw new Error();
-        await carregarTudo();
-      }catch(e){ alert('Não consegui atualizar o status. A API está rodando?'); }
-    });
-  });
-
-  tbody.querySelectorAll('[data-del]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      if (!confirm('Excluir esta atividade? Ela some da lista ativa, mas continua rastreável em "Excluídas".')) return;
-      try{
-        const res = await fetch(`${API}/atividades/${btn.dataset.del}`, {method:'DELETE'});
-        if (!res.ok) throw new Error();
-        await carregarTudo();
-      }catch(e){ alert('Não consegui excluir. A API está rodando?'); }
+  grid.querySelectorAll('[data-ir]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sistema = lista[+btn.dataset.ir];
+      abrirSistema(sistema);
     });
   });
 }
 
-// ---- chips Ativas/Concluídas/Excluídas ----
-document.querySelectorAll('.filters .chip[data-grupo]').forEach(chip=>{
-  chip.addEventListener('click', ()=>{
-    chip.classList.toggle('active');
-    chipGrupo[chip.dataset.grupo] = chip.classList.contains('active');
-    renderTabela();
-  });
-});
+// Atualizador de Data, Hora e Saudação Automática
+function atualizarContextoUsuario() {
+  const agora = new Date();
+  
+  // Data e Hora Formatada (DD/MM/AAAA HH:MM)
+  const dia = String(agora.getDate()).padStart(2, '0');
+  const mes = String(agora.getMonth() + 1).padStart(2, '0');
+  const ano = agora.getFullYear();
+  const hora = String(agora.getHours()).padStart(2, '0');
+  const min = String(agora.getMinutes()).padStart(2, '0');
+  
+  document.getElementById('lblDatetime').textContent = `${dia}/${mes}/${ano} ${hora}:${min}`;
 
-// ---- KPIs clicáveis (filtro rápido) ----
-function atualizarQuickChip(){
-  const el = document.getElementById('quickChip');
-  if (quickFilter){
-    el.style.display = 'flex';
-    document.getElementById('quickChipTexto').textContent = 'Filtro: ' + QUICK_LABEL[quickFilter];
-  } else { el.style.display = 'none'; }
-}
-document.getElementById('quickChip').addEventListener('click', ()=>{
-  quickFilter = null;
-  document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('kpi-active'));
-  atualizarQuickChip(); renderTabela();
-});
-document.querySelectorAll('.kpi.clickable').forEach(kpi=>{
-  kpi.addEventListener('click', ()=>{
-    const alvo = kpi.dataset.kpi;
-    quickFilter = (quickFilter===alvo) ? null : alvo;
-    document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('kpi-active'));
-    if (quickFilter) kpi.classList.add('kpi-active');
-    atualizarQuickChip();
-    irParaAba('acompanhamento');
-    renderTabela();
-  });
-});
-
-// ---- filtro por coluna (popover) ----
-const OPCOES_COLUNA = {
-  responsavel: ['Guilherme','Wendley','Tiago'],
-  prioridade: ['Baixa','Média','Alta'],
-  status: Object.keys(STATUS),
-  bloqueio: ['Dependência Externa','Falta de Acesso/Permissão','Falta de Recurso','Aprovação Pendente','Falta de Definição/Informação','Sistema/Ferramenta Indisponível','Outro','—'],
-};
-let popAberto = null;
-function fecharPopover(){ if (popAberto){ popAberto.remove(); popAberto=null; } }
-document.addEventListener('click', (e)=>{ if (popAberto && !popAberto.contains(e.target) && !e.target.closest('.th-filter')) fecharPopover(); });
-document.querySelectorAll('th.th-filter').forEach(th=>{
-  th.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    const col = th.dataset.col;
-    if (popAberto && popAberto.dataset.col===col){ fecharPopover(); return; }
-    fecharPopover();
-    const rect = th.getBoundingClientRect();
-    const pop = document.createElement('div');
-    pop.className='filter-pop'; pop.dataset.col=col;
-    pop.style.top=(rect.bottom+6)+'px'; pop.style.left=rect.left+'px';
-    OPCOES_COLUNA[col].forEach(valor=>{
-      const marcado = colFiltro[col].has(valor);
-      const lbl = document.createElement('label');
-      lbl.innerHTML = `<input type="checkbox" ${marcado?'checked':''}> ${valor}`;
-      lbl.querySelector('input').addEventListener('change', ev=>{
-        if (ev.target.checked) colFiltro[col].add(valor); else colFiltro[col].delete(valor);
-        th.classList.toggle('col-active', colFiltro[col].size>0);
-        renderTabela();
-      });
-      pop.appendChild(lbl);
-    });
-    const limpar = document.createElement('div');
-    limpar.className='clear'; limpar.textContent='Limpar filtro desta coluna';
-    limpar.addEventListener('click', ()=>{ colFiltro[col].clear(); th.classList.remove('col-active'); renderTabela(); fecharPopover(); });
-    pop.appendChild(limpar);
-    document.body.appendChild(pop);
-    popAberto = pop;
-  });
-});
-
-// ══════════════════════════════════════════════════════════════
-// CADASTRO — validação no front (espelha a do backend) + envio
-// ══════════════════════════════════════════════════════════════
-const CAMPOS_OBRIGATORIOS = {
-  data: ()=>document.getElementById('f-data').value,
-  responsavel: ()=>document.getElementById('f-resp').value,
-  area_impactada: ()=>document.getElementById('f-area').value,
-  problema_causa: ()=>document.getElementById('f-prob').value,
-  demanda: ()=>document.getElementById('f-demanda').value,
-  atividade: ()=>document.getElementById('f-nome').value,
-  prazo_previsto: ()=>document.getElementById('f-prazo').value,
-  indicador_relacionado: ()=>document.getElementById('f-ind').value,
-};
-
-document.getElementById('formAtividade').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const msg = document.getElementById('formMsg');
-  msg.textContent = ''; msg.className = 'form-msg';
-
-  // [FIX] Validação real no front — antes não existia NENHUMA, e é
-  // exatamente isso que deixou 4 atividades sem nome salvas no banco.
-  let temErro = false;
-  document.querySelectorAll('.f[data-campo]').forEach(campo=>{
-    const chave = campo.dataset.campo;
-    const valor = (CAMPOS_OBRIGATORIOS[chave]() || '').trim();
-    campo.classList.toggle('erro', !valor);
-    if (!valor) temErro = true;
-  });
-  if (temErro){
-    msg.textContent = 'Preencha os campos obrigatórios em vermelho.';
-    msg.classList.add('erro');
-    return;
+  // Saudação por horário
+  const h = agora.getHours();
+  let saudacao = "Bom dia";
+  if (h >= 12 && h < 18) {
+    saudacao = "Boa tarde";
+  } else if (h >= 18 || h < 5) {
+    saudacao = "Boa noite";
   }
 
-  const nova = {
-    data: document.getElementById('f-data').value,
-    responsavel: document.getElementById('f-resp').value,
-    area_impactada: document.getElementById('f-area').value,
-    problema_causa: document.getElementById('f-prob').value,
-    demanda: document.getElementById('f-demanda').value,
-    atividade: document.getElementById('f-nome').value,
-    prazo_previsto: document.getElementById('f-prazo').value,
-    prioridade: document.getElementById('f-prio').value,
-    indicador_relacionado: document.getElementById('f-ind').value,
-    bloqueio: document.getElementById('f-bloq').value,
+  // Nome do usuário logado (pode ser integrado ao sistema de logs futuramente)
+  const nomeUsuario = "Wendley"; 
+  document.getElementById('lblGreeting').textContent = `${saudacao}, ${nomeUsuario}`;
+}
+
+// Atualiza a cada minuto
+setInterval(atualizarContextoUsuario, 10000);
+atualizarContextoUsuario();
+
+// ═══════════════════════════════════════════════════════════════════
+// ABAS — cada sistema aberto ganha seu PRÓPRIO iframe, que fica vivo
+// (não recarrega) mesmo quando você troca de aba ou volta pro Início.
+// Só fecha (some de vez, recarrega se abrir de novo) quando você
+// clica no ✕ daquela aba específica.
+// ═══════════════════════════════════════════════════════════════════
+const abasAbertas = new Map(); // chave (nome do sistema) -> { sistema, iframeEl }
+let chaveAtiva = null;         // qual aba está sendo exibida agora (null = na Home)
+let urlSistemaAtual = null;    // alimenta o botão "Nova aba"
+
+function chaveDoSistema(sistema){ return sistema.nome; }
+
+function abrirSistema(sistema) {
+  const chave = chaveDoSistema(sistema);
+  if (!abasAbertas.has(chave)) {
+    criarAba(sistema, chave);
+  }
+  ativarAba(chave);
+}
+
+function criarAba(sistema, chave) {
+  const iframe = document.createElement('iframe');
+  iframe.className = 'app-iframe';
+  iframe.title = sistema.nome;
+  iframe.style.display = 'none';
+  iframe.onload = () => {
+    iframe.dataset.carregado = '1';
+    if (chaveAtiva === chave) document.getElementById('iframeLoader').classList.remove('loading');
   };
+  iframe.src = sistema.url;
+  document.getElementById('iframesContainer').appendChild(iframe);
+  abasAbertas.set(chave, { sistema, iframeEl: iframe });
+}
 
-  const btn = document.getElementById('btnCadastrar');
-  btn.disabled = true; btn.textContent = 'Salvando...';
-  try{
-    const res = await fetch(`${API}/atividades`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(nova),
-    });
-    if (!res.ok){
-      const erro = await res.json().catch(()=>({}));
-      throw new Error(erro.detail ? JSON.stringify(erro.detail) : 'erro desconhecido');
-    }
-    msg.textContent = 'Atividade cadastrada com sucesso!'; msg.classList.add('ok');
-    document.getElementById('formAtividade').reset();
-    document.querySelectorAll('.f.erro').forEach(f=>f.classList.remove('erro'));
-    await carregarTudo();
-  }catch(err){
-    msg.textContent = 'Erro ao salvar — a API está rodando? (' + err.message + ')';
-    msg.classList.add('erro');
-  }finally{
-    btn.disabled = false; btn.textContent = 'Cadastrar atividade';
+function ativarAba(chave) {
+  const entrada = abasAbertas.get(chave);
+  if (!entrada) return;
+  chaveAtiva = chave;
+  urlSistemaAtual = entrada.sistema.url;
+
+  document.getElementById('homeView').classList.add('hidden');
+  document.getElementById('iframeView').classList.add('active');
+
+  abasAbertas.forEach((v, k) => { v.iframeEl.style.display = (k === chave) ? 'block' : 'none'; });
+
+  const jaCarregou = entrada.iframeEl.dataset.carregado === '1';
+  document.getElementById('iframeLoader').classList.toggle('loading', !jaCarregou);
+  document.getElementById('loaderText').textContent = `Carregando ${entrada.sistema.nome}...`;
+
+  document.getElementById('badgeIcon').textContent = entrada.sistema.icone || '🔗';
+  document.getElementById('badgeName').textContent = entrada.sistema.nome;
+  document.getElementById('activeSystemDisplay').classList.add('visible');
+  document.getElementById('btnHome').style.display = 'flex';
+  document.getElementById('btnNovaAba').style.display = 'flex';
+
+  renderizarAbas();
+}
+
+// [NOVO] Fecha UMA aba especificamente — as outras nem percebem.
+function fecharAba(chave, evt) {
+  if (evt) evt.stopPropagation();
+  const entrada = abasAbertas.get(chave);
+  if (!entrada) return;
+
+  entrada.iframeEl.remove(); // tira do DOM de vez — reabrir recarrega do zero
+  abasAbertas.delete(chave);
+
+  if (chaveAtiva === chave) {
+    const proxima = abasAbertas.keys().next().value; // outra aba aberta, se houver
+    if (proxima) ativarAba(proxima);
+    else voltarHome();
+  } else {
+    renderizarAbas(); // só a barra muda, o que está na tela continua igual
   }
+}
+
+// Retorna pra grade inicial — as abas NÃO fecham, só saem de vista.
+function voltarHome() {
+  chaveAtiva = null;
+  urlSistemaAtual = null;
+
+  document.getElementById('activeSystemDisplay').classList.remove('visible');
+  document.getElementById('btnHome').style.display = 'none';
+  document.getElementById('btnNovaAba').style.display = 'none';
+
+  document.getElementById('iframeView').classList.remove('active');
+  document.getElementById('homeView').classList.remove('hidden');
+
+  renderizarAbas();
+}
+
+function abrirEmNovaAba() {
+  if (urlSistemaAtual) window.open(urlSistemaAtual, '_blank', 'noopener');
+}
+
+function renderizarAbas() {
+  const barra = document.getElementById('tabsBar');
+  barra.classList.toggle('show', abasAbertas.size > 0);
+  barra.innerHTML = '';
+  abasAbertas.forEach((entrada, chave) => {
+    const pill = document.createElement('div');
+    pill.className = 'tab-pill' + (chave === chaveAtiva ? ' ativa' : '');
+    pill.innerHTML = `<span>${entrada.sistema.icone || '🔗'}</span><span>${entrada.sistema.nome}</span><span class="fechar" title="Fechar">✕</span>`;
+    pill.addEventListener('click', () => ativarAba(chave));
+    pill.querySelector('.fechar').addEventListener('click', (e) => fecharAba(chave, e));
+    barra.appendChild(pill);
+  });
+}
+
+// Alternar Tema Claro / Escuro
+function toggleTheme() {
+  const html = document.documentElement;
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', newTheme);
+  
+  const themeText = document.getElementById('themeText');
+  themeText.textContent = newTheme === 'dark' ? 'Dark' : 'Light';
+}
+
+// Tela Cheia
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(err => {
+      console.error("Erro ao tentar entrar em tela cheia:", err);
+    });
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+}
+
+// Filtro de busca de sistemas
+document.getElementById('busca').addEventListener('input', (e) => {
+  const termo = e.target.value.trim().toLowerCase();
+  if (!termo){ renderGrid(SISTEMAS); return; }
+  const filtrados = SISTEMAS.filter(s =>
+    s.nome.toLowerCase().includes(termo) || (s.descricao || '').toLowerCase().includes(termo)
+  );
+  renderGrid(filtrados);
 });
 
-carregarTudo();
+// Inicialização
+renderGrid(SISTEMAS);
 </script>
 </body>
 </html>
