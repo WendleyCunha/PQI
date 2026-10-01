@@ -29,7 +29,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Diário de Bordo API - Firestore", version="2.2", lifespan=lifespan)
+app = FastAPI(title="Diário de Bordo API - Firestore", version="2.3", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -182,14 +182,41 @@ def excluir_atividade(atividade_id: str):
     return {"sucesso": True}
 
 
-@app.get("/")
-def servir_frontend():
-    caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
-    # [AJUSTADO v2.1] Mensagem clara em vez de erro 500 genérico caso o
-    # index.html não tenha sido enviado pro repositório.
-    if not os.path.exists(caminho):
-        raise HTTPException(status_code=404, detail="index.html não encontrado na pasta do main.py.")
-    return FileResponse(caminho)
+# ──────────────────────────────────────────────────────────────────────────
+# [AJUSTADO v2.3] PÁGINAS HTML — o mesmo servidor agora entrega o Painel
+# (túnel) e todos os sistemas que são arquivo HTML.
+#
+# É uma LISTA FIXA de propósito: só estes arquivos podem ser abertos pelo
+# navegador. Nunca "abrir a pasta inteira" — senão qualquer pessoa poderia
+# baixar o main.py, o db_diario.py ou um firestore_key.json esquecido.
+#
+# Pra adicionar um sistema novo em HTML: suba o arquivo no repositório e
+# acrescente uma linha aqui.
+# ──────────────────────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+PAGINAS = {
+    "/": "index.html",                                                   # Painel de Sistemas (túnel)
+    "/diario": "diario.html",                                            # Diário de Bordo
+    "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
+}
+
+
+def _criar_rota_pagina(nome_arquivo: str):
+    def servir():
+        caminho = os.path.join(BASE_DIR, nome_arquivo)
+        if not os.path.exists(caminho):
+            raise HTTPException(
+                status_code=404,
+                detail=f"{nome_arquivo} não encontrado no repositório (mesma pasta do main.py).",
+            )
+        # no-cache: depois de um commit novo, o navegador já pega a versão nova
+        return FileResponse(caminho, media_type="text/html", headers={"Cache-Control": "no-cache"})
+    return servir
+
+
+for _rota, _arquivo in PAGINAS.items():
+    app.add_api_route(_rota, _criar_rota_pagina(_arquivo), methods=["GET", "HEAD"], include_in_schema=False)
 
 
 if __name__ == "__main__":
