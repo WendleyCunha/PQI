@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diagnóstico N2 — Mapeamento de Atividades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   Diagnóstico N2 — mesma identidade visual do Painel de Sistemas
+   (fundo escuro + dourado), pra parecer parte da mesma casa.
+   ═══════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"]{
+  --bg:#06070b; --panel:#0e1017; --panel-2:#151824; --campo:#0a0c12;
+  --line:rgba(232,179,61,0.16); --line-2:rgba(232,179,61,0.42);
+  --gold:#e8b33d; --gold-soft:#f3cd6f; --violet:#8b6cff;
+  --ink:#f2f0ea; --ink-2:#c3c5cc; --muted:#8b8f9c; --faint:#565b6b;
+  --ok:#3ddc97; --bad:#ff6b6b; --azul:#4fc3f7; --run:#1B2A4A;
+}
+:root[data-theme="light"]{
+  --bg:#f4f5f8; --panel:#ffffff; --panel-2:#eef1f6; --campo:#ffffff;
+  --line:rgba(179,131,20,0.22); --line-2:rgba(179,131,20,0.6);
+  --gold:#b38314; --gold-soft:#8c640c; --violet:#6846ff;
+  --ink:#1a1c23; --ink-2:#3d4150; --muted:#5e6375; --faint:#8a90a2;
+  --ok:#109658; --bad:#c62828; --azul:#0277bd; --run:#1B2A4A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column}
+h2,h3,.brand b{font-family:"Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.01em}
+h2{font-size:22px;margin:0 0 4px;font-weight:600}
+h3{font-size:15.5px;margin:22px 0 6px;font-weight:600}
+.cap{color:var(--muted);font-size:12.5px;margin:2px 0 12px;max-width:80ch}
+code{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+a{color:var(--gold-soft)}
+
+/* topo */
+.topo{flex:none;display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;flex-direction:column;line-height:1.2}
+.brand b{font-size:15px}
+.brand span{font-size:11.5px;color:var(--muted)}
+.salvo{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.salvo i{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
+.salvo.ok i{background:var(--ok)} .salvo.salvando i{background:var(--gold)} .salvo.erro i{background:var(--bad)}
+.salvo.erro{color:var(--bad)}
+
+/* layout: menu lateral + conteúdo */
+.corpo{flex:1;min-height:0;display:grid;grid-template-columns:212px 1fr}
+nav.menu{border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:10px 8px}
+nav.menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:1px solid transparent;
+  color:var(--ink-2);padding:8px 10px;border-radius:9px;cursor:pointer;font:500 13px Inter,sans-serif;margin-bottom:2px}
+nav.menu button:hover{background:var(--panel-2);color:var(--ink)}
+nav.menu button.ativa{background:var(--gold);color:#16130b;font-weight:600}
+nav.menu .ico{width:20px;text-align:center;flex:none}
+main{overflow-y:auto;padding:22px 26px 80px}
+main > .pagina{max-width:1280px}
+
+/* botões e campos */
+.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 14px;border-radius:9px;
+  font:500 13px Inter,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#16130b;font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,nav.menu button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.msg{font-size:12.5px;margin-left:6px}
+.msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+label.f input,label.f select,label.f textarea,.inp{background:var(--campo);border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;padding:8px 10px;font:14px Inter,sans-serif;width:100%}
+textarea{resize:vertical}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0}
+details.box > summary{cursor:pointer;font-weight:600;font-size:13.5px;list-style:none}
+details.box > summary::before{content:"▸ ";color:var(--gold)}
+details.box[open] > summary::before{content:"▾ "}
+details.box[open] > summary{margin-bottom:10px}
+.aviso{background:color-mix(in srgb,var(--azul) 12%,transparent);border:1px solid color-mix(in srgb,var(--azul) 35%,transparent);
+  border-radius:10px;padding:10px 14px;font-size:13px;margin:10px 0}
+.erro-box{border:1px solid var(--bad);color:var(--bad);border-radius:10px;padding:16px;margin:20px 0}
+
+/* tabela editável (substitui o st.data_editor) */
+.tbl-wrap{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table.tbl{border-collapse:separate;border-spacing:0;width:100%;min-width:720px;font-size:13px}
+table.tbl th{position:sticky;top:0;z-index:1;background:var(--panel-2);color:var(--ink-2);text-align:left;font-weight:600;
+  padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tbl td{border-bottom:1px solid var(--line);padding:2px 3px;vertical-align:top}
+table.tbl tr:last-child td{border-bottom:0}
+table.tbl input,table.tbl select,table.tbl textarea{width:100%;background:transparent;border:1px solid transparent;color:var(--ink);
+  padding:6px 6px;border-radius:6px;font:13px Inter,sans-serif;min-width:90px}
+table.tbl textarea{min-height:34px}
+table.tbl input:hover,table.tbl select:hover,table.tbl textarea:hover{border-color:var(--line)}
+table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--gold);background:var(--campo);outline:none}
+table.tbl select option{background:var(--panel);color:var(--ink)}
+table.tbl .ro{display:block;padding:7px 6px;color:var(--muted)}
+table.tbl td.td-del{width:36px;text-align:center}
+.btn-del{background:none;border:0;cursor:pointer;opacity:.5;font-size:14px;padding:6px;border-radius:6px;color:var(--ink)}
+.btn-del:hover{opacity:1;background:color-mix(in srgb,var(--bad) 18%,transparent)}
+td.vazio{color:var(--faint);text-align:center;padding:18px!important}
+.btn-add{margin-top:8px}
+
+/* checklist */
+.check{display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.check input{margin-top:3px;accent-color:var(--gold);width:16px;height:16px}
+
+/* RACI legenda */
+.legenda{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;max-width:620px}
+.legenda div{border-radius:8px;padding:9px 6px;text-align:center;color:#fff;font:700 16px "Space Grotesk",sans-serif}
+.legenda small{display:block;font:400 11px Inter,sans-serif}
+
+/* Diário: cartão da atividade em andamento */
+.rodando{background:var(--run);color:#fff;border-radius:12px;padding:14px 18px;margin:12px 0}
+.rodando .t1{font-size:11.5px;opacity:.75}
+.rodando .t2{font:700 20px "Space Grotesk",sans-serif;margin:2px 0}
+.rodando .t3{font-size:13px;opacity:.85}
+
+/* organograma */
+.org-vis{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fbfaf7;padding:14px;margin-top:8px}
+
+/* Mapa de jornada */
+.jornada-wrap{overflow-x:auto;padding-bottom:6px}
+.jgrid{display:grid;grid-template-columns:repeat(6,minmax(180px,1fr));gap:6px;min-width:1120px}
+.jhead{color:#fff;border-radius:8px;padding:8px 6px;text-align:center;font-size:11.5px;font-weight:700;min-height:58px;
+  display:flex;align-items:center;justify-content:center}
+.jlabel{grid-column:1 / -1;font-weight:600;font-size:13px;margin-top:10px}
+.jgrid textarea,.jgrid input,.jgrid select{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:8px;
+  padding:7px 8px;font:13px Inter,sans-serif;width:100%}
+.jgrid textarea{min-height:96px}
+.jexp{display:flex;gap:6px}
+.jexp select{width:64px;flex:none}
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:900px}
+.chips div{background:var(--run);color:#fff;border-radius:7px;padding:7px 4px;text-align:center;font-size:11px}
+.chips small{display:block;font-size:9.5px;opacity:.85}
+
+/* relatório */
+.relatorio{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 22px;max-width:900px}
+.relatorio h1{font:600 22px "Space Grotesk",sans-serif;margin:0 0 8px}
+.relatorio h2{font-size:17px;margin:20px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.relatorio table{border-collapse:collapse;font-size:12.5px;margin:6px 0}
+.relatorio td,.relatorio th{border:1px solid var(--line);padding:4px 8px}
+
+@media (max-width:820px){
+  .corpo{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  nav.menu{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:6px}
+  nav.menu button{width:auto;white-space:nowrap;margin:0 3px 0 0}
+  main{padding:16px 14px 60px}
+  .legenda,.chips{grid-template-columns:repeat(2,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="brand"><b>🗺️ Diagnóstico N2</b><span>Mapeamento de Atividades Operacionais — CX Backoffice (N2) · PQI</span></div>
+  <div class="salvo" id="salvo"><i></i><span>Carregando…</span></div>
+  <button class="btn" id="btnTema" type="button" title="Alternar tema claro/escuro">◐ Tema</button>
+</header>
+<div class="corpo">
+  <nav class="menu" id="menu" aria-label="Seções do diagnóstico"></nav>
+  <main id="main"><div class="pagina" id="conteudo"><p class="cap">Carregando dados do diagnóstico…</p></div></main>
+</div>
+<datalist id="dl-atividades"></datalist>
+<datalist id="dl-pessoas"></datalist>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// COMO ESTE ARQUIVO FALA COM O SERVIDOR
+// O servidor (main.py) NÃO conhece os campos do diagnóstico. Ele só
+// guarda e devolve o JSON de cada seção (inventario, diario, matriz…),
+// do mesmo jeito que o mod_diagnostico.py fazia: coleção "diagnostico",
+// um documento por seção, conteúdo no campo "dados".
+//
+// → Pra criar um CAMPO NOVO: mexa só aqui no HTML (ex.: acrescente uma
+//   coluna na lista "colunas" da tabela). O servidor grava sem mudança.
+// → Pra criar uma SEÇÃO NOVA: use um nome novo em lista('minha_secao')
+//   e salvar('minha_secao'). Também não precisa mexer no servidor.
+// ═══════════════════════════════════════════════════════════════════
+const API = '/api/diagnostico';
+const API_IA = '/api/diagnostico-ia';
+
+// ─── Constantes (as mesmas do mod_diagnostico.py) ───
+const CATEGORIAS_INVENTARIO = ["Chamado oficial","Apoio a outra área","Retrabalho","Reunião","Documentação","Treinamento","Outro"];
+const STATUS_REGISTRADA = ["Sim","Não","Parcialmente"];
+const CATEGORIAS_DIARIO = ["Atendimento reativo (chamado)","Atividade proativa","Reunião","E-mail / Comunicação","Retrabalho",
+  "Espera / Interrupção","Apoio a outra área (ex: N1)","Controle paralelo (planilha)","Outro"];
+const ORIGENS = ["N1","Cliente direto","Outra área","E-mail","Sistema","Interno / próprio time"];
+const FREQUENCIAS = ["Diária","Semanal","Quinzenal","Mensal","Eventual"];
+const VISIBILIDADES = ["Visível (mapeada)","Invisível (não mapeada)"];
+const RACI_OPCOES = ["-","R/C","A/C","I/A","R/A","I","C","A","R"];
+const RACI_LEGENDA = [["R","Responsável","#E53935"],["A","Aprovador","#1E3A8A"],["C","Consultado","#F2C230"],["I","Informado","#2E7D32"]];
+const GRUPOS_RACI = ["Time Avaliado","Stakeholder"];
+const ETAPAS_JORNADA = [
+  {id:"e1",nome:"1. RECEBER E ENTENDER A DEMANDA",icone:"💬",cor:"#1B2A4A"},
+  {id:"e2",nome:"2. ANÁLISE E TRIAGEM",icone:"🔍",cor:"#2F6FA8"},
+  {id:"e3",nome:"3. TRATAR E RESOLVER",icone:"✅",cor:"#2A9D8F"},
+  {id:"e4",nome:"4. ACOMPANHAR E INFORMAR",icone:"📨",cor:"#4CAF50"},
+  {id:"e5",nome:"5. ENCERRAR E AVALIAR",icone:"📋",cor:"#D9A83B"},
+  {id:"e6",nome:"6. APRENDER E MELHORAR",icone:"📈",cor:"#7B5EA7"},
+];
+const LINHAS_JORNADA = [
+  {campo:"objetivo",label:"🎯 Objetivo da etapa",tipo:"textarea",guia:"Objetivo desta etapa para esta atividade..."},
+  {campo:"acoes",label:"☰ Ações principais",tipo:"textarea",guia:"- ação 1\n- ação 2"},
+  {campo:"ferramentas",label:"💻 Ferramentas e sistemas",tipo:"text",guia:""},
+  {campo:"responsavel",label:"👤 Responsável",tipo:"text",guia:""},
+  {campo:"experiencia",label:"🙂 Experiência do colaborador",tipo:"experiencia",guia:""},
+  {campo:"dores",label:"⚠️ Pontos de atenção (dores)",tipo:"textarea",guia:"- dor 1\n- dor 2"},
+  {campo:"melhorias",label:"💡 Oportunidades de melhoria",tipo:"textarea",guia:"- melhoria 1\n- melhoria 2"},
+];
+const EMOJIS_EXPERIENCIA = ["😞","😐","🙂","😀"];
+const INDICADORES = [["TME","Tempo Médio de Espera"],["FRT","Tempo Médio de 1ª Resposta"],["TMA","Tempo Médio de Atendimento"],
+  ["Lead Time","Tempo Total da Jornada"],["SLA","% dentro do Prazo"],["FCR","Resolução no 1º Contato"],
+  ["Reabertura","Taxa de Reabertura"],["CSAT","Satisfação do Cliente"],["Reclame Aqui","Índice de Solução/Reputação"]];
+const ETAPAS_CHECKLIST = [
+  ["inv","Levantar o inventário de atividades","14/07"],
+  ["org","Mapear o organograma funcional real da equipe (+ RACI)","15–17/07"],
+  ["dia",'Aplicar o "Diário de Bordo"',"15–23/07"],
+  ["ent","Entrevista individual estruturada","17–24/07"],
+  ["gem","Observação direta (Gemba) complementar","22–24/07"],
+  ["mat","Consolidar a Matriz de Atividades x Responsabilidades x Tempo","27–29/07"],
+  ["jou","Desenhar o Mapa de Jornada de Trabalho por atividade","30–31/07"],
+  ["val","Validar com a equipe e a liderança","03–04/08"],
+];
+const PERGUNTAS = [
+  ["p1",'O que a equipe N2 faz (todos os tipos de atividade, não só os "chamados oficiais")?'],
+  ["p2","Quem faz o quê (responsabilidades individuais x coletivas, especialistas x generalistas)?"],
+  ["p3","Como o trabalho chega até eles (N1, direto do cliente, outras áreas, e-mail, sistema)?"],
+  ["p4","Quanto tempo cada atividade consome, na jornada real (não na teórica de 8h)?"],
+  ["p5","Onde estão as dependências externas (outras áreas, fornecedores, sistemas legados)?"],
+  ["p6","Onde está o trabalho invisível (não mapeado oficialmente, mas que toma tempo real)?"],
+];
+const ROTEIRO_ENTREVISTA = [
+  "Descreva um dia de trabalho normal, do início ao fim.",
+  "Quais atividades você faz que não aparecem no sistema de chamados?",
+  "De onde vêm as demandas que você recebe (N1, cliente direto, outras áreas, e-mail, sistema)?",
+  "Qual atividade consome mais tempo do que deveria? Por quê?",
+  "De quais áreas, sistemas ou pessoas fora da equipe você depende pra concluir seu trabalho?",
+  "O que você faz que ninguém mais da equipe sabe fazer?",
+  "O que te interrompe com mais frequência durante o dia?",
+  "Se pudesse eliminar uma atividade do seu dia, qual seria e por quê?",
+];
+
+const ABAS = [
+  ["checklist","✅","Checklist",renderChecklist],
+  ["inventario","📋","Inventário",renderInventario],
+  ["organograma","🧭","Organograma",renderOrganograma],
+  ["raci","🧩","Matriz RACI",renderRaciMatriz],
+  ["diario","📓","Diário de Bordo",renderDiario],
+  ["entrevistas","🎙️","Entrevistas",renderEntrevistas],
+  ["gemba","👣","Gemba",renderGemba],
+  ["matriz","📐","Matriz",renderMatriz],
+  ["jornada","🗺️","Mapa de Jornada",renderJornada],
+  ["perguntas","❓","6 Perguntas",renderPerguntas],
+  ["resumo","🤖","Resumo IA",renderResumoIA],
+  ["relatorio","📄","Relatório Final",renderRelatorio],
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// Utilidades
+// ═══════════════════════════════════════════════════════════════════
+const $ = (s, r=document) => r.querySelector(s);
+function el(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function norm(t){ return String(t||"").trim().toLowerCase().replace(/\s+/g," "); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function hojeISO(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function agoraHM(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function ordenar(arr){ return arr.slice().sort((a,b)=>a.localeCompare(b,"pt-BR")); }
+function opts(arr, atual){ return '<option value=""></option>'+arr.map(o=>`<option${o===atual?" selected":""}>${esc(o)}</option>`).join(""); }
+function texto(v){ return String(v==null?"":v).trim(); }
+
+function duracaoMin(hi, hf){
+  if(!hi || !hf) return "";
+  const a=String(hi).split(":").map(Number), b=String(hf).split(":").map(Number);
+  if(a.length<2||b.length<2||a.some(isNaN)||b.some(isNaN)) return "";
+  let diff=(b[0]*60+b[1])-(a[0]*60+a[1]);
+  if(diff<0) diff+=24*60;
+  return diff>0 ? String(diff) : "";
+}
+function maisFrequente(vals){
+  const v=vals.filter(x=>texto(x)); if(!v.length) return "";
+  const c={}; v.forEach(x=>c[x]=(c[x]||0)+1);
+  return Object.entries(c).reduce((m,kv)=>kv[1]>m[1]?kv:m)[0];
+}
+function baixarBlob(blob, nome){
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+function baixarTexto(nome, conteudo, mime){ baixarBlob(new Blob([conteudo],{type:(mime||"text/plain")+";charset=utf-8"}), nome); }
+
+// ═══════════════════════════════════════════════════════════════════
+// Dados: tudo carregado de uma vez; cada seção salva sozinha
+// ═══════════════════════════════════════════════════════════════════
+let D = {};
+const pendentes = {};
+
+function lista(sec){ if(!Array.isArray(D[sec])) D[sec]=[]; return D[sec]; }
+function objeto(sec){ if(!D[sec] || typeof D[sec]!=="object" || Array.isArray(D[sec])) D[sec]={}; return D[sec]; }
+
+function setStatus(tipo, detalhe){
+  const s=$("#salvo"); s.className="salvo "+tipo;
+  const t = tipo==="ok" ? "Tudo salvo · "+agoraHM() : tipo==="salvando" ? "Salvando…" : "Erro ao salvar: "+(detalhe||"");
+  s.querySelector("span").textContent=t; s.title = detalhe||"";
+}
+function salvar(sec){
+  setStatus("salvando");
+  clearTimeout(pendentes[sec]);
+  pendentes[sec]=setTimeout(()=>enviar(sec), 700);
+}
+async function salvarAgora(sec){ clearTimeout(pendentes[sec]); return enviar(sec); }
+async function enviar(sec, keepalive){
+  delete pendentes[sec];
+  try{
+    const r=await fetch(`${API}/${encodeURIComponent(sec)}`, {method:"PUT", keepalive:!!keepalive,
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({dados:D[sec]})});
+    if(!r.ok){ const t=await r.text().catch(()=> ""); throw new Error(`HTTP ${r.status} ${t.slice(0,160)}`); }
+    if(!Object.keys(pendentes).length) setStatus("ok");
+  }catch(e){ setStatus("erro", e.message); }
+}
+async function salvarTudoPendente(keepalive){
+  await Promise.all(Object.keys(pendentes).map(sec=>{ clearTimeout(pendentes[sec]); return enviar(sec, keepalive); }));
+}
+// Relê UMA seção do servidor antes de uma operação crítica (ex.: toque
+// no Diário) — evita apagar o que outra pessoa gravou nesse meio-tempo.
+async function recarregar(sec){
+  if(pendentes[sec]) await salvarAgora(sec);
+  try{ const r=await fetch(`${API}/${encodeURIComponent(sec)}`,{cache:"no-store"}); if(r.ok){ const j=await r.json(); D[sec]=j.dados; } }catch(_){}
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") salvarTudoPendente(true); });
+window.addEventListener("beforeunload", e=>{ if(Object.keys(pendentes).length){ salvarTudoPendente(true); e.preventDefault(); e.returnValue=""; } });
+
+// opções dinâmicas (Inventário → Atividade, Organograma → Pessoa)
+function opcoesAtividades(){ return ordenar([...new Set(lista("inventario").map(i=>texto(i.atividade)).filter(Boolean))]); }
+function opcoesPessoas(){ return ordenar([...new Set(lista("organograma").map(o=>texto(o.pessoa)).filter(Boolean))]); }
+function atualizarListas(){
+  $("#dl-atividades").innerHTML = opcoesAtividades().map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-pessoas").innerHTML = opcoesPessoas().map(a=>`<option value="${esc(a)}">`).join("");
+}
+function addInventarioSeNova(atividade){
+  atividade=texto(atividade); if(!atividade) return;
+  const inv=lista("inventario");
+  if(inv.some(i=>norm(i.atividade)===norm(atividade))) return;
+  inv.push({atividade, categoria:"", descricao:"", registrada:""});
+  inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
+  salvar("inventario"); atualizarListas();
+}
+function sugerirDoInventario(jaExistentes){
+  const vistos=new Set(), nomes=[];
+  lista("inventario").forEach(i=>{ const n=texto(i.atividade); if(!n) return; const k=norm(n);
+    if(jaExistentes.has(k)||vistos.has(k)) return; vistos.add(k); nomes.push(n); });
+  return nomes;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tabela editável — substitui o st.data_editor
+// colunas: {campo, label, tipo:text|textarea|select|date|time|calc|ro,
+//           opcoes, lista (datalist), placeholder, largura, calc(row), padrao}
+// ═══════════════════════════════════════════════════════════════════
+let focarUltima = null;
+function tabela(o){
+  const {secao, linhas, colunas, aoMudar, aoEstrutura, novaLinha, semAdd, semDel, altura} = o;
+  const wrap=el("div"), tw=el("div","tbl-wrap"), t=el("table","tbl");
+  if(altura) tw.style.maxHeight=altura+"px";
+  t.innerHTML="<thead><tr>"+colunas.map(c=>`<th style="${c.largura?`min-width:${c.largura}px`:""}">${esc(c.label)}</th>`).join("")+(semDel?"":"<th></th>")+"</tr></thead>";
+  const tb=el("tbody");
+  if(!linhas.length) tb.innerHTML=`<tr><td colspan="${colunas.length+1}" class="vazio">Nenhuma linha ainda.</td></tr>`;
+  linhas.forEach((row,i)=>{
+    const tr=el("tr");
+    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(campoCelula(row,c,tr,colunas,secao,aoMudar)); tr.appendChild(td); });
+    if(!semDel){
+      const td=el("td","td-del"), b=el("button","btn-del"); b.type="button"; b.title="Excluir esta linha"; b.textContent="🗑";
+      b.onclick=()=>{ linhas.splice(i,1); salvar(secao); aoEstrutura&&aoEstrutura(); };
+      td.appendChild(b); tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); tw.appendChild(t); wrap.appendChild(tw);
+  if(!semAdd){
+    const b=el("button","btn btn-add"); b.type="button"; b.textContent="+ Adicionar linha";
+    b.onclick=()=>{
+      linhas.push(novaLinha ? novaLinha() : Object.fromEntries(colunas.filter(c=>c.tipo!=="calc").map(c=>[c.campo, c.padrao??""])));
+      salvar(secao); focarUltima=secao; aoEstrutura&&aoEstrutura();
+    };
+    wrap.appendChild(b);
+  }
+  if(focarUltima===secao){
+    focarUltima=null;
+    setTimeout(()=>{ tw.scrollTop=tw.scrollHeight; const f=tb.lastElementChild&&tb.lastElementChild.querySelector("input,select,textarea"); f&&f.focus(); },0);
+  }
+  return wrap;
+}
+function campoCelula(row, c, tr, colunas, secao, aoMudar){
+  const v = row[c.campo]==null ? (c.padrao??"") : row[c.campo];
+  if(c.tipo==="calc"||c.tipo==="ro"){ const s=el("span","ro"); s.textContent = c.tipo==="calc" ? c.calc(row) : v; return s; }
+  let inp;
+  if(c.tipo==="select"){
+    inp=el("select");
+    let ops=typeof c.opcoes==="function" ? c.opcoes() : c.opcoes;
+    ops = c.semVazio ? ops.slice() : ["",...ops];
+    if(v && !ops.includes(v)) ops.push(v);
+    inp.innerHTML=ops.map(op=>`<option${op===v?" selected":""}>${esc(op)}</option>`).join("");
+  } else if(c.tipo==="textarea"){ inp=el("textarea"); inp.rows=2; inp.value=v; }
+  else { inp=el("input"); inp.type=c.tipo||"text"; inp.value=v; if(c.lista) inp.setAttribute("list",c.lista); }
+  if(c.placeholder) inp.placeholder=c.placeholder;
+  inp.setAttribute("aria-label", c.label);
+  const aplicar=()=>{
+    row[c.campo]=inp.value;
+    colunas.filter(cc=>cc.tipo==="calc").forEach(cc=>{
+      row[cc.campo]=cc.calc(row);
+      const s=tr.querySelector(`td[data-campo="${cc.campo}"] .ro`); if(s) s.textContent=row[cc.campo];
+    });
+    salvar(secao);
+  };
+  const ehDigitacao = (c.tipo||"text")==="text" || c.tipo==="textarea";
+  if(ehDigitacao) inp.addEventListener("input", aplicar);
+  inp.addEventListener("change", ()=>{ if(!ehDigitacao) aplicar(); aoMudar&&aoMudar(row,c); });
+  return inp;
+}
+function botoesExport(c, lista_){
+  const d=el("div","acoes");
+  lista_.forEach(([label,fn])=>{ const b=el("button","btn"); b.type="button"; b.textContent=label;
+    b.onclick=async()=>{ b.disabled=true; try{ await fn(); }catch(e){ alert("Não foi possível gerar o arquivo: "+e.message); } finally{ b.disabled=false; } };
+    d.appendChild(b); });
+  c.appendChild(d); return d;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Excel (ExcelJS, carregado só quando alguém pede um download)
+// ═══════════════════════════════════════════════════════════════════
+let _excelJS=null;
+function carregarExcelJS(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(!_excelJS) _excelJS=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload=()=>res(window.ExcelJS);
+    s.onerror=()=>{ _excelJS=null; rej(new Error("não consegui carregar a biblioteca de Excel (sem internet?)")); };
+    document.head.appendChild(s);
+  });
+  return _excelJS;
+}
+const MIME_XLSX="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+async function xlsxSimples(nomeArquivo, nomeAba, cabecalho, linhas){
+  const ExcelJS=await carregarExcelJS();
+  const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet((nomeAba||"Dados").slice(0,31));
+  ws.addRow(cabecalho);
+  ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF444441"}}; });
+  linhas.forEach(l=>ws.addRow(l));
+  cabecalho.forEach((t,i)=>{ const maior=Math.max(String(t).length, ...linhas.map(l=>String(l[i]??"").length));
+    ws.getColumn(i+1).width=Math.max(12,Math.min(50,maior+3)); });
+  if(linhas.length) ws.views=[{state:"frozen",ySplit:1}];
+  baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:MIME_XLSX}), nomeArquivo+".xlsx");
+}
+async function baixarExcel(nomeArquivo, nomeAba, registros, colunas){
+  registros=(registros||[]).filter(r=>Object.values(r).some(v=>texto(v)));
+  if(!registros.length) return xlsxSimples(nomeArquivo, nomeAba, colunas||["sem dados"], []);
+  colunas = colunas || Object.keys(registros[0]);
+  return xlsxSimples(nomeArquivo, nomeAba, colunas, registros.map(r=>colunas.map(c=>r[c]??"")));
+}
+function colLetra(n){ let s=""; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+
+// impressão / PDF — usa o "Salvar como PDF" do próprio navegador
+function imprimir(titulo, corpoHTML, paisagem){
+  const f=el("iframe"); Object.assign(f.style,{position:"fixed",right:"0",bottom:"0",width:"0",height:"0",border:"0"});
+  document.body.appendChild(f);
+  const d=f.contentDocument;
+  d.open();
+  d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+    @page{size:A4 ${paisagem?"landscape":"portrait"};margin:12mm}
+    body{font:11px/1.45 Inter,Arial,sans-serif;color:#1a1c23}
+    h1{font-size:18px;margin:0 0 8px} h2{font-size:14px;margin:16px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px}
+    table{border-collapse:collapse;width:100%} td,th{border:1px solid #bbb;padding:5px 6px;vertical-align:top;text-align:left}
+    th{color:#fff} ul{margin:4px 0 4px 18px;padding:0} p{margin:4px 0} pre{white-space:pre-wrap;font:inherit;margin:0}
+  </style></head><body>${corpoHTML}</body></html>`);
+  d.close();
+  setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Impressão indisponível aqui: "+e.message); } setTimeout(()=>f.remove(), 4000); }, 350);
+}
+
+// mini conversor de Markdown → HTML (títulos, listas, tabelas, negrito)
+function mdInline(s){
+  s=esc(s);
+  s=s.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/`(.+?)`/g,"<code>$1</code>");
+  return s.replace(/(^|[\s(])_(.+?)_(?=$|[\s).,;:])/g,"$1<em>$2</em>");
+}
+function mdToHtml(md){
+  const out=[]; let ul=false, tbl=null;
+  const fecharUl=()=>{ if(ul){ out.push("</ul>"); ul=false; } };
+  const fecharTbl=()=>{ if(tbl){ out.push("<table>"+tbl.map((r,i)=>"<tr>"+r.map(c=>i?`<td>${mdInline(c)}</td>`:`<th style="background:#444441">${mdInline(c)}</th>`).join("")+"</tr>").join("")+"</table>"); tbl=null; } };
+  for(const bruto of String(md||"").split("\n")){
+    const l=bruto.replace(/\s+$/,"");
+    if(l.startsWith("|")){ fecharUl(); const cells=l.split("|").slice(1,-1).map(x=>x.trim());
+      if(cells.length && cells.every(c=>/^-+$/.test(c))) continue; (tbl=tbl||[]).push(cells); continue; }
+    fecharTbl();
+    const h=l.match(/^(#{1,6})\s+(.*)$/);
+    if(h){ fecharUl(); const n=Math.min(h[1].length,3); out.push(`<h${n}>${mdInline(h[2])}</h${n}>`); }
+    else if(/^\s*[-*]\s+/.test(l)){ if(!ul){ out.push("<ul>"); ul=true; } out.push("<li>"+mdInline(l.replace(/^\s*[-*]\s+/,""))+"</li>"); }
+    else if(!l.trim()){ fecharUl(); }
+    else { fecharUl(); out.push("<p>"+mdInline(l)+"</p>"); }
+  }
+  fecharUl(); fecharTbl();
+  return out.join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Navegação
+// ═══════════════════════════════════════════════════════════════════
+let abaAtiva = "checklist";
+try{ abaAtiva = sessionStorage.getItem("diag_aba") || "checklist"; }catch(_){}
+function montarMenu(){
+  const m=$("#menu"); m.innerHTML="";
+  ABAS.forEach(([id,ico,nome])=>{
+    const b=el("button"); b.type="button"; b.dataset.aba=id;
+    b.innerHTML=`<span class="ico">${ico}</span><span>${esc(nome)}</span>`;
+    b.onclick=()=>abrirAba(id); m.appendChild(b);
+  });
+}
+function abrirAba(id){
+  if(!ABAS.some(a=>a[0]===id)) id="checklist";
+  abaAtiva=id; try{ sessionStorage.setItem("diag_aba",id); }catch(_){}
+  document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("ativa", b.dataset.aba===id));
+  $("#main").scrollTop=0; renderAba();
+}
+function renderAba(){
+  const main=$("#main"), topo=main.scrollTop, c=$("#conteudo");
+  c.innerHTML=""; atualizarListas();
+  ABAS.find(a=>a[0]===abaAtiva)[3](c);
+  main.scrollTop=topo;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 01 · Checklist
+// ═══════════════════════════════════════════════════════════════════
+function renderChecklist(c){
+  const m=objeto("checklist");
+  c.innerHTML=`<h2>✅ Checklist da metodologia</h2>
+    <p class="cap">Baseado no documento de diretrizes do mapeamento — janela de 14/07 a 05/08/2026.</p>
+    <div class="box">${ETAPAS_CHECKLIST.map(([id,t,d])=>`<label class="check"><input type="checkbox" data-id="${id}" ${m[id]?"checked":""}><span><b>${esc(t)}</b> <code>${esc(d)}</code></span></label>`).join("")}</div>
+    <details class="box"><summary>📖 Premissas do levantamento</summary><ul>
+      <li>O objetivo é compreender o <b>processo</b>, não avaliar desempenho individual.</li>
+      <li>Registre <b>tudo</b>: esperas, interrupções, atividades de apoio.</li>
+      <li>O levantamento deve refletir a rotina <b>real</b>, sem alterações de comportamento.</li>
+      <li>As informações são usadas só para melhoria contínua e otimização operacional.</li></ul></details>`;
+  c.querySelectorAll("input[data-id]").forEach(i=>i.onchange=()=>{ m[i.dataset.id]=i.checked; salvar("checklist"); });
+  botoesExport(c,[["⬇️ Baixar Checklist (Excel)",()=>baixarExcel("checklist_diagnostico","Checklist",
+    ETAPAS_CHECKLIST.map(([id,t,d])=>({etapa:t,prazo:d,concluida:m[id]?"Sim":"Não"})))]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 02 · Inventário
+// ═══════════════════════════════════════════════════════════════════
+function renderInventario(c){
+  const inv=lista("inventario");
+  c.innerHTML=`<h2>📋 Inventário de atividades</h2>
+    <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
+    <div id="invTbl"></div>
+    <div class="box"><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
+      <div class="grade">
+        <label class="f">Atividade *<input id="invNova"></label>
+        <label class="f">Categoria<select id="invCat">${opts(CATEGORIAS_INVENTARIO)}</select></label>
+        <label class="f">Descrição / exemplo<input id="invDesc"></label>
+        <label class="f">Já registrada oficialmente?<select id="invReg">${opts(STATUS_REGISTRADA)}</select></label>
+      </div>
+      <div class="acoes"><button class="btn primary" id="invAdd" type="button">💾 Adicionar</button><span class="msg" id="invMsg"></span></div>
+    </div>`;
+  $("#invTbl",c).appendChild(tabela({secao:"inventario", linhas:inv, semAdd:true, aoEstrutura:renderAba,
+    aoMudar:(r,col)=>{ if(col.campo==="atividade") atualizarListas(); },
+    colunas:[
+      {campo:"atividade",label:"Atividade",largura:240},
+      {campo:"categoria",label:"Categoria",tipo:"select",opcoes:CATEGORIAS_INVENTARIO},
+      {campo:"descricao",label:"Descrição / exemplo",largura:260},
+      {campo:"registrada",label:"Já registrada oficialmente?",tipo:"select",opcoes:STATUS_REGISTRADA},
+    ]}));
+  $("#invAdd",c).onclick=()=>{
+    const nome=texto($("#invNova").value), msg=$("#invMsg");
+    if(!nome){ msg.className="msg erro"; msg.textContent="Informe o nome da atividade."; return; }
+    if(inv.some(i=>norm(i.atividade)===norm(nome))){ msg.className="msg erro"; msg.textContent=`'${nome}' já existe no Inventário.`; return; }
+    inv.push({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value});
+    inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
+    salvar("inventario"); renderAba();
+    const m2=$("#invMsg"); m2.className="msg ok"; m2.textContent=`Atividade '${nome}' adicionada!`;
+  };
+  botoesExport(c,[["⬇️ Baixar Inventário (Excel)",()=>baixarExcel("inventario_atividades","Inventario",inv,["atividade","categoria","descricao","registrada"])]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 03 · Organograma + RACI preliminar
+// ═══════════════════════════════════════════════════════════════════
+function calcularNiveis(pessoas){
+  const nomes=pessoas.map(p=>texto(p.pessoa)).filter(Boolean), set=new Set(nomes), pais={};
+  pessoas.forEach(p=>{ const n=texto(p.pessoa); if(!n) return;
+    pais[n]=String(p.responde_para||"").split(",").map(s=>s.trim()).filter(r=>r && set.has(r) && r!==n); });
+  const niveis={};
+  function nivel(n, caminho){
+    if(n in niveis) return niveis[n];
+    if(caminho.has(n)){ niveis[n]=0; return 0; }   // ciclo — trata como topo pra não travar
+    const ps=pais[n]||[];
+    if(!ps.length) niveis[n]=0;
+    else { const c2=new Set(caminho); c2.add(n); niveis[n]=1+Math.max(...ps.map(p=>nivel(p,c2))); }
+    return niveis[n];
+  }
+  nomes.forEach(n=>nivel(n,new Set()));
+  return {niveis, pais};
+}
+function organogramaSVG(pessoas){
+  const {niveis, pais}=calcularNiveis(pessoas);
+  const nomes=Object.keys(niveis); if(!nomes.length) return null;
+  const porNivel={}; nomes.forEach(n=>(porNivel[niveis[n]]=porNivel[niveis[n]]||[]).push(n));
+  const W=190,H=58,GX=26,GY=64, maxNivel=Math.max(...Object.keys(porNivel).map(Number));
+  const maiorLinha=Math.max(...Object.values(porNivel).map(v=>v.length));
+  const largura=Math.max(420, maiorLinha*(W+GX)+GX), altura=(maxNivel+1)*(H+GY)+GY-10;
+  const pos={};
+  Object.entries(porNivel).forEach(([niv,lst])=>{
+    lst=ordenar(lst); const tot=lst.length*W+(lst.length-1)*GX, x0=(largura-tot)/2;
+    lst.forEach((n,i)=>pos[n]={x:x0+i*(W+GX), y:GY/2+Number(niv)*(H+GY)});
+  });
+  const papel={}; pessoas.forEach(p=>papel[texto(p.pessoa)]=texto(p.papel));
+  const fill=["#EEEDFE","#E1F5EE","#FAECE7","#F1EFE8","#E6F1FB","#FBEAF0"], borda=["#534AB7","#0F6E56","#993C1D","#5F5E5A","#185FA5","#993556"], txt=["#26215C","#04342C","#4A1B0C","#2C2C2A","#042C53","#4B1528"];
+  const corta=(s,n)=>s.length>n?s.slice(0,n-1)+"…":s;
+  let linhas="", caixas="";
+  Object.entries(pais).forEach(([n,ps])=>ps.forEach(p=>{
+    if(!pos[n]||!pos[p]) return;
+    const x1=pos[p].x+W/2, y1=pos[p].y+H, x2=pos[n].x+W/2, y2=pos[n].y, ym=(y1+y2)/2;
+    linhas+=`<path d="M${x1},${y1} C${x1},${ym} ${x2},${ym} ${x2},${y2}" fill="none" stroke="#9a9a92" stroke-width="1.3"/>`;
+  }));
+  nomes.forEach(n=>{ const {x,y}=pos[n], k=niveis[n]%fill.length;
+    caixas+=`<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="9" fill="${fill[k]}" stroke="${borda[k]}" stroke-width="1.4"/>
+      <text x="${x+W/2}" y="${y+(papel[n]?24:34)}" text-anchor="middle" font-size="13.5" font-weight="700" fill="${txt[k]}">${esc(corta(n,24))}</text>
+      ${papel[n]?`<text x="${x+W/2}" y="${y+43}" text-anchor="middle" font-size="11" fill="${txt[k]}">${esc(corta(papel[n],30))}</text>`:""}`; });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" font-family="Inter, Arial, sans-serif">${linhas}${caixas}</svg>`;
+}
+function baixarPNG(svg, nome){
+  const img=new Image();
+  img.onload=()=>{ const cv=document.createElement("canvas"); cv.width=img.width*2; cv.height=img.height*2;
+    const ctx=cv.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,cv.width,cv.height); ctx.scale(2,2); ctx.drawImage(img,0,0);
+    cv.toBlob(b=>baixarBlob(b,nome),"image/png"); };
+  img.onerror=()=>alert("Não consegui converter o organograma em imagem.");
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+}
+function renderOrganograma(c){
+  const org=lista("organograma"), raci=lista("raci");
+  c.innerHTML=`<h2>🧭 Organograma funcional real</h2>
+    <p class="cap">O organograma oficial nem sempre reflete quem faz o quê. Registre a divisão real: individuais x coletivas, especialistas x generalistas, hierarquia informal.</p>
+    <div id="orgTbl"></div>
+    <h3>🌳 Organograma visual</h3>
+    <p class="cap">Montado automaticamente a partir da coluna <b>"Responde para"</b> — inclusive quando mais de uma pessoa responde para o mesmo grupo, ou uma pessoa responde para duas ao mesmo tempo.</p>
+    <div id="orgVis"></div><div id="orgExp"></div>
+    <h3>🧩 RACI preliminar (por tipo de demanda)</h3>
+    <p class="cap">Visão rápida por tipo de demanda, recomendada na Etapa 2 do documento. Para a matriz completa, use a seção <b>🧩 Matriz RACI</b>.</p>
+    <div class="acoes"><button class="btn" id="raciInv" type="button">🔄 Carregar atividades do Inventário</button><span class="msg" id="raciMsg"></span></div>
+    <div id="raciTbl"></div><div id="raciExp"></div>`;
+  const desenhar=()=>{
+    const v=$("#orgVis"), validos=org.filter(p=>texto(p.pessoa));
+    if(!validos.length){ v.innerHTML='<div class="aviso">Cadastre ao menos uma pessoa acima para gerar o organograma visual.</div>'; return; }
+    v.innerHTML=`<div class="org-vis">${organogramaSVG(validos)}</div>`;
+  };
+  $("#orgTbl",c).appendChild(tabela({secao:"organograma", linhas:org, aoEstrutura:renderAba,
+    aoMudar:()=>{ desenhar(); atualizarListas(); },
+    colunas:[
+      {campo:"pessoa",label:"Pessoa",largura:150},
+      {campo:"papel",label:"Papel real (não o cargo)",largura:170},
+      {campo:"responde_para",label:"Responde para",largura:170,placeholder:"nomes separados por vírgula"},
+      {campo:"especialista",label:"Especialista em",largura:150},
+      {campo:"cobre",label:"Cobre / é coberto por",largura:150},
+      {campo:"obs",label:"Observações",tipo:"textarea",largura:220},
+    ]}));
+  desenhar();
+  botoesExport($("#orgExp",c),[
+    ["⬇️ Baixar organograma (PNG)",()=>{ const v=org.filter(p=>texto(p.pessoa)); if(!v.length) throw new Error("cadastre ao menos uma pessoa"); baixarPNG(organogramaSVG(v),"organograma_cx.png"); }],
+    ["⬇️ Baixar Organograma (Excel)",()=>baixarExcel("organograma_funcional","Organograma",org.filter(p=>texto(p.pessoa)),["pessoa","papel","responde_para","especialista","cobre","obs"])],
+  ]);
+  $("#raciInv",c).onclick=()=>{
+    const novas=sugerirDoInventario(new Set(raci.map(r=>norm(r.tipo_demanda)))), msg=$("#raciMsg");
+    if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas aqui)."; return; }
+    novas.forEach(n=>raci.push({tipo_demanda:n,responsavel:"",aprovador:"",consultado:"",informado:""}));
+    salvar("raci"); renderAba();
+    const m2=$("#raciMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
+  };
+  $("#raciTbl",c).appendChild(tabela({secao:"raci", linhas:raci, aoEstrutura:renderAba, colunas:[
+    {campo:"tipo_demanda",label:"Tipo de demanda",largura:220},
+    {campo:"responsavel",label:"Responsável (R)",lista:"dl-pessoas"},
+    {campo:"aprovador",label:"Aprovador (A)",lista:"dl-pessoas"},
+    {campo:"consultado",label:"Consultado (C)",lista:"dl-pessoas"},
+    {campo:"informado",label:"Informado (I)",lista:"dl-pessoas"},
+  ]}));
+  botoesExport($("#raciExp",c),[["⬇️ Baixar RACI preliminar (Excel)",()=>baixarExcel("raci_preliminar","RACI",raci,["tipo_demanda","responsavel","aprovador","consultado","informado"])]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 04 · Matriz RACI (modelo da planilha)
+// ═══════════════════════════════════════════════════════════════════
+function resumoRaci(matriz, nomes){
+  return nomes.map(nome=>{ const ct={R:0,A:0,C:0,I:0};
+    matriz.forEach(r=>{ const v=texto(r[nome]); if(!v||v==="-") return; v.split("/").forEach(l=>{ l=l.trim(); if(l in ct) ct[l]++; }); });
+    return {"Pessoa / Função":nome, ...ct}; });
+}
+async function exportarRaciXlsx(projeto, dataStr, pessoas, nomes, matriz){
+  const ExcelJS=await carregarExcelJS();
+  const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet("Matriz RACI");
+  const grupo={}; pessoas.forEach(p=>grupo[texto(p.nome)]=p.grupo||"");
+  const time=nomes.filter(n=>grupo[n]!=="Stakeholder"), stake=nomes.filter(n=>grupo[n]==="Stakeholder"), ord=[...time,...stake];
+  const dados=matriz.filter(m=>texto(m.atividade)), total=Math.max(dados.length,10), totalCols=2+Math.max(ord.length,1);
+  const ult=colLetra(totalCols), pri=6, ultLin=pri+total-1;
+  const VERM="FFE53935",AZUL="FF1E3A8A",AMAR="FFF2C230",VERDE="FF2E7D32",PRETO="FF000000",LAV="FFD9D9FF",AZCL="FF6699FF",CINZA="FFBFBFBF",CINCL="FFE7E6E6";
+  const branco={color:{argb:"FFFFFFFF"},bold:true}, preto={color:{argb:"FF000000"},bold:true};
+  const lado={style:"thin",color:{argb:"FFBFBFBF"}}, borda={top:lado,left:lado,bottom:lado,right:lado};
+  const centro={horizontal:"center",vertical:"middle",wrapText:true};
+  const mesclar=(a,b)=>{ if(a!==b) ws.mergeCells(`${a}:${b}`); };
+  const p=(coord,valor,fill,font,alinhar=true)=>{ const c=ws.getCell(coord); c.value=valor;
+    if(fill) c.fill={type:"pattern",pattern:"solid",fgColor:{argb:fill}}; if(font) c.font=font; if(alinhar) c.alignment=centro; c.border=borda; };
+  mesclar("A1","B1"); p("A1",`Data: ${dataStr||"—"}`,CINCL,preto);
+  mesclar("C1",`${ult}1`); p("C1",`Nome do Projeto:  ${projeto||"Diagnóstico N2"}`,null,{bold:true,size:13},false);
+  ws.getCell("C1").alignment={horizontal:"left",vertical:"middle"};
+  p("A2","R\n(Responsável)",VERM,branco); p("B2","A\n(Aprovador)",AZUL,branco);
+  p("A3","C\n(Consultado)",AMAR,preto); p("B3","I\n(Informado)",VERDE,branco);
+  mesclar("C2",`${ult}3`); p("C2","Funções / Nome",PRETO,{color:{argb:"FFFFFFFF"},bold:true,size:16});
+  mesclar("A4","B4"); p("A4","Fases",LAV,{bold:true,size:14});
+  ord.forEach((n,i)=>p(`${colLetra(3+i)}4`,n,AZCL,preto));
+  mesclar("A5","B5"); p("A5","Atividade",PRETO,branco);
+  if(time.length){ const c1=colLetra(3), c2=colLetra(2+time.length); mesclar(`${c1}5`,`${c2}5`); p(`${c1}5`,"Time Avaliado",AZUL,branco); }
+  if(stake.length){ const c1=colLetra(3+time.length), c2=colLetra(2+time.length+stake.length); mesclar(`${c1}5`,`${c2}5`); p(`${c1}5`,"Stakeholders",AZUL,branco); }
+  for(let i=0;i<total;i++){
+    const r=pri+i, at=i<dados.length?dados[i].atividade:"";
+    mesclar(`A${r}`,`B${r}`); p(`A${r}`,at,at?null:LAV,null,false);
+    ws.getCell(`A${r}`).alignment={horizontal:"left",vertical:"middle",wrapText:true};
+    ord.forEach((n,j)=>{ const coord=`${colLetra(3+j)}${r}`, v=i<dados.length?(dados[i][n]||"-"):"-"; p(coord,v,CINZA);
+      ws.getCell(coord).dataValidation={type:"list",allowBlank:true,formulae:['"-,R/C,A/C,I/A,R/A,I,C,A,R"']}; });
+  }
+  ws.getColumn(1).width=18; ws.getColumn(2).width=18; ord.forEach((n,i)=>ws.getColumn(3+i).width=12);
+  ws.getRow(2).height=30; ws.getRow(3).height=30; ws.getRow(4).height=22;
+  ws.views=[{state:"frozen",xSplit:2,ySplit:pri-1}];
+  baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:MIME_XLSX}),"matriz_raci_diagnostico_n2.xlsx");
+}
+function renderRaciMatriz(c){
+  const info=objeto("raci_matriz_info"), pessoas=lista("raci_pessoas"), matriz=lista("raci_matriz");
+  c.innerHTML=`<h2>🧩 Matriz RACI — Fases/Atividades x Funções</h2>
+    <p class="cap">Reproduz o modelo da planilha de referência: cabeçalho com projeto e data, colunas dinâmicas para "Time Avaliado" e "Stakeholders", e uma célula por cruzamento com as mesmas opções (-, R/C, A/C, I/A, R/A, I, C, A, R).</p>
+    <div class="grade" style="max-width:720px">
+      <label class="f">Nome do projeto<input id="rmProj" value="${esc(info.projeto||"Diagnóstico N2")}"></label>
+      <label class="f">Data<input id="rmData" type="date" value="${esc(info.data||hojeISO())}"></label>
+    </div>
+    <div class="legenda">${RACI_LEGENDA.map(([l,d,cor])=>`<div style="background:${cor}">${l}<small>${d}</small></div>`).join("")}</div>
+    <p class="cap">Combinações como <b>R/C</b>, <b>A/C</b>, <b>I/A</b>, <b>R/A</b> também são aceitas, para casos em que o papel varia por sub-etapa.</p>
+    <h3>👥 Funções / Nomes (colunas da matriz)</h3>
+    <p class="cap">Separe em "Time Avaliado" (a própria célula N2) e "Stakeholders" (áreas/pessoas fora da célula).</p>
+    <div id="rmPes"></div><div id="rmMatriz"></div>`;
+  const salvarInfo=()=>{ info.projeto=$("#rmProj").value; info.data=$("#rmData").value; salvar("raci_matriz_info"); };
+  $("#rmProj",c).oninput=salvarInfo; $("#rmData",c).onchange=salvarInfo;
+  $("#rmPes",c).appendChild(tabela({secao:"raci_pessoas", linhas:pessoas, aoEstrutura:renderAba, aoMudar:()=>parteMatriz(),
+    colunas:[{campo:"nome",label:"Nome / Função",lista:"dl-pessoas",largura:220},{campo:"grupo",label:"Grupo",tipo:"select",opcoes:GRUPOS_RACI}]}));
+  function parteMatriz(){
+    const alvo=$("#rmMatriz"); alvo.innerHTML="";
+    const nomes=pessoas.map(p=>texto(p.nome)).filter(Boolean);
+    if(!nomes.length){ alvo.innerHTML='<div class="aviso">Cadastre ao menos uma pessoa/função acima para liberar a matriz de cruzamento.</div>'; return; }
+    const grupo={}; pessoas.forEach(p=>grupo[texto(p.nome)]=p.grupo||"");
+    alvo.insertAdjacentHTML("beforeend",`<h3>📐 Matriz — Fases/Atividades x Funções</h3>
+      <p class="cap">Cada linha é uma fase ou atividade; cada coluna, uma pessoa/função. Renomear ou remover uma pessoa não migra os valores já preenchidos para ela — ajuste a matriz em seguida se isso acontecer.</p>
+      <div class="acoes"><button class="btn" id="rmInv" type="button">🔄 Carregar atividades do Inventário</button><span class="msg" id="rmMsg"></span></div>`);
+    $("#rmInv").onclick=()=>{
+      const novas=sugerirDoInventario(new Set(matriz.map(r=>norm(r.atividade)))), msg=$("#rmMsg");
+      if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas na matriz)."; return; }
+      novas.forEach(n=>matriz.push({atividade:n, ...Object.fromEntries(nomes.map(x=>[x,"-"]))}));
+      salvar("raci_matriz"); parteMatriz();
+      const m2=$("#rmMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
+    };
+    const res=el("details","box");
+    const atualizarResumo=()=>{ const r=resumoRaci(matriz,nomes);
+      res.innerHTML=`<summary>📊 Resumo por pessoa/função</summary><div class="tbl-wrap"><table class="tbl" style="min-width:420px"><thead><tr><th>Pessoa / Função</th><th>R</th><th>A</th><th>C</th><th>I</th></tr></thead><tbody>${r.map(x=>`<tr><td><span class="ro">${esc(x["Pessoa / Função"])}</span></td><td><span class="ro">${x.R}</span></td><td><span class="ro">${x.A}</span></td><td><span class="ro">${x.C}</span></td><td><span class="ro">${x.I}</span></td></tr>`).join("")}</tbody></table></div><p class="cap">Combinações como "R/C" contam para ambos os papéis.</p>`; };
+    alvo.appendChild(tabela({secao:"raci_matriz", linhas:matriz, aoEstrutura:parteMatriz, aoMudar:()=>{ const aberto=res.open; atualizarResumo(); res.open=aberto; },
+      novaLinha:()=>({atividade:"", ...Object.fromEntries(nomes.map(x=>[x,"-"]))}),
+      colunas:[{campo:"atividade",label:"Fase / Atividade",lista:"dl-atividades",largura:240},
+        ...nomes.map(n=>({campo:n, label:`${grupo[n]==="Time Avaliado"?"🧑‍💼 ":grupo[n]==="Stakeholder"?"🤝 ":""}${n}`, tipo:"select", opcoes:RACI_OPCOES, semVazio:true, padrao:"-"}))]}));
+    atualizarResumo(); alvo.appendChild(res);
+    const cols=["atividade",...nomes];
+    botoesExport(alvo,[
+      ["⬇️ Baixar Matriz RACI (modelo da planilha)",()=>exportarRaciXlsx($("#rmProj").value,$("#rmData").value,pessoas,nomes,matriz)],
+      ["⬇️ Baixar Matriz RACI (simples)",()=>baixarExcel("matriz_raci_simples","MatrizRACI",matriz,cols)],
+      ["⬇️ Baixar Matriz RACI (CSV)",()=>{ const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+        baixarTexto("matriz_raci_diagnostico_n2.csv","\ufeff"+[cols.map(q).join(","),...matriz.map(r=>cols.map(k=>q(r[k]??(k==="atividade"?"":"-"))).join(","))].join("\r\n"),"text/csv"); }],
+    ]);
+  }
+  parteMatriz();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 05 · Diário de Bordo — modo "esteira" (um toque troca a atividade)
+// ═══════════════════════════════════════════════════════════════════
+const COLS_DIARIO=["data","analista","hora_inicio","hora_fim","duracao","atividade","categoria","origem","sistemas","depende_terceiros","quem","obs"];
+const est={analistaSel:"",analistaNovo:"",ativSel:"",ativNova:"",manualAberto:false,regsAberto:false,detAberto:false};
+function analistaAtual(){ return texto(est.analistaNovo) || est.analistaSel; }
+function registroAberto(diario, analista, data){
+  for(let i=diario.length-1;i>=0;i--){ const r=diario[i]; if(r.analista===analista && r.data===data && !texto(r.hora_fim)) return i; }
+  return -1;
+}
+function contextoUltima(atividade, diario){
+  const alvo=norm(atividade);
+  for(let i=diario.length-1;i>=0;i--){ const r=diario[i]; if(norm(r.atividade)===alvo)
+    return {categoria:r.categoria||"",origem:r.origem||"",sistemas:r.sistemas||"",depende_terceiros:r.depende_terceiros||"Não"}; }
+  return {categoria:"",origem:"",sistemas:"",depende_terceiros:"Não"};
+}
+function minutosDesde(hm){
+  const p=String(hm||"").split(":").map(Number); if(p.length<2||p.some(isNaN)) return 0;
+  const d=new Date(); let diff=(d.getHours()*60+d.getMinutes())-(p[0]*60+p[1]); if(diff<0) diff+=24*60; return diff;
+}
+async function registrarToque(analista, atividade){
+  await recarregar("diario");
+  const diario=lista("diario"), agora=agoraHM(), hoje=hojeISO(), i=registroAberto(diario,analista,hoje);
+  if(i>=0){ diario[i].hora_fim=agora; diario[i].duracao=duracaoMin(diario[i].hora_inicio,agora); }
+  const ctx=contextoUltima(atividade,diario);
+  diario.push({data:hoje,analista,hora_inicio:agora,hora_fim:"",duracao:"",atividade,...ctx,quem:"",obs:""});
+  await salvarAgora("diario"); addInventarioSeNova(atividade);
+}
+async function encerrarDia(analista){
+  await recarregar("diario");
+  const diario=lista("diario"), agora=agoraHM(), i=registroAberto(diario,analista,hojeISO());
+  if(i>=0){ diario[i].hora_fim=agora; diario[i].duracao=duracaoMin(diario[i].hora_inicio,agora); await salvarAgora("diario"); }
+}
+function renderDiario(c){
+  const pessoas=opcoesPessoas(), ativs=opcoesAtividades(), hoje=hojeISO(), analista=analistaAtual(), diario=lista("diario");
+  const idx=analista?registroAberto(diario,analista,hoje):-1, aberto=idx>=0?diario[idx]:null;
+  const atividadeEscolhida = est.ativSel==="__nova__" ? texto(est.ativNova) : est.ativSel;
+  const jaRodando = aberto && atividadeEscolhida && norm(aberto.atividade)===norm(atividadeEscolhida);
+  let h=`<h2>📓 Diário de Bordo</h2>
+    <p class="cap">Escolha a atividade e toque em Iniciar — o sistema fecha sozinho o cronômetro da atividade anterior e cronometra a nova a partir daí. Nenhuma hora precisa ser digitada durante a observação.</p>
+    <div class="box"><h3 style="margin-top:0">👤 Quem está sendo observado agora?</h3>
+    <div class="grade"><label class="f">Analista (do Organograma)<select id="dAnal"><option value="">— selecione —</option>${pessoas.map(p=>`<option${p===est.analistaSel?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
+    <label class="f">Ou nome novo<input id="dAnalNovo" placeholder="se não estiver na lista" value="${esc(est.analistaNovo)}"></label></div>
+    ${!pessoas.length?'<p class="cap">💡 O Organograma ainda não tem ninguém cadastrado. Digite o nome no campo <b>"Ou nome novo"</b> para continuar.</p>':""}`;
+  if(aberto) h+=`<div class="rodando"><div class="t1">⏱️ EM ANDAMENTO DESDE ${esc(aberto.hora_inicio)}</div><div class="t2">${esc(aberto.atividade)}</div>
+      <div class="t3"><span data-desde="${esc(aberto.hora_inicio)}">${minutosDesde(aberto.hora_inicio)} min até agora</span> — escolha outra atividade abaixo para trocar</div></div>`;
+  else if(analista) h+='<div class="aviso">Nenhuma atividade em andamento para essa pessoa hoje — escolha uma atividade abaixo para começar a cronometrar.</div>';
+  else h+='<div class="aviso">Selecione ou digite quem está sendo observado para liberar os toques rápidos.</div>';
+  if(aberto) h+=`<details class="box" id="dDet" ${est.detAberto?"open":""}><summary>📝 Detalhes desta atividade (opcional, pode preencher enquanto roda)</summary>
+    <div class="grade">
+      <label class="f">Categoria<select data-ab="categoria">${opts(CATEGORIAS_DIARIO,aberto.categoria)}</select></label>
+      <label class="f">Origem da demanda<select data-ab="origem">${opts(ORIGENS,aberto.origem)}</select></label>
+      <label class="f">Sistema(s) utilizado(s)<input data-ab="sistemas" value="${esc(aberto.sistemas)}"></label>
+      <label class="f">Depende de terceiros?<select data-ab="depende_terceiros"><option${aberto.depende_terceiros!=="Sim"?" selected":""}>Não</option><option${aberto.depende_terceiros==="Sim"?" selected":""}>Sim</option></select></label>
+      <label class="f">Quem? (se depende de terceiros)<input data-ab="quem" value="${esc(aberto.quem)}"></label>
+    </div><label class="f" style="margin-top:10px">Observações<textarea data-ab="obs" rows="3">${esc(aberto.obs)}</textarea></label></details>`;
+  if(analista) h+=`<h3>⚡ Iniciar ou trocar de atividade</h3>
+    <div class="grade"><label class="f">Atividade<select id="dAtiv"><option value="">— selecione —</option>${ativs.map(a=>`<option${a===est.ativSel?" selected":""}>${esc(a)}</option>`).join("")}<option value="__nova__"${est.ativSel==="__nova__"?" selected":""}>+ nova atividade...</option></select></label>
+    ${est.ativSel==="__nova__"?`<label class="f">Nome da nova atividade<input id="dAtivNova" value="${esc(est.ativNova)}"></label>`:""}</div>
+    <div class="acoes"><button class="btn primary" id="dIniciar" type="button" ${!atividadeEscolhida||jaRodando?"disabled":""}>▶️ Iniciar esta atividade</button>
+    <button class="btn" id="dPausa" type="button">⏸️ Pausa / Interrupção</button><button class="btn" id="dFim" type="button">🏁 Finalizar o dia</button><span class="msg" id="dMsg"></span></div>`;
+  h+=`</div>
+    <details class="box" id="dManual" ${est.manualAberto?"open":""}><summary>✏️ Lançamento manual com hora específica (retroativo)</summary>
+      <p class="cap">Use isto só para completar um dia passado ou corrigir um horário — no dia a dia, prefira os toques acima.</p>
+      <div class="grade">
+        <label class="f">Data<input type="date" id="mData" value="${hoje}"></label>
+        <label class="f">Analista<input id="mAnal" list="dl-pessoas" value="${esc(analista)}"></label>
+        <label class="f">Hora início<input type="time" id="mHi"></label>
+        <label class="f">Hora fim<input type="time" id="mHf"></label>
+        <label class="f">Atividade<input id="mAtiv" list="dl-atividades"></label>
+        <label class="f">Categoria<select id="mCat">${opts(CATEGORIAS_DIARIO)}</select></label>
+        <label class="f">Origem da demanda<select id="mOri">${opts(ORIGENS)}</select></label>
+        <label class="f">Sistema(s) utilizado(s)<input id="mSis"></label>
+        <label class="f">Depende de terceiros?<select id="mDep"><option>Não</option><option>Sim</option></select></label>
+        <label class="f">Quem? (se depende de terceiros)<input id="mQuem"></label>
+      </div>
+      <label class="f" style="margin-top:10px">Observações<textarea id="mObs" rows="3"></textarea></label>
+      <div class="acoes"><button class="btn primary" id="mSalvar" type="button">💾 Salvar linha</button><span class="msg" id="mMsg"></span></div>
+    </details>
+    <details class="box" id="dRegs" ${est.regsAberto?"open":""}><summary>📋 Registros já lançados (${diario.length}) — completar detalhes / editar</summary><div id="dTbl"></div></details>
+    <p class="cap">💡 Registre <b>tudo</b>: reuniões, e-mails, retrabalho, espera por resposta de outra área, e atividades "não oficiais" (ajudar N1, apagar incêndio, planilha paralela). O objetivo é entender o processo, não avaliar desempenho individual.</p>`;
+  c.innerHTML=h;
+
+  $("#dAnal",c).onchange=e=>{ est.analistaSel=e.target.value; renderAba(); };
+  $("#dAnalNovo",c).oninput=e=>{ est.analistaNovo=e.target.value; };
+  $("#dAnalNovo",c).onchange=()=>renderAba();
+  ["dDet","dManual","dRegs"].forEach(id=>{ const d=$("#"+id,c); if(d) d.ontoggle=()=>{ est[{dDet:"detAberto",dManual:"manualAberto",dRegs:"regsAberto"}[id]]=d.open; }; });
+  if(aberto) c.querySelectorAll("[data-ab]").forEach(inp=>{ const f=()=>{ aberto[inp.dataset.ab]=inp.value; salvar("diario"); };
+    inp.addEventListener(inp.tagName==="SELECT"?"change":"input", f); });
+  if(analista){
+    $("#dAtiv",c).onchange=e=>{ est.ativSel=e.target.value; renderAba(); };
+    const nova=$("#dAtivNova",c);
+    if(nova) nova.oninput=e=>{ est.ativNova=e.target.value; const v=texto(e.target.value);
+      $("#dIniciar").disabled = !v || (aberto && norm(aberto.atividade)===norm(v)); };
+    const acao=async(fn, erroTxt)=>{ c.querySelectorAll(".acoes .btn").forEach(b=>b.disabled=true);
+      try{ await fn(); renderAba(); }catch(e){ const m=$("#dMsg"); m.className="msg erro"; m.textContent=erroTxt+": "+e.message; c.querySelectorAll(".acoes .btn").forEach(b=>b.disabled=false); } };
+    $("#dIniciar",c).onclick=()=>{ const a=est.ativSel==="__nova__"?texto(est.ativNova):est.ativSel;
+      acao(async()=>{ await registrarToque(analista,a); if(est.ativSel==="__nova__"){ est.ativSel=a; est.ativNova=""; } }, `Não consegui iniciar a atividade '${a}'`); };
+    $("#dPausa",c).onclick=()=>acao(()=>registrarToque(analista,"Pausa / Interrupção"),"Não consegui registrar a pausa");
+    $("#dFim",c).onclick=()=>acao(()=>encerrarDia(analista),"Não consegui finalizar o dia");
+  }
+  $("#mSalvar",c).onclick=async()=>{
+    const a=texto($("#mAnal").value), at=texto($("#mAtiv").value), msg=$("#mMsg");
+    if(!a||!at){ msg.className="msg erro"; msg.textContent="Preencha ao menos Analista e Atividade antes de salvar."; return; }
+    const hi=$("#mHi").value, hf=$("#mHf").value;
+    await recarregar("diario");
+    lista("diario").push({data:$("#mData").value,analista:a,hora_inicio:hi,hora_fim:hf,duracao:duracaoMin(hi,hf),atividade:at,
+      categoria:$("#mCat").value,origem:$("#mOri").value,sistemas:$("#mSis").value,depende_terceiros:$("#mDep").value,quem:$("#mQuem").value,obs:$("#mObs").value});
+    await salvarAgora("diario"); addInventarioSeNova(at); renderAba();
+    const m2=$("#mMsg"); m2.className="msg ok"; m2.textContent="Linha salva!";
+  };
+  $("#dTbl",c).appendChild(tabela({secao:"diario", linhas:diario, aoEstrutura:renderAba,
+    aoMudar:(row,col)=>{ if(col.campo==="atividade") addInventarioSeNova(row.atividade); },
+    novaLinha:()=>({data:hoje,analista:analista||"",hora_inicio:"",hora_fim:"",duracao:"",atividade:"",categoria:"",origem:"",sistemas:"",depende_terceiros:"Não",quem:"",obs:""}),
+    colunas:[
+      {campo:"data",label:"Data",tipo:"date"},
+      {campo:"analista",label:"Analista",lista:"dl-pessoas",largura:130},
+      {campo:"hora_inicio",label:"Hora início",tipo:"time"},
+      {campo:"hora_fim",label:"Hora fim",tipo:"time"},
+      {campo:"duracao",label:"Duração (min)",tipo:"calc",calc:r=>duracaoMin(r.hora_inicio,r.hora_fim)},
+      {campo:"atividade",label:"Atividade realizada",lista:"dl-atividades",largura:200},
+      {campo:"categoria",label:"Categoria",tipo:"select",opcoes:CATEGORIAS_DIARIO},
+      {campo:"origem",label:"Origem da demanda",tipo:"select",opcoes:ORIGENS},
+      {campo:"sistemas",label:"Sistema(s) utilizado(s)",largura:150},
+      {campo:"depende_terceiros",label:"Depende de terceiros?",tipo:"select",opcoes:["Não","Sim"]},
+      {campo:"quem",label:"Quem? (se sim)",largura:120},
+      {campo:"obs",label:"Observações",tipo:"textarea",largura:220},
+    ]}));
+  botoesExport(c,[["⬇️ Baixar Diário de Bordo (Excel)",()=>baixarExcel("diario_de_bordo","Diario",diario,COLS_DIARIO)]]);
+}
+setInterval(()=>{ const s=document.querySelector("[data-desde]"); if(s) s.textContent=minutosDesde(s.dataset.desde)+" min até agora"; }, 30000);
+
+// ═══════════════════════════════════════════════════════════════════
+// 06 · Entrevistas  ·  07 · Gemba
+// ═══════════════════════════════════════════════════════════════════
+function renderEntrevistas(c){
+  const reg=lista("entrevistas");
+  c.innerHTML=`<h2>🎙️ Entrevista individual estruturada</h2>
+    <details class="box"><summary>📜 Roteiro sugerido (30–45 min por pessoa)</summary><ol>${ROTEIRO_ENTREVISTA.map(p=>`<li>${esc(p)}</li>`).join("")}</ol>
+    <p class="cap">Individual, não em grupo — em grupo há tendência de as pessoas se calarem sobre dificuldades reais ou discrepâncias de carga de trabalho entre colegas.</p></details><div id="entTbl"></div>`;
+  $("#entTbl",c).appendChild(tabela({secao:"entrevistas", linhas:reg, aoEstrutura:renderAba, colunas:[
+    {campo:"nome",label:"Nome",lista:"dl-pessoas",largura:160},
+    {campo:"data",label:"Data da entrevista",tipo:"date"},
+    {campo:"respostas",label:"Anotações / respostas",tipo:"textarea",largura:460},
+  ]}));
+  botoesExport(c,[["⬇️ Baixar Entrevistas (Excel)",()=>baixarExcel("entrevistas_estruturadas","Entrevistas",reg,["nome","data","respostas"])]]);
+}
+function renderGemba(c){
+  const reg=lista("gemba");
+  c.innerHTML=`<h2>👣 Observação direta (Gemba)</h2>
+    <div class="aviso"><b>Gemba (現場)</b> — termo japonês do Lean que significa "o lugar real", onde o trabalho de fato acontece. Observe ao vivo, sem interromper e sem corrigir nada durante a observação — o objetivo é ver o real, não o ideal.</div><div id="gTbl"></div>`;
+  $("#gTbl",c).appendChild(tabela({secao:"gemba", linhas:reg, aoEstrutura:renderAba, colunas:[
+    {campo:"data",label:"Data"},{campo:"horario",label:"Horário"},
+    {campo:"pessoa",label:"Pessoa observada",lista:"dl-pessoas"},
+    {campo:"observado",label:"O que foi observado",tipo:"textarea",largura:280},
+    {campo:"insight",label:"Insight / trabalho invisível?",tipo:"textarea",largura:260},
+  ]}));
+  botoesExport(c,[["⬇️ Baixar Gemba (Excel)",()=>baixarExcel("observacoes_gemba","Gemba",reg,["data","horario","pessoa","observado","insight"])]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 08 · Matriz de Atividades x Responsabilidades x Tempo
+// ═══════════════════════════════════════════════════════════════════
+const COLS_MATRIZ=["atividade","quemfaz","frequencia","tempo","origem","sistemas","dependencia","visibilidade","percentual"];
+function sugerirMatriz(diario, inventario, matrizAtual){
+  const ja=new Set(matrizAtual.map(r=>norm(r.atividade))), grupos={};
+  diario.forEach(l=>{ const a=texto(l.atividade); if(!a) return; const k=norm(a);
+    const g=grupos[k]=grupos[k]||{nome:a,pessoas:[],origens:[],sistemas:[],datas:[],minutos:[]};
+    g.pessoas.push(l.analista||""); g.origens.push(l.origem||""); g.sistemas.push(l.sistemas||""); g.datas.push(l.data||"");
+    if(/^\d+$/.test(String(l.duracao||""))) g.minutos.push(Number(l.duracao)); });
+  const regPor={}; inventario.forEach(i=>{ const a=texto(i.atividade); if(a) regPor[norm(a)]=i.registrada||""; });
+  return Object.entries(grupos).filter(([k])=>!ja.has(k)).map(([k,g])=>{
+    const dias=new Set(g.datas.filter(Boolean)).size, freq=dias>=4?"Diária":dias>=2?"Semanal":"Eventual";
+    const tempo=g.minutos.length?`${Math.round(g.minutos.reduce((a,b)=>a+b,0)/g.minutos.length)} min (média de ${g.minutos.length} registro(s))`:"";
+    const r=regPor[k]||"";
+    return {atividade:g.nome,quemfaz:maisFrequente(g.pessoas),frequencia:freq,tempo,origem:maisFrequente(g.origens),
+      sistemas:maisFrequente(g.sistemas),dependencia:"",visibilidade:r==="Sim"?"Visível (mapeada)":r?"Invisível (não mapeada)":"",percentual:""};
+  });
+}
+function calcularPercentual(matriz){
+  const peso={"Diária":5,"Semanal":1,"Quinzenal":0.5,"Mensal":0.25,"Eventual":0.3}, esf={};
+  matriz.forEach(m=>{ const a=texto(m.atividade), t=String(m.tempo||""); if(!a||!t) return; const mm=t.match(/(\d+)/); if(!mm) return;
+    esf[norm(a)]=Number(mm[1])*(peso[m.frequencia]??1); });
+  const total=Object.values(esf).reduce((a,b)=>a+b,0), out={};
+  Object.entries(esf).forEach(([k,v])=>out[k]= total>0?`${Math.round(v/total*1000)/10}%`:"0%");
+  return out;
+}
+function renderMatriz(c){
+  const matriz=lista("matriz");
+  c.innerHTML=`<h2>📐 Matriz de Atividades x Responsabilidades x Tempo</h2>
+    <p class="cap">Cruza tudo que foi coletado no Diário, nas entrevistas e no Gemba — colunas na ordem do documento de diretrizes (Etapa 6).</p>
+    <div class="acoes"><button class="btn" id="mxSug" type="button">🔄 Gerar sugestões a partir do Diário</button>
+    <button class="btn" id="mxPct" type="button">📐 Recalcular % do tempo total</button><span class="msg" id="mxMsg"></span></div><div id="mxTbl"></div>`;
+  const aviso=(t,ok)=>{ const m=$("#mxMsg"); m.className="msg"+(ok?" ok":""); m.textContent=t; };
+  $("#mxSug",c).onclick=()=>{ const novas=sugerirMatriz(lista("diario"),lista("inventario"),matriz);
+    if(!novas.length) return aviso("Nenhuma atividade nova encontrada no Diário (ou já estão todas na Matriz).");
+    matriz.push(...novas); salvar("matriz"); renderAba();
+    aviso(`${novas.length} linha(s) sugerida(s) adicionada(s). Revise antes de finalizar (principalmente "dependência", que não é gerada automaticamente).`,true); };
+  $("#mxPct",c).onclick=()=>{ const p=calcularPercentual(matriz);
+    matriz.forEach(l=>{ const k=norm(l.atividade); if(k in p) l.percentual=p[k]; }); salvar("matriz"); renderAba(); aviso("Percentuais recalculados.",true); };
+  $("#mxTbl",c).appendChild(tabela({secao:"matriz", linhas:matriz, aoEstrutura:renderAba, colunas:[
+    {campo:"atividade",label:"Atividade",lista:"dl-atividades",largura:200},
+    {campo:"quemfaz",label:"Quem executa",lista:"dl-pessoas",largura:130},
+    {campo:"frequencia",label:"Frequência",tipo:"select",opcoes:FREQUENCIAS},
+    {campo:"tempo",label:"Tempo médio",placeholder:"ex: 25 min",largura:150},
+    {campo:"origem",label:"Origem da demanda",tipo:"select",opcoes:ORIGENS},
+    {campo:"sistemas",label:"Sistemas usados",largura:140},
+    {campo:"dependencia",label:"Depende de terceiros?",placeholder:"ex: Sim - TI",largura:140},
+    {campo:"visibilidade",label:"Visibilidade",tipo:"select",opcoes:VISIBILIDADES},
+    {campo:"percentual",label:"% do tempo total",tipo:"ro"},
+  ]}));
+  botoesExport(c,[["⬇️ Baixar Matriz de Atividades (Excel)",()=>baixarExcel("matriz_atividades_tempo","Matriz",matriz,COLS_MATRIZ)]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 09 · Mapa de Jornada de Trabalho
+// ═══════════════════════════════════════════════════════════════════
+const estJ={sel:"",nova:""};
+function listarTodasAtividades(){
+  const s=new Set();
+  [lista("inventario"),lista("matriz"),lista("diario")].forEach(l=>l.forEach(i=>{ const a=texto(i.atividade); if(a) s.add(a); }));
+  return ordenar([...s]);
+}
+function jornadaVazia(atividade){
+  const et={}; ETAPAS_JORNADA.forEach(e=>{ et[e.id]=Object.fromEntries(LINHAS_JORNADA.map(l=>[l.campo,""])); et[e.id].emoji="🙂"; });
+  return {atividade, etapas:et};
+}
+function sugerirRecursos(atividade){
+  const alvo=norm(atividade);
+  for(const m of lista("matriz")) if(norm(m.atividade)===alvo){ const r=texto(m.quemfaz), f=texto(m.sistemas); if(r||f) return {responsavel:r,ferramentas:f}; }
+  const rel=lista("diario").filter(d=>norm(d.atividade)===alvo);
+  return {responsavel:maisFrequente(rel.map(d=>d.analista)), ferramentas:maisFrequente(rel.map(d=>d.sistemas))};
+}
+function jornadaMarkdown(atividade, j){
+  const L=[`# Mapa de Jornada de Trabalho — ${atividade}\n`];
+  ETAPAS_JORNADA.forEach(e=>{ const et=j.etapas[e.id]||{}; L.push(`## ${e.icone} ${e.nome}\n`);
+    LINHAS_JORNADA.forEach(l=>L.push(l.campo==="experiencia" ? `**${l.label}:** ${et.emoji||""} ${et.experiencia||"—"}\n` : `**${l.label}:** ${et[l.campo]||"—"}\n`));
+    L.push(""); });
+  L.push("## 📊 Indicadores relacionados\n"); INDICADORES.forEach(([s,d])=>L.push(`- **${s}** — ${d}`));
+  return L.join("\n");
+}
+function jornadaHTMLImpressao(atividade, j){
+  return `<h1>Mapa de Jornada de Trabalho — ${esc(atividade)}</h1><table><tr><th style="background:#555;width:13%"></th>${ETAPAS_JORNADA.map(e=>`<th style="background:${e.cor}">${e.icone} ${esc(e.nome)}</th>`).join("")}</tr>
+    ${LINHAS_JORNADA.map(l=>`<tr><td><b>${esc(l.label)}</b></td>${ETAPAS_JORNADA.map(e=>{ const et=j.etapas[e.id]||{};
+      return `<td><pre>${esc(l.campo==="experiencia"?`${et.emoji||""} ${et.experiencia||""}`:(et[l.campo]||""))}</pre></td>`; }).join("")}</tr>`).join("")}</table>
+    <h2>📊 Indicadores relacionados</h2><p>${INDICADORES.map(([s,d])=>`<b>${esc(s)}</b> — ${esc(d)}`).join(" · ")}</p>`;
+}
+function jornadasRegistros(){
+  const out=[];
+  Object.entries(objeto("jornadas")).forEach(([k,j])=>ETAPAS_JORNADA.forEach(e=>{ const et=(j.etapas||{})[e.id]||{}, l={atividade:j.atividade||k, etapa:e.nome};
+    LINHAS_JORNADA.forEach(c=>{ if(c.campo==="experiencia"){ l.experiencia_emoji=et.emoji||""; l.experiencia_frase=et.experiencia||""; } else l[c.campo]=et[c.campo]||""; });
+    out.push(l); }));
+  return out;
+}
+function renderJornada(c){
+  const atividades=listarTodasAtividades(), jornadas=objeto("jornadas");
+  const atividade = estJ.sel==="__nova__" ? texto(estJ.nova) : estJ.sel;
+  c.innerHTML=`<h2>🗺️ Mapa de Jornada de Trabalho — por atividade</h2>
+    <p class="cap">Para cada atividade/tipo de demanda: objetivo, ações, ferramentas, responsável, experiência do colaborador, dores e oportunidades de melhoria por etapa.</p>
+    <div class="grade" style="max-width:720px"><label class="f">Atividade<select id="jSel"><option value="">— selecione —</option>${atividades.map(a=>`<option${a===estJ.sel?" selected":""}>${esc(a)}</option>`).join("")}<option value="__nova__"${estJ.sel==="__nova__"?" selected":""}>+ nova atividade...</option></select></label>
+    ${estJ.sel==="__nova__"?`<label class="f">Nome da nova atividade<input id="jNova" value="${esc(estJ.nova)}"></label>`:""}</div><div id="jCorpo"></div>`;
+  $("#jSel",c).onchange=e=>{ estJ.sel=e.target.value; renderAba(); };
+  const nova=$("#jNova",c); if(nova){ nova.oninput=e=>estJ.nova=e.target.value; nova.onchange=()=>renderAba(); }
+  const corpo=$("#jCorpo",c);
+  if(!atividade){
+    corpo.innerHTML='<div class="aviso">Escolha ou digite uma atividade para ver/editar o mapa de jornada dela. Cada atividade tem seu próprio mapa salvo.</div>';
+    botoesExport(corpo,[["⬇️ Baixar todas as Jornadas (Excel)",()=>baixarExcel("mapas_de_jornada","Jornadas",jornadasRegistros())]]); return;
+  }
+  const k=norm(atividade), j=jornadas[k]||jornadaVazia(atividade);
+  ETAPAS_JORNADA.forEach(e=>{ j.etapas=j.etapas||{}; if(!j.etapas[e.id]) j.etapas[e.id]=jornadaVazia(atividade).etapas[e.id]; });
+  const gravar=()=>{ j.atividade=atividade; jornadas[k]=j; salvar("jornadas"); };
+  corpo.innerHTML=`<div class="acoes"><button class="btn" id="jSug" type="button">🔄 Sugerir Responsável/Ferramentas (Matriz/Diário)</button><span class="msg" id="jMsg"></span></div>
+    <h3>Mapa de Jornada — ${esc(atividade)}</h3>
+    <div class="jornada-wrap"><div class="jgrid" id="jGrid">${ETAPAS_JORNADA.map(e=>`<div class="jhead" style="background:${e.cor}">${e.icone} ${esc(e.nome)}</div>`).join("")}</div></div>
+    <h3>📊 Indicadores relacionados</h3><div class="chips">${INDICADORES.map(([s,d])=>`<div><b>${esc(s)}</b><small>${esc(d)}</small></div>`).join("")}</div>`;
+  const g=$("#jGrid",corpo);
+  LINHAS_JORNADA.forEach(l=>{
+    const lab=el("div","jlabel"); lab.textContent=l.label; g.appendChild(lab);
+    ETAPAS_JORNADA.forEach(e=>{ const et=j.etapas[e.id], cel=el("div");
+      if(l.tipo==="experiencia"){
+        cel.className="jexp"; const s=el("select"), i=el("input");
+        s.innerHTML=EMOJIS_EXPERIENCIA.map(x=>`<option${x===(et.emoji||"🙂")?" selected":""}>${x}</option>`).join("");
+        s.setAttribute("aria-label","Experiência — "+e.nome); i.placeholder="frase curta..."; i.value=et.experiencia||""; i.setAttribute("aria-label","Frase — "+e.nome);
+        s.onchange=()=>{ et.emoji=s.value; gravar(); }; i.oninput=()=>{ et.experiencia=i.value; gravar(); };
+        cel.append(s,i);
+      } else {
+        const i=el(l.tipo==="textarea"?"textarea":"input"); i.value=et[l.campo]||""; if(l.guia) i.placeholder=l.guia;
+        i.setAttribute("aria-label",l.label+" — "+e.nome); i.oninput=()=>{ et[l.campo]=i.value; gravar(); }; cel.appendChild(i);
+      }
+      g.appendChild(cel); });
+  });
+  $("#jSug",corpo).onclick=()=>{ const r=sugerirRecursos(atividade); let n=0;
+    ETAPAS_JORNADA.forEach(e=>{ const et=j.etapas[e.id];
+      if(!texto(et.responsavel)&&r.responsavel){ et.responsavel=r.responsavel; n++; }
+      if(!texto(et.ferramentas)&&r.ferramentas){ et.ferramentas=r.ferramentas; n++; } });
+    if(n){ gravar(); renderAba(); const m=$("#jMsg"); m.className="msg ok"; m.textContent=`${n} campo(s) preenchido(s). Ajuste por etapa se fizer sentido.`; }
+    else { const m=$("#jMsg"); m.className="msg"; m.textContent="Ainda não há dados suficientes na Matriz/Diário para esta atividade."; } };
+  botoesExport(corpo,[
+    ["⬇️ Esta jornada (Markdown)",()=>baixarTexto(`mapa_jornada_${k.replace(/ /g,"_")}.md`,jornadaMarkdown(atividade,j),"text/markdown")],
+    ["⬇️ Esta jornada (PDF)",()=>imprimir(`Mapa de Jornada — ${atividade}`,jornadaHTMLImpressao(atividade,j),true)],
+    ["⬇️ Todas as Jornadas (Excel)",()=>baixarExcel("mapas_de_jornada","Jornadas",jornadasRegistros())],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 10 · As 6 perguntas
+// ═══════════════════════════════════════════════════════════════════
+function sugerirRespostas(){
+  const inv=lista("inventario"), org=lista("organograma"), dia=lista("diario"), mat=lista("matriz"), gem=lista("gemba");
+  const ativs=ordenar([...new Set(inv.map(i=>texto(i.atividade)).filter(Boolean))]);
+  const p1=ativs.length?`A equipe realiza pelo menos ${ativs.length} tipo(s) de atividade registrados no inventário:\n- `+ativs.join("\n- "):"";
+  const p2=org.filter(o=>texto(o.pessoa)).map(o=>{ let l=`${texto(o.pessoa)} — ${o.papel||""}`; if(o.especialista) l+=` (especialista em ${o.especialista})`; if(o.cobre) l+=`; cobre/é coberto por ${o.cobre}`; return l; }).join("\n");
+  const ori=dia.map(d=>texto(d.origem)).filter(Boolean); let p3="";
+  if(ori.length){ const ct={}; ori.forEach(o=>ct[o]=(ct[o]||0)+1); p3=Object.entries(ct).sort((a,b)=>b[1]-a[1]).map(([o,q])=>`${o}: ${Math.round(q/ori.length*100)}% dos registros do diário`).join("\n"); }
+  const tempos={}; mat.forEach(m=>{ const a=texto(m.atividade), t=String(m.tempo||""), mm=t.match(/(\d+)/); if(a&&mm) tempos[a]=Number(mm[1]); });
+  const p4=Object.entries(tempos).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([a,t])=>`${a}: ~${t} min por ocorrência`).join("\n");
+  const p5=[...new Set([...mat.map(m=>texto(m.dependencia)),...org.map(o=>texto(o.cobre))].filter(Boolean))].join("\n");
+  const invis=g=>{ const t=((g.insight||"")+" "+(g.observado||"")).toLowerCase(); return t.includes("invisív")||t.includes("não mapead")||t.includes("nao mapead"); };
+  const p6=[...new Set([...gem.filter(invis).map(g=>texto(g.insight||g.observado)),...mat.filter(m=>m.visibilidade==="Invisível (não mapeada)").map(m=>texto(m.atividade))].filter(Boolean))].join("\n");
+  return {p1,p2,p3,p4,p5,p6};
+}
+function renderPerguntas(c){
+  const resp=objeto("respostas");
+  c.innerHTML=`<h2>❓ As 6 perguntas que a entrega precisa responder</h2>
+    <p class="cap">Preencha à medida que os dados forem chegando. É o resumo executivo pra apresentar na validação (03–04/08) e entregar em 05/08.</p>
+    <div class="acoes"><button class="btn" id="pSug" type="button">🔄 Preencher rascunho automático</button><span class="msg" id="pMsg"></span></div>
+    ${PERGUNTAS.map(([id,t])=>`<label class="f" style="margin:14px 0;color:var(--ink);font-size:13.5px;font-weight:600">${esc(t)}<textarea data-p="${id}" rows="5">${esc(resp[id]||"")}</textarea></label>`).join("")}`;
+  c.querySelectorAll("textarea[data-p]").forEach(t=>t.oninput=()=>{ resp[t.dataset.p]=t.value; salvar("respostas"); });
+  $("#pSug",c).onclick=()=>{ const s=sugerirRespostas(); let n=0;
+    PERGUNTAS.forEach(([id])=>{ if(!texto(resp[id])&&texto(s[id])){ resp[id]=s[id]; n++; } });
+    salvar("respostas"); renderAba();
+    const m=$("#pMsg"); m.className="msg"+(n?" ok":""); m.textContent=n?`${n} pergunta(s) preenchida(s). As que já tinham texto seu não foram tocadas.`:"Nenhuma pergunta em branco, ou ainda não há dados suficientes coletados."; };
+  botoesExport(c,[["⬇️ Baixar as 6 Perguntas (Excel)",()=>baixarExcel("seis_perguntas_diagnostico","Perguntas",PERGUNTAS.map(([id,t])=>({pergunta:t,resposta:resp[id]||""})))]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 11 · Resumo com IA (chave fica só no servidor)
+// ═══════════════════════════════════════════════════════════════════
+function renderResumoIA(c){
+  c.innerHTML=`<h2>🤖 Resumo com IA (opcional)</h2>
+    <p class="cap">Envia os dados coletados para a API da Anthropic (Claude) gerar um resumo executivo, editável depois. Precisa da variável <code>ANTHROPIC_API_KEY</code> configurada no Render — o sistema funciona 100% sem isso.</p>
+    <div class="acoes"><button class="btn primary" id="iaBtn" type="button">🤖 Gerar resumo executivo com IA</button><span class="msg" id="iaMsg"></span></div>
+    <label class="f">Resumo (editável)<textarea id="iaTxt" rows="18">${esc(typeof D.resumo_ia==="string"?D.resumo_ia:"")}</textarea></label>`;
+  $("#iaTxt",c).oninput=e=>{ D.resumo_ia=e.target.value; salvar("resumo_ia"); };
+  $("#iaBtn",c).onclick=async()=>{
+    const b=$("#iaBtn"), m=$("#iaMsg"); b.disabled=true; m.className="msg"; m.textContent="Consultando a IA… (pode levar até 1 minuto)";
+    try{
+      await salvarTudoPendente();
+      const r=await fetch(API_IA,{method:"POST"}), j=await r.json().catch(()=>({}));
+      if(!r.ok||j.erro) throw new Error(j.erro||j.detail||`HTTP ${r.status}`);
+      D.resumo_ia=j.texto||""; await salvarAgora("resumo_ia"); $("#iaTxt").value=D.resumo_ia;
+      m.className="msg ok"; m.textContent="Resumo gerado.";
+    }catch(e){ m.className="msg erro"; m.textContent=e.message; }
+    finally{ b.disabled=false; }
+  };
+  botoesExport(c,[["⬇️ Baixar Resumo IA (Excel)",()=>baixarExcel("resumo_executivo_ia","Resumo",texto(D.resumo_ia)?[{resumo_executivo:D.resumo_ia}]:[])]]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 12 · Relatório Consolidado
+// ═══════════════════════════════════════════════════════════════════
+function gerarRelatorio(){
+  const ck=objeto("checklist"), inv=lista("inventario"), org=lista("organograma"), raci=lista("raci"), info=objeto("raci_matriz_info"),
+    rp=lista("raci_pessoas"), rm=lista("raci_matriz"), dia=lista("diario"), ent=lista("entrevistas"), gem=lista("gemba"),
+    mat=lista("matriz"), jor=objeto("jornadas"), resp=objeto("respostas"), ia=typeof D.resumo_ia==="string"?D.resumo_ia:"";
+  const L=["# Diagnóstico N2 — Relatório Consolidado\n", `**Projeto:** ${info.projeto||"Diagnóstico N2"}  `, `**Data de referência:** ${info.data||"—"}\n`];
+  L.push("## 1. Andamento da metodologia\n");
+  L.push(`_${ETAPAS_CHECKLIST.filter(([id])=>ck[id]).length} de ${ETAPAS_CHECKLIST.length} etapas concluídas._\n`);
+  ETAPAS_CHECKLIST.forEach(([id,t,d])=>L.push(`- ${ck[id]?"✅":"⬜"} ${t} (\`${d}\`)`)); L.push("");
+  L.push("## 2. Inventário de atividades\n");
+  const itens=inv.filter(i=>texto(i.atividade));
+  if(itens.length) itens.forEach(i=>L.push(`- **${i.atividade}** (${i.categoria||"—"}) — registrada oficialmente: ${i.registrada||"—"}`)); else L.push("_Nenhuma atividade cadastrada ainda._");
+  L.push(""); L.push("## 3. Organograma funcional real\n");
+  const po=org.filter(o=>texto(o.pessoa));
+  if(po.length) po.forEach(o=>{ let l=`- **${o.pessoa}** — ${o.papel||"—"}`; if(o.responde_para) l+=`; responde para ${o.responde_para}`; if(o.especialista) l+=`; especialista em ${o.especialista}`; if(o.cobre) l+=`; cobre/é coberto por ${o.cobre}`; L.push(l); });
+  else L.push("_Organograma real ainda não levantado._");
+  L.push(""); L.push("## 4. RACI preliminar por tipo de demanda\n");
+  const ri=raci.filter(r=>texto(r.tipo_demanda));
+  if(ri.length) ri.forEach(r=>L.push(`- **${r.tipo_demanda}** — R: ${r.responsavel||"—"} | A: ${r.aprovador||"—"} | C: ${r.consultado||"—"} | I: ${r.informado||"—"}`)); else L.push("_RACI preliminar ainda não preenchido._");
+  L.push(""); L.push("## 5. Matriz RACI (Fases/Atividades x Funções)\n");
+  const nomes=rp.map(p=>texto(p.nome)).filter(Boolean), lm=rm.filter(m=>texto(m.atividade));
+  if(nomes.length&&lm.length){ L.push("| Atividade | "+nomes.join(" | ")+" |"); L.push("|"+"---|".repeat(nomes.length+1)); lm.forEach(r=>L.push(`| ${r.atividade} | `+nomes.map(n=>r[n]||"-").join(" | ")+" |")); }
+  else L.push("_Matriz RACI ainda não preenchida._");
+  L.push(""); L.push("## 6. Diário de Bordo — visão agregada\n");
+  const dv=dia.filter(d=>texto(d.atividade));
+  if(dv.length){ L.push(`- Total de registros: **${dv.length}**`); const mc={};
+    dv.forEach(d=>{ const cat=d.categoria||"Sem categoria"; if(/^\d+$/.test(String(d.duracao||""))) mc[cat]=(mc[cat]||0)+Number(d.duracao); });
+    Object.entries(mc).sort((a,b)=>b[1]-a[1]).forEach(([cat,m])=>L.push(`- ${cat}: ${m} min (~${Math.round(m/6)/10}h)`)); }
+  else L.push("_Diário de bordo ainda não preenchido._");
+  L.push(""); L.push("## 7. Entrevistas realizadas\n");
+  const ef=ent.filter(e=>texto(e.nome));
+  if(ef.length) ef.forEach(e=>L.push(`- ${e.nome} — ${e.data||"—"}`)); else L.push("_Nenhuma entrevista registrada ainda._");
+  L.push(""); L.push("## 8. Observações de campo (Gemba)\n");
+  const gv=gem.filter(g=>texto(g.observado));
+  if(gv.length) gv.forEach(g=>{ let l=`- ${g.data||""} ${g.horario||""} — ${g.pessoa||"—"}: ${g.observado}`; if(g.insight) l+=` _(insight: ${g.insight})_`; L.push(l); });
+  else L.push("_Nenhuma observação de campo registrada ainda._");
+  L.push(""); L.push("## 9. Matriz de Atividades x Responsabilidades x Tempo\n");
+  const mv=mat.filter(m=>texto(m.atividade));
+  if(mv.length) mv.forEach(m=>L.push(`- **${m.atividade}** — ${m.quemfaz||"—"} | ${m.frequencia||"—"} | ${m.tempo||"—"} | ${m.percentual||"—"} do tempo total`));
+  else L.push("_Matriz de Atividades ainda não consolidada._");
+  L.push(""); L.push("## 10. Mapas de Jornada por atividade\n");
+  const jk=Object.entries(jor);
+  if(jk.length) jk.forEach(([k,j])=>L.push(`- **${j.atividade||k}** — mapa de jornada preenchido`)); else L.push("_Nenhum mapa de jornada criado ainda._");
+  L.push(""); L.push("## 11. Respostas às 6 perguntas-chave\n");
+  PERGUNTAS.forEach(([id,t])=>L.push(`**${t}**\n\n${texto(resp[id])||"_(em aberto)_"}\n`));
+  if(texto(ia)){ L.push("## 12. Resumo executivo (gerado com IA)\n"); L.push(ia.trim()); }
+  return L.join("\n");
+}
+function renderRelatorio(c){
+  const md=gerarRelatorio();
+  c.innerHTML=`<h2>📄 Relatório Consolidado</h2>
+    <p class="cap">Reúne, na mesma ordem lógica da metodologia, tudo o que foi coletado em todas as seções — pronto para a validação com a equipe/liderança (Etapa 8) e para a entrega final.</p>
+    <div id="relExp"></div><div class="relatorio">${mdToHtml(md)}</div>`;
+  botoesExport($("#relExp",c),[
+    ["⬇️ Relatório (Markdown)",()=>baixarTexto("relatorio_consolidado_diagnostico_n2.md",md,"text/markdown")],
+    ["⬇️ Relatório (PDF)",()=>imprimir("Relatório Consolidado — Diagnóstico N2",mdToHtml(md))],
+    ["⬇️ Relatório (Excel)",()=>baixarExcel("relatorio_consolidado_diagnostico_n2","Relatorio",md.split("\n").map(l=>({linha:l})).filter(r=>r.linha.trim()))],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tema + inicialização
+// ═══════════════════════════════════════════════════════════════════
+(function(){
+  let t="dark"; try{ t=localStorage.getItem("diag_tema")||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"); }catch(_){}
+  document.documentElement.dataset.theme=t;
+  $("#btnTema").onclick=()=>{ const n=document.documentElement.dataset.theme==="dark"?"light":"dark";
+    document.documentElement.dataset.theme=n; try{ localStorage.setItem("diag_tema",n); }catch(_){} };
+})();
+async function iniciar(){
+  montarMenu();
+  try{
+    const r=await fetch(API,{cache:"no-store"});
+    if(!r.ok) throw new Error(`HTTP ${r.status} — ${(await r.text()).slice(0,200)}`);
+    D=(await r.json())||{}; setStatus("ok");
+  }catch(e){
+    setStatus("erro", e.message);
+    $("#conteudo").innerHTML=`<div class="erro-box"><b>Não consegui carregar os dados do diagnóstico.</b><br>${esc(e.message)}<br><br>Se o servidor estava dormindo, espere uns segundos e tente de novo.<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
+    return;
+  }
+  abrirAba(abaAtiva);
+}
+iniciar();
+</script>
+</body>
+</html>
