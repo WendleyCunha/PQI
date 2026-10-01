@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RG do Pedido: acompanhamento dos testes de rastreabilidade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style id="css">
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9;
+  --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8;
+  --idle:#8A93A3; --idle-soft:#EEF0F3;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17;
+    --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442;
+    --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17;
+  --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442;
+  --idle:#8A93A3; --idle-soft:#262D3A;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+.wrap{max-width:none;margin:0;padding:24px 28px 64px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--paper);border-bottom:1px solid var(--rule);}
+.bar-in{max-width:none;margin:0;padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar-in .who{color:var(--ink-3);font-size:13px;margin-right:auto}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--ink-3)}
+button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn{color:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[hidden]{display:none}
+.banner{margin:0 0 16px;padding:10px 14px;border-radius:6px;background:var(--amber-soft);color:var(--ink);font-size:14px}
+.banner:empty{display:none}
+
+/* Cabeçalho do documento */
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:26px 28px;display:grid;grid-template-columns:1fr auto;gap:18px 32px}
+.doc-head h1{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.01em}
+.doc-head .obj{margin:10px 0 0;color:var(--ink-2);max-width:68ch}
+.stamp{border:2px solid var(--steel);border-radius:8px;padding:10px 14px;min-width:210px;align-self:start}
+.stamp .code{font:700 20px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.stamp dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:500}
+.sit{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.sit.exec{background:var(--prog-soft);color:var(--prog)} .sit.fim{background:var(--ok-soft);color:var(--ok)} .sit.susp{background:var(--bad-soft);color:var(--bad)}
+
+/* Resumo */
+.summary{display:grid;grid-template-columns:minmax(220px,1.2fr) 3fr;gap:16px;margin-top:16px}
+.meter{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:18px 20px}
+.meter .big{font:700 46px/1 "IBM Plex Sans Condensed",sans-serif}
+.meter .lbl{color:var(--ink-3);font-size:13px;margin-top:4px}
+.track{height:8px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:14px}
+.track i{display:block;height:100%;background:var(--ok)}
+.counts{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px 26px;align-items:center}
+.count{display:flex;align-items:baseline;gap:8px}
+.count b{font:700 26px/1 "IBM Plex Sans Condensed",sans-serif}
+.count span{color:var(--ink-2);font-size:13px}
+
+/* Seções */
+section{margin-top:34px}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+section > header .add{margin-left:auto}
+
+/* Linha do tempo do RG */
+.chain{display:grid;grid-template-columns:repeat(9,minmax(118px,1fr));gap:0;overflow-x:auto;padding-bottom:6px}
+.scroll{overflow-x:auto}
+.link{position:relative;padding:0 6px}
+.link::before{content:"";position:absolute;top:19px;left:0;right:0;height:3px;background:var(--rule)}
+.link:first-child::before{left:50%} .link:last-child::before{right:50%}
+.link.st-ok::before{background:var(--ok)}
+.knot{position:relative;width:40px;height:40px;margin:0 auto;border-radius:50%;display:grid;place-items:center;font:700 15px/1 "IBM Plex Sans Condensed",sans-serif;border:3px solid var(--idle);background:var(--sheet);color:var(--idle)}
+.link .nm{text-align:center;font:600 14px/1.25 "IBM Plex Sans Condensed",sans-serif;margin-top:8px}
+.link .st{text-align:center;margin-top:6px}
+.link .doc{text-align:center;font-size:12px;color:var(--ink-3);margin-top:4px;word-break:break-word}
+.st-ok .knot{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+.st-bad .knot{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.st-prog .knot{border-color:var(--prog);color:var(--prog);background:var(--prog-soft)}
+.st-block .knot{border-color:var(--block);color:var(--block);background:var(--block-soft)}
+.chain-detail{margin-top:14px}
+
+/* Tabelas */
+table{width:100%;border-collapse:collapse;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;font-size:14px;min-width:820px}
+th{text-align:left;font:600 13px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom}
+td{padding:9px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.id{font-weight:600;color:var(--ink-3);white-space:nowrap}
+td .sub{color:var(--ink-3);font-size:13px;margin-top:2px}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-prog{background:var(--prog-soft);color:var(--prog)} .p-block{background:var(--block-soft);color:var(--block)}
+.p-idle{background:var(--idle-soft);color:var(--ink-2)} .p-warn{background:var(--amber-soft);color:var(--amber)}
+.pct{display:flex;align-items:center;gap:8px;min-width:110px}
+.pct .track{flex:1;margin:0;height:6px}
+.pct .track i{background:var(--steel)}
+.muted{color:var(--ink-3)}
+
+/* Campos de edição */
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:6px 8px;width:100%}
+textarea{min-height:58px;resize:vertical}
+input[type=number]{width:72px}
+input[type=date]{min-width:136px}
+.editing td{background:color-mix(in srgb,var(--amber-soft) 35%,var(--sheet))}
+.del{padding:5px 8px;font-size:12px}
+
+/* Aprovação e histórico */
+.sign{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.sig{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
+.sig .area{font:600 15px/1.2 "IBM Plex Sans Condensed",sans-serif}
+.sig .line{border-bottom:1px solid var(--ink-3);min-height:26px;margin-top:14px;padding-bottom:2px}
+.sig .cap{font-size:12px;color:var(--ink-3);margin-top:3px}
+.log li{padding:8px 0;border-bottom:1px solid var(--rule-2);list-style:none}
+.log{margin:0;padding:0}
+.log .v{font-weight:700;color:var(--steel);margin-right:8px}
+
+/* Painel de salvar */
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:460px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 12px;font-size:20px}
+dialog label{display:block;font-size:13px;color:var(--ink-2);margin:10px 0 4px}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+
+/* ══════════════ NOVO — navegação por item + sidebar vertical ══════════════ */
+
+/* Lista de itens (tela inicial) */
+.lista-topo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.lista-topo h1{margin:0;font-size:28px}
+.lista-topo p{margin:4px 0 0;color:var(--ink-3);font-size:13px;flex-basis:100%}
+.lista-acoes{margin-left:auto;display:flex;gap:10px}
+.lista-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.item-card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;cursor:pointer;transition:border-color .15s}
+.item-card:hover{border-color:var(--steel)}
+.item-card .ic-codigo{font:700 17px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.item-card .ic-item{font-size:13px;color:var(--ink-2);margin-top:2px}
+.item-card .ic-macro{display:flex;align-items:baseline;gap:6px;margin-top:12px}
+.item-card .ic-macro b{font:700 24px/1 "IBM Plex Sans Condensed",sans-serif}
+.item-card .ic-macro span{color:var(--ink-3);font-size:12px}
+.item-card .ic-track{margin-top:8px}
+.item-card .ic-rodape{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--ink-3)}
+.vazio-lista{grid-column:1/-1;text-align:center;color:var(--ink-3);padding:50px 0}
+
+/* Casca do item aberto: sidebar vertical + conteúdo */
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{
+  flex:none;width:84px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 8px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);
+}
+.side-btn{
+  width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:10px 4px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;
+  color:var(--ink-3);font-size:10.5px;line-height:1.2;text-align:center;
+}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-sep{width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+
+@media (max-width:760px){
+  .doc-head{grid-template-columns:1fr;padding:20px}
+  .doc-head h1{font-size:26px}
+  .summary{grid-template-columns:1fr}
+  .shell-item{flex-direction:column}
+  .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;}
+  .side-btn{width:auto;min-width:72px}
+}
+@media print{
+  .bar,.add,.del,.banner,.side-rg,.lista-acoes,.lista-topo .busca{display:none!important}
+  body{background:#fff;color:#000}
+  .wrap{padding:0}
+  .shell-item{display:block}
+  table{min-width:0;font-size:11px}
+  section{break-inside:auto}
+  tr{break-inside:avoid}
+  .lote-item{break-after:page}
+  .lote-item:last-child{break-after:auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <button id="btnVoltarLista" hidden>← Itens</button>
+  <span class="who" id="who"></span>
+  <button id="btnEdit" hidden>Editar</button>
+  <button id="btnCancel" hidden>Descartar alterações</button>
+  <button id="btnSave" class="primary" hidden>Salvar nova versão</button>
+  <button id="btnDownload" hidden>Baixar cópia para arquivo</button>
+  <button id="btnPrint">Imprimir ou salvar PDF</button>
+</div></div>
+<div class="wrap">
+  <p class="banner" id="banner"></p>
+  <div id="root"></div>
+</div>
+
+<dialog id="dlg">
+  <h3>Salvar nova versão</h3>
+  <p class="muted" style="margin:0">Todos que têm o link passam a ver esta versão. O registro fica no histórico.</p>
+  <label for="fPor">Seu nome</label>
+  <input id="fPor" autocomplete="name">
+  <label for="fNota">O que mudou nesta versão</label>
+  <textarea id="fNota" placeholder="Ex.: cenário E03 executado e reprovado; GAP 04 aberto"></textarea>
+  <div class="acts"><button id="dlgNo">Voltar</button><button id="dlgYes" class="primary">Salvar</button></div>
+</dialog>
+
+<script type="application/json" id="state">
+{
+"projeto":{
+  "versao":1,
+  "atualizadoEm":"2026-09-24",
+  "atualizadoPor":"Criação do documento",
+  "fases":[
+    {"id":"F1","nome":"Entendimento da correção com os desenvolvedores","semana":"S1","inicio":"2026-09-28","fim":"2026-10-02","resp":"TI + Key users","status":"Não iniciada","pct":0,"obs":"Definir qual é o identificador que amarra tudo (pedido+item, lote, série ou campo customizado)."},
+    {"id":"F2","nome":"Mapeamento do processo real, incluindo exceções","semana":"S1–S2","inicio":"2026-09-30","fim":"2026-10-07","resp":"Logística, Expedição, Faturamento, SAC","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F3","nome":"Comparação com o padrão TOTVS (padrão × customizado)","semana":"S2","inicio":"2026-10-05","fim":"2026-10-09","resp":"TI + Consultoria TOTVS","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F4","nome":"Montagem dos roteiros de teste","semana":"S2–S3","inicio":"2026-10-07","fim":"2026-10-14","resp":"Key users + TI","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F5","nome":"Execução em homologação","semana":"S3–S4","inicio":"2026-10-14","fim":"2026-10-23","resp":"Key users","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F6","nome":"Validação de estoque, compras e vendas","semana":"S4","inicio":"2026-10-19","fim":"2026-10-23","resp":"Estoque, Compras, Comercial","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F7","nome":"Relatórios e consulta de rastreabilidade","semana":"S5","inicio":"2026-10-26","fim":"2026-10-30","resp":"TI + Controladoria","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F8","nome":"Treinamento e procedimentos (POPs)","semana":"S5","inicio":"2026-10-26","fim":"2026-10-30","resp":"T&D + Key users","status":"Não iniciada","pct":0,"obs":""},
+    {"id":"F9","nome":"Piloto em produção e decisão go/no-go","semana":"S6","inicio":"2026-11-02","fim":"2026-11-06","resp":"Todos","status":"Não iniciada","pct":0,"obs":""}
+  ],
+  "cenarios":[
+    {"id":"E01","titulo":"Recusa parcial (aceita 2 de 3 itens)","esperado":"Sistema separa itens aceitos e recusados; só os recusados geram retorno","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E02","titulo":"Reenvio antes do retorno físico","esperado":"Sistema bloqueia ou exige aprovação formal","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E03","titulo":"Duplo reenvio do mesmo item","esperado":"Segundo pedido de reenvio é bloqueado","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E04","titulo":"Reenvio de outra peça do estoque","esperado":"Regra definida: peça retornada é a enviada, ou a troca fica registrada","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E05","titulo":"Peça retorna avariada","esperado":"Vai para armazém de avaria/quarentena e não fica disponível para venda","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E06","titulo":"Extravio (não entregue e não retornou)","esperado":"Existe status de extravio, com responsável, prazo e baixa controlada","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E07","titulo":"Cancelamento de NF com carga montada","esperado":"Carga é desfeita e reserva/saldo voltam corretamente","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E08","titulo":"Estorno da NF de devolução","esperado":"Vínculo e saldo são desfeitos sem deixar resíduo","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E09","titulo":"Apontamento manual errado (lote/série/pedido)","esperado":"Sistema valida e só aceita itens do pedido/NF de origem","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E10","titulo":"Troca de SKU após recusa","esperado":"Novo SKU permanece vinculado ao pedido origem","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E11","titulo":"Disponível para venda após retorno","esperado":"Saldo disponível considera reservas, retornos pendentes e reenvios","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""},
+    {"id":"E12","titulo":"Sugestão de compra (MRP/ponto de pedido)","esperado":"Compra considera itens em retorno e peças perdidas","obtido":"","status":"Não iniciado","resp":"","data":"","evid":""}
+  ],
+  "gaps":[
+    {"id":"G01","desc":"Identificador não é levado para carga, NF ou devolução","sev":"Alta","status":"A verificar","resp":"","acao":""},
+    {"id":"G02","desc":"Produto sem controle por série/lote: rastreia quantidade, não a peça","sev":"Alta","status":"A verificar","resp":"","acao":""},
+    {"id":"G03","desc":"Recusa sem registro sistêmico até a peça chegar","sev":"Alta","status":"A verificar","resp":"","acao":""},
+    {"id":"G04","desc":"Armazém de retorno único para peça boa e avariada","sev":"Média","status":"A verificar","resp":"","acao":""},
+    {"id":"G05","desc":"Customização quebra com estorno/cancelamento","sev":"Alta","status":"A verificar","resp":"","acao":""},
+    {"id":"G06","desc":"Não existe relatório único da vida do item","sev":"Média","status":"A verificar","resp":"","acao":""},
+    {"id":"G07","desc":"Permissões amplas para gerar pedido de reenvio","sev":"Média","status":"A verificar","resp":"","acao":""},
+    {"id":"G08","desc":"Ocorrência da transportadora/TMS não entra no ERP","sev":"Média","status":"A verificar","resp":"","acao":""},
+    {"id":"G09","desc":"Risco de a customização parar após atualização da TOTVS","sev":"Média","status":"A verificar","resp":"","acao":""}
+  ],
+  "aprovacoes":[
+    {"area":"Logística / Estoque","nome":"","data":"","parecer":""},
+    {"area":"Comercial","nome":"","data":"","parecer":""},
+    {"area":"Compras","nome":"","data":"","parecer":""},
+    {"area":"Faturamento / Fiscal","nome":"","data":"","parecer":""},
+    {"area":"TI / Sistemas","nome":"","data":"","parecer":""},
+    {"area":"Controladoria","nome":"","data":"","parecer":""}
+  ],
+  "log":[{"v":1,"data":"2026-09-24","por":"Criação do documento","nota":"Estrutura inicial: cronograma, cenários de teste, GAPs e aprovações."}]
+},
+"itens":[
+  {
+    "codigo":"PTR-RG-001","item":"","versao":1,"situacao":"Em execução","dono":"",
+    "inicio":"2026-09-28","atualizadoEm":"2026-09-24","atualizadoPor":"Criação do documento",
+    "etapas":[
+      {"id":"1","nome":"Pedido origem","conferir":"ID gerado; saldo reservado; disponível para venda reduzido","status":"Não iniciado","doc":"","obs":""},
+      {"id":"2","nome":"Agendamento","conferir":"Data e janela vinculadas ao pedido, sem duplicar reserva","status":"Não iniciado","doc":"","obs":""},
+      {"id":"3","nome":"Carga","conferir":"Item amarrado à carga e ao veículo; não entra em duas cargas","status":"Não iniciado","doc":"","obs":""},
+      {"id":"4","nome":"Faturamento","conferir":"NF referencia pedido e item; lote/série na NF","status":"Não iniciado","doc":"","obs":""},
+      {"id":"5","nome":"Recusa na entrega","conferir":"Motivo registrado; peça com status de retorno em trânsito","status":"Não iniciado","doc":"","obs":""},
+      {"id":"6","nome":"Retorno (NF devolução)","conferir":"NF de entrada vinculada à NF original","status":"Não iniciado","doc":"","obs":""},
+      {"id":"7","nome":"Armazenagem","conferir":"Armazém/endereço correto: bom, avariado ou quarentena","status":"Não iniciado","doc":"","obs":""},
+      {"id":"8","nome":"Reenvio","conferir":"Pedido de reenvio vinculado ao origem, sem nova venda/receita","status":"Não iniciado","doc":"","obs":""},
+      {"id":"9","nome":"Entrega final","conferir":"Ciclo encerrado; histórico completo consultável","status":"Não iniciado","doc":"","obs":""}
+    ],
+    "log":[{"v":1,"data":"2026-09-24","por":"Criação do documento","nota":"Linha de vida inicial deste item."}]
+  }
+]
+}
+</script>
+
+<script type="text/plain" id="shell">
+<div class="bar"><div class="bar-in">
+  <button id="btnVoltarLista" hidden>← Itens</button>
+  <span class="who" id="who"></span>
+  <button id="btnEdit" hidden>Editar</button>
+  <button id="btnCancel" hidden>Descartar alterações</button>
+  <button id="btnSave" class="primary" hidden>Salvar nova versão</button>
+  <button id="btnDownload" hidden>Baixar cópia para arquivo</button>
+  <button id="btnPrint">Imprimir ou salvar PDF</button>
+</div></div>
+<div class="wrap">
+  <p class="banner" id="banner"></p>
+  <div id="root"></div>
+</div>
+
+<dialog id="dlg">
+  <h3>Salvar nova versão</h3>
+  <p class="muted" style="margin:0">Todos que têm o link passam a ver esta versão. O registro fica no histórico.</p>
+  <label for="fPor">Seu nome</label>
+  <input id="fPor" autocomplete="name">
+  <label for="fNota">O que mudou nesta versão</label>
+  <textarea id="fNota" placeholder="Ex.: cenário E03 executado e reprovado; GAP 04 aberto"></textarea>
+  <div class="acts"><button id="dlgNo">Voltar</button><button id="dlgYes" class="primary">Salvar</button></div>
+</dialog>
+
+</script>
+<script id="app">
+(function(){
+  var TITULO = "RG do Pedido: rastreabilidade do item do pedido origem ao reenvio";
+  var OBJETIVO = "Validar se a correção feita pelos desenvolvedores mantém um vínculo único entre o pedido origem e todos os eventos seguintes (agendamento, carga, faturamento, recusa, retorno, armazenagem, novo destino e reenvio), impedindo pedidos indevidos, reenvios incorretos e divergência de estoque.";
+
+  var CHAVE_PROJETO = "rg_v2_projeto";
+  var CHAVE_ITENS   = "rg_v2_itens";
+  var CHAVE_ANTIGA  = "rg_doc_PTR-RG-001"; // versão anterior, documento único
+
+  var seed = JSON.parse(document.getElementById('state').textContent);
+
+  // ── Migração da versão anterior (documento único) pra esta versão
+  // (vários itens) — só roda se ainda não existir nada salvo na versão
+  // nova. O item único de antes vira o primeiro item da lista agora,
+  // e cronograma/cenários/GAPs/aprovações viram os dados do projeto. ──
+  function migrarVersaoAnterior(){
+    try{
+      var antigo = localStorage.getItem(CHAVE_ANTIGA);
+      if (!antigo) return null;
+      var doc = JSON.parse(antigo);
+      var projeto = {
+        versao: 1, atualizadoEm: doc.meta.atualizadoEm, atualizadoPor: doc.meta.atualizadoPor,
+        fases: doc.fases, cenarios: doc.cenarios, gaps: doc.gaps, aprovacoes: doc.aprovacoes,
+        log: [{v:1, data:doc.meta.atualizadoEm, por:doc.meta.atualizadoPor, nota:"Migrado automaticamente do documento único anterior."}],
+      };
+      var item = {
+        codigo: doc.meta.codigo, item: "", versao: doc.meta.versao, situacao: doc.meta.situacao,
+        dono: doc.meta.dono, inicio: doc.meta.inicio, atualizadoEm: doc.meta.atualizadoEm, atualizadoPor: doc.meta.atualizadoPor,
+        etapas: doc.etapas, log: doc.log,
+      };
+      return { projeto: projeto, itens: [item] };
+    }catch(_){ return null; }
+  }
+
+  var PROJETO, ITENS;
+  var migrouAgora = false;
+  try{
+    var pSalvo = localStorage.getItem(CHAVE_PROJETO), iSalvo = localStorage.getItem(CHAVE_ITENS);
+    if (pSalvo && iSalvo){
+      PROJETO = JSON.parse(pSalvo); ITENS = JSON.parse(iSalvo);
+    } else {
+      var migrado = migrarVersaoAnterior();
+      if (migrado){ PROJETO = migrado.projeto; ITENS = migrado.itens; migrouAgora = true; }
+      else { PROJETO = seed.projeto; ITENS = seed.itens; }
+    }
+  }catch(_){ PROJETO = seed.projeto; ITENS = seed.itens; }
+
+  var PROJETO_SALVO = JSON.parse(JSON.stringify(PROJETO));
+  var ITENS_SALVOS  = JSON.parse(JSON.stringify(ITENS));
+
+  function persistir(){
+    try{
+      localStorage.setItem(CHAVE_PROJETO, JSON.stringify(PROJETO_SALVO));
+      localStorage.setItem(CHAVE_ITENS, JSON.stringify(ITENS_SALVOS));
+    }catch(err){ banner("Não foi possível salvar — armazenamento local bloqueado ou cheio."); }
+  }
+
+  // [FIX] Sem isto, uma migração só existia na memória — se a pessoa
+  // fechasse a aba sem clicar em "Salvar" em nada, nada ficava gravado
+  // de verdade no formato novo, e a próxima visita migraria tudo de
+  // novo (inofensivo, mas desnecessário). Grava assim que migra.
+  if (migrouAgora) persistir();
+
+  // ── Navegação ──
+  // telaAtual: 'lista' | 'item'
+  // secaoAtiva (só importa quando telaAtual==='item'): 'linha'|'cronograma'|'cenarios'|'gaps'|'aprovacao'|'historico'
+  var telaAtual = 'lista';
+  var itemAtivoIdx = null;
+  var secaoAtiva = 'linha';
+  var editing = false, readOnly = false;
+
+  var ST_TESTE = ["Não iniciado","Em andamento","Aprovado","Reprovado","Bloqueado"];
+  var ST_FASE  = ["Não iniciada","Em andamento","Concluída","Atrasada","Suspensa"];
+  var ST_GAP   = ["A verificar","Confirmado","Em correção","Resolvido","Aceito (sem correção)","Descartado"];
+  var SEV = ["Alta","Média","Baixa"];
+  var SIT = ["Em execução","Suspenso","Encerrado"];
+
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+  function br(d){if(!d)return "";var p=String(d).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d;}
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+  function cls(st){
+    if(/Aprovado|Concluída|Resolvido/.test(st))return "ok";
+    if(/Reprovado|Atrasada|Confirmado|Alta/.test(st))return "bad";
+    if(/andamento|correção/.test(st))return "prog";
+    if(/Bloqueado|Suspensa/.test(st))return "block";
+    if(/Média|verificar/.test(st))return "warn";
+    return "idle";
+  }
+  function pill(st){return '<span class="pill p-'+cls(st)+'">'+esc(st)+'</span>';}
+
+  // ── Cálculos (mesma lógica validada isoladamente antes de entrar aqui) ──
+  function calcPctEtapas(etapas){
+    var aprovadas = etapas.filter(function(e){return e.status==="Aprovado";}).length;
+    return {aprovadas:aprovadas, total:etapas.length, pct: etapas.length?Math.round(aprovadas/etapas.length*100):0};
+  }
+  function calcFasePct(fases){
+    if (!fases.length) return 0;
+    return Math.round(fases.reduce(function(a,f){return a+(+f.pct||0);},0)/fases.length);
+  }
+  function calcPctGenerico(lista, statusOk){
+    statusOk = statusOk || "Aprovado";
+    var ok = lista.filter(function(x){return x.status===statusOk;}).length;
+    return {aprovados:ok, total:lista.length, pct: lista.length?Math.round(ok/lista.length*100):0};
+  }
+  function calcMacro(item){
+    var todos = item.etapas.concat(PROJETO.cenarios);
+    var ok = todos.filter(function(x){return x.status==="Aprovado";}).length;
+    return {aprovados:ok, total:todos.length, pct: todos.length?Math.round(ok/todos.length*100):0};
+  }
+
+  // Campos editáveis — operam sobre `obj` (PROJETO ou o item ativo,
+  // dependendo de qual seção está sendo editada no momento).
+  function get(obj,path){var p=path.split("."),o=obj;for(var i=0;i<p.length;i++)o=o[p[i]];return o;}
+  function set(obj,path,v){var p=path.split("."),o=obj;for(var i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=v;}
+  function txt(obj,path,ph){var v=get(obj,path);return editing?'<input data-p="'+path+'" value="'+esc(v)+'" placeholder="'+esc(ph||"")+'">':(v?esc(v):'<span class="muted">—</span>');}
+  function area(obj,path,ph){var v=get(obj,path);return editing?'<textarea data-p="'+path+'" placeholder="'+esc(ph||"")+'">'+esc(v)+'</textarea>':(v?esc(v):'<span class="muted">—</span>');}
+  function date(obj,path){var v=get(obj,path);return editing?'<input type="date" data-p="'+path+'" value="'+esc(v)+'">':(v?br(v):'<span class="muted">—</span>');}
+  function sel(obj,path,opts){var v=get(obj,path);if(!editing)return pill(v);return '<select data-p="'+path+'">'+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join("")+'</select>';}
+  function num(obj,path){var v=get(obj,path)||0;if(editing)return '<input type="number" min="0" max="100" step="5" data-p="'+path+'" data-num="1" value="'+v+'">';return '<div class="pct"><div class="track"><i style="width:'+v+'%"></i></div><span>'+v+'%</span></div>';}
+
+  var ICONES = {
+    linha:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6m12-9a3 3 0 11-6 0 3 3 0 016 0zM9 6h3a6 6 0 016 6v0"/></svg>',
+    cronograma:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    cenarios:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+    gaps:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>',
+    aprovacao:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+    historico:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
+    mais:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+    imprimir:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>',
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER — despacha pra lista de itens ou pra um item aberto
+  // ═══════════════════════════════════════════════════════════
+  function render(){
+    document.getElementById('btnVoltarLista').hidden = (telaAtual !== 'item');
+    if (telaAtual === 'lista') renderLista();
+    else renderItem();
+    syncBar();
+  }
+
+  function renderLista(){
+    var h = '<div class="lista-topo"><h1>Itens em teste</h1><div class="lista-acoes">';
+    h += '<button data-acao-lote>'+ICONES.imprimir+' Imprimir todos</button>';
+    h += '<button class="primary" data-novo-item>'+ICONES.mais+' Novo item</button></div>';
+    h += '<p>Cada item é uma "Linha de vida" independente — seu próprio código, versão e histórico. Cronograma, Cenários de exceção, GAPs e Aprovação final são compartilhados entre todos os itens.</p></div>';
+
+    h += '<div class="lista-grid">';
+    if (!ITENS.length){
+      h += '<div class="vazio-lista">Nenhum item cadastrado ainda. Clique em "Novo item" para começar.</div>';
+    } else {
+      ITENS.forEach(function(it, idx){
+        var macro = calcMacro(it);
+        h += '<div class="item-card" data-abrir-item="'+idx+'">';
+        h += '<div class="ic-codigo">'+esc(it.codigo)+'</div>';
+        h += '<div class="ic-item">'+(it.item?esc(it.item):'<span class="muted">Item não identificado</span>')+'</div>';
+        h += '<div class="ic-macro"><b>'+macro.pct+'%</b><span>dos testes aprovados ('+macro.aprovados+' de '+macro.total+')</span></div>';
+        h += '<div class="ic-track track"><i style="width:'+macro.pct+'%"></i></div>';
+        h += '<div class="ic-rodape"><span class="sit '+(it.situacao==="Encerrado"?"fim":(it.situacao==="Suspenso"?"susp":"exec"))+'">'+esc(it.situacao)+'</span><span>v'+it.versao+' · '+br(it.atualizadoEm)+'</span></div>';
+        h += '</div>';
+      });
+    }
+    h += '</div>';
+    document.getElementById('root').innerHTML = h;
+
+    document.querySelectorAll('[data-abrir-item]').forEach(function(el){
+      el.addEventListener('click', function(){ abrirItem(+el.getAttribute('data-abrir-item')); });
+    });
+    var btnNovo = document.querySelector('[data-novo-item]');
+    if (btnNovo) btnNovo.addEventListener('click', novoItem);
+    var btnLote = document.querySelector('[data-acao-lote]');
+    if (btnLote) btnLote.addEventListener('click', imprimirTodos);
+  }
+
+  function renderItem(){
+    var it = ITENS[itemAtivoIdx];
+    var h = '<div class="shell-item"><div class="side-rg">';
+    h += sideBtn('linha', ICONES.linha, 'Linha de vida');
+    h += '<div class="side-sep"></div>';
+    h += sideBtn('cronograma', ICONES.cronograma, 'Cronograma');
+    h += sideBtn('cenarios', ICONES.cenarios, 'Cenários de exceção');
+    h += sideBtn('gaps', ICONES.gaps, 'Registro de GAPs');
+    h += sideBtn('aprovacao', ICONES.aprovacao, 'Aprovação final');
+    h += sideBtn('historico', ICONES.historico, 'Histórico de versões');
+    h += '</div><div class="conteudo-item">';
+
+    if (secaoAtiva === 'linha') h += renderLinha(it);
+    else if (secaoAtiva === 'cronograma') h += renderCronograma();
+    else if (secaoAtiva === 'cenarios') h += renderCenarios();
+    else if (secaoAtiva === 'gaps') h += renderGaps();
+    else if (secaoAtiva === 'aprovacao') h += renderAprovacao();
+    else if (secaoAtiva === 'historico') h += renderHistoricoItem(it);
+
+    h += '</div></div>';
+    document.getElementById('root').innerHTML = h;
+
+    document.querySelectorAll('[data-secao]').forEach(function(el){
+      el.addEventListener('click', function(){
+        if (editing){ banner('Salve ou descarte as alterações antes de trocar de seção.'); return; }
+        secaoAtiva = el.getAttribute('data-secao'); render();
+      });
+    });
+  }
+
+  function sideBtn(secao, icone, rotulo){
+    return '<button class="side-btn'+(secaoAtiva===secao?' ativo':'')+'" data-secao="'+secao+'" title="'+rotulo+'">'+icone+'<span>'+rotulo+'</span></button>';
+  }
+
+  // ── Linha de vida (página principal de cada item) ──
+  function renderLinha(it){
+    var macro = calcMacro(it);
+    var fasePct = calcFasePct(PROJETO.fases);
+    var h = '<header class="doc-head"><div><h1>'+esc(TITULO)+'</h1><p class="obj">'+esc(OBJETIVO)+'</p></div>';
+    h += '<div class="stamp"><div class="code">'+esc(it.codigo)+'</div><dl>';
+    h += '<dt>Versão</dt><dd>'+it.versao+'</dd>';
+    h += '<dt>Situação</dt><dd>'+(editing?'<select data-p="situacao">'+SIT.map(function(o){return '<option'+(o===it.situacao?' selected':'')+'>'+o+'</option>';}).join("")+'</select>':'<span class="sit '+(it.situacao==="Encerrado"?"fim":(it.situacao==="Suspenso"?"susp":"exec"))+'">'+esc(it.situacao)+'</span>')+'</dd>';
+    h += '<dt>Item / documento</dt><dd>'+txt(it,"item","Ex.: 85KLA8")+'</dd>';
+    h += '<dt>Responsável</dt><dd>'+txt(it,"dono","Nome do responsável")+'</dd>';
+    h += '<dt>Início</dt><dd>'+date(it,"inicio")+'</dd>';
+    h += '<dt>Atualizado</dt><dd>'+br(it.atualizadoEm)+'<br><span class="muted">'+esc(it.atualizadoPor)+'</span></dd>';
+    h += '</dl></div></header>';
+
+    h += '<div class="summary"><div class="meter"><div class="big">'+macro.pct+'%</div><div class="lbl">dos testes aprovados ('+macro.aprovados+' de '+macro.total+')</div><div class="track"><i style="width:'+macro.pct+'%"></i></div><div class="lbl" style="margin-top:10px">Cronograma do projeto: '+fasePct+'% concluído</div></div>';
+    var etStats = calcPctEtapas(it.etapas);
+    h += '<div class="counts"><div class="count"><b style="color:var(--ok)">'+etStats.aprovadas+'</b><span>etapas aprovadas deste item (de '+etStats.total+')</span></div>';
+    h += '<div class="count"><b style="color:var(--steel)">'+etStats.pct+'%</b><span>Linha de vida isolada</span></div></div></div>';
+
+    h += '<section><header><h2>Linha de vida do item (cenário principal)</h2><p>Cada etapa deve carregar o mesmo identificador do pedido origem.</p></header>';
+    h += '<div class="chain">'+it.etapas.map(function(e){var c=cls(e.status);return '<div class="link st-'+c+'"><div class="knot">'+esc(e.id)+'</div><div class="nm">'+esc(e.nome)+'</div><div class="st">'+pill(e.status)+'</div><div class="doc">'+(e.doc?esc(e.doc):'')+'</div></div>';}).join("")+'</div>';
+    h += '<div class="chain-detail scroll"><table><thead><tr><th>Etapa</th><th>O que conferir</th><th>Status</th><th>Nº documento / evidência</th><th>Observação</th></tr></thead><tbody>';
+    it.etapas.forEach(function(e,i){
+      h += '<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(e.id)+'. '+esc(e.nome)+'</td><td>'+esc(e.conferir)+'</td><td>'+sel(it,"etapas."+i+".status",ST_TESTE)+'</td><td>'+txt(it,"etapas."+i+".doc","Ex.: PV 012345 / NF 98765")+'</td><td>'+area(it,"etapas."+i+".obs")+'</td></tr>';
+    });
+    h += '</tbody></table></div></section>';
+    return h;
+  }
+
+  // ── Seções do PROJETO (compartilhadas entre todos os itens) ──
+  function renderCronograma(){
+    var pct = calcFasePct(PROJETO.fases);
+    var h = '<section><header><h2>Cronograma</h2><p>'+pct+'% concluído · fases da análise, compartilhadas entre todos os itens.</p>'+(editing?'<button class="add" data-add="fases">Adicionar fase</button>':'')+'</header><div class="scroll"><table><thead><tr><th>Fase</th><th>Descrição</th><th>Semana</th><th>Início</th><th>Fim</th><th>Responsável</th><th>Status</th><th>Andamento</th><th>Observação</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
+    PROJETO.fases.forEach(function(f,i){var p="fases."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(f.id)+'</td><td>'+txt(PROJETO,p+"nome")+'</td><td>'+txt(PROJETO,p+"semana")+'</td><td>'+date(PROJETO,p+"inicio")+'</td><td>'+date(PROJETO,p+"fim")+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+sel(PROJETO,p+"status",ST_FASE)+'</td><td>'+num(PROJETO,p+"pct")+'</td><td>'+area(PROJETO,p+"obs")+'</td>'+(editing?'<td><button class="del warn" data-del="fases.'+i+'">Remover</button></td>':'')+'</tr>';});
+    h += '</tbody></table></div></section>';
+    return h;
+  }
+  function renderCenarios(){
+    var st = calcPctGenerico(PROJETO.cenarios);
+    var h = '<section><header><h2>Cenários de exceção</h2><p>'+st.pct+'% aprovados ('+st.aprovados+' de '+st.total+') · compartilhados entre todos os itens.</p>'+(editing?'<button class="add" data-add="cenarios">Adicionar cenário</button>':'')+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Cenário</th><th>Resultado esperado</th><th>Resultado obtido</th><th>Status</th><th>Responsável</th><th>Data</th><th>Evidência</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
+    PROJETO.cenarios.forEach(function(c,i){var p="cenarios."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(c.id)+'</td><td>'+txt(PROJETO,p+"titulo")+'</td><td>'+area(PROJETO,p+"esperado")+'</td><td>'+area(PROJETO,p+"obtido","O que aconteceu no teste")+'</td><td>'+sel(PROJETO,p+"status",ST_TESTE)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+date(PROJETO,p+"data")+'</td><td>'+area(PROJETO,p+"evid","Nº de documentos, link do print")+'</td>'+(editing?'<td><button class="del warn" data-del="cenarios.'+i+'">Remover</button></td>':'')+'</tr>';});
+    h += '</tbody></table></div></section>';
+    return h;
+  }
+  function renderGaps(){
+    var abertos = PROJETO.gaps.filter(function(g){return !/Resolvido|Descartado|Aceito/.test(g.status);}).length;
+    var h = '<section><header><h2>Registro de GAPs</h2><p>'+abertos+' em aberto de '+PROJETO.gaps.length+' · compartilhado entre todos os itens.</p>'+(editing?'<button class="add" data-add="gaps">Adicionar GAP</button>':'')+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Severidade</th><th>Status</th><th>Responsável</th><th>Ação / correção</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
+    PROJETO.gaps.forEach(function(g,i){var p="gaps."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(g.id)+'</td><td>'+area(PROJETO,p+"desc")+'</td><td>'+sel(PROJETO,p+"sev",SEV)+'</td><td>'+sel(PROJETO,p+"status",ST_GAP)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+area(PROJETO,p+"acao")+'</td>'+(editing?'<td><button class="del warn" data-del="gaps.'+i+'">Remover</button></td>':'')+'</tr>';});
+    h += '</tbody></table></div></section>';
+    return h;
+  }
+  function renderAprovacao(){
+    var h = '<section><header><h2>Aprovação final</h2><p>Compartilhada entre todos os itens — preenchida no encerramento do projeto.</p></header><div class="sign">';
+    PROJETO.aprovacoes.forEach(function(a,i){var p="aprovacoes."+i+".";h+='<div class="sig"><div class="area">'+esc(a.area)+'</div><div class="line">'+txt(PROJETO,p+"nome","Nome do aprovador")+'</div><div class="cap">Nome</div><div class="line">'+(editing?'<select data-p="'+p+'parecer"><option value=""></option>'+["Aprovado","Aprovado com ressalvas","Reprovado"].map(function(o){return '<option'+(o===a.parecer?' selected':'')+'>'+o+'</option>';}).join("")+'</select>':(a.parecer?pill(a.parecer):''))+'</div><div class="cap">Parecer</div><div class="line">'+date(PROJETO,p+"data")+'</div><div class="cap">Data</div></div>';});
+    h += '</div></section>';
+    return h;
+  }
+  function renderHistoricoItem(it){
+    return '<section><header><h2>Histórico de versões</h2><p>Específico deste item ('+esc(it.codigo)+').</p></header><ul class="log">'+it.log.slice().reverse().map(function(l){return '<li><span class="v">v'+l.v+'</span>'+br(l.data)+' · '+esc(l.por)+'<div class="muted">'+esc(l.nota)+'</div></li>';}).join("")+'</ul></section>';
+  }
+
+  function syncBar(){
+    var canEdit = !readOnly;
+    document.getElementById('btnEdit').hidden = !canEdit || editing || telaAtual !== 'item';
+    document.getElementById('btnCancel').hidden = !editing;
+    document.getElementById('btnSave').hidden = !editing;
+    document.getElementById('btnDownload').hidden = editing;
+    document.getElementById('btnPrint').hidden = telaAtual !== 'item';
+    var msg;
+    if (editing) msg = 'Editando. Clique em "Salvar nova versão" pra gravar de vez no seu navegador.';
+    else if (telaAtual === 'lista') msg = 'Documento local — salvo neste navegador';
+    else msg = canEdit ? 'Documento local — salvo neste navegador' : 'Somente leitura';
+    document.getElementById('who').textContent = msg;
+  }
+  function banner(t){ document.getElementById('banner').textContent = t || ""; }
+
+  // ── Navegação entre telas ──
+  function abrirItem(idx){
+    itemAtivoIdx = idx; telaAtual = 'item'; secaoAtiva = 'linha'; editing = false;
+    render();
+  }
+  function voltarLista(){
+    if (editing){ banner('Salve ou descarte as alterações antes de voltar.'); return; }
+    telaAtual = 'lista'; itemAtivoIdx = null; render();
+  }
+  function novoItem(){
+    var maxN = ITENS.reduce(function(mx,it){
+      var m = String(it.codigo).match(/(\d+)$/); return Math.max(mx, m ? +m[1] : 0);
+    }, 0);
+    var novoCodigo = "PTR-RG-" + String(maxN+1).padStart(3,"0");
+    var novo = {
+      codigo: novoCodigo, item: "", versao: 1, situacao: "Em execução", dono: "",
+      inicio: today(), atualizadoEm: today(), atualizadoPor: "Criação do item",
+      etapas: [
+        {id:"1",nome:"Pedido origem",conferir:"ID gerado; saldo reservado; disponível para venda reduzido",status:"Não iniciado",doc:"",obs:""},
+        {id:"2",nome:"Agendamento",conferir:"Data e janela vinculadas ao pedido, sem duplicar reserva",status:"Não iniciado",doc:"",obs:""},
+        {id:"3",nome:"Carga",conferir:"Item amarrado à carga e ao veículo; não entra em duas cargas",status:"Não iniciado",doc:"",obs:""},
+        {id:"4",nome:"Faturamento",conferir:"NF referencia pedido e item; lote/série na NF",status:"Não iniciado",doc:"",obs:""},
+        {id:"5",nome:"Recusa na entrega",conferir:"Motivo registrado; peça com status de retorno em trânsito",status:"Não iniciado",doc:"",obs:""},
+        {id:"6",nome:"Retorno (NF devolução)",conferir:"NF de entrada vinculada à NF original",status:"Não iniciado",doc:"",obs:""},
+        {id:"7",nome:"Armazenagem",conferir:"Armazém/endereço correto: bom, avariado ou quarentena",status:"Não iniciado",doc:"",obs:""},
+        {id:"8",nome:"Reenvio",conferir:"Pedido de reenvio vinculado ao origem, sem nova venda/receita",status:"Não iniciado",doc:"",obs:""},
+        {id:"9",nome:"Entrega final",conferir:"Ciclo encerrado; histórico completo consultável",status:"Não iniciado",doc:"",obs:""}
+      ],
+      log: [{v:1, data:today(), por:"Criação do item", nota:"Linha de vida inicial deste item."}],
+    };
+    ITENS.push(novo); ITENS_SALVOS.push(JSON.parse(JSON.stringify(novo)));
+    persistir();
+    abrirItem(ITENS.length - 1);
+  }
+
+  // ── Edição ──
+  document.getElementById('root').addEventListener('change', function(e){
+    var el = e.target, p = el.getAttribute('data-p'); if (!p) return;
+    var alvo = (secaoAtiva === 'linha' || secaoAtiva === 'historico') ? ITENS[itemAtivoIdx] : PROJETO;
+    set(alvo, p, el.hasAttribute('data-num') ? Math.max(0,Math.min(100,+el.value||0)) : el.value);
+    if (el.tagName === "SELECT") render();
+    try{ sessionStorage.setItem('rg-draft-'+secaoAtiva, JSON.stringify(alvo)); }catch(_){}
+  });
+  document.getElementById('root').addEventListener('click', function(e){
+    var a = e.target.getAttribute('data-add'), d = e.target.getAttribute('data-del');
+    if (!a && !d) return;
+    var alvo = PROJETO; // adicionar/remover linha só existe nas seções do projeto (fases/cenarios/gaps)
+    if (a){
+      var list = alvo[a], pre = {fases:"F",cenarios:"E",gaps:"G"}[a];
+      var n = list.reduce(function(mx,x){var k=parseInt(String(x.id).replace(/\D/g,""),10)||0;return Math.max(mx,k);},0)+1;
+      var id = pre + (a==="fases" ? n : String(n).padStart(2,"0"));
+      if (a==="fases") list.push({id:id,nome:"",semana:"",inicio:"",fim:"",resp:"",status:"Não iniciada",pct:0,obs:""});
+      if (a==="cenarios") list.push({id:id,titulo:"",esperado:"",obtido:"",status:"Não iniciado",resp:"",data:"",evid:""});
+      if (a==="gaps") list.push({id:id,desc:"",sev:"Média",status:"A verificar",resp:"",acao:""});
+      render();
+    }
+    if (d){ var q=d.split("."); alvo[q[0]].splice(+q[1],1); render(); }
+  });
+
+  document.getElementById('btnVoltarLista').onclick = voltarLista;
+  document.getElementById('btnEdit').onclick = function(){ editing = true; render(); };
+  document.getElementById('btnCancel').onclick = function(){
+    editing = false;
+    if (secaoAtiva === 'linha' || secaoAtiva === 'historico') ITENS[itemAtivoIdx] = JSON.parse(JSON.stringify(ITENS_SALVOS[itemAtivoIdx]));
+    else PROJETO = JSON.parse(JSON.stringify(PROJETO_SALVO));
+    try{ sessionStorage.removeItem('rg-draft-'+secaoAtiva); }catch(_){}
+    render();
+  };
+  document.getElementById('btnPrint').onclick = function(){
+    try{ window.print(); }catch(_){ banner('A impressão não está disponível aqui. Use "Baixar cópia para arquivo" e imprima a partir do arquivo.'); }
+  };
+
+  var dlg = document.getElementById('dlg');
+  document.getElementById('btnSave').onclick = function(){
+    try{ document.getElementById('fPor').value = localStorage.getItem('rg-nome') || ""; }catch(_){}
+    document.getElementById('fNota').value = "";
+    dlg.showModal();
+  };
+  document.getElementById('dlgNo').onclick = function(){ dlg.close(); };
+  document.getElementById('dlgYes').onclick = function(){
+    var por = document.getElementById('fPor').value.trim(), nota = document.getElementById('fNota').value.trim();
+    if (!por){ document.getElementById('fPor').focus(); return; }
+    try{ localStorage.setItem('rg-nome', por); }catch(_){}
+    dlg.close();
+
+    try{
+      if (secaoAtiva === 'linha' || secaoAtiva === 'historico'){
+        var it = ITENS[itemAtivoIdx];
+        it.versao = (+ITENS_SALVOS[itemAtivoIdx].versao || 1) + 1;
+        it.atualizadoEm = today(); it.atualizadoPor = por;
+        it.log.push({v: it.versao, data: today(), por: por, nota: nota || "Atualização sem descrição."});
+        ITENS_SALVOS[itemAtivoIdx] = JSON.parse(JSON.stringify(it));
+      } else {
+        PROJETO.versao = (+PROJETO_SALVO.versao || 1) + 1;
+        PROJETO.atualizadoEm = today(); PROJETO.atualizadoPor = por;
+        PROJETO.log.push({v: PROJETO.versao, data: today(), por: por, nota: nota || "Atualização sem descrição."});
+        PROJETO_SALVO = JSON.parse(JSON.stringify(PROJETO));
+      }
+      persistir();
+      editing = false;
+      try{ sessionStorage.removeItem('rg-draft-'+secaoAtiva); }catch(_){}
+      banner("Versão salva neste navegador.");
+      render();
+    }catch(err){
+      banner("Não foi possível salvar — armazenamento local bloqueado ou cheio.");
+    }
+  };
+
+  document.getElementById('btnDownload').onclick = function(){
+    var it = ITENS[itemAtivoIdx];
+    var blob = new Blob([buildDoc()], {type:"text/html"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = it.codigo+"_v"+it.versao+"_"+it.atualizadoEm+".html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    banner("Cópia baixada (inclui todos os itens e o projeto).");
+  };
+
+  // ── Impressão em lote: monta a Linha de vida de TODOS os itens, um
+  // por página, imprime, e depois restaura a tela normal. ──
+  function imprimirTodos(){
+    if (!ITENS.length){ banner('Nenhum item pra imprimir ainda.'); return; }
+    var h = ITENS.map(function(it){ return '<div class="lote-item">' + renderLinha(it) + '</div>'; }).join('');
+    var root = document.getElementById('root');
+    var anterior = root.innerHTML;
+    root.innerHTML = h;
+    function restaurar(){ root.innerHTML = anterior; window.removeEventListener('afterprint', restaurar); render(); }
+    window.addEventListener('afterprint', restaurar);
+    setTimeout(function(){
+      try{ window.print(); }catch(_){ banner('Impressão não disponível aqui.'); restaurar(); }
+    }, 30);
+  }
+
+  function buildDoc(){
+    var estado = { projeto: PROJETO_SALVO, itens: ITENS_SALVOS };
+    var json = JSON.stringify(estado).replace(/</g,"\\u003c");
+    var css = document.getElementById('css').textContent;
+    var js = document.getElementById('app').textContent;
+    var bodyTpl = document.getElementById('shell').textContent;
+    var T = "t"+"itle";
+    var headStart = '\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<'+T+'>'+esc(TITULO)+'</'+T+'>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">\n';
+    var SC = "scr"+"ipt";
+    return "<!doctype html>\n<html lang=\"pt-BR\">\n<head>"+headStart+"<style id=\"css\">"+css+"</style>\n</head>\n<body>"+bodyTpl
+      +"<"+SC+" type=\"application/json\" id=\"state\">\n"+json+"\n</"+SC+">\n"
+      +"<"+SC+" type=\"text/plain\" id=\"shell\">"+bodyTpl.replace(/<\/script/gi,"<\\/script")+"</"+SC+">\n"
+      +"<"+SC+" id=\"app\">"+js+"</"+SC+">\n</body>\n</html>\n";
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
