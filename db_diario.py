@@ -50,6 +50,13 @@ from google.oauth2 import service_account
 
 PROJETO_FIRESTORE = "wendleydesenvolvimento"
 COLECAO = "diario_atividades"
+COLECAO_ACOES = "diario_acoes"        # [NOVO v2.3] ações dentro de cada atividade
+COLECAO_ARQUIVOS = "diario_arquivos"  # [NOVO v2.3] evidências enviadas como arquivo
+
+# [NOVO v2.3] Limite de tamanho do arquivo de evidência. O Firestore aceita
+# no máximo 1 MB por documento; 900 KB deixa folga pros outros campos.
+# Arquivo maior que isso → usar o modo "Link" (Drive, OneDrive etc.).
+LIMITE_ARQUIVO_BYTES = 900 * 1024
 
 # [NOVO] Tempo máximo (segundos) de cada chamada ao Firestore. Sem isso, uma
 # conexão travada deixa o request esperando PARA SEMPRE ("carregando
@@ -121,6 +128,14 @@ def _col():
     return get_db().collection(COLECAO)
 
 
+def _col_acoes():
+    return get_db().collection(COLECAO_ACOES)
+
+
+def _col_arquivos():
+    return get_db().collection(COLECAO_ARQUIVOS)
+
+
 def _doc_to_dict(doc) -> dict:
     d = doc.to_dict() or {}
     d["id"] = doc.id
@@ -143,7 +158,28 @@ def atividades_listar(excluido: bool = False) -> list[dict]:
     docs = _col().where(filter=FieldFilter("excluido", "==", excluido)).stream(timeout=TIMEOUT_FS)
     linhas = [_doc_to_dict(d) for d in docs]
     linhas.sort(key=lambda r: r.get("prazo") or "")
+
+    # [NOVO v2.3] Mesmos dois campos que o SQLite calculava: quantas ações
+    # cada atividade tem, e se alguma delas tem lembrete vencido/de hoje
+    # ainda aberto (é o que acende o selo piscante na tela).
+    hoje = datetime.date.today().isoformat()
+    qtd: dict = {}
+    pendentes: set = set()
+    for a in _col_acoes().stream(timeout=TIMEOUT_FS):
+        d = a.to_dict() or {}
+        aid = d.get("atividade_id")
+        qtd[aid] = qtd.get(aid, 0) + 1
+        lem = d.get("lembrete")
+        if lem and lem <= hoje and not d.get("lembrete_encerrado"):
+            pendentes.add(aid)
+    for linha in linhas:
+        linha["qtd_acoes"] = qtd.get(linha["id"], 0)
+        linha["tem_lembrete_pendente"] = linha["id"] in pendentes
     return linhas
+
+
+def atividade_existe(atividade_id: str) -> bool:
+    return _col().document(atividade_id).get(timeout=TIMEOUT_FS).exists
 
 
 def atividades_inserir(dados: dict) -> str:
@@ -191,3 +227,114 @@ def init_dados_exemplo() -> None:
     ]
     for dados in exemplos:
         atividades_inserir(dados)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v2.3] AÇÕES — sub-registros dentro de uma atividade (mesma regra
+# que o SQLite tinha: ligadas por `atividade_id`, exclusão de verdade).
+# ──────────────────────────────────────────────────────────────────────────
+
+def acoes_listar(atividade_id: str) -> list[dict]:
+    docs = _col_acoes().where(filter=FieldFilter("atividade_id", "==", atividade_id)).stream(timeout=TIMEOUT_FS)
+    linhas = [_doc_to_dict(d) for d in docs]
+    linhas.sort(key=lambda r: r.get("_criado_em") or "")
+    return linhas
+
+
+def acoes_inserir(atividade_id: str, descricao: str, lembrete: Optional[str]) -> str:
+    _, ref = _col_acoes().add({
+        "atividade_id": atividade_id,
+        "descricao": descricao,
+        "lembrete": lembrete or None,
+        "lembrete_encerrado": False,
+        "_criado_em": _now_iso(),
+    }, timeout=TIMEOUT_FS)
+    return ref.id
+
+
+def acoes_excluir(acao_id: str) -> bool:
+    ref = _col_acoes().document(acao_id)
+    if not ref.get(timeout=TIMEOUT_FS).exists:
+        return False
+    ref.delete(timeout=TIMEOUT_FS)
+    return True
+
+
+def acoes_encerrar_lembrete(acao_id: str) -> bool:
+    ref = _col_acoes().document(acao_id)
+    if not ref.get(timeout=TIMEOUT_FS).exists:
+        return False
+    ref.update({"lembrete_encerrado": True}, timeout=TIMEOUT_FS)
+    return True
+
+
+def acoes_listar_todas() -> list[dict]:
+    """Relatório de Ações: todas as ações, já com nome/responsável/status
+    da atividade-mãe (o JOIN que o SQLite fazia, aqui feito em Python)."""
+    atividades = {d.id: (d.to_dict() or {}) for d in _col().stream(timeout=TIMEOUT_FS)}
+    linhas = []
+    for a in _col_acoes().stream(timeout=TIMEOUT_FS):
+        d = _doc_to_dict(a)
+        mae = atividades.get(d.get("atividade_id"))
+        if mae is None:
+            continue  # mesma regra do JOIN: ação sem atividade não aparece
+        d["atividade_nome"] = mae.get("nome")
+        d["atividade_resp"] = mae.get("resp")
+        d["atividade_status"] = mae.get("status")
+        linhas.append(d)
+    linhas.sort(key=lambda r: r.get("_criado_em") or "", reverse=True)
+    return linhas
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v2.3] ARQUIVOS DE EVIDÊNCIA — guardados no próprio Firestore.
+# O disco do Render Free é apagado a cada reinício, então salvar em pasta
+# (como o SQLite fazia em ./uploads) perderia os arquivos.
+# ──────────────────────────────────────────────────────────────────────────
+
+def arquivos_salvar(nome: str, tipo: str, conteudo: bytes) -> str:
+    _, ref = _col_arquivos().add({
+        "nome": nome,
+        "tipo": tipo or "application/octet-stream",
+        "tamanho": len(conteudo),
+        "conteudo": conteudo,
+        "_criado_em": _now_iso(),
+    }, timeout=TIMEOUT_FS)
+    return ref.id
+
+
+def arquivos_ler(arquivo_id: str) -> Optional[dict]:
+    doc = _col_arquivos().document(arquivo_id).get(timeout=TIMEOUT_FS)
+    return doc.to_dict() if doc.exists else None
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v2.4] DIAGNÓSTICO N2 — armazenamento GENÉRICO por seção.
+#
+# Mesmo formato do mod_diagnostico.py (Streamlit): coleção "diagnostico",
+# um documento por seção (inventario, diario, matriz…), conteúdo inteiro
+# no campo "dados". O servidor NÃO conhece os campos — quem decide o que
+# vai dentro de "dados" é o diagnostico.html. Campo novo = só mexer no HTML.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_DIAGNOSTICO = os.environ.get("DIAG_COLECAO", "diagnostico")
+
+
+def _col_diag():
+    return get_db().collection(COLECAO_DIAGNOSTICO)
+
+
+def diag_ler_todos() -> dict:
+    return {d.id: (d.to_dict() or {}).get("dados") for d in _col_diag().stream(timeout=TIMEOUT_FS)}
+
+
+def diag_ler(secao: str):
+    doc = _col_diag().document(secao).get(timeout=TIMEOUT_FS)
+    return (doc.to_dict() or {}).get("dados") if doc.exists else None
+
+
+def diag_salvar(secao: str, dados) -> None:
+    brt = datetime.timezone(datetime.timedelta(hours=-3))
+    _col_diag().document(secao).set(
+        {"dados": dados, "atualizado_em": datetime.datetime.now(brt).isoformat()},
+        timeout=TIMEOUT_FS,
+    )
