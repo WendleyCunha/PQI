@@ -1,13 +1,17 @@
 import os
+import re
+import json
+import urllib.request
+import urllib.error
 import threading
 import traceback
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel, field_validator
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import db_diario as db
 
@@ -29,7 +33,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Diário de Bordo API - Firestore", version="2.3", lifespan=lifespan)
+app = FastAPI(title="Diário de Bordo API - Firestore", version="2.4", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +84,8 @@ class AtividadeCreate(BaseModel):
     bloqueio: Optional[str] = "—"
     valor_gerado: Optional[str] = "Produtividade"
     observacoes: Optional[str] = ""
+    evidencia: Optional[str] = ""          # [VOLTOU v2.3] o front envia e a tela usa
+    prazo_entregue: Optional[str] = None   # [VOLTOU v2.3]
 
     # Validação que faltava por completo na primeira versão — é o motivo
     # direto de existirem atividades sem nome no SQLite antigo. Os campos
@@ -94,6 +100,18 @@ class AtividadeCreate(BaseModel):
     def nao_pode_ser_vazio(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("campo obrigatório não pode ficar em branco")
+        return v.strip()
+
+
+class AcaoCreate(BaseModel):
+    descricao: str
+    lembrete: Optional[str] = None  # data opcional (YYYY-MM-DD)
+
+    @field_validator("descricao")
+    @classmethod
+    def nao_vazio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("descrição da ação não pode ficar em branco")
         return v.strip()
 
 
@@ -162,6 +180,18 @@ def create_atividade(payload: AtividadeCreate):
         "prazo": payload.prazo_previsto,
         "bloqueio": bloqueio_val,
         "mes": mes_val,
+        # [VOLTOU v2.3] campos que a versão SQLite gravava e a tela usa
+        # (indicadores, governança, tabela de acompanhamento) — na
+        # primeira versão Firestore eles tinham ficado de fora.
+        "indicador": payload.indicador_relacionado,
+        "volume": payload.volume or 0,
+        "valor_gerado": payload.valor_gerado,
+        "observacoes": payload.observacoes,
+        "evidencia": payload.evidencia,
+        "prazo_entregue": payload.prazo_entregue,
+        "problema_causa": payload.problema_causa,
+        "demanda": payload.demanda,
+        "data_cadastro": payload.data,
     })
     return {"sucesso": True, "mensagem": "Atividade salva com sucesso no Firestore!", "id": novo_id}
 
@@ -183,6 +213,162 @@ def excluir_atividade(atividade_id: str):
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# [VOLTOU v2.3] AÇÕES dentro de uma atividade + RELATÓRIO de ações
+# ──────────────────────────────────────────────────────────────────────────
+@app.get("/api/atividades/{atividade_id}/acoes", response_model=List[dict])
+def listar_acoes(atividade_id: str):
+    return db.acoes_listar(atividade_id)
+
+
+@app.post("/api/atividades/{atividade_id}/acoes")
+def criar_acao(atividade_id: str, payload: AcaoCreate):
+    if not db.atividade_existe(atividade_id):
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
+    novo_id = db.acoes_inserir(atividade_id, payload.descricao, payload.lembrete)
+    return {"sucesso": True, "id": novo_id}
+
+
+@app.delete("/api/acoes/{acao_id}")
+def excluir_acao(acao_id: str):
+    if not db.acoes_excluir(acao_id):
+        raise HTTPException(status_code=404, detail="Ação não encontrada.")
+    return {"sucesso": True}
+
+
+@app.put("/api/acoes/{acao_id}/encerrar-lembrete")
+def encerrar_lembrete(acao_id: str):
+    if not db.acoes_encerrar_lembrete(acao_id):
+        raise HTTPException(status_code=404, detail="Ação não encontrada.")
+    return {"sucesso": True}
+
+
+@app.get("/api/acoes", response_model=List[dict])
+def listar_todas_acoes():
+    return db.acoes_listar_todas()
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [VOLTOU v2.3] UPLOAD de evidência — agora salvo no Firestore (o disco do
+# Render Free é apagado a cada reinício). Limite ~900 KB por arquivo.
+# ──────────────────────────────────────────────────────────────────────────
+@app.post("/api/upload")
+async def fazer_upload(arquivo: UploadFile = File(...)):
+    conteudo = await arquivo.read()
+    if len(conteudo) > db.LIMITE_ARQUIVO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(f"Arquivo de {len(conteudo)//1024} KB passa do limite de "
+                    f"{db.LIMITE_ARQUIVO_BYTES//1024} KB. Use o modo Link (Drive/OneDrive)."),
+        )
+    novo_id = db.arquivos_salvar(arquivo.filename or "arquivo", arquivo.content_type, conteudo)
+    return {"sucesso": True, "url": f"/api/arquivos/{novo_id}", "nome_original": arquivo.filename}
+
+
+@app.get("/api/arquivos/{arquivo_id}", include_in_schema=False)
+def baixar_arquivo(arquivo_id: str):
+    dados = db.arquivos_ler(arquivo_id)
+    if not dados:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+    nome = (dados.get("nome") or "arquivo").replace('"', "")
+    return Response(
+        content=bytes(dados.get("conteudo") or b""),
+        media_type=dados.get("tipo") or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{nome}"'},
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v2.4] DIAGNÓSTICO N2 — API GENÉRICA
+# 3 rotas que guardam/devolvem QUALQUER JSON por seção. Não tem nenhum
+# nome de campo aqui de propósito: campos e seções novas se resolvem só
+# no diagnostico.html, sem precisar mexer neste arquivo.
+# ──────────────────────────────────────────────────────────────────────────
+_SECAO_VALIDA = re.compile(r"^[a-z0-9_]{1,60}$")
+_LIMITE_SECAO_BYTES = 950 * 1024  # Firestore aceita até 1 MB por documento
+
+
+class SecaoDiagnostico(BaseModel):
+    dados: Any = None
+
+
+def _validar_secao(secao: str) -> str:
+    if not _SECAO_VALIDA.match(secao or ""):
+        raise HTTPException(status_code=400, detail="Nome de seção inválido (use só letras minúsculas, números e _).")
+    return secao
+
+
+@app.get("/api/diagnostico")
+def diagnostico_tudo():
+    """Todas as seções de uma vez — o HTML carrega isso ao abrir."""
+    return db.diag_ler_todos()
+
+
+@app.get("/api/diagnostico/{secao}")
+def diagnostico_ler(secao: str):
+    return {"secao": secao, "dados": db.diag_ler(_validar_secao(secao))}
+
+
+@app.put("/api/diagnostico/{secao}")
+def diagnostico_salvar(secao: str, payload: SecaoDiagnostico):
+    _validar_secao(secao)
+    tamanho = len(json.dumps(payload.dados, ensure_ascii=False, default=str).encode("utf-8"))
+    if tamanho > _LIMITE_SECAO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"A seção '{secao}' ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB por documento).",
+        )
+    db.diag_salvar(secao, payload.dados)
+    return {"sucesso": True}
+
+
+@app.post("/api/diagnostico-ia")
+def diagnostico_resumo_ia():
+    """Resumo executivo com a API da Anthropic. A chave fica SÓ no servidor
+    (variável de ambiente ANTHROPIC_API_KEY no Render), nunca no HTML."""
+    chave = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not chave:
+        return {"erro": "Configure a variável ANTHROPIC_API_KEY no Render (Environment) para usar esta função."}
+
+    todos = db.diag_ler_todos()
+    secoes = ["inventario", "organograma", "raci", "raci_pessoas", "raci_matriz", "diario",
+              "entrevistas", "gemba", "matriz", "jornadas", "respostas"]
+    dados = {s: todos.get(s) for s in secoes}
+    prompt = (
+        "Você está ajudando a consolidar um mapeamento de atividades (estilo Lean/Gemba) de uma "
+        "equipe de backoffice N2. Abaixo estão os dados brutos coletados, em JSON. Escreva um RESUMO "
+        "EXECUTIVO em português, objetivo e assertivo, cobrindo nesta ordem: 1) o que a equipe faz de "
+        "fato; 2) como o trabalho é dividido; 3) de onde vêm as demandas; 4) onde o tempo é mais "
+        "consumido; 5) principais dependências externas; 6) trabalho invisível identificado; e termine "
+        "com 3 a 5 recomendações práticas priorizadas. Não invente dados que não estejam no JSON — "
+        "se uma seção estiver vazia, apenas mencione que precisa de mais coleta ali.\n\n"
+        f"DADOS COLETADOS (JSON):\n{json.dumps(dados, ensure_ascii=False, default=str)}"
+    )
+    corpo = json.dumps({
+        "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+        "max_tokens": 2000,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages", data=corpo, method="POST",
+        headers={"Content-Type": "application/json", "x-api-key": chave, "anthropic-version": "2023-06-01"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            resposta = json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error", {}).get("message", f"HTTP {e.code}")
+        except Exception:
+            msg = f"HTTP {e.code}"
+        return {"erro": f"Erro da API Anthropic: {msg}"}
+    except Exception as e:
+        return {"erro": f"Erro de conexão com a API: {e}"}
+
+    texto = "".join(b.get("text", "") for b in resposta.get("content", []) if b.get("type") == "text")
+    return {"texto": texto}
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # [AJUSTADO v2.3] PÁGINAS HTML — o mesmo servidor agora entrega o Painel
 # (túnel) e todos os sistemas que são arquivo HTML.
 #
@@ -199,6 +385,7 @@ PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
     "/diario": "diario.html",                                            # Diário de Bordo
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
+    "/diagnostico": "diagnostico.html",                                  # Diagnóstico N2
 }
 
 
