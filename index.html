@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" style="color-scheme: dark;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diário de Bordo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --void:#06070b; --panel:#0e1017; --panel-2:#151824;
+  --line:rgba(232,179,61,0.16); --line-strong:rgba(232,179,61,0.4);
+  --gold:#e8b33d; --gold-soft:#f3cd6f; --violet:#8b6cff;
+  --ink:#f2f0ea; --ink-muted:#8b8f9c; --ink-faint:#565b6b;
+  --azul:#4fc3f7; --amarelo:#ffd93d; --vermelho:#ff3b4e;
+  --rosa:#ff6fa5; --roxo:#8b5cf6; --laranja:#ff8a34; --cinza:#8b8f9c; --preto:#14121a; --branco:#ffffff;
+  font-family:'Inter',sans-serif;
+}
+:root[data-theme="light"]{
+  --void:#f3f1ea; --panel:#ffffff; --panel-2:#ece9e0;
+  --line:rgba(139,109,26,0.18); --line-strong:rgba(139,109,26,0.38);
+  --gold:#a3791b; --gold-soft:#8a6414; --violet:#6f4fd1;
+  --ink:#1c1d22; --ink-muted:#5b5f6b; --ink-faint:#8a8d99;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--void);color:var(--ink);min-height:100%;}
+::selection{background:var(--gold);color:var(--preto);}
+.field{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(1100px 600px at 12% -10%, rgba(232,179,61,0.14), transparent 60%), radial-gradient(900px 500px at 110% 10%, rgba(139,108,255,0.14), transparent 60%), var(--void);}
+.shell{max-width:1560px;margin:0 auto;padding:20px 20px 80px;}
+
+.bar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:100;background:var(--void);
+  border-bottom:1px solid var(--line);
+}
+.bar-in{
+  max-width:1560px;margin:0 auto;padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.kpis-wrap{padding-top:16px;}
+.brand{display:flex;align-items:center;gap:14px;}
+.mark{width:42px;height:42px;border-radius:50%;background:conic-gradient(from 220deg,var(--gold),var(--violet),var(--gold));display:flex;align-items:center;justify-content:center;position:relative;}
+.mark::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--void);}
+.mark span{position:relative;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--gold-soft);}
+.brand-text h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;}
+.brand-text p{font-size:12px;color:var(--ink-faint);margin-top:1px;}
+.clock{font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--ink-muted);text-align:right;}
+.clock b{color:var(--ink);font-weight:600;}
+
+.top-actions{display:flex;align-items:center;gap:14px;}
+.status-api{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-faint);}
+.status-api .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint);}
+.status-api.ok .dot{background:#3ddc97;}
+.status-api.off .dot{background:var(--vermelho);}
+.theme-toggle{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px;cursor:pointer;}
+.theme-toggle .opt{display:flex;align-items:center;justify-content:center;width:30px;height:26px;border-radius:16px;color:var(--ink-faint);transition:all .15s;}
+.theme-toggle .opt.on{background:var(--gold);color:var(--preto);}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.kpi{background:linear-gradient(180deg, var(--panel), var(--panel-2));border:1px solid var(--line);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:border-color .15s, transform .15s;}
+.kpi::after{content:"";position:absolute;top:-40%;right:-20%;width:140px;height:140px;background:radial-gradient(circle,rgba(232,179,61,0.16),transparent 70%);}
+.kpi.clickable{cursor:pointer;}
+.kpi.clickable:hover{border-color:var(--line-strong);transform:translateY(-2px);}
+.kpi.kpi-active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);}
+.kpi .lbl{font-size:11.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.06em;}
+.kpi .val{font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:600;margin:8px 0 6px;position:relative;}
+.kpi .delta{font-size:12px;font-weight:500;}
+.delta.up{color:#3ddc97;} .delta.warn{color:var(--vermelho);}
+
+.switcher-top{display:flex;gap:30px;align-items:center;}
+.switch-btn{background:none;border:none;color:var(--ink-faint);font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:500;padding:8px 2px;cursor:pointer;position:relative;}
+.switch-btn:hover{color:var(--ink-muted);}
+.switch-btn.active{color:var(--ink);}
+.switch-btn.active::after{content:"";position:absolute;left:0;right:0;bottom:-9px;height:2px;background:linear-gradient(90deg,var(--gold),var(--violet));border-radius:2px;}
+
+.panel{display:none;}
+.panel.active{display:block;animation:fadein .35s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 28px;margin-top:20px;}
+
+/* ── INDICADORES ── */
+.ind-seletor-wrap{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap;}
+.ind-seletor-wrap label{font-size:13px;color:var(--ink-muted);}
+.ind-seletor-wrap strong{color:var(--ink);font-weight:600;}
+#indSelector{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+  font-family:'Inter',sans-serif;font-size:13px;padding:9px 14px;outline:none;cursor:pointer;min-width:220px;
+}
+#indSelector:focus{border-color:var(--gold);}
+
+.ind-grupo{display:none;}
+.ind-grupo.active{display:block;animation:fadein .3s ease;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(190px,1fr));gap:14px;margin-bottom:22px;}
+.kpi-card{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+}
+.kpi-card .t{font-size:11.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+.kpi-card .n{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:600;color:var(--ink);}
+.kpi-card .n.bom{color:#3ddc97;}
+.kpi-card .n.ruim{color:var(--vermelho);}
+
+.charts-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px,1fr));gap:16px;}
+.chart-box{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:18px;
+  display:flex;flex-direction:column;
+}
+.chart-box h3{font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:12px;}
+.chart-box h3 .meta-tag{
+  font-size:10px;font-weight:600;color:var(--gold-soft);background:rgba(232,179,61,0.12);
+  padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle;
+}
+.canvas-holder{position:relative;height:220px;}
+.canvas-holder.gauge{height:170px;}
+.chart-center-text{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;
+}
+.chart-center-text .val{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;color:var(--ink);}
+.chart-center-text .lbl{font-size:10px;color:var(--ink-faint);margin-top:2px;}
+
+.granularidade-toggle{display:flex;gap:6px;margin-bottom:10px;}
+.gran-opt{
+  flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 0;
+  font-size:11px;font-weight:500;color:var(--ink-muted);cursor:pointer;transition:all .15s;
+}
+.gran-opt.sel{background:var(--gold);border-color:var(--gold);color:var(--preto);font-weight:700;}
+
+.gauge-legenda{
+  position:absolute;bottom:6px;left:0;right:0;text-align:center;
+  font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--ink);
+}
+.gauge-legenda small{display:block;font-family:'Inter',sans-serif;font-size:10px;font-weight:500;color:var(--ink-faint);margin-top:2px;}
+
+.card h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin-bottom:4px;}
+.card .sub{font-size:12.5px;color:var(--ink-faint);margin-bottom:22px;}
+
+.grid-form{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 20px;}
+.f{display:flex;flex-direction:column;gap:7px;}
+.f.span2{grid-column:span 2;}
+.f label{font-size:12px;color:var(--ink-muted);display:flex;align-items:center;gap:6px;}
+.f label .req{color:var(--gold);}
+.f select, .f input, .f textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13.5px;padding:10px 12px;outline:none;transition:border-color .15s;}
+.f select:focus,.f input:focus,.f textarea:focus{border-color:var(--gold);}
+.evid-toggle{display:flex;gap:8px;margin-bottom:2px;}
+.evid-opt{
+  flex:1;border:1px solid var(--line);border-radius:10px;padding:8px 0;text-align:center;
+  font-size:12px;font-weight:500;cursor:pointer;background:var(--panel-2);color:var(--ink-muted);
+  transition:all .15s;font-family:'Inter',sans-serif;
+}
+.evid-opt.sel{background:var(--gold);border-color:var(--gold);color:var(--preto);font-weight:700;}
+.evid-arquivo-info{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.5px;
+}
+.evid-arquivo-info span{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.evid-arquivo-info button{
+  background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:13px;flex:none;
+  padding:2px 6px;border-radius:6px;
+}
+.evid-arquivo-info button:hover{color:var(--vermelho);background:rgba(255,59,78,0.1);}
+.f textarea{resize:vertical;min-height:64px;}
+.f.erro select,.f.erro input,.f.erro textarea{border-color:var(--vermelho);}
+.f .msg-erro{font-size:11px;color:var(--vermelho);display:none;}
+.f.erro .msg-erro{display:block;}
+
+.form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:26px;}
+.form-msg{font-size:12.5px;color:var(--ink-muted);}
+.form-msg.ok{color:#3ddc97;}
+.form-msg.erro{color:var(--vermelho);}
+.btn{font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600;padding:11px 24px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink-muted);cursor:pointer;transition:all .15s;}
+.btn.primary{background:linear-gradient(90deg,var(--gold),var(--gold-soft));color:var(--preto);border:none;}
+.btn:hover{border-color:var(--line-strong);color:var(--ink);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.chip{font-size:12.5px;padding:8px 16px;border-radius:20px;border:1px solid var(--line);color:var(--ink-muted);cursor:pointer;background:transparent;transition:all .15s;}
+.chip.active{background:var(--panel-2);border-color:var(--line-strong);color:var(--ink);}
+.chip.quick{background:var(--gold);border-color:var(--gold);color:var(--preto);font-weight:600;display:flex;align-items:center;gap:8px;}
+.filters .divider{width:1px;align-self:stretch;background:var(--line);margin:0 4px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+#areaTabela{overflow-x:auto;}
+thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:500;padding:0 14px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+th.th-filter{cursor:pointer;user-select:none;}
+th.th-filter:hover{color:var(--ink-muted);}
+th.th-filter.col-active{color:var(--gold);}
+th.th-filter .arrow{font-size:9px;margin-left:4px;opacity:.7;}
+tbody td{padding:14px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;}
+tbody tr:hover{background:rgba(255,255,255,0.02);}
+.atv-nome{color:var(--ink);font-weight:500;}
+.atv-area{color:var(--ink-faint);font-size:11.5px;margin-top:2px;}
+.empty-row td{text-align:center;color:var(--ink-faint);padding:34px 14px;font-size:12.5px;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;}
+
+.status-select{
+  appearance:none;-webkit-appearance:none;border:1px solid rgba(127,127,127,0.28);border-radius:20px;
+  padding:5px 26px 5px 13px;font-size:11.5px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;
+  background-repeat:no-repeat;background-position:right 9px center;background-size:9px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.4' fill='none' opacity='.45'/%3E%3C/svg%3E");
+}
+.excl-badge{font-size:11px;color:var(--ink-faint);font-style:italic;}
+
+/* [NOVO] Selo "N ações" embaixo do nome da atividade — abre o painel */
+.acoes-pill{
+  margin-top:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
+  padding:3px 11px;font-size:10.5px;color:var(--ink-muted);cursor:pointer;transition:all .15s;
+}
+.acoes-pill:hover{border-color:var(--gold);color:var(--ink);}
+.acoes-pill.aberto{background:var(--gold);border-color:var(--gold);color:var(--preto);font-weight:600;}
+
+/* [NOVO] Selo piscante de lembrete pendente */
+.lembrete-badge{
+  background:var(--vermelho);border:1px solid var(--vermelho);border-radius:20px;color:#fff;
+  font-size:10.5px;font-weight:700;padding:3px 11px;cursor:pointer;
+  animation:piscarLembrete 1.4s infinite;
+}
+@keyframes piscarLembrete{0%,100%{opacity:1;}50%{opacity:.45;}}
+
+/* [NOVO] Linha expansível com os campos extras + histórico de ações */
+.detalhe-row td{padding:0;border-bottom:1px solid var(--line);background:var(--void);}
+.detalhe-painel{padding:18px 20px;}
+.detalhe-campos{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px 20px;margin-bottom:18px;
+  padding-bottom:16px;border-bottom:1px dashed var(--line);
+}
+.detalhe-campos .dc-full{grid-column:span 2;}
+.dc-lbl{display:block;font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
+.dc-val{font-size:12.5px;color:var(--ink);}
+.dc-val a{color:var(--gold-soft);}
+
+.acoes-log{max-height:180px;overflow-y:auto;margin-bottom:12px;}
+.acao-item{
+  display:flex;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12.5px;
+  align-items:center;
+}
+.acao-lembrete{color:var(--gold-soft);font-size:11px;margin-left:6px;}
+.acao-lembrete.encerrado{color:var(--ink-faint);text-decoration:line-through;}
+.acao-encerrar{
+  background:none;border:1px solid var(--line);color:var(--gold-soft);border-radius:8px;
+  font-size:10.5px;font-weight:600;padding:2px 9px;margin-left:8px;cursor:pointer;flex:none;
+}
+.acao-encerrar:hover{border-color:var(--gold);background:var(--panel-2);}
+.acao-encerrar:disabled{opacity:.5;cursor:not-allowed;}
+.acao-del{
+  margin-left:auto;background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:12px;
+  padding:2px 6px;border-radius:6px;flex:none;
+}
+.acao-del:hover{color:var(--vermelho);background:rgba(255,59,78,0.1);}
+.acao-data{color:var(--ink-faint);white-space:nowrap;font-family:'Space Grotesk',sans-serif;font-size:11px;}
+.acao-texto{color:var(--ink);}
+.acoes-vazio, .acoes-carregando{color:var(--ink-faint);font-size:12px;font-style:italic;padding:6px 0;}
+
+.acoes-form{display:flex;flex-direction:column;gap:10px;}
+.acoes-form-linha{display:flex;gap:10px;align-items:flex-start;}
+.acoes-form-linha textarea{
+  flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+  font-family:'Inter',sans-serif;font-size:12.5px;padding:9px 12px;min-height:44px;resize:vertical;outline:none;
+}
+.acoes-form-linha textarea:focus{border-color:var(--gold);}
+.acoes-form-lembrete{display:flex;flex-direction:column;gap:4px;}
+.acoes-form-lembrete label{font-size:10.5px;color:var(--ink-faint);white-space:nowrap;}
+.acoes-form-lembrete input{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
+  font-family:'Inter',sans-serif;font-size:12px;padding:8px 10px;outline:none;
+}
+.acoes-form > .btn{align-self:flex-end;}
+
+@media (max-width:860px){
+  .detalhe-campos{grid-template-columns:1fr 1fr;}
+}
+.icon-btn{background:none;border:1px solid var(--line);border-radius:8px;width:28px;height:28px;color:var(--ink-faint);cursor:pointer;transition:all .15s;}
+.icon-btn:hover{border-color:var(--vermelho);color:var(--vermelho);}
+
+.filter-pop{position:fixed;z-index:200;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:8px;min-width:180px;box-shadow:0 16px 34px rgba(0,0,0,0.4);}
+.filter-pop label{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink-muted);}
+.filter-pop label:hover{background:var(--panel-2);color:var(--ink);}
+.filter-pop input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;}
+.filter-pop .clear{margin-top:4px;padding-top:8px;border-top:1px solid var(--line);text-align:center;font-size:11.5px;color:var(--ink-faint);cursor:pointer;}
+.filter-pop .clear:hover{color:var(--gold);}
+
+.conn-erro{background:rgba(255,59,78,0.08);border:1px solid var(--vermelho);border-radius:12px;padding:14px 18px;color:#ffb3ba;font-size:13px;line-height:1.6;}
+.conn-erro code{background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:5px;}
+
+@media (max-width:860px){
+  .grid-form{grid-template-columns:1fr 1fr;}
+  .f.span2{grid-column:span 2;}
+  .kpis{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="field"></div>
+
+<div class="bar"><div class="bar-in">
+  <div class="switcher-top">
+    <button class="switch-btn active" data-panel="cadastro">Cadastro de atividade</button>
+    <button class="switch-btn" data-panel="acompanhamento">Acompanhamento das atividades</button>
+    <button class="switch-btn" data-panel="indicadores">Indicadores</button>
+  </div>
+  <div class="top-actions">
+    <div class="theme-toggle" id="themeToggle">
+      <span class="opt on" data-theme-opt="dark" title="Escuro">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+      </span>
+      <span class="opt" data-theme-opt="light" title="Claro">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </span>
+    </div>
+  </div>
+</div></div>
+
+<div class="shell">
+
+  <div class="kpis-wrap">
+    <div class="kpis" id="kpisContainer">
+      <div class="kpi clickable" data-kpi="ativas">
+        <div class="lbl">Atividades ativas</div>
+        <div class="val" id="kpi-ativas">—</div>
+        <div class="delta up">Sincronizado via API</div>
+      </div>
+      <div class="kpi clickable" data-kpi="vencimento">
+        <div class="lbl">Prazos no vencimento</div>
+        <div class="val" id="kpi-venc">—</div>
+        <div class="delta warn" id="kpi-venc-delta">calculando...</div>
+      </div>
+      <div class="kpi clickable" data-kpi="bloqueios">
+        <div class="lbl">Bloqueios abertos</div>
+        <div class="val" id="kpi-bloq">—</div>
+        <div class="delta warn">Ativos no sistema</div>
+      </div>
+      <div class="kpi">
+        <div class="lbl">Valor gerado (mês)</div>
+        <div class="val" id="kpi-valor">R$ 482 mil</div>
+        <div class="delta up">+18% vs. anterior</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CADASTRO ============ -->
+  <div class="panel active" id="p-cadastro">
+    <div class="card">
+      <h3>Nova atividade</h3>
+      <p class="sub">Os campos com <span style="color:var(--gold)">*</span> são obrigatórios — o backend agora rejeita qualquer um deles em branco (era isso que estava deixando atividades sem nome no banco).</p>
+
+      <form id="formAtividade" novalidate>
+        <div class="grid-form">
+          <div class="f" data-campo="data"><label>Data <span class="req">*</span></label><input type="date" id="f-data" value="2026-09-29"><span class="msg-erro">Obrigatório.</span></div>
+          <div class="f" data-campo="responsavel"><label>Responsável <span class="req">*</span></label>
+            <select id="f-resp"><option>Wendley</option><option>Guilherme</option><option>Tiago</option></select><span class="msg-erro">Obrigatório.</span>
+          </div>
+          <div class="f" data-campo="area_impactada"><label>Área impactada <span class="req">*</span></label>
+            <select id="f-area">
+              <option>Diretoria</option><option>Heads</option><option>PQI</option><option>Customer Experience</option>
+              <option>Jurídico</option><option>Financeiro</option><option>Facilities</option><option>TI</option>
+              <option>E-commerce</option><option>Marketing</option><option>Comercial</option><option>Auditoria</option>
+              <option>Compliance</option><option>Fiscal</option><option>Contabilidade</option><option>Recursos Humanos</option>
+              <option>Logística</option><option>Compras</option><option>Qualidade</option><option>Inside Sales</option>
+              <option>Monitoramento</option><option>Manutenção</option>
+            </select><span class="msg-erro">Obrigatório.</span>
+          </div>
+          <div class="f" data-campo="problema_causa"><label>Problema / causa <span class="req">*</span></label>
+            <select id="f-prob"><option>Processo</option><option>Sistema/Ferramenta</option><option>Pessoas</option><option>Qualidade</option><option>Produtividade</option><option>Capacidade</option><option>Governança</option><option>Gestão</option></select><span class="msg-erro">Obrigatório.</span>
+          </div>
+          <div class="f span2" data-campo="demanda"><label>Demanda <span class="req">*</span></label><input type="text" id="f-demanda" placeholder="Ex: Planilha de acompanhamento de fornecedores"><span class="msg-erro">Obrigatório.</span></div>
+          <div class="f span2" data-campo="atividade"><label>Atividade <span class="req">*</span></label><input type="text" id="f-nome" placeholder="Descreva a atividade..."><span class="msg-erro">Obrigatório — este era o campo que estava indo em branco.</span></div>
+          <div class="f" data-campo="prazo_previsto"><label>Prazo previsto <span class="req">*</span></label><input type="date" id="f-prazo" value="2026-10-06"><span class="msg-erro">Obrigatório.</span></div>
+          <div class="f"><label>Prioridade</label><select id="f-prio"><option>Baixa</option><option>Média</option><option>Alta</option></select></div>
+          <div class="f" data-campo="indicador_relacionado"><label>Indicador relacionado <span class="req">*</span></label><input type="text" id="f-ind" placeholder="Ex: SLA de reconciliação de estoque"><span class="msg-erro">Obrigatório.</span></div>
+          <div class="f"><label>Bloqueio / ofensor</label>
+            <select id="f-bloq">
+              <option value="—">— nenhum —</option><option>Dependência Externa</option><option>Falta de Acesso/Permissão</option>
+              <option>Falta de Recurso</option><option>Aprovação Pendente</option><option>Falta de Definição/Informação</option>
+              <option>Sistema/Ferramenta Indisponível</option><option>Outro</option>
+            </select>
+          </div>
+          <div class="f"><label>Volume / entregável</label><input type="number" id="f-volume" placeholder="0" min="0"></div>
+          <div class="f"><label>Valor gerado</label>
+            <select id="f-valor-gerado">
+              <option>Produtividade</option><option>Qualidade</option><option>Redução de Custo</option><option>Redução de Risco</option>
+              <option>Governança</option><option>Experiência do Cliente</option><option>Experiência do Parceiro</option>
+              <option>Experiência do Colaborador</option><option>Receita</option><option>Rotina administrativa</option><option>Outro</option>
+            </select>
+          </div>
+          <div class="f"><label>Prazo entregue</label><input type="date" id="f-prazo-entregue"></div>
+          <div class="f span2">
+            <label>Evidência</label>
+            <div class="evid-toggle">
+              <button type="button" class="evid-opt sel" data-modo="link">🔗 Link</button>
+              <button type="button" class="evid-opt" data-modo="arquivo">📎 Arquivo</button>
+            </div>
+            <input type="text" id="f-evidencia" placeholder="Cole aqui o link da foto/vídeo/documento/áudio">
+            <input type="file" id="f-evidencia-arquivo" style="display:none;">
+            <div id="f-evidencia-arquivo-info" class="evid-arquivo-info" style="display:none;">
+              <span id="f-evidencia-arquivo-nome"></span>
+              <button type="button" id="f-evidencia-arquivo-remover" title="Remover arquivo escolhido">✕</button>
+            </div>
+          </div>
+          <div class="f"><label>Observações</label><textarea id="f-obs" placeholder="Detalhes adicionais..."></textarea></div>
+        </div>
+        <div class="form-actions">
+          <span class="form-msg" id="formMsg"></span>
+          <button type="submit" class="btn primary" id="btnCadastrar">Cadastrar atividade</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ ACOMPANHAMENTO ============ -->
+  <div class="panel" id="p-acompanhamento">
+    <div class="card">
+      <h3>Atividades em acompanhamento</h3>
+      <p class="sub">Dados reais, vindos da API — clique nos cabeçalhos com ▾ pra filtrar por coluna, ou nos cards do topo pra um atalho rápido.</p>
+
+      <div class="filters">
+        <div class="chip active" data-grupo="ativas">Ativas</div>
+        <div class="chip" data-grupo="concluidas">Concluídas</div>
+        <div class="chip" data-grupo="excluidas">Excluídas</div>
+        <div class="chip quick" id="quickChip" style="display:none;"><span id="quickChipTexto"></span> ✕</div>
+      </div>
+
+      <div id="areaTabela">
+        <table>
+          <thead>
+            <tr>
+              <th>Atividade</th>
+              <th class="th-filter" data-col="responsavel">Responsável<span class="arrow">▾</span></th>
+              <th class="th-filter" data-col="prioridade">Prioridade<span class="arrow">▾</span></th>
+              <th class="th-filter" data-col="status">Status<span class="arrow">▾</span></th>
+              <th>Prazo previsto</th>
+              <th class="th-filter" data-col="bloqueio">Bloqueio<span class="arrow">▾</span></th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body">
+            <tr class="empty-row"><td colspan="7">Carregando dados da API...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ INDICADORES ============ -->
+  <div class="panel" id="p-indicadores">
+    <div class="card">
+      <div class="ind-seletor-wrap">
+        <label for="indSelector"><strong>Selecione a visão do indicador</strong></label>
+        <select id="indSelector">
+          <option value="ind-produtividade">1 — Produtividade</option>
+          <option value="ind-prazos">2 — Prazos</option>
+          <option value="ind-backlog">3 — Backlog</option>
+          <option value="ind-bloqueios">4 — Bloqueios/Riscos</option>
+          <option value="ind-valor">5 — Valor Gerado</option>
+          <option value="ind-governanca">6 — Governança</option>
+        </select>
+      </div>
+
+      <!-- 1 — PRODUTIVIDADE -->
+      <div id="ind-produtividade" class="ind-grupo active">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="t">Volume total de atividades</div><div class="n" id="kpiProdTotal">—</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-box"><h3>Volume por Responsável</h3><div class="canvas-holder"><canvas id="chProdResp"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Área Impactada</h3><div class="canvas-holder"><canvas id="chProdArea"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Problema/Causa</h3><div class="canvas-holder"><canvas id="chProdProblema"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Demanda</h3><div class="canvas-holder"><canvas id="chProdDemanda"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Prioridade</h3><div class="canvas-holder"><canvas id="chProdPrio"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Status</h3><div class="canvas-holder"><canvas id="chProdStatus"></canvas></div></div>
+          <div class="chart-box"><h3>Volume por Bloqueio/Ofensor</h3><div class="canvas-holder"><canvas id="chProdBloqueio"></canvas></div></div>
+          <div class="chart-box">
+            <h3>Volume ao longo do tempo</h3>
+            <div class="granularidade-toggle">
+              <button class="gran-opt sel" data-gran="mes">Mês</button>
+              <button class="gran-opt" data-gran="semana">Semana</button>
+              <button class="gran-opt" data-gran="dia_semana">Dia da semana</button>
+            </div>
+            <div class="canvas-holder"><canvas id="chProdTempo"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 — PRAZOS -->
+      <div id="ind-prazos" class="ind-grupo">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="t">Entregues no prazo</div><div class="n bom" id="kpiPrazoNoPrazo">—</div></div>
+          <div class="kpi-card"><div class="t">Entregues atrasadas</div><div class="n ruim" id="kpiPrazoAtrasadas">—</div></div>
+          <div class="kpi-card"><div class="t">Taxa de atraso</div><div class="n ruim" id="kpiPrazoTaxaAtraso">—</div></div>
+          <div class="kpi-card"><div class="t">Antecedência média de entrega</div><div class="n" id="kpiPrazoAntecedencia">—</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-box"><h3>Taxa de cumprimento de prazo <span class="meta-tag">meta 90%</span></h3><div class="canvas-holder gauge"><canvas id="chGaugePrazo"></canvas><div class="gauge-legenda" id="legendaGaugePrazo"></div></div></div>
+          <div class="chart-box"><h3>Dias médios de cumprimento por responsável</h3><div class="canvas-holder"><canvas id="chDiasCumprimento"></canvas><div class="chart-center-text" id="centroDiasCumprimento"></div></div></div>
+          <div class="chart-box"><h3>Dias médios de atraso por responsável</h3><div class="canvas-holder"><canvas id="chDiasAtraso"></canvas><div class="chart-center-text" id="centroDiasAtraso"></div></div></div>
+          <div class="chart-box"><h3>Dias médios de antecipação por responsável</h3><div class="canvas-holder"><canvas id="chDiasAntecipado"></canvas><div class="chart-center-text" id="centroDiasAntecipado"></div></div></div>
+        </div>
+      </div>
+
+      <!-- 3 — BACKLOG -->
+      <div id="ind-backlog" class="ind-grupo">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="t">Backlog total</div><div class="n" id="kpiBacklogTotal">—</div></div>
+          <div class="kpi-card"><div class="t">Backlog vencido</div><div class="n ruim" id="kpiBacklogVencido">—</div></div>
+          <div class="kpi-card"><div class="t">Backlog de alta prioridade</div><div class="n" id="kpiBacklogAlta">—</div></div>
+          <div class="kpi-card"><div class="t">Tempo médio do backlog</div><div class="n" id="kpiBacklogTempoMedio">—</div></div>
+          <div class="kpi-card"><div class="t">Maior tempo em aberto</div><div class="n ruim" id="kpiBacklogMaiorTempo">—</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-box"><h3>Backlog por Responsável</h3><div class="canvas-holder"><canvas id="chBacklogResp"></canvas></div></div>
+          <div class="chart-box"><h3>Backlog por Área Impactada</h3><div class="canvas-holder"><canvas id="chBacklogArea"></canvas></div></div>
+          <div class="chart-box"><h3>Backlog por Prioridade</h3><div class="canvas-holder"><canvas id="chBacklogPrio"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- 4 — BLOQUEIOS/RISCOS -->
+      <div id="ind-bloqueios" class="ind-grupo">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="t">Total de atividades bloqueadas</div><div class="n ruim" id="kpiBloqTotal">—</div></div>
+          <div class="kpi-card"><div class="t">Tempo médio de bloqueio</div><div class="n" id="kpiBloqTempoMedio">—</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-box"><h3>Taxa de bloqueio <span class="meta-tag">meta 10%</span></h3><div class="canvas-holder gauge"><canvas id="chGaugeBloqueio"></canvas><div class="gauge-legenda" id="legendaGaugeBloqueio"></div></div></div>
+          <div class="chart-box"><h3>Bloqueios por Área Impactada</h3><div class="canvas-holder"><canvas id="chBloqArea"></canvas></div></div>
+          <div class="chart-box"><h3>Bloqueios por Responsável</h3><div class="canvas-holder"><canvas id="chBloqResp"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- 5 — VALOR GERADO -->
+      <div id="ind-valor" class="ind-grupo">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="t">Volume total com valor identificado</div><div class="n bom" id="kpiValorTotal">—</div></div>
+        </div>
+        <p class="sub" style="margin:-8px 0 16px;">"Rotina administrativa" e "Outro" não contam como valor gerado — só as demais tabulações.</p>
+        <div class="charts-row">
+          <div class="chart-box"><h3>Percentual de valor gerado</h3><div class="canvas-holder"><canvas id="chValorPercentual"></canvas></div></div>
+          <div class="chart-box"><h3>Valor Gerado por Área Impactada</h3><div class="canvas-holder"><canvas id="chValorArea"></canvas></div></div>
+          <div class="chart-box"><h3>Valor Gerado por Demanda</h3><div class="canvas-holder"><canvas id="chValorDemanda"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- 6 — GOVERNANÇA -->
+      <div id="ind-governanca" class="ind-grupo">
+        <div class="charts-row">
+          <div class="chart-box"><h3>Taxa de evidenciação</h3><div class="canvas-holder"><canvas id="chGovTaxa"></canvas></div></div>
+          <div class="chart-box"><h3>Evidências por Área Impactada</h3><div class="canvas-holder"><canvas id="chGovArea"></canvas></div></div>
+          <div class="chart-box"><h3>Área Impactada sem Evidência</h3><div class="canvas-holder"><canvas id="chGovSemEvidencia"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Relatório de Ações</h3>
+      <p class="sub">Todas as ações registradas dentro de todas as atividades — a "mensuração" que faltava.</p>
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Atividade</th><th>Ação</th><th>Responsável</th><th>Lembrete</th></tr>
+        </thead>
+        <tbody id="tbl-acoes-relatorio">
+          <tr class="empty-row"><td colspan="5">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000/api";
+
+// ---- cores oficiais de status e prioridade (do documento de especificação) ----
+const STATUS = {
+  'Planejamento': {bg:'var(--rosa)',   fg:'var(--preto)'},
+  'Iniciar':      {bg:'var(--branco)', fg:'var(--preto)'},
+  'Em Andamento': {bg:'var(--laranja)',fg:'var(--branco)'},
+  'Aprovação':    {bg:'var(--roxo)',   fg:'var(--branco)'},
+  'Reprovado':    {bg:'var(--preto)',  fg:'var(--branco)'},
+  'Concluído':    {bg:'var(--azul)',   fg:'var(--branco)'},
+  'Bloqueado':    {bg:'var(--vermelho)',fg:'var(--branco)'},
+  'Pausado':      {bg:'var(--amarelo)',fg:'var(--preto)'},
+  'Cancelado':    {bg:'var(--cinza)',  fg:'var(--branco)'},
+};
+const STATUS_ATIVOS = Object.keys(STATUS).filter(s => !['Concluído','Cancelado','Reprovado'].includes(s));
+const PRIO_COR = {'Baixa':'var(--azul)','Média':'var(--amarelo)','Alta':'var(--vermelho)'};
+
+// ---- tema claro/escuro ----
+const root = document.documentElement;
+function aplicarTema(t){
+  root.dataset.theme = t;
+  document.querySelectorAll('.theme-toggle .opt').forEach(o=> o.classList.toggle('on', o.dataset.themeOpt===t));
+  try{ localStorage.setItem('db_tema', t); }catch(e){}
+}
+let temaInicial='dark'; try{ temaInicial = localStorage.getItem('db_tema')||'dark'; }catch(e){}
+aplicarTema(temaInicial);
+document.getElementById('themeToggle').addEventListener('click', ()=> aplicarTema(root.dataset.theme==='dark'?'light':'dark'));
+
+// ---- abas ----
+function irParaAba(nome){
+  document.querySelectorAll('.switch-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.switch-btn[data-panel="'+nome+'"]').classList.add('active');
+  document.getElementById('p-'+nome).classList.add('active');
+}
+document.querySelectorAll('.switch-btn').forEach(btn=> btn.addEventListener('click', ()=>irParaAba(btn.dataset.panel)));
+
+// ══════════════════════════════════════════════════════════════
+// DADOS — busca na API real (sem mock, sem dado inventado)
+// ══════════════════════════════════════════════════════════════
+let TODAS = [];
+
+function prepararLinha(r){
+  r.responsavel = r.resp;
+  r.prioridade = r.prio;
+  r.prazoDate = r.prazo && r.prazo !== '—' ? new Date(r.prazo+'T00:00:00') : null;
+  r.prazoFmt = r.prazoDate ? r.prazoDate.toLocaleDateString('pt-BR') : '—';
+  r.ativa = !['Concluído','Cancelado','Reprovado'].includes(r.status) && !r.excluida;
+  if (r.prazoDate){
+    const dias = Math.round((r.prazoDate - new Date(new Date().toDateString())) / 86400000);
+    r.venc = r.ativa && dias <= 7;
+  } else { r.venc = false; }
+  return r;
+}
+
+async function carregarTudo(){
+  try{
+    const [ativasResp, excluidasResp, kpisResp] = await Promise.all([
+      fetch(API+'/atividades?excluido=false'),
+      fetch(API+'/atividades?excluido=true'),
+      fetch(API+'/kpis'),
+    ]);
+    if (!ativasResp.ok || !excluidasResp.ok || !kpisResp.ok) throw new Error('resposta não-OK da API');
+
+    const ativas = await ativasResp.json();
+    const excluidas = await excluidasResp.json();
+    const kpis = await kpisResp.json();
+
+    TODAS = [
+      ...ativas.map(r=>({...r, excluida:false})),
+      ...excluidas.map(r=>({...r, excluida:true})),
+    ].map(prepararLinha);
+
+    document.getElementById('kpi-ativas').textContent = kpis.ativas;
+    document.getElementById('kpi-venc').textContent = kpis.vencimento;
+    document.getElementById('kpi-venc-delta').textContent = kpis.vencimento_atrasados > 0
+      ? kpis.vencimento_atrasados + ' já atrasado(s)' : 'nenhum atrasado';
+    document.getElementById('kpi-bloq').textContent = kpis.bloqueios;
+    document.getElementById('kpi-valor').textContent = kpis.valor_mes;
+
+    renderTabela();
+    carregarRelatorioAcoes();
+    renderizarIndicadores();
+  }catch(e){
+    document.getElementById('tbl-body').innerHTML = `<tr class="empty-row"><td colspan="7">
+      <div class="conn-erro">
+        Não consegui falar com a API em <code>${API}</code>.<br><br>
+        Rode o backend antes de abrir esta página: <code>python main.py</code>
+        (na mesma pasta do <code>diario.db</code>), e recarregue.
+      </div>
+    </td></tr>`;
+  }
+}
+
+// [NOVO] Relatório de Ações (aba Indicadores) — todas as ações de todas
+// as atividades, com o nome/responsável da atividade-mãe já juntos.
+// ══════════════════════════════════════════════════════════════════
+// INDICADORES — cálculos puros (testados isoladamente antes de entrar
+// aqui) + criação dos gráficos com Chart.js.
+// ══════════════════════════════════════════════════════════════════
+function diasEntreDatas(dataA, dataB){ return Math.round((dataA - dataB) / 86400000); }
+
+function contarPorCampo(lista, campo, rotuloVazio){
+  rotuloVazio = rotuloVazio || 'Não informado';
+  const contagem = {};
+  lista.forEach(r=>{
+    let v = r[campo];
+    if (v === undefined || v === null || v === '' || v === '—') v = rotuloVazio;
+    contagem[v] = (contagem[v]||0) + 1;
+  });
+  const entradas = Object.entries(contagem).sort((a,b)=> b[1]-a[1]);
+  return { labels: entradas.map(e=>e[0]), valores: entradas.map(e=>e[1]) };
+}
+
+const DIAS_SEMANA_LBL = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+function volumePorTempoCalc(lista, granularidade){
+  const contagem2 = {};
+  lista.forEach(r=>{
+    if (!r.data_cadastro) return;
+    const [a,m,dd] = r.data_cadastro.split('-');
+    const d = new Date(+a, +m-1, +dd);
+    let chave;
+    if (granularidade === 'mes'){
+      chave = a+'-'+String(+m).padStart(2,'0');
+    } else if (granularidade === 'semana'){
+      const inicioAno = new Date(d.getFullYear(),0,1);
+      const diaDoAno = Math.floor((d - inicioAno)/86400000);
+      const semana = Math.ceil((diaDoAno+1)/7);
+      chave = d.getFullYear()+'-S'+String(semana).padStart(2,'0');
+    } else {
+      chave = DIAS_SEMANA_LBL[d.getDay()];
+    }
+    contagem2[chave] = (contagem2[chave]||0) + 1;
+  });
+  let labels = Object.keys(contagem2);
+  if (granularidade === 'dia_semana') labels = DIAS_SEMANA_LBL.filter(d=> contagem2[d]!==undefined);
+  else labels.sort();
+  return { labels, valores: labels.map(l=>contagem2[l]) };
+}
+
+function calcProdutividade(universo){
+  return {
+    total: universo.length,
+    porResponsavel: contarPorCampo(universo, 'responsavel'),
+    porArea: contarPorCampo(universo, 'area'),
+    porProblema: contarPorCampo(universo, 'problema_causa'),
+    porDemanda: contarPorCampo(universo, 'demanda'),
+    porPrioridade: contarPorCampo(universo, 'prioridade'),
+    porStatus: contarPorCampo(universo, 'status'),
+    porBloqueio: contarPorCampo(universo, 'bloqueio', 'Sem bloqueio'),
+  };
+}
+
+function calcPrazos(universo){
+  const entregues = universo.filter(r=> r.prazo_entregue);
+  const noPrazo = entregues.filter(r=> r.prazo_entregue <= r.prazo);
+  const atrasadas = entregues.filter(r=> r.prazo_entregue > r.prazo);
+  const taxaAtraso = entregues.length ? (atrasadas.length/entregues.length*100) : 0;
+  const taxaCumprimento = entregues.length ? (noPrazo.length/entregues.length*100) : 0;
+  const antecedencias = noPrazo.map(r=> diasEntreDatas(new Date(r.prazo), new Date(r.prazo_entregue)));
+  const antecedenciaMedia = antecedencias.length ? (antecedencias.reduce((a,b)=>a+b,0)/antecedencias.length) : 0;
+
+  function mediaPorResp(lista, calculoDias){
+    const porResp = {};
+    lista.forEach(r=>{
+      const dias = calculoDias(r);
+      (porResp[r.responsavel] = porResp[r.responsavel] || []).push(dias);
+    });
+    const labels = Object.keys(porResp);
+    const valores = labels.map(l=> porResp[l].reduce((a,b)=>a+b,0)/porResp[l].length);
+    const todasDias = lista.map(calculoDias);
+    const mediaGeral = todasDias.length ? todasDias.reduce((a,b)=>a+b,0)/todasDias.length : 0;
+    return { labels, valores, mediaGeral };
+  }
+  const estritamenteAntes = entregues.filter(r=> r.prazo_entregue < r.prazo);
+
+  return {
+    entreguesNoPrazo: noPrazo.length,
+    entreguesAtrasadas: atrasadas.length,
+    taxaAtraso, taxaCumprimento, antecedenciaMedia,
+    diasCumprimentoPorResp: mediaPorResp(entregues, r=> diasEntreDatas(new Date(r.prazo), new Date(r.prazo_entregue))),
+    diasAtrasoPorResp: mediaPorResp(atrasadas, r=> diasEntreDatas(new Date(r.prazo_entregue), new Date(r.prazo))),
+    diasAntecipadoPorResp: mediaPorResp(estritamenteAntes, r=> diasEntreDatas(new Date(r.prazo), new Date(r.prazo_entregue))),
+  };
+}
+
+function calcBacklog(universo, hoje){
+  const backlog = universo.filter(r=> r.ativa && !r.prazo_entregue);
+  const vencido = backlog.filter(r=> r.prazoDate && r.prazoDate < hoje);
+  const altaPrioridade = backlog.filter(r=> r.prioridade === 'Alta');
+  const idades = backlog.filter(r=>r.data_cadastro).map(r=> diasEntreDatas(hoje, new Date(r.data_cadastro)));
+  const tempoMedio = idades.length ? idades.reduce((a,b)=>a+b,0)/idades.length : 0;
+  const maiorTempo = idades.length ? Math.max(...idades) : 0;
+  return {
+    total: backlog.length, vencido: vencido.length, altaPrioridade: altaPrioridade.length,
+    tempoMedio, maiorTempo,
+    porResponsavel: contarPorCampo(backlog, 'responsavel'),
+    porArea: contarPorCampo(backlog, 'area'),
+    porPrioridade: contarPorCampo(backlog, 'prioridade'),
+  };
+}
+
+function calcBloqueios(universo, hoje){
+  const bloqueadas = universo.filter(r=> r.status === 'Bloqueado');
+  const ativas = universo.filter(r=> r.ativa);
+  const idades = bloqueadas.filter(r=>r.data_cadastro).map(r=> diasEntreDatas(hoje, new Date(r.data_cadastro)));
+  const tempoMedio = idades.length ? idades.reduce((a,b)=>a+b,0)/idades.length : 0;
+  const taxaBloqueio = ativas.length ? (bloqueadas.length/ativas.length*100) : 0;
+  return {
+    total: bloqueadas.length, tempoMedio, taxaBloqueio,
+    porArea: contarPorCampo(bloqueadas, 'area'),
+    porResponsavel: contarPorCampo(bloqueadas, 'responsavel'),
+  };
+}
+
+const VALOR_EXCLUIDO_SET = ['Rotina administrativa','Outro'];
+function calcValorGerado(universo){
+  const comValor = universo.filter(r=> r.valor_gerado && !VALOR_EXCLUIDO_SET.includes(r.valor_gerado));
+  const percentual = universo.length ? (comValor.length/universo.length*100) : 0;
+  return {
+    total: comValor.length, percentual,
+    porArea: contarPorCampo(comValor, 'area'),
+    porDemanda: contarPorCampo(comValor, 'demanda'),
+  };
+}
+
+function calcGovernanca(universo){
+  const comEvidencia = universo.filter(r=> r.evidencia && r.evidencia.trim()!=='');
+  const semEvidencia = universo.filter(r=> !r.evidencia || r.evidencia.trim()==='');
+  const taxa = universo.length ? (comEvidencia.length/universo.length*100) : 0;
+  return {
+    comEvidencia: comEvidencia.length, semEvidencia: semEvidencia.length, taxa,
+    porArea: contarPorCampo(comEvidencia, 'area'),
+    semEvidenciaPorArea: contarPorCampo(semEvidencia, 'area'),
+  };
+}
+
+// ── Desenho dos gráficos ──
+const PALETA = ['#e8b33d','#8b6cff','#4fc3f7','#3ddc97','#ff8a34','#ff6fa5','#8b5cf6','#ff3b4e','#8b8f9c'];
+const GRAFICOS = {}; // registro pra destruir/recriar sem vazar memória
+
+function corTextoGrafico(){ return root.dataset.theme === 'light' ? '#5b5f6b' : '#8b8f9c'; }
+function corGradeGrafico(){ return root.dataset.theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'; }
+
+function destruirSeExistir(id){
+  if (GRAFICOS[id]){ GRAFICOS[id].destroy(); delete GRAFICOS[id]; }
+}
+
+function criarRosca(id, labels, valores){
+  destruirSeExistir(id);
+  const canvas = document.getElementById(id);
+  if (!canvas || !labels.length) return;
+  GRAFICOS[id] = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: valores, backgroundColor: PALETA, borderWidth: 0 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ color: corTextoGrafico(), font:{size:10.5}, boxWidth:10, padding:10 } } },
+    },
+  });
+}
+
+function criarBarraVertical(id, labels, valores){
+  destruirSeExistir(id);
+  const canvas = document.getElementById(id);
+  if (!canvas || !labels.length) return;
+  GRAFICOS[id] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: valores, backgroundColor: '#e8b33d', borderRadius: 5, maxBarThickness: 34 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ color: corTextoGrafico(), font:{size:10.5}, maxRotation:40, minRotation:0 } },
+        y:{ grid:{ color: corGradeGrafico() }, ticks:{ color: corTextoGrafico(), precision:0 }, beginAtZero:true },
+      },
+    },
+  });
+}
+
+function criarLinhaVolume(id, labels, valores){
+  destruirSeExistir(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,200);
+  grad.addColorStop(0, 'rgba(232,179,61,0.35)');
+  grad.addColorStop(1, 'rgba(232,179,61,0)');
+  GRAFICOS[id] = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{ data: valores, borderColor:'#e8b33d', backgroundColor: grad, fill:true, tension:.3, pointRadius:3, pointBackgroundColor:'#e8b33d', borderWidth:2.2 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ color: corTextoGrafico(), font:{size:10} } },
+        y:{ grid:{ color: corGradeGrafico() }, ticks:{ color: corTextoGrafico(), precision:0 }, beginAtZero:true },
+      },
+    },
+  });
+}
+
+function criarRoscaComCentro(id, labels, valores, elementoCentroId, valorCentro, rotuloCentro){
+  criarRosca(id, labels, valores);
+  const alvo = document.getElementById(elementoCentroId);
+  if (alvo){
+    alvo.innerHTML = `<div class="val">${valorCentro}</div><div class="lbl">${rotuloCentro}</div>`;
+  }
+}
+
+// Gauge (velocímetro): meia-rosca + agulha + marca de meta, desenhados
+// manualmente em cima do Chart.js via um plugin local (afterDraw).
+function criarGauge(id, valor, meta, elementoLegendaId, corValor){
+  destruirSeExistir(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const v = Math.max(0, Math.min(100, valor));
+  const restante = 100 - v;
+
+  const pluginAgulha = {
+    id: 'agulhaGauge_'+id,
+    afterDraw(chart){
+      const {ctx, chartArea} = chart;
+      const cx = (chartArea.left + chartArea.right)/2;
+      const cy = chartArea.bottom;
+      const raio = (chartArea.bottom - chartArea.top) * 0.92;
+
+      function anguloDoValor(val){ return Math.PI + (val/100)*Math.PI; } // 180°..360° (meia-volta)
+
+      // marca de meta (linha branca/dourada no ângulo da meta)
+      const angMeta = anguloDoValor(meta);
+      ctx.save();
+      ctx.strokeStyle = '#f3cd6f'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angMeta)*raio*0.72, cy + Math.sin(angMeta)*raio*0.72);
+      ctx.lineTo(cx + Math.cos(angMeta)*raio*1.02, cy + Math.sin(angMeta)*raio*1.02);
+      ctx.stroke();
+      ctx.restore();
+
+      // agulha (valor atual)
+      const angValor = anguloDoValor(v);
+      ctx.save();
+      ctx.strokeStyle = corTextoGrafico(); ctx.lineWidth = 2.5; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(angValor)*raio*0.86, cy + Math.sin(angValor)*raio*0.86);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI*2);
+      ctx.fillStyle = corTextoGrafico();
+      ctx.fill();
+      ctx.restore();
+    }
+  };
+
+  GRAFICOS[id] = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels:['Valor','Restante'], datasets:[{ data:[v, restante], backgroundColor:[corValor||'#e8b33d', corGradeGrafico()], borderWidth:0 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'72%',
+      circumference:180, rotation:270,
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
+    },
+    plugins: [pluginAgulha],
+  });
+
+  const legenda = document.getElementById(elementoLegendaId);
+  if (legenda){
+    legenda.innerHTML = `${v.toFixed(1)}%<small>meta: ${meta}%</small>`;
+  }
+}
+
+function fmtDias(n){
+  const sinal = n > 0 ? '+' : '';
+  return sinal + n.toFixed(1) + 'd';
+}
+
+function renderizarIndicadores(){
+  if (typeof Chart === 'undefined') return; // Chart.js ainda carregando
+  const universo = TODAS.filter(r=> !r.excluida);
+  const hoje = new Date(new Date().toDateString());
+
+  // 1 — Produtividade
+  const prod = calcProdutividade(universo);
+  document.getElementById('kpiProdTotal').textContent = prod.total;
+  criarRosca('chProdResp', prod.porResponsavel.labels, prod.porResponsavel.valores);
+  criarRosca('chProdArea', prod.porArea.labels, prod.porArea.valores);
+  criarBarraVertical('chProdProblema', prod.porProblema.labels, prod.porProblema.valores);
+  criarBarraVertical('chProdDemanda', prod.porDemanda.labels, prod.porDemanda.valores);
+  criarRosca('chProdPrio', prod.porPrioridade.labels, prod.porPrioridade.valores);
+  criarRosca('chProdStatus', prod.porStatus.labels, prod.porStatus.valores);
+  criarBarraVertical('chProdBloqueio', prod.porBloqueio.labels, prod.porBloqueio.valores);
+  const granAtiva = document.querySelector('.gran-opt.sel')?.dataset.gran || 'mes';
+  const tempo = volumePorTempoCalc(universo, granAtiva);
+  criarLinhaVolume('chProdTempo', tempo.labels, tempo.valores);
+
+  // 2 — Prazos
+  const prazos = calcPrazos(universo);
+  document.getElementById('kpiPrazoNoPrazo').textContent = prazos.entreguesNoPrazo;
+  document.getElementById('kpiPrazoAtrasadas').textContent = prazos.entreguesAtrasadas;
+  document.getElementById('kpiPrazoTaxaAtraso').textContent = prazos.taxaAtraso.toFixed(1)+'%';
+  document.getElementById('kpiPrazoAntecedencia').textContent = fmtDias(prazos.antecedenciaMedia);
+  criarGauge('chGaugePrazo', prazos.taxaCumprimento, 90, 'legendaGaugePrazo', '#3ddc97');
+  criarRoscaComCentro('chDiasCumprimento', prazos.diasCumprimentoPorResp.labels, prazos.diasCumprimentoPorResp.valores.map(Math.abs), 'centroDiasCumprimento', fmtDias(prazos.diasCumprimentoPorResp.mediaGeral), 'Média geral');
+  criarRoscaComCentro('chDiasAtraso', prazos.diasAtrasoPorResp.labels, prazos.diasAtrasoPorResp.valores, 'centroDiasAtraso', prazos.diasAtrasoPorResp.mediaGeral.toFixed(1)+'d', 'Atraso médio');
+  criarRoscaComCentro('chDiasAntecipado', prazos.diasAntecipadoPorResp.labels, prazos.diasAntecipadoPorResp.valores, 'centroDiasAntecipado', prazos.diasAntecipadoPorResp.mediaGeral.toFixed(1)+'d', 'Antecipação média');
+
+  // 3 — Backlog
+  const backlog = calcBacklog(universo, hoje);
+  document.getElementById('kpiBacklogTotal').textContent = backlog.total;
+  document.getElementById('kpiBacklogVencido').textContent = backlog.vencido;
+  document.getElementById('kpiBacklogAlta').textContent = backlog.altaPrioridade;
+  document.getElementById('kpiBacklogTempoMedio').textContent = backlog.tempoMedio.toFixed(1)+'d';
+  document.getElementById('kpiBacklogMaiorTempo').textContent = backlog.maiorTempo.toFixed(0)+'d';
+  criarRosca('chBacklogResp', backlog.porResponsavel.labels, backlog.porResponsavel.valores);
+  criarBarraVertical('chBacklogArea', backlog.porArea.labels, backlog.porArea.valores);
+  criarRosca('chBacklogPrio', backlog.porPrioridade.labels, backlog.porPrioridade.valores);
+
+  // 4 — Bloqueios/Riscos
+  const bloq = calcBloqueios(universo, hoje);
+  document.getElementById('kpiBloqTotal').textContent = bloq.total;
+  document.getElementById('kpiBloqTempoMedio').textContent = bloq.tempoMedio.toFixed(1)+'d';
+  criarGauge('chGaugeBloqueio', bloq.taxaBloqueio, 10, 'legendaGaugeBloqueio', '#ff3b4e');
+  criarBarraVertical('chBloqArea', bloq.porArea.labels, bloq.porArea.valores);
+  criarRosca('chBloqResp', bloq.porResponsavel.labels, bloq.porResponsavel.valores);
+
+  // 5 — Valor Gerado
+  const valor = calcValorGerado(universo);
+  document.getElementById('kpiValorTotal').textContent = valor.total;
+  criarRosca('chValorPercentual', ['Com valor gerado','Sem valor gerado'], [valor.total, universo.length-valor.total]);
+  criarBarraVertical('chValorArea', valor.porArea.labels, valor.porArea.valores);
+  criarBarraVertical('chValorDemanda', valor.porDemanda.labels, valor.porDemanda.valores);
+
+  // 6 — Governança
+  const gov = calcGovernanca(universo);
+  criarRosca('chGovTaxa', ['Com evidência','Sem evidência'], [gov.comEvidencia, gov.semEvidencia]);
+  criarBarraVertical('chGovArea', gov.porArea.labels, gov.porArea.valores);
+  criarBarraVertical('chGovSemEvidencia', gov.semEvidenciaPorArea.labels, gov.semEvidenciaPorArea.valores);
+}
+
+// ── seletor de indicador ──
+document.getElementById('indSelector').addEventListener('change', (e)=>{
+  document.querySelectorAll('.ind-grupo').forEach(g=> g.classList.remove('active'));
+  document.getElementById(e.target.value).classList.add('active');
+});
+
+// ── toggle de granularidade (volume ao longo do tempo) ──
+document.querySelectorAll('.gran-opt').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.gran-opt').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');
+    const universo = TODAS.filter(r=> !r.excluida);
+    const tempo = volumePorTempoCalc(universo, btn.dataset.gran);
+    criarLinhaVolume('chProdTempo', tempo.labels, tempo.valores);
+  });
+});
+
+async function carregarRelatorioAcoes(){
+  const alvo = document.getElementById('tbl-acoes-relatorio');
+  if (!alvo) return;
+  try{
+    const res = await fetch(`${API}/acoes`);
+    if (!res.ok) throw new Error();
+    const acoes = await res.json();
+    if (!acoes.length){
+      alvo.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhuma ação registrada ainda.</td></tr>';
+      return;
+    }
+    alvo.innerHTML = acoes.map(a=>{
+      const dt = new Date(a._criado_em);
+      const dataFmt = isNaN(dt) ? '—' : dt.toLocaleDateString('pt-BR');
+      return `<tr>
+        <td>${dataFmt}</td>
+        <td>${a.atividade_nome}</td>
+        <td>${a.descricao}</td>
+        <td>${a.atividade_resp || '—'}</td>
+        <td>${a.lembrete ? (a.lembrete_encerrado ? '✓ ' + a.lembrete + ' (encerrado)' : '🔔 ' + a.lembrete) : '—'}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    alvo.innerHTML = '<tr class="empty-row"><td colspan="5" style="color:var(--vermelho);">Erro ao carregar relatório de ações.</td></tr>';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// FILTROS — status-group (Ativas/Concluídas/Excluídas), coluna,
+// filtro rápido vindo do clique num KPI
+// ══════════════════════════════════════════════════════════════
+const chipGrupo = { ativas:true, concluidas:false, excluidas:false };
+const colFiltro = { responsavel:new Set(), prioridade:new Set(), status:new Set(), bloqueio:new Set() };
+let quickFilter = null;
+const QUICK_LABEL = { ativas:'Atividades ativas', vencimento:'Prazos no vencimento', bloqueios:'Bloqueios abertos' };
+
+function passaFiltros(r){
+  if (quickFilter === 'ativas' && !r.ativa) return false;
+  if (quickFilter === 'vencimento' && !r.venc) return false;
+  if (quickFilter === 'bloqueios' && r.bloqueio === '—') return false;
+
+  if (!quickFilter){
+    const grupos = [];
+    if (chipGrupo.ativas) grupos.push(r.ativa);
+    if (chipGrupo.concluidas) grupos.push(r.status === 'Concluído' && !r.excluida);
+    if (chipGrupo.excluidas) grupos.push(r.excluida);
+    if (grupos.length && !grupos.some(Boolean)) return false;
+  }
+
+  if (colFiltro.responsavel.size && !colFiltro.responsavel.has(r.responsavel)) return false;
+  if (colFiltro.prioridade.size && !colFiltro.prioridade.has(r.prioridade)) return false;
+  if (colFiltro.status.size && !colFiltro.status.has(r.status)) return false;
+  if (colFiltro.bloqueio.size && !colFiltro.bloqueio.has(r.bloqueio)) return false;
+
+  return true;
+}
+
+// [NOVO] Quais atividades estão com o painel de Ações aberto agora —
+// um Set pra sobreviver a re-renderizações (ex.: depois de registrar uma
+// ação nova, a tabela inteira recarrega, mas o painel continua aberto).
+const acoesExpandidas = new Set();
+
+function formatarValorGerado(campo){
+  return campo && campo !== 'undefined' ? campo : '—';
+}
+
+function renderTabela(){
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+  const filtradas = TODAS.filter(passaFiltros);
+
+  if (!filtradas.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhuma atividade encontrada com esses filtros.</td></tr>';
+    return;
+  }
+
+  filtradas.forEach(r=>{
+    const s = STATUS[r.status] || {bg:'var(--panel-2)', fg:'var(--ink)'};
+    const pc = PRIO_COR[r.prioridade] || 'var(--ink-faint)';
+    const tr = document.createElement('tr');
+
+    const opcoesStatus = STATUS_ATIVOS.concat(['Concluído','Cancelado','Reprovado'])
+      .map(st => `<option value="${st}" ${st===r.status?'selected':''}>${st}</option>`).join('');
+
+    const qtd = r.qtd_acoes || 0;
+    const aberto = acoesExpandidas.has(r.id);
+    const temLembrete = !!r.tem_lembrete_pendente;
+
+    tr.innerHTML = `
+      <td>
+        <div class="atv-nome">${r.nome}</div>
+        <div class="atv-area">${r.area}</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+          <button class="acoes-pill ${aberto?'aberto':''}" data-toggle-acoes="${r.id}">
+            🗒️ ${qtd} ${qtd===1?'ação':'ações'} ${aberto ? '▲' : '▾'}
+          </button>
+          ${temLembrete ? `<button class="lembrete-badge" data-lembrete-click="${r.id}" title="Tem lembrete pendente — clique pra registrar uma ação">🔔 lembrete</button>` : ''}
+        </div>
+      </td>
+      <td>${r.responsavel}</td>
+      <td><span class="dot" style="background:${pc}"></span>${r.prioridade}</td>
+      <td>
+        ${r.excluida
+          ? `<span class="badge" style="background:${s.bg};color:${s.fg};display:inline-flex;align-items:center;padding:5px 13px;border-radius:20px;font-size:11.5px;font-weight:600;">${r.status}</span>`
+          : `<select class="status-select" style="background-color:${s.bg};color:${s.fg}" data-id="${r.id}">${opcoesStatus}</select>`}
+      </td>
+      <td>${r.prazoFmt}</td>
+      <td style="color:var(--ink-faint)">${r.bloqueio}</td>
+      <td>
+        ${r.excluida ? '<span class="excl-badge">excluída</span>' : `
+          <button class="icon-btn" title="Concluir atividade" data-concluir="${r.id}">✓</button>
+          <button class="icon-btn" title="Excluir (lógico)" data-del="${r.id}">✕</button>
+        `}
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    if (aberto){
+      const trDetalhe = document.createElement('tr');
+      trDetalhe.className = 'detalhe-row';
+      trDetalhe.innerHTML = `
+        <td colspan="7">
+          <div class="detalhe-painel">
+            <div class="detalhe-campos">
+              <div><span class="dc-lbl">Indicador relacionado</span><span class="dc-val">${r.indicador || '—'}</span></div>
+              <div><span class="dc-lbl">Volume / entregável</span><span class="dc-val">${r.volume ?? '—'}</span></div>
+              <div><span class="dc-lbl">Valor gerado</span><span class="dc-val">${formatarValorGerado(r.valor_gerado)}</span></div>
+              <div><span class="dc-lbl">Prazo entregue</span><span class="dc-val">${r.prazo_entregue || '—'}</span></div>
+              <div class="dc-full"><span class="dc-lbl">Evidência</span><span class="dc-val">${
+                r.evidencia ? `<a href="${r.evidencia}" target="_blank" rel="noopener">${r.evidencia}</a>` : '—'
+              }</span></div>
+              <div class="dc-full"><span class="dc-lbl">Observações</span><span class="dc-val">${r.observacoes || '—'}</span></div>
+            </div>
+
+            <div class="acoes-log" id="acoes-log-${r.id}">
+              <div class="acoes-carregando">Carregando ações...</div>
+            </div>
+
+            ${r.excluida ? '' : `
+            <form class="acoes-form" data-acao-form="${r.id}">
+              <div class="acoes-form-linha">
+                <textarea placeholder="O que precisou ser feito a mais, dentro desta atividade?" required></textarea>
+                <div class="acoes-form-lembrete">
+                  <label>Lembrete (opcional)</label>
+                  <input type="date">
+                </div>
+              </div>
+              <button type="submit" class="btn primary">Registrar ação</button>
+            </form>`}
+          </div>
+        </td>
+      `;
+      tbody.appendChild(trDetalhe);
+      carregarAcoes(r.id);
+    }
+  });
+
+  tbody.querySelectorAll('.status-select').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      const id = sel.dataset.id;
+      try{
+        const res = await fetch(`${API}/atividades/${id}/status`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({status: sel.value}),
+        });
+        if (!res.ok) throw new Error();
+        await carregarTudo();
+      }catch(e){ alert('Não consegui atualizar o status. A API está rodando?'); }
+    });
+  });
+
+  tbody.querySelectorAll('[data-concluir]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{
+        const res = await fetch(`${API}/atividades/${btn.dataset.concluir}/status`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({status: 'Concluído'}),
+        });
+        if (!res.ok) throw new Error();
+        await carregarTudo();
+      }catch(e){ alert('Não consegui concluir a atividade. A API está rodando?'); }
+    });
+  });
+
+  tbody.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('Excluir esta atividade? Ela some da lista ativa, mas continua rastreável em "Excluídas".')) return;
+      try{
+        const res = await fetch(`${API}/atividades/${btn.dataset.del}`, {method:'DELETE'});
+        if (!res.ok) throw new Error();
+        await carregarTudo();
+      }catch(e){ alert('Não consegui excluir. A API está rodando?'); }
+    });
+  });
+
+  tbody.querySelectorAll('[data-toggle-acoes]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.toggleAcoes;
+      if (acoesExpandidas.has(id)) acoesExpandidas.delete(id); else acoesExpandidas.add(id);
+      renderTabela();
+    });
+  });
+
+  // [NOVO] Clicar no selo de lembrete abre o painel (se ainda fechado) e
+  // foca direto no campo de texto, pronto pra registrar a próxima linha.
+  tbody.querySelectorAll('[data-lembrete-click]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.lembreteClick;
+      acoesExpandidas.add(id);
+      renderTabela();
+      setTimeout(()=>{
+        const form = document.querySelector(`[data-acao-form="${id}"]`);
+        if (form) form.querySelector('textarea').focus();
+      }, 60);
+    });
+  });
+
+  tbody.querySelectorAll('[data-acao-form]').forEach(form=>{
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const id = form.dataset.acaoForm;
+      const textarea = form.querySelector('textarea');
+      const campoLembrete = form.querySelector('input[type=date]');
+      const descricao = textarea.value.trim();
+      if (!descricao) return;
+      const botao = form.querySelector('button');
+      botao.disabled = true;
+      try{
+        const res = await fetch(`${API}/atividades/${id}/acoes`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({descricao, lembrete: campoLembrete.value || null}),
+        });
+        if (!res.ok) throw new Error();
+        textarea.value = ''; campoLembrete.value = '';
+        await carregarTudo(); // recarrega contagens; o painel continua aberto
+      }catch(e){
+        alert('Não consegui registrar a ação. A API está rodando?');
+      }finally{
+        botao.disabled = false;
+      }
+    });
+  });
+}
+
+// [NOVO] Busca e desenha o log de ações de UMA atividade (chamado só
+// quando o painel dela está aberto — não pesa nada nas fechadas).
+async function carregarAcoes(atividadeId){
+  const alvo = document.getElementById(`acoes-log-${atividadeId}`);
+  if (!alvo) return;
+  try{
+    const res = await fetch(`${API}/atividades/${atividadeId}/acoes`);
+    if (!res.ok) throw new Error();
+    const acoes = await res.json();
+    if (!acoes.length){
+      alvo.innerHTML = '<div class="acoes-vazio">Nenhuma ação registrada ainda dentro desta atividade.</div>';
+      return;
+    }
+    alvo.innerHTML = acoes.map(a => {
+      const dt = new Date(a._criado_em);
+      const dataFmt = isNaN(dt) ? '' : dt.toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      let lembreteTxt = '';
+      if (a.lembrete){
+        if (a.lembrete_encerrado){
+          lembreteTxt = ` <span class="acao-lembrete encerrado">🔔 ${a.lembrete} — encerrado</span>`;
+        } else {
+          lembreteTxt = ` <span class="acao-lembrete">🔔 ${a.lembrete}</span>
+            <button class="acao-encerrar" data-encerrar-lembrete="${a.id}" title="Marcar este lembrete como resolvido">Encerrar</button>`;
+        }
+      }
+      return `<div class="acao-item">
+        <span class="acao-data">${dataFmt}</span>
+        <span class="acao-texto">${a.descricao}${lembreteTxt}</span>
+        <button class="acao-del" data-del-acao="${a.id}" title="Excluir esta ação">✕</button>
+      </div>`;
+    }).join('');
+    alvo.querySelectorAll('[data-del-acao]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if (!confirm('Excluir esta ação?')) return;
+        try{
+          const res = await fetch(`${API}/acoes/${btn.dataset.delAcao}`, {method:'DELETE'});
+          if (!res.ok) throw new Error();
+          await carregarTudo();
+        }catch(e){ alert('Não consegui excluir a ação. A API está rodando?'); }
+      });
+    });
+    alvo.querySelectorAll('[data-encerrar-lembrete]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        btn.disabled = true;
+        try{
+          const res = await fetch(`${API}/acoes/${btn.dataset.encerrarLembrete}/encerrar-lembrete`, {method:'PUT'});
+          if (!res.ok) throw new Error();
+          await carregarTudo();
+        }catch(e){
+          alert('Não consegui encerrar o lembrete. A API está rodando?');
+          btn.disabled = false;
+        }
+      });
+    });
+  }catch(e){
+    alvo.innerHTML = '<div class="acoes-vazio" style="color:var(--vermelho);">Erro ao carregar ações.</div>';
+  }
+}
+
+// ---- chips Ativas/Concluídas/Excluídas ----
+document.querySelectorAll('.filters .chip[data-grupo]').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    chip.classList.toggle('active');
+    chipGrupo[chip.dataset.grupo] = chip.classList.contains('active');
+    renderTabela();
+  });
+});
+
+// ---- KPIs clicáveis (filtro rápido) ----
+function atualizarQuickChip(){
+  const el = document.getElementById('quickChip');
+  if (quickFilter){
+    el.style.display = 'flex';
+    document.getElementById('quickChipTexto').textContent = 'Filtro: ' + QUICK_LABEL[quickFilter];
+  } else { el.style.display = 'none'; }
+}
+document.getElementById('quickChip').addEventListener('click', ()=>{
+  quickFilter = null;
+  document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('kpi-active'));
+  atualizarQuickChip(); renderTabela();
+});
+document.querySelectorAll('.kpi.clickable').forEach(kpi=>{
+  kpi.addEventListener('click', ()=>{
+    const alvo = kpi.dataset.kpi;
+    quickFilter = (quickFilter===alvo) ? null : alvo;
+    document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('kpi-active'));
+    if (quickFilter) kpi.classList.add('kpi-active');
+    atualizarQuickChip();
+    irParaAba('acompanhamento');
+    renderTabela();
+  });
+});
+
+// ---- filtro por coluna (popover) ----
+const OPCOES_COLUNA = {
+  responsavel: ['Guilherme','Wendley','Tiago'],
+  prioridade: ['Baixa','Média','Alta'],
+  status: Object.keys(STATUS),
+  bloqueio: ['Dependência Externa','Falta de Acesso/Permissão','Falta de Recurso','Aprovação Pendente','Falta de Definição/Informação','Sistema/Ferramenta Indisponível','Outro','—'],
+};
+let popAberto = null;
+function fecharPopover(){ if (popAberto){ popAberto.remove(); popAberto=null; } }
+document.addEventListener('click', (e)=>{ if (popAberto && !popAberto.contains(e.target) && !e.target.closest('.th-filter')) fecharPopover(); });
+document.querySelectorAll('th.th-filter').forEach(th=>{
+  th.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const col = th.dataset.col;
+    if (popAberto && popAberto.dataset.col===col){ fecharPopover(); return; }
+    fecharPopover();
+    const rect = th.getBoundingClientRect();
+    const pop = document.createElement('div');
+    pop.className='filter-pop'; pop.dataset.col=col;
+    pop.style.top=(rect.bottom+6)+'px'; pop.style.left=rect.left+'px';
+    OPCOES_COLUNA[col].forEach(valor=>{
+      const marcado = colFiltro[col].has(valor);
+      const lbl = document.createElement('label');
+      lbl.innerHTML = `<input type="checkbox" ${marcado?'checked':''}> ${valor}`;
+      lbl.querySelector('input').addEventListener('change', ev=>{
+        if (ev.target.checked) colFiltro[col].add(valor); else colFiltro[col].delete(valor);
+        th.classList.toggle('col-active', colFiltro[col].size>0);
+        renderTabela();
+      });
+      pop.appendChild(lbl);
+    });
+    const limpar = document.createElement('div');
+    limpar.className='clear'; limpar.textContent='Limpar filtro desta coluna';
+    limpar.addEventListener('click', ()=>{ colFiltro[col].clear(); th.classList.remove('col-active'); renderTabela(); fecharPopover(); });
+    pop.appendChild(limpar);
+    document.body.appendChild(pop);
+    popAberto = pop;
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// CADASTRO — validação no front (espelha a do backend) + envio
+// ══════════════════════════════════════════════════════════════
+const CAMPOS_OBRIGATORIOS = {
+  data: ()=>document.getElementById('f-data').value,
+  responsavel: ()=>document.getElementById('f-resp').value,
+  area_impactada: ()=>document.getElementById('f-area').value,
+  problema_causa: ()=>document.getElementById('f-prob').value,
+  demanda: ()=>document.getElementById('f-demanda').value,
+  atividade: ()=>document.getElementById('f-nome').value,
+  prazo_previsto: ()=>document.getElementById('f-prazo').value,
+  indicador_relacionado: ()=>document.getElementById('f-ind').value,
+};
+
+// [NOVO] Evidência: alterna entre "Link" (campo de texto) e "Arquivo"
+// (upload de verdade, enviado pro backend antes de cadastrar a atividade).
+let evidenciaModo = 'link';
+document.querySelectorAll('.evid-opt').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.evid-opt').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');
+    evidenciaModo = btn.dataset.modo;
+    const campoLink = document.getElementById('f-evidencia');
+    const campoArquivo = document.getElementById('f-evidencia-arquivo');
+    if (evidenciaModo === 'link'){
+      campoLink.style.display = ''; campoArquivo.style.display = 'none';
+      document.getElementById('f-evidencia-arquivo-info').style.display = 'none';
+    } else {
+      campoLink.style.display = 'none'; campoArquivo.style.display = '';
+    }
+  });
+});
+
+// [NOVO] Mostra o nome do arquivo escolhido, com um "✕" pra tirar a
+// seleção sem precisar reabrir o seletor de arquivos do sistema.
+document.getElementById('f-evidencia-arquivo').addEventListener('change', function(){
+  const arquivo = this.files[0];
+  const info = document.getElementById('f-evidencia-arquivo-info');
+  if (arquivo){
+    document.getElementById('f-evidencia-arquivo-nome').textContent = `📎 ${arquivo.name}`;
+    info.style.display = 'flex';
+    this.style.display = 'none';
+  } else {
+    info.style.display = 'none';
+  }
+});
+document.getElementById('f-evidencia-arquivo-remover').addEventListener('click', ()=>{
+  const campoArquivo = document.getElementById('f-evidencia-arquivo');
+  campoArquivo.value = '';
+  campoArquivo.style.display = '';
+  document.getElementById('f-evidencia-arquivo-info').style.display = 'none';
+});
+
+document.getElementById('formAtividade').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = document.getElementById('formMsg');
+  msg.textContent = ''; msg.className = 'form-msg';
+
+  // [FIX] Validação real no front — antes não existia NENHUMA, e é
+  // exatamente isso que deixou 4 atividades sem nome salvas no banco.
+  let temErro = false;
+  document.querySelectorAll('.f[data-campo]').forEach(campo=>{
+    const chave = campo.dataset.campo;
+    const valor = (CAMPOS_OBRIGATORIOS[chave]() || '').trim();
+    campo.classList.toggle('erro', !valor);
+    if (!valor) temErro = true;
+  });
+  if (temErro){
+    msg.textContent = 'Preencha os campos obrigatórios em vermelho.';
+    msg.classList.add('erro');
+    return;
+  }
+
+  const btn = document.getElementById('btnCadastrar');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  // [NOVO] Se o modo for "Arquivo" e algo foi escolhido, sobe o arquivo
+  // PRIMEIRO — o cadastro da atividade em si continua sendo um JSON
+  // comum, só que com a URL do arquivo já pronta no campo "evidencia".
+  // [FIX] Mensagem de erro agora mostra o status HTTP e o corpo da
+  // resposta de verdade — "falha ao enviar o arquivo" genérico não dava
+  // pra saber SE era a API fora do ar, se faltava o python-multipart no
+  // servidor, ou outra causa qualquer.
+  let evidenciaValor = '';
+  try{
+    if (evidenciaModo === 'arquivo'){
+      const arquivo = document.getElementById('f-evidencia-arquivo').files[0];
+      if (arquivo){
+        btn.textContent = 'Enviando arquivo...';
+        const formData = new FormData();
+        formData.append('arquivo', arquivo);
+        const resUpload = await fetch(`${API}/upload`, { method:'POST', body: formData });
+        if (!resUpload.ok){
+          const corpoErro = await resUpload.text().catch(()=> '');
+          throw new Error(`servidor respondeu ${resUpload.status} — ${corpoErro.slice(0,180)}`);
+        }
+        const dadosUpload = await resUpload.json();
+        evidenciaValor = dadosUpload.url; // caminho relativo, ex: /uploads/xxxx.pdf
+      }
+    } else {
+      evidenciaValor = document.getElementById('f-evidencia').value;
+    }
+  }catch(err){
+    msg.textContent = 'Erro ao enviar o arquivo de evidência: ' + err.message +
+      ' — confira se rodou "pip install -r requirements.txt" de novo (precisa do python-multipart) e reiniciou o servidor.';
+    msg.classList.add('erro');
+    btn.disabled = false; btn.textContent = 'Cadastrar atividade';
+    return;
+  }
+
+  const nova = {
+    data: document.getElementById('f-data').value,
+    responsavel: document.getElementById('f-resp').value,
+    area_impactada: document.getElementById('f-area').value,
+    problema_causa: document.getElementById('f-prob').value,
+    demanda: document.getElementById('f-demanda').value,
+    atividade: document.getElementById('f-nome').value,
+    prazo_previsto: document.getElementById('f-prazo').value,
+    prioridade: document.getElementById('f-prio').value,
+    indicador_relacionado: document.getElementById('f-ind').value,
+    bloqueio: document.getElementById('f-bloq').value,
+    volume: parseInt(document.getElementById('f-volume').value || '0', 10),
+    valor_gerado: document.getElementById('f-valor-gerado').value,
+    evidencia: evidenciaValor,
+    observacoes: document.getElementById('f-obs').value,
+    prazo_entregue: document.getElementById('f-prazo-entregue').value || null,
+  };
+
+  btn.textContent = 'Salvando...';
+  try{
+    const res = await fetch(`${API}/atividades`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(nova),
+    });
+    if (!res.ok){
+      const erro = await res.json().catch(()=>({}));
+      throw new Error(erro.detail ? JSON.stringify(erro.detail) : 'erro desconhecido');
+    }
+    msg.textContent = 'Atividade cadastrada com sucesso!'; msg.classList.add('ok');
+    document.getElementById('formAtividade').reset();
+    document.querySelectorAll('.f.erro').forEach(f=>f.classList.remove('erro'));
+    await carregarTudo();
+  }catch(err){
+    msg.textContent = 'Erro ao salvar — a API está rodando? (' + err.message + ')';
+    msg.classList.add('erro');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Cadastrar atividade';
+  }
+});
+
+carregarTudo();
+</script>
+</body>
+</html>
