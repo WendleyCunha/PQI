@@ -1,4 +1,7 @@
 import os
+import threading
+import traceback
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +11,25 @@ from typing import Optional, List
 
 import db_diario as db
 
-app = FastAPI(title="Diário de Bordo API - Firestore", version="2.1")
+def _init_em_segundo_plano():
+    try:
+        db.init_dados_exemplo()
+        print("[OK] Firestore conectado e dados de exemplo verificados.")
+    except Exception as e:
+        print(f"[AVISO] init_dados_exemplo falhou: {e!r}")
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    # [AJUSTADO v2.2] A conexão com o Firestore agora só é criada DEPOIS que
+    # o servidor já subiu (e numa thread separada, pra não atrasar o health
+    # check). Antes ela era criada no import do arquivo — e uma conexão gRPC
+    # criada antes do servidor iniciar pode ficar travada para sempre.
+    threading.Thread(target=_init_em_segundo_plano, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Diário de Bordo API - Firestore", version="2.2", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,13 +54,16 @@ STATUS_VALIDOS = [
     "Concluído", "Bloqueado", "Pausado", "Cancelado",
 ]
 
-# [AJUSTADO v2.1] Se o Firestore falhar aqui (credencial, rede), o erro
-# aparece no log mas o servidor continua subindo — antes, qualquer falha
-# nesta linha derrubava o app inteiro antes mesmo do health check.
-try:
-    db.init_dados_exemplo()
-except Exception as e:
-    print(f"[AVISO] init_dados_exemplo falhou: {e!r}")
+
+# [NOVO v2.2] Diagnóstico: testa o Firestore e devolve o erro REAL na tela
+# (em vez de ficar carregando). Abra /api/diag no navegador.
+@app.get("/api/diag", include_in_schema=False)
+def diagnostico():
+    try:
+        qtd = len(db.atividades_listar(excluido=False))
+        return {"firestore": "ok", "atividades_ativas": qtd, "pid": os.getpid()}
+    except Exception as e:
+        return {"firestore": "ERRO", "erro": repr(e), "detalhe": traceback.format_exc()[-1500:]}
 
 
 class AtividadeCreate(BaseModel):
