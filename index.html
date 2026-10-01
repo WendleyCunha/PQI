@@ -313,18 +313,18 @@ const SISTEMAS = [
   {
     nome: "Diário de Bordo",
     descricao: "Cadastro, acompanhamento e indicadores de atividades — com ações dentro de cada atividade.",
-    url: "https://pqi-c2tu.onrender.com",
+    // [AJUSTADO] O Painel e o Diário agora moram no MESMO servidor do
+    // Render — por isso o endereço é só "/diario". Antes apontava pro
+    // endereço raiz, que agora é o próprio Painel (abria túnel dentro
+    // de túnel).
+    url: "/diario",
     icone: "📔",
     tipo: "nuvem",
-    // [NOVO] Render Free "dorme" depois de ~15 min sem uso. Com isto, o
-    // Home já manda um "acorda" pro servidor assim que abre, e o loader
-    // avisa que a primeira abertura pode demorar.
-    acorda: "https://pqi-c2tu.onrender.com/healthz",
   },
   {
     nome: "RG do Pedido — Acompanhamento",
     descricao: "Rastreabilidade do item do pedido origem ao reenvio: cronograma, cenários de teste e GAPs.",
-    url: "rg-pedido-acompanhamento.html",
+    url: "/rg-pedido-acompanhamento.html",
     icone: "🧾",
     tipo: "arquivo",
   },
