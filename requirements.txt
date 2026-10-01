@@ -1,5 +1,4 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-pydantic>=2.6
-google-cloud-firestore>=2.16
-google-auth>=2.29
+fastapi
+uvicorn[standard]
+pydantic
+google-cloud-firestore
