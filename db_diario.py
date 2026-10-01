@@ -45,12 +45,19 @@ import datetime
 from typing import Optional
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from google.oauth2 import service_account
 
 PROJETO_FIRESTORE = "wendleydesenvolvimento"
 COLECAO = "diario_atividades"
 
+# [NOVO] Tempo máximo (segundos) de cada chamada ao Firestore. Sem isso, uma
+# conexão travada deixa o request esperando PARA SEMPRE ("carregando
+# infinito"); com isso, vira um erro claro no log depois de 20s.
+TIMEOUT_FS = 20
+
 _db_client: Optional[firestore.Client] = None
+_db_pid: Optional[int] = None  # [NOVO] processo que criou a conexão
 
 
 def _ler_secret_streamlit() -> Optional[dict]:
@@ -75,7 +82,12 @@ def _ler_secret_streamlit() -> Optional[dict]:
 def get_db() -> firestore.Client:
     """Conecta uma única vez por processo (equivalente ao 'uma vez por
     sessão' do Streamlit, só que aqui é 'uma vez por vida do servidor')."""
-    global _db_client
+    global _db_client, _db_pid
+    # [NOVO] Se o processo foi duplicado (fork) depois da conexão ser criada,
+    # a conexão gRPC herdada fica morta e trava qualquer consulta. Comparar o
+    # PID detecta isso e força uma conexão nova no processo atual.
+    if _db_client is not None and _db_pid != os.getpid():
+        _db_client = None
     if _db_client is None:
         key_dict = None
 
@@ -101,6 +113,7 @@ def get_db() -> firestore.Client:
 
         creds = service_account.Credentials.from_service_account_info(key_dict)
         _db_client = firestore.Client(credentials=creds, project=PROJETO_FIRESTORE)
+        _db_pid = os.getpid()
     return _db_client
 
 
@@ -127,7 +140,7 @@ def atividades_listar(excluido: bool = False) -> list[dict]:
     order_by (mesmo motivo do database.py do Lila: um order_by exclui
     silenciosamente qualquer documento sem o campo preenchido). Ordena por
     `prazo` em Python, como o restante do sistema já faz em outras listas."""
-    docs = _col().where("excluido", "==", excluido).stream()
+    docs = _col().where(filter=FieldFilter("excluido", "==", excluido)).stream(timeout=TIMEOUT_FS)
     linhas = [_doc_to_dict(d) for d in docs]
     linhas.sort(key=lambda r: r.get("prazo") or "")
     return linhas
@@ -137,7 +150,7 @@ def atividades_inserir(dados: dict) -> str:
     dados = dict(dados)
     dados.setdefault("excluido", False)
     dados["_criado_em"] = _now_iso()
-    _, ref = _col().add(dados)
+    _, ref = _col().add(dados, timeout=TIMEOUT_FS)
     return ref.id
 
 
@@ -145,10 +158,10 @@ def atividades_status_atualizar(atividade_id: str, status: str) -> bool:
     """Retorna False se o documento não existir ou já estiver excluído
     (mesma regra que já existia no main.py com SQLite)."""
     ref = _col().document(atividade_id)
-    doc = ref.get()
+    doc = ref.get(timeout=TIMEOUT_FS)
     if not doc.exists or doc.to_dict().get("excluido"):
         return False
-    ref.update({"status": status})
+    ref.update({"status": status}, timeout=TIMEOUT_FS)
     return True
 
 
@@ -156,16 +169,16 @@ def atividades_excluir(atividade_id: str) -> bool:
     """Exclusão LÓGICA — mesmo espírito do resto do sistema (nunca apagar
     de verdade, só marcar `excluido=True`, pra manter rastreabilidade)."""
     ref = _col().document(atividade_id)
-    if not ref.get().exists:
+    if not ref.get(timeout=TIMEOUT_FS).exists:
         return False
-    ref.update({"excluido": True})
+    ref.update({"excluido": True}, timeout=TIMEOUT_FS)
     return True
 
 
 def init_dados_exemplo() -> None:
     """Popula a coleção com os 6 exemplos originais, SÓ se ela estiver
     vazia — mesmo comportamento que o init_db() do SQLite tinha."""
-    if next(_col().limit(1).stream(), None) is not None:
+    if next(_col().limit(1).stream(timeout=TIMEOUT_FS), None) is not None:
         return  # já tem dado — não sobrescreve nada
 
     exemplos = [
