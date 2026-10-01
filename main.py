@@ -2,13 +2,13 @@ import os
 from datetime import date, datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
 
 import db_diario as db
 
-app = FastAPI(title="Diário de Bordo API - Firestore", version="2.0")
+app = FastAPI(title="Diário de Bordo API - Firestore", version="2.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,12 +18,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# [NOVO v2.1] Rota de "estou vivo" exigida pelo Streamlit Cloud. Ele chama
+# /healthz (e, em algumas versões, /_stcore/health) pra saber se o app subiu;
+# sem estas rotas o FastAPI responde 404 e o Cloud derruba o app.
+@app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/_stcore/health", methods=["GET", "HEAD"], include_in_schema=False)
+def health():
+    return PlainTextResponse("ok")
+
+
 STATUS_VALIDOS = [
     "Planejamento", "Iniciar", "Em Andamento", "Aprovação", "Reprovado",
     "Concluído", "Bloqueado", "Pausado", "Cancelado",
 ]
 
-db.init_dados_exemplo()
+# [AJUSTADO v2.1] Se o Firestore falhar aqui (credencial, rede), o erro
+# aparece no log mas o servidor continua subindo — antes, qualquer falha
+# nesta linha derrubava o app inteiro antes mesmo do health check.
+try:
+    db.init_dados_exemplo()
+except Exception as e:
+    print(f"[AVISO] init_dados_exemplo falhou: {e!r}")
 
 
 class AtividadeCreate(BaseModel):
@@ -145,6 +161,10 @@ def excluir_atividade(atividade_id: str):
 @app.get("/")
 def servir_frontend():
     caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    # [AJUSTADO v2.1] Mensagem clara em vez de erro 500 genérico caso o
+    # index.html não tenha sido enviado pro repositório.
+    if not os.path.exists(caminho):
+        raise HTTPException(status_code=404, detail="index.html não encontrado na pasta do main.py.")
     return FileResponse(caminho)
 
 
