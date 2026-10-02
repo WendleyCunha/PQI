@@ -376,3 +376,72 @@ def usuario_criar(email: str, dados: dict) -> bool:
 
 def usuario_atualizar(email: str, campos: dict) -> None:
     _col_usuarios().document(email).update(campos, timeout=TIMEOUT_FS)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.1] MAPA DIGITAL KING STAR — um documento por PROCESSO na coleção
+# "mapa_processos". Igual ao Diagnóstico, o servidor não conhece os campos:
+# tudo vai dentro de "dados" e quem decide é o mapa.html. O servidor só
+# cuida de: versão (pra duas pessoas não sobrescreverem uma à outra),
+# quem alterou/quando, e exclusão lógica.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_MAPA = "mapa_processos"
+
+
+def _col_mapa():
+    return get_db().collection(COLECAO_MAPA)
+
+
+def _mapa_publico(doc_id: str, d: dict) -> dict:
+    return {"id": doc_id, "dados": d.get("dados") or {}, "versao": int(d.get("versao", 1)),
+            "atualizado_por": d.get("atualizado_por"), "atualizado_em": d.get("atualizado_em"),
+            "criado_por": d.get("criado_por"), "criado_em": d.get("criado_em")}
+
+
+def mapa_listar() -> list[dict]:
+    saida = []
+    for doc in _col_mapa().stream(timeout=TIMEOUT_FS):
+        d = doc.to_dict() or {}
+        if not d.get("excluido"):
+            saida.append(_mapa_publico(doc.id, d))
+    return saida
+
+
+def mapa_criar(dados: dict, usuario: str) -> dict:
+    agora = _now_iso()
+    ref = _col_mapa().document()
+    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_em": agora,
+                "atualizado_por": usuario, "atualizado_em": agora}
+    ref.set(registro, timeout=TIMEOUT_FS)
+    return _mapa_publico(ref.id, registro)
+
+
+def mapa_salvar(processo_id: str, dados: dict, versao_esperada: Optional[int], usuario: str):
+    """Grava com controle de versão, dentro de uma transação do Firestore.
+    Retorna ("ok", registro) | ("conflito", registro_atual) | ("nao_existe", None).
+    versao_esperada=None grava por cima (usado no "manter a minha versão")."""
+    ref = _col_mapa().document(processo_id)
+    transacao = get_db().transaction()
+
+    @firestore.transactional
+    def _tx(t):
+        snap = ref.get(transaction=t)
+        if not snap.exists or (snap.to_dict() or {}).get("excluido"):
+            return "nao_existe", None
+        atual = snap.to_dict() or {}
+        versao_atual = int(atual.get("versao", 1))
+        if versao_esperada is not None and versao_esperada != versao_atual:
+            return "conflito", _mapa_publico(processo_id, atual)
+        novo = {"dados": dados, "versao": versao_atual + 1, "atualizado_por": usuario, "atualizado_em": _now_iso()}
+        t.update(ref, novo)
+        return "ok", _mapa_publico(processo_id, {**atual, **novo})
+
+    return _tx(transacao)
+
+
+def mapa_excluir(processo_id: str, usuario: str) -> bool:
+    ref = _col_mapa().document(processo_id)
+    if not ref.get(timeout=TIMEOUT_FS).exists:
+        return False
+    ref.update({"excluido": True, "excluido_por": usuario, "excluido_em": _now_iso()}, timeout=TIMEOUT_FS)
+    return True
