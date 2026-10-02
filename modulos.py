@@ -61,14 +61,13 @@ MODULOS = [
         "paginas": [], "apis": [],
     },
     {
-        # Portal de terceiro com tela de login própria — pode recusar abrir
-        # dentro do túnel (proteção contra clickjacking deles). Nesse caso,
-        # o botão "Nova aba" do Painel resolve.
-        "id": "kingstar",
-        "nome": "Concierge — King Star",
-        "descricao": "Portal de operação King Star Colchões.",
-        "url": "https://portal.kingstarcolchoes.com.br/operacao/caixa", "icone": "🛎️", "tipo": "externo",
-        "paginas": [], "apis": [],
+        # [v3.1] Substitui o antigo card "Concierge — King Star".
+        "id": "mapa",
+        "nome": "Mapa Digital King Star",
+        "descricao": "Mapeamento de processos: como é feito hoje × Instrução de Trabalho — gaps, aderência e oportunidades.",
+        "url": "/mapa", "icone": "🧩", "tipo": "nuvem",
+        "paginas": ["/mapa"],
+        "apis": ["/api/mapa"],
     },
 ]
 
