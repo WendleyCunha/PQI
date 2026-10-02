@@ -7,13 +7,37 @@ import threading
 import traceback
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+import time
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi.responses import FileResponse, PlainTextResponse, Response, JSONResponse, HTMLResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, field_validator
 from typing import Optional, List, Any
 
 import db_diario as db
+import seguranca as seg
+import modulos as mods
+
+
+def _garantir_admin():
+    """[NOVO v3.0] Cria o primeiro administrador a partir das variáveis
+    ADMIN_EMAIL e ADMIN_SENHA do Render — SÓ se esse e-mail ainda não
+    existir. Nunca sobrescreve a senha de quem já existe (depois do
+    primeiro login, a senha passa a ser a que você escolher)."""
+    email = (os.environ.get("ADMIN_EMAIL") or "").strip().lower()
+    senha = os.environ.get("ADMIN_SENHA") or ""
+    if not email or not senha:
+        print("[AVISO] ADMIN_EMAIL/ADMIN_SENHA não configurados — nenhum admin inicial criado.")
+        return
+    if db.usuario_ler(email):
+        return
+    db.usuario_criar(email, {
+        "email": email, "nome": os.environ.get("ADMIN_NOME", "Administrador"), "papel": "admin",
+        "modulos": [], "ativo": True, "senha_hash": seg.gerar_hash(senha), "versao_sessao": 1,
+        "trocar_senha": True, "criado_em": datetime.now().isoformat(), "criado_por": "sistema",
+    })
+    print(f"[OK] Administrador inicial criado: {email}")
+
 
 def _init_em_segundo_plano():
     try:
@@ -21,6 +45,12 @@ def _init_em_segundo_plano():
         print("[OK] Firestore conectado e dados de exemplo verificados.")
     except Exception as e:
         print(f"[AVISO] init_dados_exemplo falhou: {e!r}")
+    try:
+        _garantir_admin()
+    except Exception as e:
+        print(f"[AVISO] não consegui verificar o admin inicial: {e!r}")
+    if seg.SEGREDO_TEMPORARIO:
+        print("[AVISO] SESSION_SECRET não configurado — todos serão deslogados a cada reinício do servidor.")
 
 
 @asynccontextmanager
@@ -33,17 +63,302 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Diário de Bordo API - Firestore", version="2.4", lifespan=lifespan)
+app = FastAPI(title="PQI — Painel de Sistemas", version="3.0", lifespan=lifespan,
+              docs_url=None, redoc_url=None, openapi_url=None)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# [REMOVIDO v3.0] O CORS liberado pra qualquer site ("*") saiu: com login
+# por cookie, ele deixaria outro site fazer pedidos em nome de quem está
+# logado. Tudo aqui é do mesmo endereço, então o CORS não faz falta.
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# [NOVO v3.0] PORTEIRO — toda requisição passa por aqui antes de chegar na
+# rota. Regra: sem login, nada abre (só a tela inicial e o próprio login);
+# com login, cada página/API só abre se o módulo dela estiver liberado.
+# Endereço que não pertence a módulo nenhum é negado por padrão.
+# ══════════════════════════════════════════════════════════════════════════
+ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
+                  "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
+ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
+ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
+ROTAS_QUALQUER_LOGADO = {"/api/auth/senha"}
+
+_cache_usuarios: dict = {}
+_CACHE_SEG = 30
+
+
+def _usuario_cacheado(email: str) -> Optional[dict]:
+    agora = time.time()
+    item = _cache_usuarios.get(email)
+    if item and agora - item[1] < _CACHE_SEG:
+        return item[0]
+    u = db.usuario_ler(email)
+    _cache_usuarios[email] = (u, agora)
+    return u
+
+
+def _esquecer_cache(email: str) -> None:
+    _cache_usuarios.pop(email, None)
+
+
+def _usuario_da_requisicao(request: Request) -> Optional[dict]:
+    dados = seg.ler_token(request.cookies.get(seg.NOME_COOKIE))
+    if not dados:
+        return None
+    u = _usuario_cacheado(dados.get("e", ""))
+    if not u or not u.get("ativo", True) or int(u.get("versao_sessao", 1)) != int(dados.get("v", -1)):
+        return None
+    return u
+
+
+def _negar(eh_api: bool, status: int, mensagem: str):
+    if eh_api:
+        return JSONResponse({"detail": mensagem}, status_code=status)
+    # Página dentro do túnel: mostra o aviso e manda o login abrir na janela
+    # principal (target=_top), não dentro do iframe.
+    return HTMLResponse(
+        f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Acesso</title>
+<style>body{{font:15px Inter,Arial,sans-serif;background:#06070b;color:#f2f0ea;display:grid;place-items:center;
+height:100vh;margin:0}}div{{text-align:center;max-width:420px;padding:24px}}a{{color:#f3cd6f}}</style></head>
+<body><div><p style="font-size:36px;margin:0">🔒</p><p>{mensagem}</p>
+<p><a href="/" target="_top">Ir para o Painel</a></p></div></body></html>""",
+        status_code=status,
+    )
+
+
+@app.middleware("http")
+async def porteiro(request: Request, call_next):
+    caminho = request.url.path
+    if caminho in ROTAS_PUBLICAS:
+        return await call_next(request)
+
+    eh_api = caminho.startswith("/api/")
+    try:
+        usuario = await run_in_threadpool(_usuario_da_requisicao, request)
+    except Exception as e:
+        return _negar(eh_api, 503, f"Não consegui verificar seu acesso agora ({e.__class__.__name__}). Tente de novo.")
+    if not usuario:
+        return _negar(eh_api, 401, "Sua sessão expirou ou você ainda não entrou. Faça login de novo.")
+    request.state.usuario = usuario
+
+    if caminho in ROTAS_QUALQUER_LOGADO:
+        return await call_next(request)
+    if caminho in ROTAS_SO_ADMIN or caminho.startswith(ROTAS_SO_ADMIN_PREFIXO):
+        if usuario.get("papel") != "admin":
+            return _negar(eh_api, 403, "Esta área é só para administradores.")
+        return await call_next(request)
+
+    modulo = mods.modulo_da_rota(caminho)
+    if modulo is None:
+        return _negar(eh_api, 404, "Endereço não encontrado.")
+    if not mods.tem_acesso(usuario, modulo["id"]):
+        return _negar(eh_api, 403, f"Você não tem acesso ao módulo “{modulo['nome']}”. Peça liberação ao administrador.")
+    return await call_next(request)
+
+
+def usuario_atual(request: Request) -> dict:
+    u = getattr(request.state, "usuario", None) or _usuario_da_requisicao(request)
+    if not u:
+        raise HTTPException(status_code=401, detail="Faça login de novo.")
+    return u
+
+
+def _usuario_publico(u: dict) -> dict:
+    return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
+                                   "criado_em", "criado_por", "ultimo_login")}
+
+
+def _ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
+
+
+def _gravar_cookie(resposta: Response, u: dict) -> None:
+    resposta.set_cookie(
+        seg.NOME_COOKIE, seg.criar_token(u["email"], int(u.get("versao_sessao", 1))),
+        max_age=seg.DURACAO_SESSAO_SEG, httponly=True, secure=True, samesite="lax", path="/",
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# LOGIN / SESSÃO
+# ──────────────────────────────────────────────────────────────────────────
+_EMAIL_VALIDO = re.compile(r"^[^@\s/]+@[^@\s/]+\.[^@\s/]+$")
+
+
+class LoginEntrada(BaseModel):
+    email: str
+    senha: str
+
+
+class TrocaSenha(BaseModel):
+    senha_atual: str
+    senha_nova: str
+
+
+@app.post("/api/auth/login")
+def auth_login(payload: LoginEntrada, request: Request, response: Response):
+    email = payload.email.strip().lower()
+    chave_email, chave_ip = f"email:{email}", f"ip:{_ip(request)}"
+    for chave in (chave_email, chave_ip):
+        ate = seg.bloqueado_ate(chave)
+        if ate:
+            minutos = max(1, round((ate - time.time()) / 60))
+            raise HTTPException(status_code=429, detail=f"Muitas tentativas erradas. Tente de novo em {minutos} min.")
+
+    u = db.usuario_ler(email) if _EMAIL_VALIDO.match(email) else None
+    senha_ok = seg.conferir_senha(payload.senha, (u or {}).get("senha_hash"))
+    if not u or not senha_ok or not u.get("ativo", True):
+        seg.registrar_falha(chave_email, "email")
+        seg.registrar_falha(chave_ip, "ip")
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+
+    seg.limpar_falhas(chave_email)
+    db.usuario_atualizar(email, {"ultimo_login": datetime.now().isoformat()})
+    _esquecer_cache(email)
+    _gravar_cookie(response, u)
+    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u)}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(response: Response):
+    response.delete_cookie(seg.NOME_COOKIE, path="/")
+    return {"sucesso": True}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request):
+    u = _usuario_da_requisicao(request)
+    if not u:
+        return JSONResponse({"detail": "não logado"}, status_code=401)
+    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u)}
+
+
+@app.post("/api/auth/senha")
+def auth_trocar_senha(payload: TrocaSenha, request: Request, response: Response):
+    u = usuario_atual(request)
+    if not seg.conferir_senha(payload.senha_atual, u.get("senha_hash")):
+        raise HTTPException(status_code=400, detail="A senha atual não confere.")
+    erro = seg.senha_aceitavel(payload.senha_nova)
+    if erro:
+        raise HTTPException(status_code=400, detail=erro)
+    if payload.senha_nova == payload.senha_atual:
+        raise HTTPException(status_code=400, detail="A senha nova precisa ser diferente da atual.")
+    nova_versao = int(u.get("versao_sessao", 1)) + 1  # desloga outras sessões abertas com a senha velha
+    db.usuario_atualizar(u["email"], {"senha_hash": seg.gerar_hash(payload.senha_nova),
+                                      "versao_sessao": nova_versao, "trocar_senha": False})
+    _esquecer_cache(u["email"])
+    _gravar_cookie(response, {**u, "versao_sessao": nova_versao})
+    return {"sucesso": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# ADMIN — usuários e permissões (o porteiro já garante que só admin chega)
+# ──────────────────────────────────────────────────────────────────────────
+class UsuarioNovo(BaseModel):
+    nome: str
+    email: str
+    senha: str
+    papel: str = "usuario"
+    modulos: List[str] = []
+    ativo: bool = True
+
+
+class UsuarioEdicao(BaseModel):
+    nome: Optional[str] = None
+    papel: Optional[str] = None
+    modulos: Optional[List[str]] = None
+    ativo: Optional[bool] = None
+    nova_senha: Optional[str] = None
+
+
+def _validar_papel_modulos(papel: Optional[str], modulos_: Optional[List[str]]):
+    if papel is not None and papel not in mods.PAPEIS:
+        raise HTTPException(status_code=400, detail="Papel inválido.")
+    if modulos_ is not None:
+        invalidos = [m for m in modulos_ if m not in mods.IDS_VALIDOS]
+        if invalidos:
+            raise HTTPException(status_code=400, detail=f"Módulo(s) inexistente(s): {', '.join(invalidos)}")
+
+
+@app.get("/api/admin/usuarios")
+def admin_listar():
+    return {"usuarios": [_usuario_publico(u) for u in db.usuarios_listar()],
+            "modulos": mods.catalogo_publico(), "papeis": mods.PAPEIS}
+
+
+@app.post("/api/admin/usuarios")
+def admin_criar(payload: UsuarioNovo, request: Request):
+    admin = usuario_atual(request)
+    email = payload.email.strip().lower()
+    if not _EMAIL_VALIDO.match(email):
+        raise HTTPException(status_code=400, detail="E-mail inválido.")
+    if not payload.nome.strip():
+        raise HTTPException(status_code=400, detail="Informe o nome.")
+    erro = seg.senha_aceitavel(payload.senha)
+    if erro:
+        raise HTTPException(status_code=400, detail=erro)
+    _validar_papel_modulos(payload.papel, payload.modulos)
+    criado = db.usuario_criar(email, {
+        "email": email, "nome": payload.nome.strip(), "papel": payload.papel,
+        "modulos": sorted(set(payload.modulos)), "ativo": payload.ativo,
+        "senha_hash": seg.gerar_hash(payload.senha), "versao_sessao": 1, "trocar_senha": True,
+        "criado_em": datetime.now().isoformat(), "criado_por": admin["email"],
+    })
+    if not criado:
+        raise HTTPException(status_code=409, detail="Já existe um usuário com esse e-mail.")
+    return {"sucesso": True}
+
+
+@app.put("/api/admin/usuarios/{email}")
+def admin_editar(email: str, payload: UsuarioEdicao, request: Request):
+    admin = usuario_atual(request)
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    _validar_papel_modulos(payload.papel, payload.modulos)
+    if email == admin["email"] and (payload.ativo is False or (payload.papel and payload.papel != "admin")):
+        raise HTTPException(status_code=400, detail="Você não pode desativar nem tirar o admin de você mesmo.")
+
+    campos: dict = {}
+    if payload.nome is not None:
+        if not payload.nome.strip():
+            raise HTTPException(status_code=400, detail="O nome não pode ficar vazio.")
+        campos["nome"] = payload.nome.strip()
+    if payload.papel is not None:
+        campos["papel"] = payload.papel
+    if payload.modulos is not None:
+        campos["modulos"] = sorted(set(payload.modulos))
+    if payload.ativo is not None:
+        campos["ativo"] = payload.ativo
+    derrubar_sessoes = False
+    if payload.nova_senha:
+        erro = seg.senha_aceitavel(payload.nova_senha)
+        if erro:
+            raise HTTPException(status_code=400, detail=erro)
+        campos["senha_hash"] = seg.gerar_hash(payload.nova_senha)
+        campos["trocar_senha"] = True
+        derrubar_sessoes = True
+    if payload.ativo is False and alvo.get("ativo", True):
+        derrubar_sessoes = True
+    if derrubar_sessoes:
+        campos["versao_sessao"] = int(alvo.get("versao_sessao", 1)) + 1
+    if campos:
+        campos["alterado_em"] = datetime.now().isoformat()
+        campos["alterado_por"] = admin["email"]
+        db.usuario_atualizar(email, campos)
+        _esquecer_cache(email)
+    return {"sucesso": True}
+
+
+@app.get("/api/admin/senha-aleatoria")
+def admin_senha_aleatoria():
+    return {"senha": seg.senha_aleatoria()}
+
+
+# Rota de "estou vivo" (health check do Render).
 # [NOVO v2.1] Rota de "estou vivo" exigida pelo Streamlit Cloud. Ele chama
 # /healthz (e, em algumas versões, /_stcore/health) pra saber se o app subiu;
 # sem estas rotas o FastAPI responde 404 e o Cloud derruba o app.
@@ -386,6 +701,7 @@ PAGINAS = {
     "/diario": "diario.html",                                            # Diário de Bordo
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico N2
+    "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
 }
 
 
