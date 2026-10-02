@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Usuários e Permissões</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root[data-theme="dark"]{--bg:#06070b;--panel:#0e1017;--panel-2:#151824;--campo:#0a0c12;--line:rgba(232,179,61,.16);--line-2:rgba(232,179,61,.42);
+  --gold:#e8b33d;--gold-soft:#f3cd6f;--violet:#8b6cff;--ink:#f2f0ea;--ink-2:#c3c5cc;--muted:#8b8f9c;--faint:#565b6b;--ok:#3ddc97;--bad:#ff6b6b;--azul:#4fc3f7}
+:root[data-theme="light"]{--bg:#f4f5f8;--panel:#fff;--panel-2:#eef1f6;--campo:#fff;--line:rgba(179,131,20,.22);--line-2:rgba(179,131,20,.6);
+  --gold:#b38314;--gold-soft:#8c640c;--violet:#6846ff;--ink:#1a1c23;--ink-2:#3d4150;--muted:#5e6375;--faint:#8a90a2;--ok:#109658;--bad:#c62828;--azul:#0277bd}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  padding:calc(env(safe-area-inset-top,0px) + 24px) 24px calc(env(safe-area-inset-bottom,0px) + 60px)}
+.pagina{max-width:1180px;margin:0 auto}
+h1,h2{font-family:"Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.01em;font-weight:600}
+h1{font-size:24px;margin:0 0 4px} h2{font-size:17px;margin:0 0 12px}
+.cap{color:var(--muted);font-size:12.5px;margin:0 0 16px;max-width:80ch}
+.topo{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.topo .acoes{margin-left:auto}
+.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 14px;border-radius:9px;font:500 13px Inter,sans-serif;cursor:pointer}
+.btn:hover{border-color:var(--gold)} .btn.primary{background:var(--gold);border-color:var(--gold);color:#16130b;font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.busca{width:100%;margin-bottom:10px}
+input.inp,select.inp{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font:14px Inter,sans-serif;width:100%}
+.lista{display:flex;flex-direction:column;gap:6px;max-height:68vh;overflow:auto}
+.u{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:11px;
+  background:var(--panel-2);cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
+.u:hover{border-color:var(--line-2)} .u.sel{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
+.u.inativo{opacity:.55}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:700 15px "Space Grotesk",sans-serif;
+  background:conic-gradient(from 220deg,var(--gold),var(--violet),var(--gold));color:#16130b}
+.u b{display:block;font-size:14px} .u small{color:var(--muted);font-size:12px}
+.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:260px}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(79,195,247,.14);color:var(--azul);white-space:nowrap}
+.tag.admin{background:rgba(232,179,61,.18);color:var(--gold-soft)} .tag.supervisor{background:rgba(139,108,255,.16);color:var(--violet)}
+.tag.off{background:rgba(255,107,107,.14);color:var(--bad)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);margin-bottom:12px}
+.linha{display:flex;gap:8px} .linha .inp{flex:1}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px}
+legend{font-size:12px;color:var(--muted);padding:0 6px}
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.mods label{display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0;cursor:pointer}
+.mods input,.chk input{accent-color:var(--gold);width:16px;height:16px}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:12px;cursor:pointer}
+.nota{font-size:12px;color:var(--muted);margin:-4px 0 12px}
+.msg{font-size:13px;margin-top:10px;min-height:20px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+.senha-gerada{margin-top:10px;padding:10px 12px;border:1px dashed var(--gold);border-radius:10px;font-size:13px;display:none}
+.senha-gerada code{font:600 15px "Space Grotesk",monospace;color:var(--gold-soft)}
+.vazio{color:var(--faint);text-align:center;padding:30px 0}
+@media (max-width:860px){.layout{grid-template-columns:1fr} .mods{grid-template-columns:1fr} body{padding-left:14px;padding-right:14px}}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="topo">
+    <div><h1>🔐 Usuários e Permissões</h1>
+      <p class="cap">Crie o acesso de cada pessoa, defina a senha inicial e marque quais módulos ela enxerga. Na primeira entrada, o sistema obriga a pessoa a trocar a senha que você definiu.</p></div>
+    <div class="acoes"><button class="btn primary" id="btnNovo" type="button">+ Novo usuário</button></div>
+  </div>
+  <div class="layout">
+    <section class="box" aria-label="Lista de usuários">
+      <input class="inp busca" id="busca" placeholder="Buscar por nome ou e-mail..." aria-label="Buscar usuário">
+      <div class="lista" id="lista"><div class="vazio">Carregando…</div></div>
+    </section>
+    <section class="box" aria-label="Formulário do usuário">
+      <h2 id="fTitulo">Novo usuário</h2>
+      <label class="f">Nome<input class="inp" id="fNome" autocomplete="off"></label>
+      <label class="f">E-mail (é o login)<input class="inp" id="fEmail" type="email" autocomplete="off"></label>
+      <label class="f">Papel<select class="inp" id="fPapel"></select></label>
+      <p class="nota" id="fPapelNota"></p>
+      <fieldset id="fMods"><legend>Módulos liberados</legend><div class="mods" id="modsLista"></div></fieldset>
+      <label class="f"><span id="fSenhaLbl">Senha inicial (mín. 8 caracteres)</span>
+        <span class="linha"><input class="inp" id="fSenha" type="text" autocomplete="new-password"><button class="btn" id="btnGerar" type="button">Gerar</button></span></label>
+      <label class="chk"><input type="checkbox" id="fAtivo" checked> Acesso ativo</label>
+      <button class="btn primary" id="btnSalvar" type="button">💾 Salvar</button>
+      <div class="msg" id="msg" role="status"></div>
+      <div class="senha-gerada" id="senhaInfo"></div>
+    </section>
+  </div>
+</div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let USUARIOS=[], MODULOS=[], PAPEIS={}, editando=null;
+try{ const t=localStorage.getItem("diag_tema"); if(t) document.documentElement.dataset.theme=t; }catch(_){}
+
+async function api(url, opcoes){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},...opcoes});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+  return j;
+}
+function msg(t,tipo){ const m=$("#msg"); m.className="msg "+(tipo||""); m.textContent=t||""; }
+function dataBR(iso){ if(!iso) return "nunca"; const d=new Date(iso); return isNaN(d)?iso:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+
+async function carregar(){
+  try{ const j=await api("/api/admin/usuarios"); USUARIOS=j.usuarios; MODULOS=j.modulos; PAPEIS=j.papeis; }
+  catch(e){ $("#lista").innerHTML=`<div class="vazio">Não consegui carregar: ${esc(e.message)}</div>`; return; }
+  $("#fPapel").innerHTML=Object.keys(PAPEIS).map(p=>`<option value="${p}">${p==="admin"?"Administrador":p==="supervisor"?"Supervisor":"Usuário"}</option>`).join("");
+  $("#modsLista").innerHTML=MODULOS.map(m=>`<label><input type="checkbox" value="${esc(m.id)}"> ${m.icone} ${esc(m.nome)}${m.tipo==="externo"?' <small style="color:var(--faint)">(externo)</small>':""}</label>`).join("");
+  renderLista();
+  if(editando){ const u=USUARIOS.find(x=>x.email===editando); u?abrir(u):novo(); } else novo();
+}
+function renderLista(){
+  const termo=$("#busca").value.trim().toLowerCase();
+  const lst=USUARIOS.filter(u=>!termo||(u.nome||"").toLowerCase().includes(termo)||u.email.includes(termo));
+  if(!lst.length){ $("#lista").innerHTML='<div class="vazio">Nenhum usuário encontrado.</div>'; return; }
+  const nomeMod=id=>{ const m=MODULOS.find(x=>x.id===id); return m?`${m.icone} ${m.nome}`:id; };
+  $("#lista").innerHTML=lst.map(u=>{
+    const tags = u.papel==="admin" ? '<span class="tag admin">Admin · tudo</span>'
+      : (u.papel==="supervisor"?'<span class="tag supervisor">Supervisor</span>':"") + ((u.modulos||[]).map(id=>`<span class="tag">${esc(nomeMod(id))}</span>`).join("")||'<span class="tag off">nenhum módulo</span>');
+    return `<button type="button" class="u${u.email===editando?" sel":""}${u.ativo===false?" inativo":""}" data-email="${esc(u.email)}">
+      <span class="av">${esc((u.nome||u.email).trim().charAt(0).toUpperCase())}</span>
+      <span><b>${esc(u.nome||"(sem nome)")}${u.ativo===false?' <span class="tag off">desativado</span>':""}</b><small>${esc(u.email)} · último acesso: ${esc(dataBR(u.ultimo_login))}</small></span>
+      <span class="tags">${tags}</span></button>`; }).join("");
+  document.querySelectorAll(".u").forEach(b=>b.onclick=()=>abrir(USUARIOS.find(u=>u.email===b.dataset.email)));
+}
+function atualizarPapelUI(){
+  const p=$("#fPapel").value;
+  $("#fPapelNota").textContent=PAPEIS[p]||"";
+  $("#fMods").disabled = p==="admin";
+  $("#fMods").style.opacity = p==="admin" ? .5 : 1;
+}
+function marcarModulos(lst){ document.querySelectorAll("#modsLista input").forEach(i=>i.checked=(lst||[]).includes(i.value)); }
+function novo(){
+  editando=null; $("#fTitulo").textContent="Novo usuário";
+  $("#fNome").value=""; $("#fEmail").value=""; $("#fEmail").disabled=false; $("#fPapel").value="usuario";
+  $("#fSenha").value=""; $("#fSenhaLbl").textContent="Senha inicial (mín. 8 caracteres)"; $("#fAtivo").checked=true;
+  marcarModulos([]); atualizarPapelUI(); msg(""); $("#senhaInfo").style.display="none"; renderLista(); $("#fNome").focus();
+}
+function abrir(u){
+  editando=u.email; $("#fTitulo").textContent="Editar usuário";
+  $("#fNome").value=u.nome||""; $("#fEmail").value=u.email; $("#fEmail").disabled=true; $("#fPapel").value=u.papel||"usuario";
+  $("#fSenha").value=""; $("#fSenhaLbl").textContent="Nova senha (deixe em branco para manter a atual)"; $("#fAtivo").checked=u.ativo!==false;
+  marcarModulos(u.modulos); atualizarPapelUI(); msg(""); $("#senhaInfo").style.display="none"; renderLista();
+}
+$("#btnNovo").onclick=novo;
+$("#busca").oninput=renderLista;
+$("#fPapel").onchange=atualizarPapelUI;
+$("#btnGerar").onclick=async()=>{ try{ const j=await api("/api/admin/senha-aleatoria"); $("#fSenha").value=j.senha; }catch(e){ msg(e.message,"erro"); } };
+$("#btnSalvar").onclick=async()=>{
+  const b=$("#btnSalvar"); b.disabled=true; msg("Salvando…");
+  const papel=$("#fPapel").value, senha=$("#fSenha").value;
+  const modulos=papel==="admin"?[]:[...document.querySelectorAll("#modsLista input:checked")].map(i=>i.value);
+  try{
+    if(editando){
+      const corpo={nome:$("#fNome").value,papel,modulos,ativo:$("#fAtivo").checked};
+      if(senha) corpo.nova_senha=senha;
+      await api(`/api/admin/usuarios/${encodeURIComponent(editando)}`,{method:"PUT",body:JSON.stringify(corpo)});
+    } else {
+      await api("/api/admin/usuarios",{method:"POST",body:JSON.stringify({nome:$("#fNome").value,email:$("#fEmail").value,senha,papel,modulos,ativo:$("#fAtivo").checked})});
+      editando=$("#fEmail").value.trim().toLowerCase();
+    }
+    const email=editando;
+    await carregar();
+    msg("Salvo! As permissões valem em até 30 segundos.","ok");
+    if(senha){ const i=$("#senhaInfo"); i.style.display="block";
+      i.innerHTML=`Passe para a pessoa (só aparece agora): login <b>${esc(email)}</b> · senha <code>${esc(senha)}</code><br><small>Ela será obrigada a trocar essa senha no primeiro acesso.</small>`; }
+  }catch(e){ msg(e.message,"erro"); }
+  finally{ b.disabled=false; }
+};
+carregar();
+</script>
+</body>
+</html>
