@@ -215,9 +215,71 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .iframe-loader span { font-size: 13px; color: var(--ink-muted); font-family: 'Space Grotesk', sans-serif; }
+
+/* ══════════ [NOVO v3.0] LOGIN, MENU DO USUÁRIO E TROCA DE SENHA ══════════ */
+.tag.externo{background:rgba(139,143,156,0.16);color:var(--ink-muted);}
+.tag.admin{background:rgba(232,179,61,0.18);color:var(--gold-soft);}
+.user-widget{cursor:pointer;font:inherit;color:inherit;position:relative;}
+.user-widget:hover{border-color:var(--gold);}
+.user-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;background:var(--panel);border:1px solid var(--line-strong);
+  border-radius:12px;padding:6px;display:none;z-index:1500;box-shadow:0 12px 40px rgba(0,0,0,.35);text-align:left;}
+.user-menu.aberto{display:block;}
+.user-menu .quem{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px;font-size:12px;color:var(--ink-muted);}
+.user-menu .quem b{display:block;color:var(--ink);font-size:13px;}
+.user-menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:9px 10px;border-radius:8px;
+  font:500 13px 'Inter',sans-serif;cursor:pointer;}
+.user-menu button:hover{background:var(--panel-2);}
+.tela-login{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(900px 520px at 15% -10%, rgba(232,179,61,0.16), transparent 60%),
+             radial-gradient(800px 480px at 110% 110%, rgba(139,108,255,0.14), transparent 60%), var(--void);}
+.tela-login.visivel{display:flex;}
+.cartao-login{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px 28px;}
+.cartao-login .mark{width:52px;height:52px;margin-bottom:16px;}
+.cartao-login .mark span{font-size:16px;}
+.cartao-login h1{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;margin-bottom:4px;}
+.cartao-login p.sub{color:var(--ink-muted);font-size:13px;margin-bottom:22px;}
+.campo-login{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:12px;color:var(--ink-muted);}
+.campo-login input{background:var(--void);border:1px solid var(--line);border-radius:10px;color:var(--ink);font:14px 'Inter',sans-serif;padding:11px 13px;outline:none;}
+.campo-login input:focus{border-color:var(--gold);}
+.btn-entrar{width:100%;background:var(--gold);color:#16130b;border:0;border-radius:10px;padding:12px;font:600 14px 'Inter',sans-serif;cursor:pointer;margin-top:4px;}
+.btn-entrar:disabled{opacity:.6;cursor:wait;}
+.btn-entrar:focus-visible,.campo-login input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.erro-login{color:#ff6b6b;font-size:13px;min-height:20px;margin-top:12px;}
+.rodape-login{margin-top:18px;font-size:11.5px;color:var(--ink-faint);}
+.modal-fundo{position:fixed;inset:0;z-index:3500;background:rgba(6,7,11,.72);display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-fundo.visivel{display:flex;}
+.modal-fundo .cartao-login h1{font-size:19px;}
+.btn-cancelar{width:100%;background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:500 13px 'Inter',sans-serif;cursor:pointer;margin-top:8px;}
 </style>
 </head>
 <body>
+<!-- [NOVO v3.0] Tela de login — cobre tudo até a pessoa entrar -->
+<div class="tela-login" id="telaLogin" role="dialog" aria-modal="true" aria-labelledby="tituloLogin">
+  <form class="cartao-login" id="formLogin" autocomplete="on">
+    <div class="mark"><span>PS</span></div>
+    <h1 id="tituloLogin">Painel de Sistemas</h1>
+    <p class="sub" id="subLogin">Entre com o seu e-mail e senha.</p>
+    <label class="campo-login">E-mail<input type="email" id="loginEmail" autocomplete="username" required></label>
+    <label class="campo-login">Senha<input type="password" id="loginSenha" autocomplete="current-password" required></label>
+    <button class="btn-entrar" id="btnEntrar" type="submit">Entrar</button>
+    <div class="erro-login" id="erroLogin" role="alert"></div>
+    <p class="rodape-login">Esqueceu a senha? Peça ao administrador para gerar uma nova.</p>
+  </form>
+</div>
+
+<!-- [NOVO v3.0] Troca de senha (obrigatória no primeiro acesso) -->
+<div class="modal-fundo" id="modalSenha" role="dialog" aria-modal="true" aria-labelledby="tituloSenha">
+  <form class="cartao-login" id="formSenha">
+    <h1 id="tituloSenha">Trocar senha</h1>
+    <p class="sub" id="subSenha">Escolha uma senha nova, com pelo menos 8 caracteres.</p>
+    <label class="campo-login">Senha atual<input type="password" id="senhaAtual" autocomplete="current-password" required></label>
+    <label class="campo-login">Senha nova<input type="password" id="senhaNova" autocomplete="new-password" required minlength="8"></label>
+    <label class="campo-login">Repita a senha nova<input type="password" id="senhaNova2" autocomplete="new-password" required minlength="8"></label>
+    <button class="btn-entrar" id="btnSalvarSenha" type="submit">Salvar senha nova</button>
+    <button class="btn-cancelar" id="btnCancelarSenha" type="button">Cancelar</button>
+    <div class="erro-login" id="erroSenha" role="alert"></div>
+  </form>
+</div>
 <div class="field"></div>
 
 <!-- BARRA FIXA (SHELL) -->
@@ -245,13 +307,17 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 
   <div class="nav-right">
     <!-- Bloco de Saudação, Avatar e Data/Hora (Preparado para Futuros Logs) -->
-    <div class="user-widget">
-      <!-- Dica: Insira o link da foto do usuário no src da tag <img> abaixo, ou deixe a letra de fallback -->
+    <div class="user-widget" id="userWidget" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="Sua conta">
       <img src="" id="userAvatarImg" class="user-avatar" style="display:none;" alt="Avatar">
-      <div id="userAvatarFallback" class="user-avatar">W</div>
+      <div id="userAvatarFallback" class="user-avatar">·</div>
       <div class="user-info">
-        <span class="user-greeting" id="lblGreeting">Boa tarde, Wendley</span>
-        <span class="datetime-text" id="lblDatetime">29/09/2026 13:39</span>
+        <span class="user-greeting" id="lblGreeting">Olá</span>
+        <span class="datetime-text" id="lblDatetime"></span>
+      </div>
+      <div class="user-menu" id="userMenu" role="menu">
+        <div class="quem"><b id="menuNome"></b><span id="menuEmail"></span></div>
+        <button type="button" role="menuitem" id="menuTrocarSenha">🔑 Trocar senha</button>
+        <button type="button" role="menuitem" id="menuSair">🚪 Sair</button>
       </div>
     </div>
 
@@ -307,70 +373,14 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-// REGISTRO DE SISTEMAS — Adicione ou edite seus sistemas aqui.
+// [AJUSTADO v3.0] REGISTRO DE SISTEMAS — agora vem do SERVIDOR, já
+// filtrado pelas permissões de quem entrou. Pra cadastrar um módulo novo,
+// edite o arquivo modulos.py (não mais aqui).
 // ═══════════════════════════════════════════════════════════════════
-const SISTEMAS = [
-  {
-    nome: "Diário de Bordo",
-    descricao: "Cadastro, acompanhamento e indicadores de atividades — com ações dentro de cada atividade.",
-    // [AJUSTADO] O Painel e o Diário agora moram no MESMO servidor do
-    // Render — por isso o endereço é só "/diario". Antes apontava pro
-    // endereço raiz, que agora é o próprio Painel (abria túnel dentro
-    // de túnel).
-    url: "/diario",
-    icone: "📔",
-    tipo: "nuvem",
-  },
-  {
-    nome: "RG do Pedido — Acompanhamento",
-    descricao: "Rastreabilidade do item do pedido origem ao reenvio: cronograma, cenários de teste e GAPs.",
-    url: "/rg-pedido-acompanhamento.html",
-    icone: "🧾",
-    tipo: "arquivo",
-  },
-  {
-    nome: "Diagnóstico N2",
-    descricao: "Mapeamento de atividades do Backoffice: inventário, organograma, RACI, diário de bordo, Gemba, matriz, jornada e relatório.",
-    url: "/diagnostico",
-    icone: "🗺️",
-    tipo: "nuvem",
-  },
-  {
-    nome: "Parque Aliança — Gestão",
-    descricao: "Relatórios, anúncios, passagens e manutenção da congregação.",
-    url: "https://painelparquealianca.streamlit.app/?embedded=true",
-    icone: "🕊️",
-    tipo: "nuvem",
-  },
-  {
-    nome: "Wendley Site",
-    descricao: "Tickets, ChecKing e Home — hub principal de módulos.",
-    url: "https://wendleysite.streamlit.app/?embedded=true",
-    icone: "🗂️",
-    tipo: "nuvem",
-  },
-  {
-    nome: "Wendley Cunha",
-    descricao: "App pessoal no Streamlit Cloud.",
-    url: "https://wendleycunha.streamlit.app/?embedded=true",
-    icone: "👤",
-    tipo: "nuvem",
-  },
-  {
-    // [ATENÇÃO] Infraestrutura de terceiro (não é código seu) e é uma
-    // TELA DE LOGIN — chance real de recusar carregar dentro do túnel
-    // por proteção contra clickjacking do lado deles, sem nada que dê
-    // pra ajustar daqui. Se acontecer, o botão "↗ Nova aba" (agora
-    // sempre visível quando um sistema está aberto) resolve na hora.
-    nome: "Concierge — King Star",
-    descricao: "Portal de operação King Star Colchões.",
-    url: "https://portal.kingstarcolchoes.com.br/operacao/caixa",
-    icone: "🛎️",
-    tipo: "nuvem",
-  },
-];
+let SISTEMAS = [];
+let USUARIO = null;
 
-const TAG_LABEL = { servidor: "servidor", arquivo: "arquivo local", nuvem: "hospedado" };
+const TAG_LABEL = { servidor: "servidor", arquivo: "arquivo", nuvem: "hospedado", externo: "externo", admin: "admin" };
 
 function iconeSetaCard(){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
@@ -425,8 +435,8 @@ function atualizarContextoUsuario() {
   }
 
   // Nome do usuário logado (pode ser integrado ao sistema de logs futuramente)
-  const nomeUsuario = "Wendley"; 
-  document.getElementById('lblGreeting').textContent = `${saudacao}, ${nomeUsuario}`;
+  const nomeUsuario = USUARIO ? (USUARIO.nome || USUARIO.email).split(" ")[0] : "";
+  document.getElementById('lblGreeting').textContent = nomeUsuario ? `${saudacao}, ${nomeUsuario}` : saudacao;
 }
 
 // Atualiza a cada 10 segundos
@@ -586,9 +596,135 @@ function acordarServidores() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// [NOVO v3.0] SESSÃO — login, menu do usuário, troca de senha e saída
+// ═══════════════════════════════════════════════════════════════════
+const $id = id => document.getElementById(id);
+
+function aplicarSessao(dados) {
+  USUARIO = dados.usuario;
+  SISTEMAS = dados.modulos || [];
+  const nome = USUARIO.nome || USUARIO.email;
+  $id('userAvatarFallback').textContent = nome.trim().charAt(0).toUpperCase();
+  $id('menuNome').textContent = nome;
+  $id('menuEmail').textContent = USUARIO.email;
+  atualizarContextoUsuario();
+  $id('busca').value = '';
+  renderGrid(SISTEMAS);
+  if (!SISTEMAS.length) {
+    $id('grid').innerHTML = '<div class="vazio">Você ainda não tem nenhum módulo liberado. Peça acesso ao administrador.</div>';
+  }
+  $id('telaLogin').classList.remove('visivel');
+  if (USUARIO.trocar_senha) abrirTrocaSenha(true);
+}
+
+function mostrarLogin(aviso) {
+  fecharTodasAbas();
+  USUARIO = null; SISTEMAS = [];
+  $id('grid').innerHTML = '';
+  $id('subLogin').textContent = aviso || 'Entre com o seu e-mail e senha.';
+  $id('erroLogin').textContent = '';
+  $id('loginSenha').value = '';
+  $id('telaLogin').classList.add('visivel');
+  setTimeout(() => ($id('loginEmail').value ? $id('loginSenha') : $id('loginEmail')).focus(), 50);
+}
+
+function fecharTodasAbas() {
+  abasAbertas.forEach(v => v.iframeEl.remove());
+  abasAbertas.clear();
+  voltarHome();
+}
+
+$id('formLogin').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $id('btnEntrar'), erro = $id('erroLogin');
+  btn.disabled = true; btn.textContent = 'Entrando…'; erro.textContent = '';
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $id('loginEmail').value, senha: $id('loginSenha').value }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || 'Não consegui entrar agora. Tente de novo.');
+    aplicarSessao(j);
+  } catch (err) {
+    erro.textContent = err.message === 'Failed to fetch'
+      ? 'Servidor indisponível (pode estar acordando). Espere uns segundos e tente de novo.' : err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+});
+
+// menu do usuário
+$id('userWidget').addEventListener('click', (e) => {
+  if (e.target.closest('#userMenu')) return;
+  const aberto = $id('userMenu').classList.toggle('aberto');
+  $id('userWidget').setAttribute('aria-expanded', aberto);
+});
+$id('userWidget').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'userWidget') { e.preventDefault(); $id('userWidget').click(); }
+  if (e.key === 'Escape') $id('userMenu').classList.remove('aberto');
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#userWidget')) { $id('userMenu').classList.remove('aberto'); $id('userWidget').setAttribute('aria-expanded', false); }
+});
+$id('menuSair').addEventListener('click', async () => {
+  $id('userMenu').classList.remove('aberto');
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+  mostrarLogin('Você saiu. Até a próxima!');
+});
+$id('menuTrocarSenha').addEventListener('click', () => { $id('userMenu').classList.remove('aberto'); abrirTrocaSenha(false); });
+
+// troca de senha
+let trocaObrigatoria = false;
+function abrirTrocaSenha(obrigatoria) {
+  trocaObrigatoria = obrigatoria;
+  $id('subSenha').textContent = obrigatoria
+    ? 'Primeiro acesso: troque a senha que o administrador definiu por uma só sua (mínimo 8 caracteres).'
+    : 'Escolha uma senha nova, com pelo menos 8 caracteres.';
+  $id('btnCancelarSenha').style.display = obrigatoria ? 'none' : 'block';
+  ['senhaAtual', 'senhaNova', 'senhaNova2'].forEach(i => $id(i).value = '');
+  $id('erroSenha').textContent = '';
+  $id('modalSenha').classList.add('visivel');
+  setTimeout(() => $id('senhaAtual').focus(), 50);
+}
+$id('btnCancelarSenha').addEventListener('click', () => { if (!trocaObrigatoria) $id('modalSenha').classList.remove('visivel'); });
+$id('formSenha').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const erro = $id('erroSenha'), btn = $id('btnSalvarSenha');
+  if ($id('senhaNova').value !== $id('senhaNova2').value) { erro.textContent = 'As duas senhas novas não são iguais.'; return; }
+  btn.disabled = true; erro.textContent = '';
+  try {
+    const r = await fetch('/api/auth/senha', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senha_atual: $id('senhaAtual').value, senha_nova: $id('senhaNova').value }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || 'Não consegui trocar a senha.');
+    if (USUARIO) USUARIO.trocar_senha = false;
+    $id('modalSenha').classList.remove('visivel');
+  } catch (err) { erro.textContent = err.message; }
+  finally { btn.disabled = false; }
+});
+
+async function iniciarSessao() {
+  try {
+    const r = await fetch('/api/auth/me', { cache: 'no-store' });
+    if (r.ok) aplicarSessao(await r.json());
+    else mostrarLogin();
+  } catch (_) {
+    mostrarLogin('Servidor indisponível (pode estar acordando). Espere uns segundos e tente entrar.');
+  }
+}
+
+// confere a sessão a cada 5 minutos — se expirou, volta pro login
+setInterval(async () => {
+  if (!USUARIO) return;
+  try { const r = await fetch('/api/auth/me', { cache: 'no-store' }); if (r.status === 401) mostrarLogin('Sua sessão expirou. Entre de novo.'); } catch (_) {}
+}, 5 * 60 * 1000);
+
 // Inicialização
-renderGrid(SISTEMAS);
-acordarServidores();
+iniciarSessao();
 </script>
 </body>
 </html>
