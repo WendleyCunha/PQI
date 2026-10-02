@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa Digital King Star</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mesma identidade do Painel: fundo escuro + dourado */
+:root[data-theme="dark"]{--bg:#06070b;--panel:#0e1017;--panel-2:#151824;--campo:#0a0c12;--line:rgba(232,179,61,.16);--line-2:rgba(232,179,61,.42);
+  --gold:#e8b33d;--gold-soft:#f3cd6f;--violet:#8b6cff;--ink:#f2f0ea;--ink-2:#c3c5cc;--muted:#8b8f9c;--faint:#565b6b;
+  --ok:#3ddc97;--warn:#f0a43a;--bad:#ff6b6b;--azul:#4fc3f7}
+:root[data-theme="light"]{--bg:#f4f5f8;--panel:#fff;--panel-2:#eef1f6;--campo:#fff;--line:rgba(179,131,20,.22);--line-2:rgba(179,131,20,.6);
+  --gold:#b38314;--gold-soft:#8c640c;--violet:#6846ff;--ink:#1a1c23;--ink-2:#3d4150;--muted:#5e6375;--faint:#8a90a2;
+  --ok:#109658;--warn:#c56a00;--bad:#c62828;--azul:#0277bd}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column}
+h1,h2,h3,.brand b,.kpi b{font-family:"Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.01em}
+h1{font-size:23px;margin:0;font-weight:600} h2{font-size:19px;margin:0 0 4px;font-weight:600} h3{font-size:15px;margin:22px 0 8px;font-weight:600}
+.cap{color:var(--muted);font-size:12.5px;margin:2px 0 12px;max-width:85ch}
+code{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+
+.topo{flex:none;display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;flex-direction:column;line-height:1.2} .brand b{font-size:15px} .brand span{font-size:11.5px;color:var(--muted)}
+.salvo{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.salvo i{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
+.salvo.ok i{background:var(--ok)} .salvo.salvando i{background:var(--gold)} .salvo.erro i{background:var(--bad)} .salvo.erro{color:var(--bad)}
+.corpo{flex:1;min-height:0;display:grid;grid-template-columns:200px 1fr}
+nav.menu{border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:10px 8px}
+nav.menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--ink-2);
+  padding:8px 10px;border-radius:9px;cursor:pointer;font:500 13px Inter,sans-serif;margin-bottom:2px}
+nav.menu button:hover{background:var(--panel-2);color:var(--ink)}
+nav.menu button.ativa{background:var(--gold);color:#16130b;font-weight:600}
+main{overflow-y:auto;padding:22px 26px 80px} .pagina{max-width:1320px}
+
+.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 14px;border-radius:9px;font:500 13px Inter,sans-serif;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--gold)} .btn.primary{background:var(--gold);border-color:var(--gold);color:#16130b;font-weight:600}
+.btn.perigo{color:var(--bad)} .btn.peq{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,nav.menu button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.cardp:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+.msg{font-size:12.5px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+label.f input,label.f select,label.f textarea,.inp{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font:14px Inter,sans-serif;width:100%}
+textarea{resize:vertical}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0}
+details.box>summary{cursor:pointer;font-weight:600;font-size:13.5px;list-style:none}
+details.box>summary::before{content:"▸ ";color:var(--gold)} details.box[open]>summary::before{content:"▾ "} details.box[open]>summary{margin-bottom:10px}
+.aviso{background:color-mix(in srgb,var(--azul) 12%,transparent);border:1px solid color-mix(in srgb,var(--azul) 35%,transparent);border-radius:10px;padding:10px 14px;font-size:13px;margin:10px 0}
+.conflito{background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid var(--bad);border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:13px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;font-weight:700;line-height:1.1}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi small{display:block;font-size:11px;color:var(--faint);margin-top:4px}
+.barra{height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;background:var(--gold)}
+.cat4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.cat{border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--panel)}
+.cat b{font:700 28px "Space Grotesk",sans-serif;display:block}
+.cat span{font-size:12.5px;color:var(--ink-2)}
+
+/* tabela editável */
+.tbl-wrap{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table.tbl{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;font-size:13px}
+table.tbl th{position:sticky;top:0;z-index:1;background:var(--panel-2);color:var(--ink-2);text-align:left;font-weight:600;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tbl td{border-bottom:1px solid var(--line);padding:2px 3px;vertical-align:top}
+table.tbl tr:last-child td{border-bottom:0}
+table.tbl input,table.tbl select,table.tbl textarea{width:100%;background:transparent;border:1px solid transparent;color:var(--ink);padding:6px;border-radius:6px;font:13px Inter,sans-serif;min-width:70px}
+table.tbl textarea{min-height:34px}
+table.tbl input:hover,table.tbl select:hover,table.tbl textarea:hover{border-color:var(--line)}
+table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--gold);background:var(--campo);outline:none}
+table.tbl select option{background:var(--panel);color:var(--ink)}
+table.tbl .ro{display:block;padding:7px 6px;color:var(--muted);white-space:nowrap}
+table.tbl td.acts{white-space:nowrap;width:1%}
+.ib{background:none;border:0;cursor:pointer;opacity:.55;font-size:13px;padding:5px 6px;border-radius:6px;color:var(--ink)}
+.ib:hover{opacity:1;background:var(--panel-2)} .ib.del:hover{background:color-mix(in srgb,var(--bad) 18%,transparent)}
+td.vazio{color:var(--faint);text-align:center;padding:18px!important}
+table.lista{border-collapse:collapse;width:100%;font-size:13px}
+table.lista th{text-align:left;color:var(--ink-2);font-weight:600;padding:8px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0}
+table.lista td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.lista tr.clic{cursor:pointer} table.lista tr.clic:hover td{background:var(--panel-2)}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.p-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.p-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.p-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.p-azul{background:color-mix(in srgb,var(--azul) 16%,transparent);color:var(--azul)}
+.p-cinza{background:var(--panel-2);color:var(--muted)}
+
+/* lista de processos */
+.filtros{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.filtros .inp{width:auto;min-width:180px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.cardp{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
+.cardp:hover{border-color:var(--line-2)}
+.cardp .cod{font:600 12px "Space Grotesk",sans-serif;color:var(--gold-soft)}
+.cardp h3{margin:2px 0 4px;font-size:15.5px}
+.cardp .meta{font-size:12px;color:var(--muted)}
+.mini4{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+
+/* editor de processo */
+.cab{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px}
+.cab .acoes{margin:0 0 0 auto}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px 0 18px;overflow-x:auto}
+.abas button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;font:500 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.abas button.ativa{color:var(--ink);border-bottom-color:var(--gold)}
+.abas button .n{font-size:11px;background:var(--panel-2);border-radius:10px;padding:0 6px;margin-left:4px;color:var(--muted)}
+.etapas{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.etapa{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel)}
+.etapa.feita{border-color:var(--ok)}
+.etapa label.ck{display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px;cursor:pointer}
+.etapa input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+.etapa p{font-size:11.5px;color:var(--muted);margin:4px 0 6px}
+.etapa input[type=date]{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px;font:12px Inter,sans-serif;width:100%}
+
+/* confronto */
+.conf4{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.bloco{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px 14px}
+.bloco h3{margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.bloco ol{margin:0;padding-left:20px} .bloco li{margin:4px 0;font-size:13px}
+.bloco li small{display:block;color:var(--muted)}
+.lado{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.lado>div{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.lado>.h{background:var(--panel-2);font-weight:600;color:var(--ink-2)}
+.lado>.it{border-right:1px solid var(--line)}
+.lado .vaz{color:var(--faint);font-style:italic}
+
+@media (max-width:900px){
+  .corpo{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  nav.menu{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:6px}
+  nav.menu button{width:auto;white-space:nowrap;margin:0 3px 0 0}
+  main{padding:16px 14px 60px}
+  .cat4,.conf4{grid-template-columns:1fr 1fr} .etapas{grid-template-columns:1fr 1fr} .lado{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="brand"><b>🧩 Mapa Digital King Star</b><span>Como é feito hoje × Instrução de Trabalho — conhecer antes de automatizar</span></div>
+  <div class="salvo" id="salvo"><i></i><span>Carregando…</span></div>
+  <button class="btn" id="btnTema" type="button" title="Alternar tema claro/escuro">◐ Tema</button>
+</header>
+<div class="corpo">
+  <nav class="menu" id="menu" aria-label="Seções do mapa"></nav>
+  <main id="main"><div class="pagina" id="conteudo"><p class="cap">Carregando processos…</p></div></main>
+</div>
+<datalist id="dl-areas"></datalist>
+<datalist id="dl-sistemas"></datalist>
+<datalist id="dl-quem"></datalist>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// COMO OS DADOS FICAM
+// Um documento por PROCESSO no Firestore (coleção mapa_processos).
+// O servidor não conhece os campos: campo novo = só mexer AQUI.
+//
+// O CONFRONTO é calculado, ninguém digita a classificação final:
+//   passo real ligado a um passo da IT + "Conforme"   → ✅ feito conforme
+//   passo real ligado a um passo da IT + "Divergente" → ⚠️ feito diferente
+//   passo real SEM ligação a passo da IT              → ➕ feito sem IT
+//   passo da IT que nenhum passo real usa             → ❌ na IT e não é feito
+// ═══════════════════════════════════════════════════════════════════
+const API = "/api/mapa/processos";
+const AREAS_PADRAO = ["Comercial","Lojas","Financeiro","Faturamento / Fiscal","Logística","Expedição","Estoque","Compras","SAC / CX","Qualidade","RH","Marketing","TI","Diretoria"];
+const STATUS_PROC = ["Em levantamento","Em validação","Validado","Revisar"];
+const CRITICIDADE = ["Alta","Média","Baixa"];
+const ETAPAS_LEV = [
+  ["conversar","Conversar","Reunião com quem executa, não só com quem chefia"],
+  ["acompanhar","Acompanhar","Ver o processo rodando no dia a dia, como é de verdade"],
+  ["registrar","Registrar","Passo a passo: quem faz, com qual sistema, gerando qual dado"],
+  ["cruzar","Cruzar","Comparar com os chamados que a área mais abre"],
+  ["validar","Validar","A área confirma e assume o processo como seu"],
+];
+const TIPOS_OPORT = ["Dor","Trabalho repetido","Ganho de tempo","Integração","Indicador","Risco","Gap de IT"];
+const STATUS_OPORT = ["Identificada","Em análise","Em execução","Concluída","Descartada"];
+const ESCALA = ["1","2","3","4","5"];
+const CAT = {
+  conforme:  {rot:"Feito conforme a IT",   ico:"✅", pill:"p-ok"},
+  divergente:{rot:"Feito diferente da IT", ico:"⚠️", pill:"p-warn"},
+  semIT:     {rot:"Feito sem IT",          ico:"➕", pill:"p-azul"},
+  naoFeito:  {rot:"Na IT e não é feito",   ico:"❌", pill:"p-bad"},
+};
+
+// ─── utilidades ───
+const $ = (s, r=document) => r.querySelector(s);
+function el(t, c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function tx(v){ return String(v==null?"":v).trim(); }
+function num(v){ const n=parseFloat(String(v??"").replace(",",".")); return isNaN(n)?0:n; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function pct(x){ return x==null ? "—" : Math.round(x*100)+"%"; }
+function hojeISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function dataBR(v){ if(!v) return "—"; const d=new Date(v); if(isNaN(d)) return v; return d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:v.length>10?"short":undefined}); }
+function ordenar(a){ return a.slice().sort((x,y)=>x.localeCompare(y,"pt-BR")); }
+function opts(arr, atual, vazio=true){ return (vazio?'<option value=""></option>':"")+arr.map(o=>`<option${o===atual?" selected":""}>${esc(o)}</option>`).join(""); }
+function horas(v){ return (Math.round(v*10)/10).toLocaleString("pt-BR"); }
+
+// ═══════════════════════════════════════════════════════════════════
+// Dados e gravação (um processo por vez, com controle de versão)
+// ═══════════════════════════════════════════════════════════════════
+let PROCS = [];
+const pend = {};
+function setStatus(tipo, det){
+  const s=$("#salvo"); s.className="salvo "+tipo;
+  s.querySelector("span").textContent = tipo==="ok" ? "Tudo salvo" : tipo==="salvando" ? "Salvando…" : "Erro: "+(det||"");
+  s.title=det||"";
+}
+async function api(url, op={}){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){ sessaoExpirada(); throw new Error("sessão expirada"); }
+  return {r,j};
+}
+function sessaoExpirada(){
+  $("#conteudo").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel para continuar. <a href="/" target="_top" style="color:var(--gold-soft)">Ir para o Painel</a></div>';
+}
+function procPorId(id){ return PROCS.find(p=>p.id===id); }
+
+function salvar(p){
+  setStatus("salvando");
+  clearTimeout(pend[p.id]);
+  pend[p.id]=setTimeout(()=>enfileirar(p), 800);
+}
+function enfileirar(p, forcar){
+  delete pend[p.id];
+  p._fila=(p._fila||Promise.resolve()).then(()=>enviar(p, forcar));
+  return p._fila;
+}
+async function enviar(p, forcar){
+  if(p._conflito && !forcar) return;
+  try{
+    const {r,j}=await api(`${API}/${p.id}`,{method:"PUT",body:JSON.stringify({dados:p.dados, versao: forcar?null:p.versao})});
+    if(r.status===409){ p._conflito=j.atual; setStatus("erro","conflito de versão"); if(vista==="processo" && atual===p.id) render(); return; }
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    p.versao=j.versao; p.atualizado_por=j.atualizado_por; p.atualizado_em=j.atualizado_em; p._conflito=null;
+    if(!Object.keys(pend).length) setStatus("ok");
+  }catch(e){ if(e.message!=="sessão expirada") setStatus("erro", e.message); }
+}
+async function salvarTudo(){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); return enfileirar(procPorId(id)); })); }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") salvarTudo(); });
+window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvarTudo(); e.preventDefault(); e.returnValue=""; } });
+
+function normalizar(d){
+  d=d||{};
+  const base={codigo:"",nome:"",area:"",dono:"",objetivo:"",gatilho:"",entradas:"",saidas:"",sistemas:"",criticidade:"Média",status:"Em levantamento",
+    entrevistados:"",chamados:"",etapas:{},it:{codigo:"",titulo:"",versao:"",data:"",link:"",obs:""},passos_it:[],passos_real:[],oportunidades:[],
+    validacao:{por:"",data:"",parecer:"",obs:""}};
+  for(const k in base) if(d[k]==null) d[k]=base[k];
+  ETAPAS_LEV.forEach(([id])=>{ if(!d.etapas[id]) d.etapas[id]={feito:false,data:""}; });
+  ["passos_it","passos_real","oportunidades"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[]; d[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
+  return d;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// O CONFRONTO (IT × real)
+// ═══════════════════════════════════════════════════════════════════
+function confronto(d){
+  const it=d.passos_it.filter(p=>tx(p.descricao)), real=d.passos_real.filter(p=>tx(p.descricao));
+  const porId={}; it.forEach((p,i)=>porId[p.id]={...p,_n:d.passos_it.indexOf(p)+1});
+  const R={conforme:[],divergente:[],semIT:[],naoFeito:[],pendente:[]};
+  const usados=new Set();
+  real.forEach(r=>{
+    const n=d.passos_real.indexOf(r)+1, alvo=r.it_ref&&porId[r.it_ref];
+    if(!alvo) return R.semIT.push({real:{...r,_n:n}});
+    usados.add(r.it_ref);
+    const item={real:{...r,_n:n},it:alvo};
+    if(r.aderencia==="Conforme") R.conforme.push(item);
+    else if(r.aderencia==="Divergente") R.divergente.push(item);
+    else R.pendente.push(item);
+  });
+  it.forEach(p=>{ if(!usados.has(p.id)) R.naoFeito.push({it:porId[p.id]}); });
+  const totalClass=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length;
+  R.indice = totalClass ? R.conforme.length/totalClass : null;                 // conformidade geral
+  R.cobertura = it.length ? usados.size/it.length : null;                      // % da IT que é executada
+  const lig=R.conforme.length+R.divergente.length;
+  R.aderencia = lig ? R.conforme.length/lig : null;                            // dos executados, quantos conforme
+  R.gaps = R.divergente.length+R.semIT.length+R.naoFeito.length;
+  R.horasMes = d.passos_real.reduce((a,r)=>a+num(r.tempo_min)*num(r.vezes_mes),0)/60;
+  return R;
+}
+function situacaoPassoIT(d, passo){
+  const lig=d.passos_real.filter(r=>tx(r.descricao)&&r.it_ref===passo.id);
+  if(!lig.length) return "Não executado";
+  if(lig.some(r=>r.aderencia==="Divergente")) return "Executado com divergência";
+  if(lig.every(r=>r.aderencia==="Conforme")) return "Executado conforme";
+  return "Pendente de classificação";
+}
+function classePassoReal(d, r){
+  const ok=r.it_ref && d.passos_it.some(p=>p.id===r.it_ref && tx(p.descricao));
+  if(!ok) return "Feito sem IT";
+  return r.aderencia==="Conforme" ? "Feito conforme a IT" : r.aderencia==="Divergente" ? "Feito diferente da IT" : "Pendente de classificação";
+}
+function score(o){ return num(o.volume)*num(o.tempo)*num(o.custo)*num(o.risco); }
+function rotuloIT(d, id){ const i=d.passos_it.findIndex(p=>p.id===id); return i<0?"":`${i+1}. ${tx(d.passos_it[i].descricao)}`; }
+
+// ═══════════════════════════════════════════════════════════════════
+// Tabela editável
+// colunas: {campo,label,tipo:text|textarea|select|number|date|calc,opcoes(array | fn → [valor,rotulo]),lista,placeholder,largura,calc}
+// ═══════════════════════════════════════════════════════════════════
+let focarUltima=null;
+function tabela(o){
+  const {chave, linhas, colunas, aoSalvar, aoMudar, aoEstrutura, novaLinha, ordenavel, rotuloAdd, numerar} = o;
+  const wrap=el("div"), tw=el("div","tbl-wrap"), t=el("table","tbl");
+  t.innerHTML="<thead><tr>"+(numerar?"<th>#</th>":"")+colunas.map(c=>`<th style="${c.largura?`min-width:${c.largura}px`:""}">${esc(c.label)}</th>`).join("")+"<th></th></tr></thead>";
+  const tb=el("tbody");
+  if(!linhas.length) tb.innerHTML=`<tr><td colspan="${colunas.length+2}" class="vazio">Nenhuma linha ainda.</td></tr>`;
+  linhas.forEach((row,i)=>{
+    const tr=el("tr");
+    if(numerar){ const td=el("td"); td.innerHTML=`<span class="ro">${i+1}</span>`; tr.appendChild(td); }
+    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(celula(row,c,tr,colunas,aoSalvar,aoMudar)); tr.appendChild(td); });
+    const td=el("td","acts");
+    if(ordenavel){
+      const up=el("button","ib"); up.type="button"; up.textContent="↑"; up.title="Subir"; up.disabled=i===0;
+      up.onclick=()=>{ [linhas[i-1],linhas[i]]=[linhas[i],linhas[i-1]]; aoSalvar(); aoEstrutura(); };
+      const dn=el("button","ib"); dn.type="button"; dn.textContent="↓"; dn.title="Descer"; dn.disabled=i===linhas.length-1;
+      dn.onclick=()=>{ [linhas[i+1],linhas[i]]=[linhas[i],linhas[i+1]]; aoSalvar(); aoEstrutura(); };
+      td.append(up,dn);
+    }
+    const del=el("button","ib del"); del.type="button"; del.textContent="🗑"; del.title="Excluir linha";
+    del.onclick=()=>{ if(o.confirmarExclusao && !confirm(o.confirmarExclusao(row))) return; linhas.splice(i,1); aoSalvar(); aoEstrutura(); };
+    td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
+  });
+  t.appendChild(tb); tw.appendChild(t); wrap.appendChild(tw);
+  const b=el("button","btn"); b.type="button"; b.style.marginTop="8px"; b.textContent=rotuloAdd||"+ Adicionar linha";
+  b.onclick=()=>{ linhas.push(novaLinha()); aoSalvar(); focarUltima=chave; aoEstrutura(); };
+  wrap.appendChild(b);
+  if(focarUltima===chave){ focarUltima=null; setTimeout(()=>{ tw.scrollTop=tw.scrollHeight; const f=tb.lastElementChild&&tb.lastElementChild.querySelector("input,select,textarea"); f&&f.focus(); },0); }
+  return wrap;
+}
+function celula(row, c, tr, colunas, aoSalvar, aoMudar){
+  const v=row[c.campo]??"";
+  if(c.tipo==="calc"){ const s=el("span","ro"); s.textContent=c.calc(row); return s; }
+  let inp;
+  if(c.tipo==="select"){
+    inp=el("select");
+    let ops=(typeof c.opcoes==="function"?c.opcoes(row):c.opcoes).map(x=>Array.isArray(x)?x:[x,x]);
+    if(!c.semVazio) ops=[["",c.vazio||""],...ops];
+    if(v && !ops.some(x=>x[0]===v)) ops.push([v,v]);
+    inp.innerHTML=ops.map(([val,rot])=>`<option value="${esc(val)}"${val===v?" selected":""}>${esc(rot)}</option>`).join("");
+  } else if(c.tipo==="textarea"){ inp=el("textarea"); inp.rows=2; inp.value=v; }
+  else { inp=el("input"); inp.type=c.tipo||"text"; inp.value=v; if(c.tipo==="number"){ inp.min="0"; inp.step="any"; inp.style.minWidth="64px"; } if(c.lista) inp.setAttribute("list",c.lista); }
+  if(c.placeholder) inp.placeholder=c.placeholder;
+  inp.setAttribute("aria-label",c.label);
+  const aplicar=()=>{ row[c.campo]=inp.value;
+    colunas.filter(x=>x.tipo==="calc").forEach(x=>{ const s=tr.querySelector(`td[data-campo="${x.campo}"] .ro`); if(s) s.textContent=x.calc(row); });
+    aoSalvar(); };
+  const digitando=["text","textarea","number",undefined].includes(c.tipo);
+  if(digitando) inp.addEventListener("input",aplicar);
+  inp.addEventListener("change",()=>{ if(!digitando) aplicar(); aoMudar&&aoMudar(row,c); });
+  return inp;
+}
+// "colar passos": uma linha = um passo (tira numeração tipo "1.", "2)", "-", "•")
+function colarPassos(texto){
+  return String(texto||"").split(/\r?\n/).map(l=>l.replace(/^\s*(\d+[\.\)\-:]|[-•*–])\s*/,"").trim()).filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Excel (ExcelJS sob demanda) e impressão
+// ═══════════════════════════════════════════════════════════════════
+let _xl=null;
+function excelJS(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(!_xl) _xl=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload=()=>res(window.ExcelJS); s.onerror=()=>{ _xl=null; rej(new Error("não consegui carregar a biblioteca de Excel (sem internet?)")); }; document.head.appendChild(s); });
+  return _xl;
+}
+function baixarBlob(b,nome){ const u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+async function excelMulti(nomeArquivo, abas){
+  const X=await excelJS(), wb=new X.Workbook();
+  abas.forEach(({nome,colunas,linhas})=>{
+    const ws=wb.addWorksheet(nome.slice(0,31));
+    ws.addRow(colunas.map(c=>c[1]));
+    ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2B2A27"}}; c.alignment={vertical:"middle",wrapText:true}; });
+    linhas.forEach(l=>ws.addRow(colunas.map(c=>l[c[0]]??"")));
+    colunas.forEach((c,i)=>{ const maior=Math.max(String(c[1]).length,...linhas.map(l=>String(l[c[0]]??"").length)); ws.getColumn(i+1).width=Math.max(10,Math.min(60,maior+2)); });
+    ws.views=[{state:"frozen",ySplit:1}];
+    if(linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:colunas.length}};
+  });
+  baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), nomeArquivo+".xlsx");
+}
+function imprimir(titulo, html){
+  const f=el("iframe"); Object.assign(f.style,{position:"fixed",right:0,bottom:0,width:0,height:0,border:0}); document.body.appendChild(f);
+  const d=f.contentDocument; d.open();
+  d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+    @page{size:A4 landscape;margin:12mm} body{font:11px/1.45 Inter,Arial,sans-serif;color:#1a1c23}
+    h1{font-size:18px;margin:0 0 4px} h2{font-size:14px;margin:16px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px}
+    table{border-collapse:collapse;width:100%;margin:4px 0} td,th{border:1px solid #bbb;padding:4px 6px;vertical-align:top;text-align:left} th{background:#2b2a27;color:#fff}
+    .k{display:inline-block;border:1px solid #bbb;border-radius:6px;padding:6px 10px;margin:0 6px 6px 0} .k b{font-size:16px;display:block}
+  </style></head><body>${html}</body></html>`); d.close();
+  setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Impressão indisponível: "+e.message); } setTimeout(()=>f.remove(),4000); },350);
+}
+function acoesExport(c, lista){
+  const d=el("div","acoes");
+  lista.forEach(([rot,fn])=>{ const b=el("button","btn"); b.type="button"; b.textContent=rot;
+    b.onclick=async()=>{ b.disabled=true; try{ await salvarTudo(); await fn(); }catch(e){ alert("Não foi possível gerar: "+e.message); } finally{ b.disabled=false; } }; d.appendChild(b); });
+  c.appendChild(d);
+}
+
+// ─── linhas planas para exportação (o "confronto entre as duas documentações") ───
+const COL_PROC=[["codigo","Código"],["nome","Processo"],["area","Área"],["dono","Responsável (dono)"],["criticidade","Criticidade"],["status","Status"],
+  ["it_codigo","IT — código"],["it_versao","IT — versão"],["passos_it","Passos na IT"],["passos_real","Passos reais"],["conforme","✅ Conformes"],["divergente","⚠️ Divergentes"],
+  ["semIT","➕ Sem IT"],["naoFeito","❌ Na IT e não feitos"],["pendente","Pendentes de classificação"],["indice","Índice de conformidade"],["cobertura","Cobertura da IT"],
+  ["aderencia","Aderência dos executados"],["horas_mes","Horas/mês consumidas"],["oportunidades","Oportunidades"],["validado_por","Validado por"],["validado_em","Validado em"],
+  ["atualizado_por","Atualizado por"],["atualizado_em","Atualizado em"]];
+const COL_IT=[["codigo","Código"],["processo","Processo"],["area","Área"],["it_codigo","IT"],["ordem","Ordem"],["descricao","Passo da IT"],["quem","Quem faz (IT)"],
+  ["sistema","Sistema (IT)"],["regra","Regra / controle"],["situacao","Situação na prática"],["passos_reais","Passos reais ligados"],["obs","Observação"]];
+const COL_REAL=[["codigo","Código"],["processo","Processo"],["area","Área"],["ordem","Ordem"],["descricao","Como é feito hoje"],["quem","Quem faz"],["sistema","Sistema"],
+  ["dado","Dado gerado"],["tempo_min","Tempo (min)"],["vezes_mes","Vezes/mês"],["horas_mes","Horas/mês"],["passo_it","Passo da IT correspondente"],["classificacao","Classificação"],
+  ["diferenca","O que difere da IT"],["obs","Observação"]];
+const COL_CONF=[["codigo","Código"],["processo","Processo"],["area","Área"],["categoria","Categoria"],["passo_it","Passo da IT"],["passo_real","Como é feito hoje"],["detalhe","Diferença / observação"]];
+const COL_OPORT=[["codigo","Código"],["processo","Processo"],["area","Área"],["tipo","Tipo"],["descricao","Oportunidade / dor"],["passo","Passo relacionado"],
+  ["volume","Volume"],["tempo","Tempo gasto"],["custo","Custo"],["risco","Risco"],["score","Prioridade (V×T×C×R)"],["horas_mes","Horas/mês devolvidas"],
+  ["acao","Ação"],["responsavel","Responsável"],["prazo","Prazo"],["status","Status"]];
+
+function linhasExport(lista){
+  const P=[],IT=[],RE=[],CF=[],OP=[];
+  lista.forEach(p=>{
+    const d=p.dados, R=confronto(d), base={codigo:d.codigo,processo:d.nome,area:d.area};
+    P.push({...base,nome:d.nome,dono:d.dono,criticidade:d.criticidade,status:d.status,it_codigo:d.it.codigo,it_versao:d.it.versao,
+      passos_it:d.passos_it.filter(x=>tx(x.descricao)).length,passos_real:d.passos_real.filter(x=>tx(x.descricao)).length,
+      conforme:R.conforme.length,divergente:R.divergente.length,semIT:R.semIT.length,naoFeito:R.naoFeito.length,pendente:R.pendente.length,
+      indice:pct(R.indice),cobertura:pct(R.cobertura),aderencia:pct(R.aderencia),horas_mes:horas(R.horasMes),oportunidades:d.oportunidades.length,
+      validado_por:d.validacao.por,validado_em:d.validacao.data,atualizado_por:p.atualizado_por,atualizado_em:dataBR(p.atualizado_em)});
+    d.passos_it.forEach((x,i)=>{ if(!tx(x.descricao)) return;
+      IT.push({...base,it_codigo:d.it.codigo,ordem:i+1,descricao:x.descricao,quem:x.quem,sistema:x.sistema,regra:x.regra,situacao:situacaoPassoIT(d,x),
+        passos_reais:d.passos_real.map((r,j)=>r.it_ref===x.id&&tx(r.descricao)?j+1:null).filter(Boolean).join(", "),obs:x.obs}); });
+    d.passos_real.forEach((r,i)=>{ if(!tx(r.descricao)) return;
+      RE.push({...base,ordem:i+1,descricao:r.descricao,quem:r.quem,sistema:r.sistema,dado:r.dado,tempo_min:r.tempo_min,vezes_mes:r.vezes_mes,
+        horas_mes:horas(num(r.tempo_min)*num(r.vezes_mes)/60),passo_it:rotuloIT(d,r.it_ref),classificacao:classePassoReal(d,r),diferenca:r.diferenca,obs:r.obs}); });
+    const add=(cat,x)=>CF.push({...base,categoria:CAT[cat]?CAT[cat].rot:"Pendente de classificação",
+      passo_it:x.it?`${x.it._n}. ${x.it.descricao}`:"",passo_real:x.real?`${x.real._n}. ${x.real.descricao}`:"",
+      detalhe:(x.real&&x.real.diferenca)||(x.it&&!x.real&&x.it.obs)||""});
+    ["conforme","divergente","semIT","naoFeito","pendente"].forEach(cat=>R[cat].forEach(x=>add(cat,x)));
+    d.oportunidades.forEach(o=>OP.push({...base,tipo:o.tipo,descricao:o.descricao,passo:o.passo_ref?(()=>{ const i=d.passos_real.findIndex(r=>r.id===o.passo_ref); return i<0?"":`${i+1}. ${d.passos_real[i].descricao}`; })():"",
+      volume:o.volume,tempo:o.tempo,custo:o.custo,risco:o.risco,score:score(o)||"",horas_mes:o.horas_mes,acao:o.acao,responsavel:o.responsavel,prazo:o.prazo,status:o.status}));
+  });
+  return [{nome:"Processos",colunas:COL_PROC,linhas:P},{nome:"Confronto",colunas:COL_CONF,linhas:CF},{nome:"Passos da IT",colunas:COL_IT,linhas:IT},
+          {nome:"Como é feito hoje",colunas:COL_REAL,linhas:RE},{nome:"Oportunidades",colunas:COL_OPORT,linhas:OP}];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Navegação
+// ═══════════════════════════════════════════════════════════════════
+const MENU=[["painel","📊","Painel"],["processos","📁","Processos"],["confronto","⚖️","Confronto geral"],["oportunidades","💡","Oportunidades"],["exportar","⬇️","Exportar"]];
+let vista="painel", atual=null, abaProc="identificacao";
+const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
+try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav")||"{}"); if(s.vista) ({vista,atual,abaProc}={vista:s.vista,atual:s.atual||null,abaProc:s.abaProc||"identificacao"}); }catch(_){}
+function guardarNav(){ try{ sessionStorage.setItem("mapa_nav",JSON.stringify({vista,atual,abaProc})); }catch(_){} }
+function montarMenu(){
+  const m=$("#menu"); m.innerHTML="";
+  MENU.forEach(([id,ico,nome])=>{ const b=el("button"); b.type="button"; b.dataset.v=id; b.innerHTML=`<span>${ico}</span><span>${esc(nome)}</span>`;
+    b.onclick=()=>ir(id); m.appendChild(b); });
+}
+function ir(v, id, aba){ vista=v; if(id!==undefined) atual=id; if(aba) abaProc=aba; guardarNav(); $("#main").scrollTop=0; render(); }
+function render(){
+  const ativo = vista==="processo" ? "processos" : vista;
+  document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("ativa",b.dataset.v===ativo));
+  const main=$("#main"), topo=main.scrollTop, c=$("#conteudo"); c.innerHTML="";
+  atualizarListas();
+  if(vista==="processo" && !procPorId(atual)) vista="processos";
+  ({painel:renderPainel,processos:renderProcessos,processo:renderProcesso,confronto:renderConfronto,oportunidades:renderOportunidades,exportar:renderExportar})[vista](c);
+  main.scrollTop=topo;
+}
+function atualizarListas(){
+  const areas=new Set(AREAS_PADRAO), sist=new Set(), quem=new Set();
+  PROCS.forEach(p=>{ const d=p.dados; if(tx(d.area)) areas.add(tx(d.area));
+    [...d.passos_it,...d.passos_real].forEach(x=>{ if(tx(x.sistema)) sist.add(tx(x.sistema)); if(tx(x.quem)) quem.add(tx(x.quem)); }); });
+  $("#dl-areas").innerHTML=ordenar([...areas]).map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-sistemas").innerHTML=ordenar([...sist]).map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-quem").innerHTML=ordenar([...quem]).map(a=>`<option value="${esc(a)}">`).join("");
+}
+function pillStatus(s){ const m={"Validado":"p-ok","Em validação":"p-azul","Revisar":"p-bad"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
+function pillCrit(s){ const m={"Alta":"p-bad","Média":"p-warn","Baixa":"p-cinza"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
+
+// ═══════════════════════════════════════════════════════════════════
+// PAINEL
+// ═══════════════════════════════════════════════════════════════════
+function renderPainel(c){
+  const tot={conforme:0,divergente:0,semIT:0,naoFeito:0,pendente:0,horas:0}, porArea={};
+  let criticos=0, criticosVal=0, comDono=0, validados=0, oportAtivas=0, horasPot=0, horasDev=0;
+  const todasOp=[];
+  PROCS.forEach(p=>{ const d=p.dados, R=confronto(d);
+    ["conforme","divergente","semIT","naoFeito","pendente"].forEach(k=>tot[k]+=R[k].length); tot.horas+=R.horasMes;
+    if(d.criticidade==="Alta"){ criticos++; if(d.status==="Validado") criticosVal++; }
+    if(tx(d.dono)) comDono++; if(d.status==="Validado") validados++;
+    const a=tx(d.area)||"(sem área)"; const A=porArea[a]=porArea[a]||{n:0,val:0,conf:0,cls:0,gaps:0,horas:0};
+    A.n++; if(d.status==="Validado") A.val++; A.conf+=R.conforme.length; A.cls+=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length; A.gaps+=R.gaps; A.horas+=R.horasMes;
+    d.oportunidades.forEach(o=>{ if(o.status==="Descartada") return; oportAtivas++; horasPot+=num(o.horas_mes); if(o.status==="Concluída") horasDev+=num(o.horas_mes); todasOp.push({p,o}); });
+  });
+  const totCls=tot.conforme+tot.divergente+tot.semIT+tot.naoFeito;
+  const meta=(rot,v,alvo,sub)=>{ const x=alvo?Math.min(1,v/alvo):0;
+    return `<div class="kpi"><span>${esc(rot)}</span><b>${typeof v==="number"&&alvo===1?pct(v):esc(String(v))}${alvo!==1&&alvo?`<span style="font-size:14px;color:var(--muted)"> / ${alvo}</span>`:""}</b><div class="barra"><i style="width:${Math.round(x*100)}%"></i></div><small>${esc(sub)}</small></div>`; };
+  c.innerHTML=`<h1>Painel do mapeamento</h1>
+    <p class="cap">Conhecer a empresa antes de automatizar a empresa. Cada processo levantado ponta a ponta e confrontado com a Instrução de Trabalho.</p>
+    <h3>Resultado do confronto (todos os processos)</h3>
+    <div class="cat4">${Object.entries(CAT).map(([k,v])=>`<div class="cat"><b>${tot[k]}</b><span>${v.ico} ${esc(v.rot)}</span></div>`).join("")}</div>
+    ${tot.pendente?`<div class="aviso">⏳ ${tot.pendente} passo(s) ligado(s) à IT ainda sem classificação (Conforme/Divergente).</div>`:""}
+    <div class="kpis">
+      <div class="kpi"><span>Índice de conformidade geral</span><b>${pct(totCls?tot.conforme/totCls:null)}</b><small>conformes ÷ (conformes + divergentes + sem IT + não feitos)</small></div>
+      <div class="kpi"><span>Processos mapeados</span><b>${PROCS.length}</b><small>${validados} validado(s) pela área</small></div>
+      <div class="kpi"><span>Horas/mês consumidas</span><b>${horas(tot.horas)}</b><small>soma de tempo × frequência dos passos reais</small></div>
+      <div class="kpi"><span>Horas/mês a devolver</span><b>${horas(horasPot)}</b><small>${horas(horasDev)} já devolvidas (oportunidades concluídas)</small></div>
+    </div>
+    <h3>Metas 2027</h3>
+    <div class="kpis">
+      ${meta("Processos críticos mapeados e validados", criticos?criticosVal/criticos:0, 1, `${criticosVal} de ${criticos} com criticidade Alta`)}
+      ${meta("Processos com responsável definido", PROCS.length?comDono/PROCS.length:0, 1, `${comDono} de ${PROCS.length}`)}
+      ${meta("Dores / oportunidades identificadas", oportAtivas, 30, "meta: Top 30 dores")}
+      ${meta("Oportunidades concluídas", todasOp.filter(x=>x.o.status==="Concluída").length, 20, "meta: Top 20 processos automatizados")}
+    </div>
+    <h3>Por área</h3><div id="pArea"></div>
+    <h3>Top 10 prioridades (Volume × Tempo × Custo × Risco)</h3><div id="pTop"></div>`;
+  const areas=Object.entries(porArea).sort((a,b)=>a[0].localeCompare(b[0],"pt-BR"));
+  $("#pArea",c).innerHTML = areas.length ? `<div class="tbl-wrap"><table class="lista"><thead><tr><th>Área</th><th>Processos</th><th>Validados</th><th>Conformidade</th><th>Gaps</th><th>Horas/mês</th></tr></thead><tbody>${
+    areas.map(([a,A])=>`<tr><td>${esc(a)}</td><td>${A.n}</td><td>${A.val}</td><td>${pct(A.cls?A.conf/A.cls:null)}</td><td>${A.gaps}</td><td>${horas(A.horas)}</td></tr>`).join("")}</tbody></table></div>`
+    : '<div class="aviso">Nenhum processo cadastrado ainda. Comece em <b>📁 Processos → + Novo processo</b>.</div>';
+  const top=todasOp.filter(x=>score(x.o)>0).sort((a,b)=>score(b.o)-score(a.o)).slice(0,10);
+  const pt=$("#pTop",c);
+  if(!top.length){ pt.innerHTML='<p class="cap">Sem oportunidades pontuadas ainda. Na aba Oportunidades de cada processo, dê nota de 1 a 5 para Volume, Tempo, Custo e Risco.</p>'; return; }
+  pt.innerHTML=`<div class="tbl-wrap"><table class="lista"><thead><tr><th>Prioridade</th><th>Oportunidade</th><th>Tipo</th><th>Processo</th><th>Status</th></tr></thead><tbody>${
+    top.map(({p,o})=>`<tr class="clic" data-id="${p.id}"><td><b>${score(o)}</b></td><td>${esc(o.descricao)}</td><td>${esc(o.tipo)}</td><td>${esc(p.dados.codigo)} · ${esc(p.dados.nome)}</td><td>${esc(o.status)}</td></tr>`).join("")}</tbody></table></div>`;
+  pt.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>ir("processo",tr.dataset.id,"oportunidades"));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LISTA DE PROCESSOS
+// ═══════════════════════════════════════════════════════════════════
+function proximoCodigo(){
+  const n=PROCS.reduce((m,p)=>{ const x=String(p.dados.codigo||"").match(/(\d+)$/); return Math.max(m,x?+x[1]:0); },0);
+  return "PROC-"+String(n+1).padStart(3,"0");
+}
+async function novoProcesso(){
+  const dados=normalizar({codigo:proximoCodigo(),nome:"Novo processo"});
+  setStatus("salvando");
+  try{
+    const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})});
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    j.dados=normalizar(j.dados); PROCS.push(j); setStatus("ok"); ir("processo",j.id,"identificacao");
+    setTimeout(()=>{ const f=$("#fNome"); if(f){ f.focus(); f.select(); } },50);
+  }catch(e){ if(e.message!=="sessão expirada") setStatus("erro",e.message); }
+}
+function renderProcessos(c){
+  const areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
+  c.innerHTML=`<div class="cab"><div><h1>Processos</h1><p class="cap">Cada card é um processo levantado ponta a ponta. Clique para abrir.</p></div>
+    <div class="acoes"><button class="btn primary" id="btnNovo" type="button">+ Novo processo</button></div></div>
+    <div class="filtros"><input class="inp" id="fBusca" placeholder="Buscar por nome, código ou dono..." value="${esc(filtro.busca)}" aria-label="Buscar">
+      <select class="inp" id="fArea" aria-label="Filtrar por área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select>
+      <select class="inp" id="fStatus" aria-label="Filtrar por status"><option value="">Todos os status</option>${STATUS_PROC.map(a=>`<option${a===filtro.status?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
+    <div class="cards" id="cards"></div>`;
+  $("#btnNovo",c).onclick=novoProcesso;
+  const desenhar=()=>{
+    const t=filtro.busca.toLowerCase();
+    const lst=PROCS.filter(p=>{ const d=p.dados;
+      return (!t||[d.nome,d.codigo,d.dono,d.it.codigo].some(x=>String(x||"").toLowerCase().includes(t))) && (!filtro.area||d.area===filtro.area) && (!filtro.status||d.status===filtro.status); })
+      .sort((a,b)=>String(a.dados.codigo).localeCompare(String(b.dados.codigo),"pt-BR",{numeric:true}));
+    const box=$("#cards");
+    if(!lst.length){ box.innerHTML=`<div class="aviso" style="grid-column:1/-1">${PROCS.length?"Nenhum processo com esse filtro.":"Nenhum processo ainda. Clique em <b>+ Novo processo</b> para começar o primeiro levantamento."}</div>`; return; }
+    box.innerHTML=lst.map(p=>{ const d=p.dados, R=confronto(d);
+      return `<button type="button" class="cardp" data-id="${p.id}"><div class="cod">${esc(d.codigo)}${d.it.codigo?` · ${esc(d.it.codigo)}`:""}</div><h3>${esc(d.nome||"(sem nome)")}</h3>
+        <div class="meta">${esc(d.area||"sem área")} · dono: ${esc(d.dono||"—")}</div>
+        <div class="mini4">${pillStatus(d.status)} ${pillCrit(d.criticidade)} <span class="pill p-cinza">conformidade ${pct(R.indice)}</span></div>
+        <div class="mini4">${Object.entries(CAT).map(([k,v])=>`<span class="pill ${v.pill}" title="${esc(v.rot)}">${v.ico} ${R[k].length}</span>`).join("")}</div>
+        <div class="meta" style="margin-top:8px">atualizado ${esc(dataBR(p.atualizado_em))} por ${esc(p.atualizado_por||"—")}</div></button>`; }).join("");
+    box.querySelectorAll(".cardp").forEach(b=>b.onclick=()=>ir("processo",b.dataset.id,"identificacao"));
+  };
+  $("#fBusca",c).oninput=e=>{ filtro.busca=e.target.value; desenhar(); };
+  $("#fArea",c).onchange=e=>{ filtro.area=e.target.value; desenhar(); };
+  $("#fStatus",c).onchange=e=>{ filtro.status=e.target.value; desenhar(); };
+  desenhar();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EDITOR DE PROCESSO
+// ═══════════════════════════════════════════════════════════════════
+const ABAS_PROC=[["identificacao","Identificação"],["it","Instrução de Trabalho"],["real","Como é feito hoje"],["confronto","Confronto"],["oportunidades","Oportunidades"],["validacao","Validação"]];
+function renderProcesso(c){
+  const p=procPorId(atual), d=p.dados, R=confronto(d);
+  const sv=()=>salvar(p);
+  const cont={it:d.passos_it.length,real:d.passos_real.length,confronto:R.gaps,oportunidades:d.oportunidades.length};
+  c.innerHTML=`${p._conflito?`<div class="conflito"><b>⚠️ ${esc(p._conflito.atualizado_por||"Outra pessoa")} alterou este processo enquanto você editava</b> (${esc(dataBR(p._conflito.atualizado_em))}). Suas últimas alterações ainda não foram gravadas.
+      <div class="acoes"><button class="btn" id="cfDele" type="button">Ver a versão dele (descarta as minhas)</button><button class="btn perigo" id="cfMinha" type="button">Manter a minha (grava por cima)</button></div></div>`:""}
+    <div class="cab"><div><div class="cap" style="margin:0">${esc(d.codigo)} · ${esc(d.area||"sem área")}</div><h1>${esc(d.nome||"(sem nome)")}</h1>
+      <div class="mini4">${pillStatus(d.status)} ${pillCrit(d.criticidade)} <span class="pill p-cinza">conformidade ${pct(R.indice)}</span> <span class="pill p-cinza">${horas(R.horasMes)} h/mês</span></div></div>
+      <div class="acoes"><button class="btn" id="btVoltar" type="button">← Processos</button><button class="btn" id="btXls" type="button">⬇️ Excel deste processo</button>
+      <button class="btn" id="btPdf" type="button">🖨️ Relatório (PDF)</button><button class="btn perigo" id="btDel" type="button">Excluir</button></div></div>
+    <div class="abas" role="tablist">${ABAS_PROC.map(([id,rot])=>`<button type="button" role="tab" data-a="${id}" class="${id===abaProc?"ativa":""}" aria-selected="${id===abaProc}">${esc(rot)}${cont[id]!=null?`<span class="n">${cont[id]}</span>`:""}</button>`).join("")}</div>
+    <div id="abaCorpo"></div>`;
+  c.querySelectorAll(".abas button").forEach(b=>b.onclick=()=>{ abaProc=b.dataset.a; guardarNav(); render(); });
+  $("#btVoltar",c).onclick=()=>ir("processos");
+  $("#btXls",c).onclick=async()=>{ try{ await salvarTudo(); await excelMulti(`mapa_${d.codigo||"processo"}`, linhasExport([p])); }catch(e){ alert(e.message); } };
+  $("#btPdf",c).onclick=()=>imprimir(`${d.codigo} — ${d.nome}`, relatorioHTML(p));
+  $("#btDel",c).onclick=async()=>{ if(!confirm(`Excluir o processo ${d.codigo} — ${d.nome}? (fica guardado no banco como excluído)`)) return;
+    try{ const {r,j}=await api(`${API}/${p.id}`,{method:"DELETE"}); if(!r.ok) throw new Error(j.detail||r.status); PROCS=PROCS.filter(x=>x!==p); ir("processos"); }catch(e){ alert("Não consegui excluir: "+e.message); } };
+  if(p._conflito){
+    $("#cfDele",c).onclick=()=>{ Object.assign(p,{dados:normalizar(p._conflito.dados),versao:p._conflito.versao,atualizado_por:p._conflito.atualizado_por,atualizado_em:p._conflito.atualizado_em,_conflito:null}); setStatus("ok"); render(); };
+    $("#cfMinha",c).onclick=async()=>{ await enfileirar(p,true); render(); };
+  }
+  const corpo=$("#abaCorpo",c);
+  ({identificacao:abaIdent,it:abaIT,real:abaReal,confronto:abaConfronto,oportunidades:abaOport,validacao:abaValid})[abaProc](corpo,p,d,sv);
+}
+function campo(rot, id, valor, extra=""){ return `<label class="f">${esc(rot)}<input id="${id}" value="${esc(valor)}" ${extra}></label>`; }
+function ligar(c, id, obj, chave, sv, evento="input", depois){ const e=$("#"+id,c); if(!e) return; e.addEventListener(evento,()=>{ obj[chave]=e.value; sv(); depois&&depois(); }); }
+
+function abaIdent(c,p,d,sv){
+  c.innerHTML=`<div class="grade">
+      ${campo("Código","fCod",d.codigo)}${campo("Nome do processo *","fNome",d.nome)}
+      ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável (dono do processo)","fDono",d.dono)}
+      <label class="f">Criticidade<select id="fCrit">${opts(CRITICIDADE,d.criticidade,false)}</select></label>
+      <label class="f">Status<select id="fStatus">${opts(STATUS_PROC,d.status,false)}</select></label>
+    </div>
+    <div class="grade" style="margin-top:12px">
+      <label class="f">Objetivo do processo<textarea id="fObj" rows="2">${esc(d.objetivo)}</textarea></label>
+      <label class="f">Gatilho (o que dá início)<textarea id="fGat" rows="2">${esc(d.gatilho)}</textarea></label>
+      <label class="f">Entradas<textarea id="fEnt" rows="2">${esc(d.entradas)}</textarea></label>
+      <label class="f">Saídas / resultado<textarea id="fSai" rows="2">${esc(d.saidas)}</textarea></label>
+      <label class="f">Sistemas envolvidos<textarea id="fSis" rows="2">${esc(d.sistemas)}</textarea></label>
+      <label class="f">Quem foi entrevistado / acompanhado<textarea id="fEntr" rows="2">${esc(d.entrevistados)}</textarea></label>
+    </div>
+    <h3>Etapas do levantamento</h3>
+    <p class="cap">As 5 etapas da metodologia. Marque conforme for avançando.</p>
+    <div class="etapas">${ETAPAS_LEV.map(([id,rot,desc],i)=>{ const e=d.etapas[id];
+      return `<div class="etapa${e.feito?" feita":""}"><label class="ck"><input type="checkbox" data-et="${id}" ${e.feito?"checked":""}> ${i+1}. ${esc(rot)}</label><p>${esc(desc)}</p><input type="date" data-etd="${id}" value="${esc(e.data)}" aria-label="Data — ${esc(rot)}"></div>`; }).join("")}</div>
+    <h3>Cruzar com os chamados</h3>
+    <p class="cap">O histórico de chamados é o atalho: ele já diz onde a área mais sofre. Registre aqui os chamados recorrentes ligados a este processo (número, assunto, quantidade).</p>
+    <label class="f"><textarea id="fCham" rows="4" placeholder="Ex.: #148609 — pedido de venda no ARM Full (12 chamados no trimestre)">${esc(d.chamados)}</textarea></label>`;
+  const cab=()=>{ const h=document.querySelector(".cab h1"); if(h) h.textContent=d.nome||"(sem nome)"; };
+  [["fCod","codigo"],["fNome","nome"],["fArea","area"],["fDono","dono"],["fObj","objetivo"],["fGat","gatilho"],["fEnt","entradas"],["fSai","saidas"],["fSis","sistemas"],["fEntr","entrevistados"],["fCham","chamados"]]
+    .forEach(([id,k])=>ligar(c,id,d,k,sv,"input",k==="nome"?cab:null));
+  ligar(c,"fCrit",d,"criticidade",sv,"change",render); ligar(c,"fStatus",d,"status",sv,"change",render);
+  c.querySelectorAll("[data-et]").forEach(i=>i.onchange=()=>{ const e=d.etapas[i.dataset.et]; e.feito=i.checked; if(i.checked&&!e.data) e.data=hojeISO(); sv(); render(); });
+  c.querySelectorAll("[data-etd]").forEach(i=>i.onchange=()=>{ d.etapas[i.dataset.etd].data=i.value; sv(); });
+}
+
+function blocoColar(c, rotulo, aoAdicionar){
+  const det=el("details","box");
+  det.innerHTML=`<summary>📋 ${esc(rotulo)}</summary><p class="cap">Copie os passos do documento (Word, PDF ou Excel) e cole aqui — uma linha por passo. Numeração como "1." ou "-" é removida sozinha.</p>
+    <textarea class="inp" rows="6"></textarea><div class="acoes"><button class="btn primary" type="button">Adicionar como passos</button><span class="msg"></span></div>`;
+  det.querySelector("button").onclick=()=>{ const linhas=colarPassos(det.querySelector("textarea").value);
+    if(!linhas.length){ det.querySelector(".msg").textContent="Nada para adicionar."; return; } aoAdicionar(linhas); };
+  c.appendChild(det);
+}
+function abaIT(c,p,d,sv){
+  c.innerHTML=`<p class="cap">Como o processo <b>deveria</b> ser feito, segundo a Instrução de Trabalho oficial. Cadastre a IT e os passos dela na ordem.</p>
+    <div class="grade">${campo("Código da IT","iCod",d.it.codigo,'placeholder="Ex.: IT-LOG-012"')}${campo("Título","iTit",d.it.titulo)}
+      ${campo("Versão / revisão","iVer",d.it.versao)}<label class="f">Data da versão<input type="date" id="iData" value="${esc(d.it.data)}"></label>
+      ${campo("Link do documento","iLink",d.it.link,'placeholder="SharePoint, Drive, Fluig..."')}</div>
+    <label class="f" style="margin-top:12px">Observações sobre a IT<textarea id="iObs" rows="2">${esc(d.it.obs)}</textarea></label>
+    <h3>Passos da IT</h3><div id="iTbl"></div><div id="iColar"></div>`;
+  [["iCod","codigo"],["iTit","titulo"],["iVer","versao"],["iLink","link"],["iObs","obs"]].forEach(([id,k])=>ligar(c,id,d.it,k,sv));
+  ligar(c,"iData",d.it,"data",sv,"change");
+  $("#iTbl",c).appendChild(tabela({chave:"it",linhas:d.passos_it,numerar:true,ordenavel:true,aoSalvar:sv,aoEstrutura:render,rotuloAdd:"+ Adicionar passo da IT",
+    novaLinha:()=>({id:uid(),descricao:"",quem:"",sistema:"",regra:"",obs:""}),
+    confirmarExclusao:r=>d.passos_real.some(x=>x.it_ref===r.id)?"Há passos reais ligados a este passo da IT — eles passarão a contar como 'Feito sem IT'. Excluir mesmo assim?":"Excluir este passo da IT?",
+    colunas:[{campo:"descricao",label:"Passo (como a IT manda fazer)",tipo:"textarea",largura:320},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:130},
+      {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:120},{campo:"regra",label:"Regra / controle",tipo:"textarea",largura:200},{campo:"obs",label:"Observação",tipo:"textarea",largura:180}]}));
+  blocoColar($("#iColar",c),"Colar passos da IT",linhas=>{ linhas.forEach(t=>d.passos_it.push({id:uid(),descricao:t,quem:"",sistema:"",regra:"",obs:""})); sv(); render(); });
+}
+function abaReal(c,p,d,sv){
+  const R=confronto(d);
+  c.innerHTML=`<p class="cap">Como o processo <b>realmente</b> acontece hoje, observado no levantamento — incluindo o que é feito "por fora". Para cada passo, indique a qual passo da IT ele corresponde e se é feito <b>Conforme</b> ou <b>Divergente</b>. Passo sem correspondência vira "Feito sem IT" automaticamente.</p>
+    <div class="kpis"><div class="kpi"><span>Horas/mês consumidas</span><b id="rHoras">${horas(R.horasMes)}</b><small>tempo (min) × vezes por mês</small></div>
+      <div class="kpi"><span>Passos sem correspondência na IT</span><b>${R.semIT.length}</b><small>➕ feitos sem IT</small></div>
+      <div class="kpi"><span>Pendentes de classificação</span><b>${R.pendente.length}</b><small>ligados, mas sem Conforme/Divergente</small></div></div>
+    <div id="rTbl"></div><div id="rColar"></div>`;
+  const opIT=()=>d.passos_it.map((x,i)=>[x.id,`${i+1}. ${tx(x.descricao).slice(0,70)}${tx(x.descricao).length>70?"…":""}`]).filter(x=>x[1].length>3);
+  const atualizaHoras=()=>{ const h=$("#rHoras"); if(h) h.textContent=horas(confronto(d).horasMes); };
+  $("#rTbl",c).appendChild(tabela({chave:"real",linhas:d.passos_real,numerar:true,ordenavel:true,rotuloAdd:"+ Adicionar passo real",
+    aoSalvar:()=>{ sv(); atualizaHoras(); }, aoEstrutura:render,
+    aoMudar:(row,col)=>{ if(col.campo==="it_ref"){ if(!row.it_ref){ row.aderencia=""; } sv(); render(); } else if(col.campo==="aderencia") render(); },
+    novaLinha:()=>({id:uid(),descricao:"",quem:"",sistema:"",dado:"",tempo_min:"",vezes_mes:"",it_ref:"",aderencia:"",diferenca:"",obs:""}),
+    colunas:[{campo:"descricao",label:"Como é feito hoje",tipo:"textarea",largura:280},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
+      {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:110},{campo:"dado",label:"Dado gerado",largura:120},
+      {campo:"tempo_min",label:"Tempo (min)",tipo:"number"},{campo:"vezes_mes",label:"Vezes/mês",tipo:"number"},
+      {campo:"it_ref",label:"Corresponde ao passo da IT",tipo:"select",opcoes:opIT,vazio:"— nenhum (feito sem IT) —",largura:220},
+      {campo:"aderencia",label:"Aderência",tipo:"select",opcoes:["Conforme","Divergente"]},
+      {campo:"diferenca",label:"O que difere da IT",tipo:"textarea",largura:200},{campo:"obs",label:"Observação",tipo:"textarea",largura:160}]}));
+  blocoColar($("#rColar",c),"Colar passos observados",linhas=>{ linhas.forEach(t=>d.passos_real.push({id:uid(),descricao:t,quem:"",sistema:"",dado:"",tempo_min:"",vezes_mes:"",it_ref:"",aderencia:"",diferenca:"",obs:""})); sv(); render(); });
+}
+function itemConf(x){
+  const r=x.real, i=x.it;
+  if(r&&i) return `<li>${esc(r.descricao)}<small>Real nº ${r._n} ↔ IT nº ${i._n}: ${esc(i.descricao)}${r.diferenca?` — <b>difere:</b> ${esc(r.diferenca)}`:""}</small></li>`;
+  if(r) return `<li>${esc(r.descricao)}<small>Real nº ${r._n}${r.quem?` · ${esc(r.quem)}`:""}${r.sistema?` · ${esc(r.sistema)}`:""}</small></li>`;
+  return `<li>${esc(i.descricao)}<small>IT nº ${i._n}${i.obs?` — ${esc(i.obs)}`:""}</small></li>`;
+}
+function abaConfronto(c,p,d,sv){
+  const R=confronto(d);
+  c.innerHTML=`<div class="kpis">
+      <div class="kpi"><span>Índice de conformidade</span><b>${pct(R.indice)}</b><small>conformes ÷ todos os itens classificados</small></div>
+      <div class="kpi"><span>Cobertura da IT</span><b>${pct(R.cobertura)}</b><small>passos da IT que são executados</small></div>
+      <div class="kpi"><span>Aderência dos executados</span><b>${pct(R.aderencia)}</b><small>dos passos da IT executados, quantos conforme</small></div>
+      <div class="kpi"><span>Gaps</span><b>${R.gaps}</b><small>divergentes + sem IT + não feitos</small></div></div>
+    ${R.pendente.length?`<div class="aviso">⏳ ${R.pendente.length} passo(s) real(is) ligado(s) à IT sem classificação — defina Conforme ou Divergente na aba <b>Como é feito hoje</b>.</div>`:""}
+    <div class="conf4">${Object.entries(CAT).map(([k,v])=>`<div class="bloco"><h3>${v.ico} ${esc(v.rot)} <span class="pill ${v.pill}">${R[k].length}</span></h3>${R[k].length?`<ol>${R[k].map(itemConf).join("")}</ol>`:'<p class="cap" style="margin:0">Nenhum.</p>'}</div>`).join("")}</div>
+    <h3>Lado a lado</h3><p class="cap">Cada passo da IT e o que acontece na prática. Passos feitos sem IT aparecem no final.</p><div id="lado"></div>
+    <div class="acoes"><button class="btn primary" id="gerarOp" type="button">💡 Gerar oportunidades a partir dos gaps</button><span class="msg" id="gerarMsg"></span></div>`;
+  const L=[`<div class="h it">Instrução de Trabalho (deveria)</div><div class="h">Como é feito hoje (é)</div>`];
+  d.passos_it.forEach((x,i)=>{ if(!tx(x.descricao)) return;
+    const lig=d.passos_real.map((r,j)=>({r,j})).filter(o=>o.r.it_ref===x.id&&tx(o.r.descricao));
+    L.push(`<div class="it"><b>${i+1}.</b> ${esc(x.descricao)}${x.quem?`<br><small style="color:var(--muted)">${esc(x.quem)}${x.sistema?` · ${esc(x.sistema)}`:""}</small>`:""}</div>`);
+    L.push(`<div>${lig.length?lig.map(({r,j})=>`<div><span class="pill ${r.aderencia==="Conforme"?"p-ok":r.aderencia==="Divergente"?"p-warn":"p-cinza"}">${esc(r.aderencia||"pendente")}</span> <b>${j+1}.</b> ${esc(r.descricao)}${r.diferenca?`<br><small style="color:var(--warn)">difere: ${esc(r.diferenca)}</small>`:""}</div>`).join(""):'<span class="pill p-bad">❌ não é feito</span>'}</div>`); });
+  R.semIT.forEach(({real:r})=>{ L.push(`<div class="it vaz">— sem passo na IT —</div><div><span class="pill p-azul">➕ sem IT</span> <b>${r._n}.</b> ${esc(r.descricao)}</div>`); });
+  $("#lado",c).innerHTML = L.length>1 ? `<div class="lado">${L.join("")}</div>` : '<div class="aviso">Cadastre os passos da IT e os passos reais para ver o confronto.</div>';
+  $("#gerarOp",c).onclick=()=>{
+    const ja=new Set(d.oportunidades.map(o=>o.origem).filter(Boolean)); let n=0;
+    const nova=(origem,desc,passo)=>{ if(ja.has(origem)) return; d.oportunidades.push({id:uid(),origem,tipo:"Gap de IT",descricao:desc,passo_ref:passo||"",volume:"",tempo:"",custo:"",risco:"",horas_mes:"",acao:"",responsavel:"",prazo:"",status:"Identificada"}); n++; };
+    R.divergente.forEach(({real:r,it:i})=>nova("div:"+r.id,`Feito diferente da IT (IT nº ${i._n}): ${tx(r.descricao)}${r.diferenca?` — ${tx(r.diferenca)}`:""}. Decidir: ajustar o processo ou revisar a IT.`,r.id));
+    R.semIT.forEach(({real:r})=>nova("sem:"+r.id,`Feito sem IT: ${tx(r.descricao)}. Decidir: incluir na IT ou eliminar o passo.`,r.id));
+    R.naoFeito.forEach(({it:i})=>nova("nao:"+i.id,`Na IT e não é feito (IT nº ${i._n}): ${tx(i.descricao)}. Decidir: passar a executar ou retirar da IT.`,""));
+    sv(); const m=$("#gerarMsg"); m.className="msg ok"; m.textContent = n?`${n} oportunidade(s) criada(s) na aba Oportunidades.`:"Todos os gaps já têm oportunidade criada.";
+    if(n) setTimeout(()=>render(),900);
+  };
+}
+function abaOport(c,p,d,sv){
+  c.innerHTML=`<p class="cap">Dores, trabalho repetido, ganhos de tempo, integrações, indicadores e riscos que aparecem no levantamento. Prioridade = <b>Volume × Tempo gasto × Custo × Risco</b> (notas de 1 a 5). Não se automatiza porque dá: automatiza-se o que devolve mais tempo à empresa.</p><div id="oTbl"></div>`;
+  const opPasso=()=>d.passos_real.map((r,i)=>[r.id,`${i+1}. ${tx(r.descricao).slice(0,60)}`]).filter(x=>x[1].length>3);
+  $("#oTbl",c).appendChild(tabela({chave:"op",linhas:d.oportunidades,aoSalvar:sv,aoEstrutura:render,rotuloAdd:"+ Adicionar oportunidade",
+    novaLinha:()=>({id:uid(),tipo:"Dor",descricao:"",passo_ref:"",volume:"",tempo:"",custo:"",risco:"",horas_mes:"",acao:"",responsavel:"",prazo:"",status:"Identificada"}),
+    colunas:[{campo:"tipo",label:"Tipo",tipo:"select",opcoes:TIPOS_OPORT,semVazio:true},{campo:"descricao",label:"Descrição",tipo:"textarea",largura:260},
+      {campo:"passo_ref",label:"Passo relacionado",tipo:"select",opcoes:opPasso,vazio:"—",largura:160},
+      {campo:"volume",label:"Volume",tipo:"select",opcoes:ESCALA},{campo:"tempo",label:"Tempo",tipo:"select",opcoes:ESCALA},
+      {campo:"custo",label:"Custo",tipo:"select",opcoes:ESCALA},{campo:"risco",label:"Risco",tipo:"select",opcoes:ESCALA},
+      {campo:"_score",label:"Prioridade",tipo:"calc",calc:o=>score(o)||"—"},
+      {campo:"horas_mes",label:"Horas/mês devolvidas",tipo:"number"},{campo:"acao",label:"Ação",tipo:"textarea",largura:200},
+      {campo:"responsavel",label:"Responsável",largura:120},{campo:"prazo",label:"Prazo",tipo:"date"},
+      {campo:"status",label:"Status",tipo:"select",opcoes:STATUS_OPORT,semVazio:true}]}));
+}
+function abaValid(c,p,d,sv){
+  const v=d.validacao;
+  c.innerHTML=`<p class="cap">Última etapa: a área confirma que o mapeamento é isso mesmo e assume o processo como seu.</p>
+    <div class="grade">${campo("Validado por (nome / cargo)","vPor",v.por)}<label class="f">Data<input type="date" id="vData" value="${esc(v.data)}"></label>
+      <label class="f">Parecer<select id="vPar">${opts(["Validado","Validado com ressalvas","Reprovado — refazer levantamento"],v.parecer)}</select></label></div>
+    <label class="f" style="margin-top:12px">Comentários da área<textarea id="vObs" rows="4">${esc(v.obs)}</textarea></label>
+    <p class="cap" style="margin-top:10px">Ao registrar "Validado", o status do processo muda para <b>Validado</b> e a etapa 5 do levantamento é marcada.</p>`;
+  ligar(c,"vPor",v,"por",sv); ligar(c,"vData",v,"data",sv,"change"); ligar(c,"vObs",v,"obs",sv);
+  $("#vPar",c).onchange=e=>{ v.parecer=e.target.value;
+    if(v.parecer.startsWith("Validado")){ d.status="Validado"; d.etapas.validar.feito=true; if(!d.etapas.validar.data) d.etapas.validar.data=v.data||hojeISO(); if(!v.data) v.data=hojeISO(); }
+    else if(v.parecer.startsWith("Reprovado")) d.status="Revisar";
+    sv(); render(); };
+}
+function relatorioHTML(p){
+  const d=p.dados, R=confronto(d);
+  const lista=(arr,f)=>arr.length?`<table><tr><th>#</th><th>Descrição</th><th>Detalhe</th></tr>${arr.map(f).join("")}</table>`:"<p>Nenhum.</p>";
+  return `<h1>${esc(d.codigo)} — ${esc(d.nome)}</h1><p>Área: <b>${esc(d.area||"—")}</b> · Dono: <b>${esc(d.dono||"—")}</b> · IT: <b>${esc(d.it.codigo||"—")} ${esc(d.it.versao||"")}</b> · Status: <b>${esc(d.status)}</b></p>
+    <div><span class="k">Conformidade<b>${pct(R.indice)}</b></span><span class="k">Cobertura da IT<b>${pct(R.cobertura)}</b></span><span class="k">Aderência<b>${pct(R.aderencia)}</b></span>
+    ${Object.entries(CAT).map(([k,v])=>`<span class="k">${v.ico} ${esc(v.rot)}<b>${R[k].length}</b></span>`).join("")}<span class="k">Horas/mês<b>${horas(R.horasMes)}</b></span></div>
+    <h2>⚠️ Feito diferente da IT</h2>${lista(R.divergente,x=>`<tr><td>${x.real._n} ↔ IT ${x.it._n}</td><td>${esc(x.real.descricao)}</td><td>${esc(x.real.diferenca||"")}</td></tr>`)}
+    <h2>➕ Feito sem IT</h2>${lista(R.semIT,x=>`<tr><td>${x.real._n}</td><td>${esc(x.real.descricao)}</td><td>${esc([x.real.quem,x.real.sistema].filter(Boolean).join(" · "))}</td></tr>`)}
+    <h2>❌ Na IT e não é feito</h2>${lista(R.naoFeito,x=>`<tr><td>IT ${x.it._n}</td><td>${esc(x.it.descricao)}</td><td>${esc(x.it.obs||"")}</td></tr>`)}
+    <h2>✅ Feito conforme a IT</h2>${lista(R.conforme,x=>`<tr><td>${x.real._n} ↔ IT ${x.it._n}</td><td>${esc(x.real.descricao)}</td><td></td></tr>`)}
+    <h2>💡 Oportunidades</h2>${d.oportunidades.length?`<table><tr><th>Tipo</th><th>Descrição</th><th>Prioridade</th><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>${d.oportunidades.map(o=>`<tr><td>${esc(o.tipo)}</td><td>${esc(o.descricao)}</td><td>${score(o)||"—"}</td><td>${esc(o.acao)}</td><td>${esc(o.responsavel)}</td><td>${esc(o.prazo)}</td><td>${esc(o.status)}</td></tr>`).join("")}</table>`:"<p>Nenhuma.</p>"}
+    <h2>Validação</h2><p>${esc(d.validacao.parecer||"Não validado")} ${d.validacao.por?`por ${esc(d.validacao.por)}`:""} ${d.validacao.data?`em ${esc(d.validacao.data)}`:""}</p>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONFRONTO GERAL · OPORTUNIDADES · EXPORTAR
+// ═══════════════════════════════════════════════════════════════════
+function renderConfronto(c){
+  const areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
+  c.innerHTML=`<h1>Confronto geral</h1><p class="cap">Todos os itens de todos os processos, classificados. Use os filtros para montar a lista que você precisa.</p>
+    <div class="filtros"><select class="inp" id="cfCat" aria-label="Categoria"><option value="">Todas as categorias</option>${Object.entries(CAT).map(([k,v])=>`<option value="${k}"${k===filtro.cat?" selected":""}>${v.ico} ${esc(v.rot)}</option>`).join("")}<option value="pendente"${filtro.cat==="pendente"?" selected":""}>⏳ Pendente de classificação</option></select>
+      <select class="inp" id="cfArea" aria-label="Área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
+    <div id="cfTbl"></div>`;
+  const desenhar=()=>{
+    const linhas=[];
+    PROCS.forEach(p=>{ const d=p.dados; if(filtro.area&&d.area!==filtro.area) return; const R=confronto(d);
+      ["conforme","divergente","semIT","naoFeito","pendente"].forEach(k=>{ if(filtro.cat&&filtro.cat!==k) return; R[k].forEach(x=>linhas.push({p,k,x})); }); });
+    const box=$("#cfTbl");
+    if(!linhas.length){ box.innerHTML='<div class="aviso">Nada para mostrar com esse filtro.</div>'; return; }
+    box.innerHTML=`<div class="tbl-wrap" style="max-height:70vh"><table class="lista"><thead><tr><th>Categoria</th><th>Processo</th><th>Passo da IT</th><th>Como é feito hoje</th><th>Diferença</th></tr></thead><tbody>${
+      linhas.map(({p,k,x})=>`<tr class="clic" data-id="${p.id}"><td><span class="pill ${CAT[k]?CAT[k].pill:"p-cinza"}">${CAT[k]?CAT[k].ico+" "+esc(CAT[k].rot):"⏳ Pendente"}</span></td><td>${esc(p.dados.codigo)} · ${esc(p.dados.nome)}<br><small style="color:var(--muted)">${esc(p.dados.area||"")}</small></td>
+        <td>${x.it?`${x.it._n}. ${esc(x.it.descricao)}`:'<span style="color:var(--faint)">—</span>'}</td><td>${x.real?`${x.real._n}. ${esc(x.real.descricao)}`:'<span style="color:var(--faint)">—</span>'}</td><td>${esc((x.real&&x.real.diferenca)||"")}</td></tr>`).join("")}</tbody></table></div>`;
+    box.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>ir("processo",tr.dataset.id,"confronto"));
+  };
+  $("#cfCat",c).onchange=e=>{ filtro.cat=e.target.value; desenhar(); };
+  $("#cfArea",c).onchange=e=>{ filtro.area=e.target.value; desenhar(); };
+  desenhar();
+}
+function renderOportunidades(c){
+  c.innerHTML=`<h1>Oportunidades</h1><p class="cap">Ranking de todas as oportunidades por prioridade (Volume × Tempo × Custo × Risco). O status pode ser atualizado aqui mesmo.</p>
+    <div class="filtros"><select class="inp" id="opTipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS_OPORT.map(t=>`<option${t===filtro.tipo?" selected":""}>${esc(t)}</option>`).join("")}</select>
+      <select class="inp" id="opSt" aria-label="Status"><option value="">Todos os status</option>${STATUS_OPORT.map(t=>`<option${t===filtro.stOp?" selected":""}>${esc(t)}</option>`).join("")}</select></div><div id="opTbl"></div>`;
+  const desenhar=()=>{
+    const lst=[]; PROCS.forEach(p=>p.dados.oportunidades.forEach(o=>{ if((!filtro.tipo||o.tipo===filtro.tipo)&&(!filtro.stOp||o.status===filtro.stOp)) lst.push({p,o}); }));
+    lst.sort((a,b)=>score(b.o)-score(a.o));
+    const box=$("#opTbl");
+    if(!lst.length){ box.innerHTML='<div class="aviso">Nenhuma oportunidade com esse filtro.</div>'; return; }
+    box.innerHTML=`<div class="tbl-wrap" style="max-height:70vh"><table class="lista"><thead><tr><th>#</th><th>Prioridade</th><th>Oportunidade</th><th>Tipo</th><th>Processo</th><th>h/mês</th><th>Responsável · prazo</th><th>Status</th></tr></thead><tbody>${
+      lst.map(({p,o},i)=>`<tr><td>${i+1}</td><td><b>${score(o)||"—"}</b></td><td class="lk" data-id="${p.id}" style="cursor:pointer">${esc(o.descricao)}</td><td>${esc(o.tipo)}</td><td>${esc(p.dados.codigo)} · ${esc(p.dados.nome)}</td><td>${esc(o.horas_mes||"")}</td><td>${esc(o.responsavel||"—")}${o.prazo?` · ${esc(o.prazo)}`:""}</td>
+        <td><select class="inp" data-p="${p.id}" data-o="${o.id}" style="padding:4px 6px;font-size:12px" aria-label="Status">${opts(STATUS_OPORT,o.status,false)}</select></td></tr>`).join("")}</tbody></table></div>`;
+    box.querySelectorAll(".lk").forEach(td=>td.onclick=()=>ir("processo",td.dataset.id,"oportunidades"));
+    box.querySelectorAll("select[data-o]").forEach(s=>s.onchange=()=>{ const p=procPorId(s.dataset.p), o=p.dados.oportunidades.find(x=>x.id===s.dataset.o); o.status=s.value; salvar(p); });
+  };
+  $("#opTipo",c).onchange=e=>{ filtro.tipo=e.target.value; desenhar(); };
+  $("#opSt",c).onchange=e=>{ filtro.stOp=e.target.value; desenhar(); };
+  desenhar();
+}
+function renderExportar(c){
+  c.innerHTML=`<h1>Exportar</h1><p class="cap">Uma planilha com 5 abas, prontas para filtro e tabela dinâmica — é daqui que sai o confronto entre a documentação oficial (IT) e o levantamento.</p>
+    <div class="box"><ol style="margin:0;padding-left:20px;line-height:1.8">
+      <li><b>Processos</b> — uma linha por processo, com os totais do confronto, índices e horas/mês.</li>
+      <li><b>Confronto</b> — uma linha por item, já com a categoria (conforme / diferente / sem IT / não feito).</li>
+      <li><b>Passos da IT</b> — cada passo da IT e a situação dele na prática.</li>
+      <li><b>Como é feito hoje</b> — cada passo real, com tempo, frequência, passo da IT correspondente e classificação.</li>
+      <li><b>Oportunidades</b> — com prioridade, horas devolvidas, ação, responsável, prazo e status.</li></ol></div>
+    <div id="expBt"></div>`;
+  acoesExport($("#expBt",c),[
+    ["⬇️ Exportar tudo (Excel)",()=>excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS))],
+    ["⬇️ Só o confronto (CSV)",()=>{ const aba=linhasExport(PROCS)[1], q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+      baixarBlob(new Blob(["\ufeff"+[aba.colunas.map(x=>q(x[1])).join(";"),...aba.linhas.map(l=>aba.colunas.map(x=>q(l[x[0]])).join(";"))].join("\r\n")],{type:"text/csv;charset=utf-8"}),"confronto_it_x_real_"+hojeISO()+".csv"); }],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tema + início
+// ═══════════════════════════════════════════════════════════════════
+(function(){ let t="dark"; try{ t=localStorage.getItem("diag_tema")||t; }catch(_){} document.documentElement.dataset.theme=t;
+  $("#btnTema").onclick=()=>{ const n=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=n; try{ localStorage.setItem("diag_tema",n); }catch(_){} }; })();
+async function iniciar(){
+  montarMenu();
+  try{
+    const {r,j}=await api(API);
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    PROCS=(j||[]).map(p=>({...p,dados:normalizar(p.dados)})); setStatus("ok"); render();
+  }catch(e){
+    if(e.message==="sessão expirada") return;
+    setStatus("erro",e.message);
+    $("#conteudo").innerHTML=`<div class="conflito"><b>Não consegui carregar os processos.</b><br>${esc(e.message)}<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
+  }
+}
+iniciar();
+</script>
+</body>
+</html>
