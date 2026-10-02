@@ -338,3 +338,41 @@ def diag_salvar(secao: str, dados) -> None:
         {"dados": dados, "atualizado_em": datetime.datetime.now(brt).isoformat()},
         timeout=TIMEOUT_FS,
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.0] USUÁRIOS — coleção própria "pqi_usuarios" (não mistura com
+# nada do Lila Closet). Documento = e-mail em minúsculas. A senha NUNCA é
+# gravada: só o hash (ver seguranca.py).
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_USUARIOS = "pqi_usuarios"
+
+
+def _col_usuarios():
+    return get_db().collection(COLECAO_USUARIOS)
+
+
+def usuario_ler(email: str) -> Optional[dict]:
+    doc = _col_usuarios().document(email).get(timeout=TIMEOUT_FS)
+    return doc.to_dict() if doc.exists else None
+
+
+def usuarios_listar() -> list[dict]:
+    linhas = [d.to_dict() or {} for d in _col_usuarios().stream(timeout=TIMEOUT_FS)]
+    linhas.sort(key=lambda u: (u.get("nome") or u.get("email") or "").lower())
+    return linhas
+
+
+def usuario_criar(email: str, dados: dict) -> bool:
+    """False se o e-mail já existir (create() falha se o documento existe)."""
+    try:
+        _col_usuarios().document(email).create(dados, timeout=TIMEOUT_FS)
+        return True
+    except Exception as e:
+        if "already exists" in str(e).lower() or "409" in str(e):
+            return False
+        raise
+
+
+def usuario_atualizar(email: str, campos: dict) -> None:
+    _col_usuarios().document(email).update(campos, timeout=TIMEOUT_FS)
