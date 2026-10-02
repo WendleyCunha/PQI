@@ -684,6 +684,60 @@ def diagnostico_resumo_ia():
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.1] MAPA DIGITAL KING STAR — processos (IT × como é feito hoje)
+# Rotas genéricas: o servidor não conhece os campos do processo. Campo
+# novo = só mexer no mapa.html.
+# ──────────────────────────────────────────────────────────────────────────
+class ProcessoEntrada(BaseModel):
+    dados: Any = None
+    versao: Optional[int] = None
+
+
+def _nome_de(request: Request) -> str:
+    u = usuario_atual(request)
+    return u.get("nome") or u.get("email")
+
+
+def _checar_tamanho(dados):
+    tamanho = len(json.dumps(dados, ensure_ascii=False, default=str).encode("utf-8"))
+    if tamanho > _LIMITE_SECAO_BYTES:
+        raise HTTPException(status_code=413, detail=f"Este processo ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB).")
+
+
+@app.get("/api/mapa/processos")
+def mapa_listar():
+    return db.mapa_listar()
+
+
+@app.post("/api/mapa/processos")
+def mapa_criar(payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
+    _checar_tamanho(payload.dados)
+    return db.mapa_criar(payload.dados, _nome_de(request))
+
+
+@app.put("/api/mapa/processos/{processo_id}")
+def mapa_salvar(processo_id: str, payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
+    _checar_tamanho(payload.dados)
+    resultado, registro = db.mapa_salvar(processo_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Processo não encontrado (pode ter sido excluído).")
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    return registro
+
+
+@app.delete("/api/mapa/processos/{processo_id}")
+def mapa_excluir(processo_id: str, request: Request):
+    if not db.mapa_excluir(processo_id, _nome_de(request)):
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    return {"sucesso": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # [AJUSTADO v2.3] PÁGINAS HTML — o mesmo servidor agora entrega o Painel
 # (túnel) e todos os sistemas que são arquivo HTML.
 #
@@ -701,6 +755,7 @@ PAGINAS = {
     "/diario": "diario.html",                                            # Diário de Bordo
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico N2
+    "/mapa": "mapa.html",                                                # Mapa Digital King Star
     "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
 }
 
