@@ -164,7 +164,7 @@ details.box[open] > summary{margin-bottom:10px}
 .cat b{display:block;font:700 30px/1 "IBM Plex Sans Condensed",sans-serif}
 .cat span{color:var(--ink-2);font-size:13px}
 .mini4{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.etapas{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.etapas{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .etapa{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:12px}
 .etapa.feita{border-color:var(--ok);background:color-mix(in srgb,var(--ok-soft) 50%,var(--sheet))}
 .etapa label.ck{display:flex;gap:8px;align-items:center;font:600 14px "IBM Plex Sans Condensed",sans-serif;cursor:pointer}
@@ -233,6 +233,15 @@ details.box[open] > summary{margin-bottom:10px}
 .side-btn .n{position:absolute;top:4px;right:6px;font-size:10px;font-weight:600;background:var(--rule-2);color:var(--ink-2);border-radius:8px;padding:0 5px}
 .side-btn.ativo .n{background:var(--steel);color:var(--sheet)}
 .side-sep{width:70%;height:1px;background:var(--rule);margin:4px 0}
+.side-rg{max-height:calc(100vh - 90px);overflow-y:auto}
+.side-btn .fz{position:absolute;top:4px;left:6px;font-size:9.5px;font-weight:700;color:var(--ink-3)}
+.side-btn.ativo .fz{color:var(--steel)}
+.fase-box{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--sheet);border:1px solid var(--rule);border-left:4px solid var(--steel);border-radius:8px;padding:10px 14px;margin:0 0 16px;font-size:14px}
+.fase-box button{margin-left:auto}
+.link.clic{cursor:pointer} .link.clic:hover .nm{color:var(--steel)}
+button svg{width:15px;height:15px;vertical-align:-3px}
+table.matriz td,table.matriz th{text-align:center} table.matriz td:first-child,table.matriz th:first-child{text-align:left}
+table.matriz td.zero{color:var(--rule)}
 .conteudo-item{flex:1;min-width:0}
 
 dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
@@ -284,6 +293,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 <datalist id="dl-areas"></datalist>
 <datalist id="dl-sistemas"></datalist>
 <datalist id="dl-quem"></datalist>
+<datalist id="dl-macro"></datalist>
 
 <script>
 'use strict';
@@ -308,7 +318,6 @@ const ETAPAS_LEV = [
   ["acompanhar","Acompanhar","Ver o processo rodando no dia a dia, como é de verdade"],
   ["registrar","Registrar","Passo a passo: quem faz, com qual sistema, gerando qual dado"],
   ["cruzar","Cruzar","Comparar com os chamados que a área mais abre"],
-  ["validar","Validar","A área confirma e assume o processo como seu"],
 ];
 const TIPOS_OPORT = ["Dor","Trabalho repetido","Ganho de tempo","Integração","Indicador","Risco","Gap de IT"];
 const STATUS_OPORT = ["Identificada","Em análise","Em execução","Concluída","Descartada"];
@@ -370,7 +379,7 @@ async function enviar(p, forcar){
     if(!Object.keys(pend).length) setStatus("ok");
   }catch(e){ if(e.message!=="sessão expirada") setStatus("erro", e.message); }
 }
-async function salvarTudo(){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); return enfileirar(procPorId(id)); })); }
+async function salvarTudo(){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); const doc=docPorId(id); return doc?enfileirar(doc):null; })); }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") salvarTudo(); });
 window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvarTudo(); e.preventDefault(); e.returnValue=""; } });
 
@@ -378,9 +387,17 @@ function normalizar(d){
   d=d||{};
   const base={codigo:"",nome:"",area:"",dono:"",objetivo:"",gatilho:"",entradas:"",saidas:"",sistemas:"",criticidade:"Média",status:"Em levantamento",
     entrevistados:"",chamados:"",etapas:{},it:{codigo:"",titulo:"",versao:"",data:"",link:"",obs:""},passos_it:[],passos_real:[],oportunidades:[],
-    validacao:{por:"",data:"",parecer:"",obs:""},anotacoes:[]};
+    validacao:{por:"",data:"",parecer:"",obs:""},anotacoes:[],
+    macroprocesso:"",recebe_de:"",entrega_para:"",
+    fases:{},validacao_tobe:{por:"",data:"",parecer:"",obs:""},
+    tobe:{codigo:"",versao:"",objetivo:"",regras:"",fluxo:"",passos:[],pendencias:[]},implantacao:{acoes:[]}};
   for(const k in base) if(d[k]==null) d[k]=base[k];
   ETAPAS_LEV.forEach(([id])=>{ if(!d.etapas[id]) d.etapas[id]={feito:false,data:""}; });
+  ["f2","f4","f5","f7"].forEach(f=>{ if(!d.fases[f]) d.fases[f]={concluido:false,por:"",em:""}; });
+  ["passos","pendencias"].forEach(k=>{ if(!Array.isArray(d.tobe[k])) d.tobe[k]=[]; d.tobe[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
+  if(!Array.isArray(d.implantacao.acoes)) d.implantacao.acoes=[];
+  // migração: processos validados na versão anterior já contam como Fase 3 (validação do AS IS) concluída
+  if(d.status==="Validado" && !d.validacao.parecer) d.validacao.parecer="Validado";
   ["passos_it","passos_real","oportunidades","anotacoes"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[]; d[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
   return d;
 }
@@ -441,8 +458,8 @@ function tabela(o){
   linhas.forEach((row,i)=>{
     const tr=el("tr");
     if(numerar){ const td=el("td"); td.innerHTML=`<span class="ro">${i+1}</span>`; tr.appendChild(td); }
-    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(celula(row,c,tr,colunas,aoSalvar,aoMudar)); tr.appendChild(td); });
-    const td=el("td","acts");
+    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(o.leitura?celulaLeitura(row,c):celula(row,c,tr,colunas,aoSalvar,aoMudar)); tr.appendChild(td); });
+    const td=el("td","acts"); if(o.leitura){ tr.appendChild(td); tb.appendChild(tr); return; }
     if(ordenavel){
       const up=el("button","ib"); up.type="button"; up.textContent="↑"; up.title="Subir"; up.disabled=i===0;
       up.onclick=()=>{ [linhas[i-1],linhas[i]]=[linhas[i],linhas[i-1]]; aoSalvar(); aoEstrutura(); };
@@ -457,7 +474,7 @@ function tabela(o){
   t.appendChild(tb); tw.appendChild(t); wrap.appendChild(tw);
   const b=el("button","btn"); b.type="button"; b.style.marginTop="8px"; b.textContent=rotuloAdd||"+ Adicionar linha";
   b.onclick=()=>{ linhas.push(novaLinha()); aoSalvar(); focarUltima=chave; aoEstrutura(); };
-  wrap.appendChild(b);
+  if(!o.leitura) wrap.appendChild(b);
   if(focarUltima===chave){ focarUltima=null; setTimeout(()=>{ tw.scrollTop=tw.scrollHeight; const f=tb.lastElementChild&&tb.lastElementChild.querySelector("input,select,textarea"); f&&f.focus(); },0); }
   return wrap;
 }
@@ -531,7 +548,9 @@ function acoesExport(c, lista){
 }
 
 // ─── linhas planas para exportação (o "confronto entre as duas documentações") ───
-const COL_PROC=[["codigo","Código"],["nome","Processo"],["area","Área"],["dono","Responsável (dono)"],["criticidade","Criticidade"],["status","Status"],
+const COL_PROC=[["codigo","Código"],["nome","Processo"],["area","Área"],["macroprocesso","Macroprocesso"],["dono","Responsável (dono)"],["criticidade","Criticidade"],
+  ["fase_atual","Fase atual"],["f1","F1 Visão macro (área 100%)"],["f2","F2 Levantamento AS IS"],["f3","F3 Validação AS IS"],["f4","F4 Diagnóstico"],["f5","F5 Desenho TO BE"],["f6","F6 Validação TO BE"],["f7","F7 Implantação"],
+  ["recebe_de","Recebe de"],["entrega_para","Entrega para"],
   ["it_codigo","IT — código"],["it_versao","IT — versão"],["passos_it","Passos na IT"],["passos_real","Passos reais"],["conforme","✅ Conformes"],["divergente","⚠️ Divergentes"],
   ["semIT","➕ Sem IT"],["naoFeito","❌ Na IT e não feitos"],["pendente","Pendentes de classificação"],["indice","Índice de conformidade"],["cobertura","Cobertura da IT"],
   ["aderencia","Aderência dos executados"],["horas_mes","Horas/mês consumidas"],["oportunidades","Oportunidades"],["validado_por","Validado por"],["validado_em","Validado em"],
@@ -542,16 +561,28 @@ const COL_REAL=[["codigo","Código"],["processo","Processo"],["area","Área"],["
   ["dado","Dado gerado"],["tempo_min","Tempo (min)"],["vezes_mes","Vezes/mês"],["horas_mes","Horas/mês"],["passo_it","Passo da IT correspondente"],["classificacao","Classificação"],
   ["diferenca","O que difere da IT"],["obs","Observação"],["data_obs","Data da observação"],["fonte","Fonte"],["autor","Registrado por"]];
 const COL_NOTA=[["codigo","Código"],["processo","Processo"],["area","Área"],["data_obs","Data"],["fonte","Fonte"],["com_quem","Com quem"],["texto","Anotação"],["autor","Registrado por"]];
+const COL_PEND=[["codigo","Código"],["processo","Processo"],["area","Área"],["tipo","Tipo"],["descricao","Pendência"],["origem","Origem"],["responsavel","Responsável"],["prazo","Prazo"],["status","Status"],["decisao","Decisão / nova regra"]];
+const COL_TOBE=[["codigo","Código"],["processo","Processo"],["area","Área"],["nova_it","Nova IT"],["versao","Versão"],["ordem","Ordem"],["descricao","Passo (TO BE)"],["quem","Quem faz"],["sistema","Sistema"],["regra","Regra / controle"],["mudanca","Em relação a hoje"],["aprovada","Aprovada (é regra)"]];
+const COL_IMPL=[["codigo","Código"],["processo","Processo"],["area","Área"],["ordem","Nº"],["acao","Ação"],["origem","Origem"],["responsavel","Responsável"],["inicio","Início"],["prazo","Prazo"],["depende","Depende de"],["indicador","Como saber que deu certo"],["status","Status"]];
+const COL_AREA=[["area","Área"],["responsavel","Responsável pelo mapeamento"],["processos","Processos"],["criticos","Críticos"],["mapeado","100% mapeado"],["mapeado_por","Validado por"],["mapeado_em","Em"],["concluidos","Processos concluídos (F7)"]];
+function linhasAreas(lista){
+  const nomes=[...new Set([...lista.map(p=>tx(p.dados.area)||"(sem área)"),...areasCfg().map(a=>a.nome)])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  return nomes.map(n=>{ const ps=lista.filter(p=>nrm(p.dados.area||"(sem área)")===nrm(n)), a=areaCfg(n);
+    return {area:n,responsavel:a?a.responsavel:"",processos:ps.length,criticos:ps.filter(p=>p.dados.criticidade==="Alta").length,mapeado:a&&a.mapeado?"Sim":"Não",
+      mapeado_por:a?a.mapeado_por:"",mapeado_em:a&&a.mapeado_em?dataBR(a.mapeado_em):"",concluidos:ps.filter(p=>!estadoFases(p).atual).length}; });
+}
 const COL_CONF=[["codigo","Código"],["processo","Processo"],["area","Área"],["categoria","Categoria"],["passo_it","Passo da IT"],["passo_real","Como é feito hoje"],["detalhe","Diferença / observação"]];
 const COL_OPORT=[["codigo","Código"],["processo","Processo"],["area","Área"],["tipo","Tipo"],["descricao","Oportunidade / dor"],["passo","Passo relacionado"],
   ["volume","Volume"],["tempo","Tempo gasto"],["custo","Custo"],["risco","Risco"],["score","Prioridade (V×T×C×R)"],["horas_mes","Horas/mês devolvidas"],
   ["acao","Ação"],["responsavel","Responsável"],["prazo","Prazo"],["status","Status"]];
 
 function linhasExport(lista){
-  const P=[],IT=[],RE=[],CF=[],OP=[],NT=[];
+  const P=[],IT=[],RE=[],CF=[],OP=[],NT=[],PD=[],TB=[],IM=[];
   lista.forEach(p=>{
     const d=p.dados, R=confronto(d), base={codigo:d.codigo,processo:d.nome,area:d.area};
-    P.push({...base,nome:d.nome,dono:d.dono,criticidade:d.criticidade,status:d.status,it_codigo:d.it.codigo,it_versao:d.it.versao,
+    const EF=estadoFases(p);
+    P.push({...base,nome:d.nome,macroprocesso:d.macroprocesso,dono:d.dono,criticidade:d.criticidade,fase_atual:rotuloFase(p),
+      ...Object.fromEntries(FASES.map(([id])=>[id,textoFase(EF[id])])),recebe_de:d.recebe_de,entrega_para:d.entrega_para,it_codigo:d.it.codigo,it_versao:d.it.versao,
       passos_it:d.passos_it.filter(x=>tx(x.descricao)).length,passos_real:d.passos_real.filter(x=>tx(x.descricao)).length,
       conforme:R.conforme.length,divergente:R.divergente.length,semIT:R.semIT.length,naoFeito:R.naoFeito.length,pendente:R.pendente.length,
       indice:pct(R.indice),cobertura:pct(R.cobertura),aderencia:pct(R.aderencia),horas_mes:horas(R.horasMes),oportunidades:d.oportunidades.length,
@@ -564,6 +595,10 @@ function linhasExport(lista){
         horas_mes:horas(num(r.tempo_min)*num(r.vezes_mes)/60),passo_it:rotuloIT(d,r.it_ref),classificacao:classePassoReal(d,r),diferenca:r.diferenca,obs:r.obs,
         data_obs:r.data_obs,fonte:r.fonte,autor:r.autor}); });
     d.anotacoes.forEach(n=>{ if(tx(n.texto)) NT.push({...base,data_obs:n.data_obs,fonte:n.fonte,com_quem:n.com_quem,texto:n.texto,autor:n.autor}); });
+    d.tobe.pendencias.forEach(x=>{ if(tx(x.descricao)) PD.push({...base,tipo:x.tipo,descricao:x.descricao,origem:x.origem_txt||"Manual",responsavel:x.responsavel,prazo:x.prazo,status:x.status,decisao:x.decisao}); });
+    d.tobe.passos.forEach((x,i)=>{ if(tx(x.descricao)) TB.push({...base,nova_it:d.tobe.codigo,versao:d.tobe.versao,ordem:i+1,descricao:x.descricao,quem:x.quem,sistema:x.sistema,regra:x.regra,mudanca:x.mudanca,aprovada:EF.f6.ok?"Sim":"Não"}); });
+    d.implantacao.acoes.forEach((a,i)=>{ if(tx(a.acao)) IM.push({...base,ordem:i+1,acao:a.acao,origem:a.origem_txt||"Manual",responsavel:a.responsavel,inicio:a.inicio,prazo:a.prazo,
+      depende:(()=>{ const k=d.implantacao.acoes.findIndex(z=>z.id===a.depende); return k<0?"":`${k+1}. ${tx(d.implantacao.acoes[k].acao)}`; })(),indicador:a.indicador,status:a.status}); });
     const add=(cat,x)=>CF.push({...base,categoria:CAT[cat]?CAT[cat].rot:"Pendente de classificação",
       passo_it:x.it?`${x.it._n}. ${x.it.descricao}`:"",passo_real:x.real?`${x.real._n}. ${x.real.descricao}`:"",
       detalhe:(x.real&&x.real.diferenca)||(x.it&&!x.real&&x.it.obs)||""});
@@ -572,7 +607,9 @@ function linhasExport(lista){
       volume:o.volume,tempo:o.tempo,custo:o.custo,risco:o.risco,score:score(o)||"",horas_mes:o.horas_mes,acao:o.acao,responsavel:o.responsavel,prazo:o.prazo,status:o.status}));
   });
   return [{nome:"Processos",colunas:COL_PROC,linhas:P},{nome:"Confronto",colunas:COL_CONF,linhas:CF},{nome:"Passos da IT",colunas:COL_IT,linhas:IT},
-          {nome:"Como é feito hoje",colunas:COL_REAL,linhas:RE},{nome:"Oportunidades",colunas:COL_OPORT,linhas:OP},{nome:"Anotações",colunas:COL_NOTA,linhas:NT}];
+          {nome:"Como é feito hoje",colunas:COL_REAL,linhas:RE},{nome:"Oportunidades",colunas:COL_OPORT,linhas:OP},{nome:"Anotações",colunas:COL_NOTA,linhas:NT},
+          {nome:"TO BE - Pendências",colunas:COL_PEND,linhas:PD},{nome:"TO BE - Nova IT",colunas:COL_TOBE,linhas:TB},{nome:"Implantação",colunas:COL_IMPL,linhas:IM},
+          {nome:"Áreas",colunas:COL_AREA,linhas:linhasAreas(lista)}];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -654,10 +691,11 @@ function renderPainel(c){
   const todasOp=[];
   PROCS.forEach(p=>{ const d=p.dados, R=confronto(d);
     ["conforme","divergente","semIT","naoFeito","pendente"].forEach(k=>tot[k]+=R[k].length); tot.horas+=R.horasMes;
-    if(d.criticidade==="Alta"){ criticos++; if(d.status==="Validado") criticosVal++; }
-    if(tx(d.dono)) comDono++; if(d.status==="Validado") validados++;
+    const EF=estadoFases(p);
+    if(d.criticidade==="Alta"){ criticos++; if(EF.f3.ok) criticosVal++; }
+    if(tx(d.dono)) comDono++; if(EF.f3.ok) validados++;
     const a=tx(d.area)||"(sem área)"; const A=porArea[a]=porArea[a]||{n:0,val:0,conf:0,cls:0,gaps:0,horas:0};
-    A.n++; if(d.status==="Validado") A.val++; A.conf+=R.conforme.length; A.cls+=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length; A.gaps+=R.gaps; A.horas+=R.horasMes;
+    A.n++; if(EF.f3.ok) A.val++; A.fases=A.fases||{}; const fk=EF.atual||"fim"; A.fases[fk]=(A.fases[fk]||0)+1; A.conf+=R.conforme.length; A.cls+=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length; A.gaps+=R.gaps; A.horas+=R.horasMes;
     d.oportunidades.forEach(o=>{ if(o.status==="Descartada") return; oportAtivas++; horasPot+=num(o.horas_mes); if(o.status==="Concluída") horasDev+=num(o.horas_mes); todasOp.push({p,o}); });
   });
   const totCls=tot.conforme+tot.divergente+tot.semIT+tot.naoFeito;
@@ -681,11 +719,13 @@ function renderPainel(c){
       ${meta("Dores / oportunidades identificadas", oportAtivas, 30, "meta: Top 30 dores")}
       ${meta("Oportunidades concluídas", todasOp.filter(x=>x.o.status==="Concluída").length, 20, "meta: Top 20 processos automatizados")}
     </div>
-    <h3>Por área</h3><div id="pArea"></div>
+    <h3>Áreas × fases</h3><div id="pArea"></div>
     <h3>Top 10 prioridades (Volume × Tempo × Custo × Risco)</h3><div id="pTop"></div>`;
   const areas=Object.entries(porArea).sort((a,b)=>a[0].localeCompare(b[0],"pt-BR"));
-  $("#pArea",c).innerHTML = areas.length ? `<div class="tbl-wrap"><table class="lista"><thead><tr><th>Área</th><th>Processos</th><th>Validados</th><th>Conformidade</th><th>Gaps</th><th>Horas/mês</th></tr></thead><tbody>${
-    areas.map(([a,A])=>`<tr><td>${esc(a)}</td><td>${A.n}</td><td>${A.val}</td><td>${pct(A.cls?A.conf/A.cls:null)}</td><td>${A.gaps}</td><td>${horas(A.horas)}</td></tr>`).join("")}</tbody></table></div>`
+  const cel=v=>`<td class="${v?"":"zero"}">${v||"·"}</td>`;
+  $("#pArea",c).innerHTML = areas.length ? `<p class="cap">Em que fase estão os processos de cada área (cada processo conta na sua fase atual).</p><div class="tbl-wrap"><table class="lista matriz"><thead><tr><th>Área</th><th>F1 · 100% mapeado</th><th>Processos</th>${FASES.slice(1).map(([id,n],i)=>`<th title="${esc(n)}">F${i+2}</th>`).join("")}<th>Concluídos</th><th>Conformidade</th><th>Gaps</th></tr></thead><tbody>${
+    areas.map(([a,A])=>{ const ac=areaCfg(a); return `<tr><td>${esc(a)}</td><td>${ac&&ac.mapeado?'<span class="pill p-ok">✓</span>':'<span class="pill p-azul">em andamento</span>'}</td><td>${A.n}</td>${FASES.slice(1).map(([id])=>cel((A.fases||{})[id])).join("")}${cel((A.fases||{}).fim)}<td>${pct(A.cls?A.conf/A.cls:null)}</td><td>${A.gaps}</td></tr>`; }).join("")}</tbody></table></div>
+    <p class="cap" style="margin-top:6px">${FASES.slice(1).map(([id,n],i)=>`F${i+2} = ${esc(n)}`).join(" · ")}</p>`
     : '<div class="aviso">Nenhum processo cadastrado ainda. Comece em <b>📁 Processos → + Novo processo</b>.</div>';
   const top=todasOp.filter(x=>score(x.o)>0).sort((a,b)=>score(b.o)-score(a.o)).slice(0,10);
   const pt=$("#pTop",c);
@@ -706,7 +746,9 @@ function abaIdent(c,p,d,sv){
       ${campo("Código","fCod",d.codigo)}${campo("Nome do processo *","fNome",d.nome)}
       ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável (dono do processo)","fDono",d.dono)}
       <label class="f">Criticidade<select id="fCrit">${opts(CRITICIDADE,d.criticidade,false)}</select></label>
-      <label class="f">Status<select id="fStatus">${opts(STATUS_PROC,d.status,false)}</select></label>
+      ${campo("Macroprocesso","fMacro",d.macroprocesso,'list="dl-macro" placeholder="Ex.: Pós-venda"')}
+      ${campo("Recebe de (área / processo anterior)","fRec",d.recebe_de,'list="dl-areas"')}
+      ${campo("Entrega para (área / processo seguinte)","fEnt2",d.entrega_para,'list="dl-areas"')}
     </div>
     <div class="grade" style="margin-top:12px">
       <label class="f">Objetivo do processo<textarea id="fObj" rows="2">${esc(d.objetivo)}</textarea></label>
@@ -716,8 +758,8 @@ function abaIdent(c,p,d,sv){
       <label class="f">Sistemas envolvidos<textarea id="fSis" rows="2">${esc(d.sistemas)}</textarea></label>
       <label class="f">Quem foi entrevistado / acompanhado<textarea id="fEntr" rows="2">${esc(d.entrevistados)}</textarea></label>
     </div>
-    <h3>Etapas do levantamento</h3>
-    <p class="cap">As 5 etapas da metodologia. Marque conforme for avançando.</p>
+    <h3>Etapas do levantamento AS IS (Fase 2)</h3>
+    <p class="cap">Marque conforme for avançando. A validação pela área é a Fase 3.</p>
     <div class="etapas">${ETAPAS_LEV.map(([id,rot,desc],i)=>{ const e=d.etapas[id];
       return `<div class="etapa${e.feito?" feita":""}"><label class="ck"><input type="checkbox" data-et="${id}" ${e.feito?"checked":""}> ${i+1}. ${esc(rot)}</label><p>${esc(desc)}</p><input type="date" data-etd="${id}" value="${esc(e.data)}" aria-label="Data — ${esc(rot)}"></div>`; }).join("")}</div>
     <h3>Cruzar com os chamados</h3>
@@ -726,7 +768,8 @@ function abaIdent(c,p,d,sv){
   const cab=()=>{ const h=document.querySelector(".cab h1"); if(h) h.textContent=d.nome||"(sem nome)"; };
   [["fCod","codigo"],["fNome","nome"],["fArea","area"],["fDono","dono"],["fObj","objetivo"],["fGat","gatilho"],["fEnt","entradas"],["fSai","saidas"],["fSis","sistemas"],["fEntr","entrevistados"],["fCham","chamados"]]
     .forEach(([id,k])=>ligar(c,id,d,k,sv,"input",k==="nome"?cab:null));
-  ligar(c,"fCrit",d,"criticidade",sv,"change",render); ligar(c,"fStatus",d,"status",sv,"change",render);
+  ligar(c,"fCrit",d,"criticidade",sv,"change",render); ligar(c,"fMacro",d,"macroprocesso",sv); ligar(c,"fRec",d,"recebe_de",sv); ligar(c,"fEnt2",d,"entrega_para",sv);
+  ligar(c,"fArea",d,"area",sv,"change",render);
   c.querySelectorAll("[data-et]").forEach(i=>i.onchange=()=>{ const e=d.etapas[i.dataset.et]; e.feito=i.checked; if(i.checked&&!e.data) e.data=hojeISO(); sv(); render(); });
   c.querySelectorAll("[data-etd]").forEach(i=>i.onchange=()=>{ d.etapas[i.dataset.etd].data=i.value; sv(); });
 }
@@ -834,21 +877,22 @@ function abaNotas(c,p,d,sv){
 }
 function abaValid(c,p,d,sv){
   const v=d.validacao;
-  c.innerHTML=`<p class="cap">Última etapa: a área confirma que o mapeamento é isso mesmo e assume o processo como seu.</p>
+  c.innerHTML=`<p class="cap">Fase 3 — a área confirma que o levantamento retrata como o processo <b>é feito hoje</b> e assume o processo como seu. Com o AS IS validado, segue para o diagnóstico.</p>
     <div class="grade">${campo("Validado por (nome / cargo)","vPor",v.por)}<label class="f">Data<input type="date" id="vData" value="${esc(v.data)}"></label>
       <label class="f">Parecer<select id="vPar">${opts(["Validado","Validado com ressalvas","Reprovado — refazer levantamento"],v.parecer)}</select></label></div>
     <label class="f" style="margin-top:12px">Comentários da área<textarea id="vObs" rows="4">${esc(v.obs)}</textarea></label>
-    <p class="cap" style="margin-top:10px">Ao registrar "Validado", o status do processo muda para <b>Validado</b> e a etapa 5 do levantamento é marcada.</p>`;
+    <p class="cap" style="margin-top:10px">Ao registrar "Validado", a Fase 3 é concluída (e a Fase 2, se ainda estiver aberta).</p>`;
   ligar(c,"vPor",v,"por",sv); ligar(c,"vData",v,"data",sv,"change"); ligar(c,"vObs",v,"obs",sv);
   $("#vPar",c).onchange=e=>{ v.parecer=e.target.value;
-    if(v.parecer.startsWith("Validado")){ d.status="Validado"; d.etapas.validar.feito=true; if(!d.etapas.validar.data) d.etapas.validar.data=v.data||hojeISO(); if(!v.data) v.data=hojeISO(); }
-    else if(v.parecer.startsWith("Reprovado")) d.status="Revisar";
+    if(v.parecer.startsWith("Validado")){ if(!v.data) v.data=hojeISO(); if(!d.fases.f2.concluido) Object.assign(d.fases.f2,{concluido:true,por:USUARIO_NOME,em:agoraISO()}); }
+    else if(v.parecer.startsWith("Reprovado")) Object.assign(d.fases.f2,{concluido:false,por:"",em:""});
     sv(); render(); };
 }
 function relatorioHTML(p){
   const d=p.dados, R=confronto(d);
   const lista=(arr,f)=>arr.length?`<table><tr><th>#</th><th>Descrição</th><th>Detalhe</th></tr>${arr.map(f).join("")}</table>`:"<p>Nenhum.</p>";
-  return `<h1>${esc(d.codigo)} — ${esc(d.nome)}</h1><p>Área: <b>${esc(d.area||"—")}</b> · Dono: <b>${esc(d.dono||"—")}</b> · IT: <b>${esc(d.it.codigo||"—")} ${esc(d.it.versao||"")}</b> · Status: <b>${esc(d.status)}</b></p>
+  return `<h1>${esc(d.codigo)} — ${esc(d.nome)}</h1><p>Área: <b>${esc(d.area||"—")}</b> · Dono: <b>${esc(d.dono||"—")}</b> · IT: <b>${esc(d.it.codigo||"—")} ${esc(d.it.versao||"")}</b> · Fase atual: <b>${esc(rotuloFase(p))}</b></p>
+    <h2>Fases</h2><table><tr>${FASES.map(([id,n],i)=>`<th>${i+1}. ${esc(n)}</th>`).join("")}</tr><tr>${FASES.map(([id])=>{ const e=estadoFases(p)[id]; return `<td>${textoFase(e)}${e.ok&&e.em?`<br>${esc(dataBR(e.em))}`:""}</td>`; }).join("")}</tr></table>
     <div><span class="k">Conformidade<b>${pct(R.indice)}</b></span><span class="k">Cobertura da IT<b>${pct(R.cobertura)}</b></span><span class="k">Aderência<b>${pct(R.aderencia)}</b></span>
     ${Object.entries(CAT).map(([k,v])=>`<span class="k">${v.ico} ${esc(v.rot)}<b>${R[k].length}</b></span>`).join("")}<span class="k">Horas/mês<b>${horas(R.horasMes)}</b></span></div>
     <h2>⚠️ Feito diferente da IT</h2>${lista(R.divergente,x=>`<tr><td>${x.real._n} ↔ IT ${x.it._n}</td><td>${esc(x.real.descricao)}</td><td>${esc(x.real.diferenca||"")}</td></tr>`)}
@@ -856,7 +900,10 @@ function relatorioHTML(p){
     <h2>❌ Na IT e não é feito</h2>${lista(R.naoFeito,x=>`<tr><td>IT ${x.it._n}</td><td>${esc(x.it.descricao)}</td><td>${esc(x.it.obs||"")}</td></tr>`)}
     <h2>✅ Feito conforme a IT</h2>${lista(R.conforme,x=>`<tr><td>${x.real._n} ↔ IT ${x.it._n}</td><td>${esc(x.real.descricao)}</td><td></td></tr>`)}
     <h2>💡 Oportunidades</h2>${d.oportunidades.length?`<table><tr><th>Tipo</th><th>Descrição</th><th>Prioridade</th><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>${d.oportunidades.map(o=>`<tr><td>${esc(o.tipo)}</td><td>${esc(o.descricao)}</td><td>${score(o)||"—"}</td><td>${esc(o.acao)}</td><td>${esc(o.responsavel)}</td><td>${esc(o.prazo)}</td><td>${esc(o.status)}</td></tr>`).join("")}</table>`:"<p>Nenhuma.</p>"}
-    <h2>Validação</h2><p>${esc(d.validacao.parecer||"Não validado")} ${d.validacao.por?`por ${esc(d.validacao.por)}`:""} ${d.validacao.data?`em ${esc(d.validacao.data)}`:""}</p>`;
+    <h2>Validação do AS IS</h2><p>${esc(d.validacao.parecer||"Não validado")} ${d.validacao.por?`por ${esc(d.validacao.por)}`:""} ${d.validacao.data?`em ${esc(d.validacao.data)}`:""}</p>
+    ${d.tobe.pendencias.length||d.tobe.passos.length?`<h2>TO BE — pendências</h2>${d.tobe.pendencias.length?`<table><tr><th>Tipo</th><th>Pendência</th><th>Status</th><th>Decisão</th></tr>${d.tobe.pendencias.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.descricao)}</td><td>${esc(x.status)}</td><td>${esc(x.decisao)}</td></tr>`).join("")}</table>`:"<p>Nenhuma.</p>"}${novaITHTML(p).replace(/<h1>/,"<h2>").replace(/<\/h1>/,"</h2>")}`:""}
+    <h2>Validação do TO BE</h2><p>${esc(d.validacao_tobe.parecer||"Não validado")} ${d.validacao_tobe.por?`por ${esc(d.validacao_tobe.por)}`:""} ${d.validacao_tobe.data?`em ${esc(d.validacao_tobe.data)}`:""}</p>
+    ${d.implantacao.acoes.length?`<h2>Plano de implantação</h2><table><tr><th>#</th><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>${d.implantacao.acoes.map((a,i)=>`<tr><td>${i+1}</td><td>${esc(a.acao)}</td><td>${esc(a.responsavel)}</td><td>${esc(a.prazo)}</td><td>${esc(a.status)}</td></tr>`).join("")}</table>`:""}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -903,20 +950,296 @@ function renderOportunidades(c){
   desenhar();
 }
 function renderExportar(c){
-  c.innerHTML=`<p class="cap">Uma planilha com 6 abas, prontas para filtro e tabela dinâmica — é daqui que sai o confronto entre a documentação oficial (IT) e o levantamento.</p>
+  c.innerHTML=`<p class="cap">Uma planilha com 10 abas, prontas para filtro e tabela dinâmica — é daqui que sai o confronto entre a documentação oficial (IT) e o levantamento.</p>
     <div class="box"><ol style="margin:0;padding-left:20px;line-height:1.8">
       <li><b>Processos</b> — uma linha por processo, com os totais do confronto, índices e horas/mês.</li>
       <li><b>Confronto</b> — uma linha por item, já com a categoria (conforme / diferente / sem IT / não feito).</li>
       <li><b>Passos da IT</b> — cada passo da IT e a situação dele na prática.</li>
       <li><b>Como é feito hoje</b> — cada passo real, com tempo, frequência, passo da IT correspondente e classificação.</li>
       <li><b>Oportunidades</b> — com prioridade, horas devolvidas, ação, responsável, prazo e status.</li>
-      <li><b>Anotações</b> — tudo o que foi registrado no levantamento, com data, fonte e quem registrou.</li></ol></div>
+      <li><b>Anotações</b> — tudo o que foi registrado no levantamento, com data, fonte e quem registrou.</li>
+      <li><b>TO BE - Pendências</b> e <b>TO BE - Nova IT</b> — o que foi decidido e a nova instrução, passo a passo.</li>
+      <li><b>Implantação</b> — o plano de ações com responsável, prazo, dependência e status.</li>
+      <li><b>Áreas</b> — a Fase 1: processos por área e quem validou o "100% mapeado".</li></ol></div>
     <div id="expBt"></div>`;
   acoesExport($("#expBt",c),[
     ["⬇️ Exportar tudo (Excel)",()=>excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS))],
     ["⬇️ Só o confronto (CSV)",()=>{ const aba=linhasExport(PROCS)[1], q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
       baixarBlob(new Blob(["\ufeff"+[aba.colunas.map(x=>q(x[1])).join(";"),...aba.linhas.map(l=>aba.colunas.map(x=>q(l[x[0]])).join(";"))].join("\r\n")],{type:"text/csv;charset=utf-8"}),"confronto_it_x_real_"+hojeISO()+".csv"); }],
   ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AS 7 FASES DA METODOLOGIA
+//  F1 Visão macro e arquitetura  → por ÁREA: botão "100% mapeado"
+//  F2 Levantamento AS IS         → Registrar / Como é feito hoje / IT atual
+//  F3 Validação do AS IS         → a área confirma o levantamento
+//  F4 Diagnóstico                → confronto com a IT + oportunidades
+//  F5 Desenho TO BE              → pendências + construção da nova IT
+//  F6 Validação do TO BE         → aprovado = passa a ser regra (trava)
+//  F7 Planejar implantação       → plano de ações (fecho do objetivo)
+// ═══════════════════════════════════════════════════════════════════
+const FASES=[["f1","Visão macro e arquitetura","identificacao"],["f2","Levantamento AS IS","real"],["f3","Validação do AS IS","validacao"],
+  ["f4","Diagnóstico","confronto"],["f5","Desenho TO BE","tobe"],["f6","Validação do TO BE","validacao_tobe"],["f7","Planejar implantação","implantacao"]];
+const TIPOS_PEND=["Nova regra","Alterar passo","Novo passo","Eliminar passo","Novo fluxo","Automação","Dúvida"];
+const STATUS_PEND=["Aberta","Em discussão","Definida","Descartada"];
+const MUDANCA=["Mantido","Ajustado","Novo","Automatizado"];
+const STATUS_ACAO=["A fazer","Em andamento","Concluída","Bloqueada"];
+const nrm=s=>tx(s).toLowerCase().replace(/\s+/g," ");
+const agoraISO=()=>new Date().toISOString();
+
+// ── Arquitetura: um documento especial (dados._tipo="arquitetura") guarda as áreas ──
+let CFG=null;
+function docPorId(id){ return CFG&&CFG.id===id ? CFG : procPorId(id); }
+function areasCfg(){ return CFG ? CFG.dados.areas : []; }
+function areaCfg(nome){ return areasCfg().find(a=>nrm(a.nome)===nrm(nome)); }
+async function garantirCfg(){
+  if(CFG) return CFG;
+  const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados:{_tipo:"arquitetura",areas:[]}})});
+  if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+  CFG=j; if(!Array.isArray(CFG.dados.areas)) CFG.dados.areas=[]; return CFG;
+}
+async function areaGarantida(nome){
+  await garantirCfg(); let a=areaCfg(nome);
+  if(!a){ a={nome:tx(nome),responsavel:"",mapeado:false,mapeado_por:"",mapeado_em:"",obs:""}; CFG.dados.areas.push(a); }
+  return a;
+}
+async function gravarCfg(){
+  clearTimeout(pend[CFG.id]); await enfileirar(CFG);
+  if(CFG._conflito){ const atual=CFG._conflito; CFG={...atual,_conflito:null}; if(!Array.isArray(CFG.dados.areas)) CFG.dados.areas=[];
+    alert("Outra pessoa alterou as áreas ao mesmo tempo. A tela foi atualizada com a versão dela — repita a última ação."); }
+}
+async function marcarArea(nome, valor){
+  const n=PROCS.filter(x=>nrm(x.dados.area)===nrm(nome)).length;
+  if(valor && !n){ alert("Cadastre pelo menos um processo nesta área antes de marcar como 100% mapeada."); return; }
+  if(valor && !confirm(`Confirmar que TODOS os processos da área "${nome}" estão cadastrados (${n} processo(s))?\n\nIsso conclui a Fase 1 dessa área.`)) return;
+  const a=await areaGarantida(nome);
+  Object.assign(a,{mapeado:valor,mapeado_por:valor?USUARIO_NOME:"",mapeado_em:valor?agoraISO():""});
+  await gravarCfg(); render();
+}
+
+// ── estado de cada fase de um processo ──
+function estadoFases(p){
+  const d=p.dados, a=areaCfg(d.area), E={}, F=d.fases;
+  const feita=st=>({ok:true,por:st.por||"",em:st.em||""});
+  E.f1 = a&&a.mapeado ? {ok:true,por:a.mapeado_por,em:a.mapeado_em} : {ok:false,and:!!tx(d.area)};
+  E.f2 = F.f2.concluido ? feita(F.f2) : {ok:false,and:d.passos_real.some(r=>tx(r.descricao))||ETAPAS_LEV.some(([id])=>d.etapas[id]&&d.etapas[id].feito)};
+  E.f3 = String(d.validacao.parecer||"").startsWith("Validado") ? {ok:true,por:d.validacao.por,em:d.validacao.data} : {ok:false,and:!!d.validacao.parecer};
+  E.f4 = F.f4.concluido ? feita(F.f4) : {ok:false,and:d.oportunidades.length>0||d.passos_real.some(r=>r.it_ref)};
+  E.f5 = F.f5.concluido ? feita(F.f5) : {ok:false,and:d.tobe.passos.length>0||d.tobe.pendencias.length>0};
+  E.f6 = String(d.validacao_tobe.parecer||"").startsWith("Aprovado") ? {ok:true,por:d.validacao_tobe.por,em:d.validacao_tobe.data} : {ok:false,and:!!d.validacao_tobe.parecer};
+  E.f7 = F.f7.concluido ? feita(F.f7) : {ok:false,and:d.implantacao.acoes.length>0};
+  // a Fase 1 é da ÁREA e corre em paralelo; a "fase atual" do processo é a 1ª pendente entre a 2 e a 7
+  E.atual=null; for(const [id] of FASES.slice(1)) if(!E[id].ok){ E.atual=id; break; }
+  return E;
+}
+function idxFase(id){ return FASES.findIndex(f=>f[0]===id); }
+function rotuloFase(p){ const E=estadoFases(p); if(!E.atual) return "Concluído"; const i=idxFase(E.atual); return `Fase ${i+1} · ${FASES[i][1]}`; }
+function pillFase(p){ const E=estadoFases(p), i=E.atual?idxFase(E.atual):7; return `<span class="sit ${!E.atual?"fim":i<=2?"exec":"val"}">${esc(rotuloFase(p))}</span>`; }
+function textoFase(e){ return e.ok?"Concluída":e.and?"Em andamento":"A fazer"; }
+
+// caixa de controle da fase (F2, F4, F5, F7 são concluídas por botão)
+function painelFase(p, fid, dica, aviso){
+  const d=p.dados, i=idxFase(fid), st=d.fases[fid], box=el("div","fase-box");
+  box.innerHTML = st.concluido
+    ? `<b>Fase ${i+1} — ${esc(FASES[i][1])}</b> <span class="pill p-ok">Concluída</span> <span class="muted">${esc(dataBR(st.em))} · ${esc(st.por||"—")}</span><button type="button" class="peq">Reabrir fase</button>`
+    : `<b>Fase ${i+1} — ${esc(FASES[i][1])}</b> <span class="pill p-azul">Em andamento</span> <span class="muted">${esc(dica)}</span>${aviso?`<span class="msg erro">${esc(aviso)}</span>`:""}<button type="button" class="primary peq">✓ Marcar fase como concluída</button>`;
+  box.querySelector("button").onclick=()=>{
+    if(st.concluido){ if(!confirm("Reabrir esta fase?")) return; Object.assign(st,{concluido:false,por:"",em:""}); }
+    else { if(aviso && !confirm(aviso+"\n\nConcluir a fase mesmo assim?")) return; Object.assign(st,{concluido:true,por:USUARIO_NOME,em:agoraISO()}); }
+    salvar(p); render(); };
+  return box;
+}
+function painelArea(p){
+  const d=p.dados, box=el("div","fase-box");
+  if(!tx(d.area)){ box.innerHTML=`<b>Fase 1 — Visão macro e arquitetura</b> <span class="muted">Informe abaixo a área deste processo.</span>`; return box; }
+  const a=areaCfg(d.area), n=PROCS.filter(x=>nrm(x.dados.area)===nrm(d.area)).length;
+  box.innerHTML = a&&a.mapeado
+    ? `<b>Fase 1 — Área ${esc(d.area)}</b> <span class="pill p-ok">100% mapeado</span> <span class="muted">${n} processo(s) · validado por ${esc(a.mapeado_por||"—")} em ${esc(dataBR(a.mapeado_em))}</span><button type="button" class="peq">Desfazer</button>`
+    : `<b>Fase 1 — Área ${esc(d.area)}</b> <span class="pill p-azul">Em mapeamento</span> <span class="muted">${n} processo(s) cadastrado(s). Quando todos os processos da área estiverem cadastrados, valide:</span><button type="button" class="primary peq">✓ 100% mapeado</button>`;
+  box.querySelector("button").onclick=()=>marcarArea(d.area,!(a&&a.mapeado));
+  return box;
+}
+
+// ── tabela somente leitura (TO BE aprovado vira regra: não se edita) ──
+function celulaLeitura(row,c){
+  const s=el("span","ro"); s.style.whiteSpace="pre-wrap"; s.style.color="var(--ink)";
+  let v=c.tipo==="calc"?c.calc(row):(row[c.campo]??"");
+  if(c.tipo==="select"){ const ops=(typeof c.opcoes==="function"?c.opcoes(row):c.opcoes).map(x=>Array.isArray(x)?x:[x,x]); const f=ops.find(x=>x[0]===v); if(f) v=f[1]; }
+  s.textContent=v||"—"; return s;
+}
+
+// ═══ FASE 1 — Áreas e arquitetura (visão geral) ═══
+async function criarProcessos(area, macro, crit, nomes){
+  for(const nome of nomes){
+    const dados=normalizar({codigo:proximoCodigo(),nome,area,macroprocesso:macro,criticidade:crit});
+    const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})});
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    j.dados=normalizar(j.dados); PROCS.push(j);
+  }
+}
+function renderArquitetura(c){
+  const porArea={}; PROCS.forEach(p=>{ const a=tx(p.dados.area)||"(sem área)"; (porArea[a]=porArea[a]||[]).push(p); });
+  const nomes=ordenar([...new Set([...Object.keys(porArea),...areasCfg().map(a=>a.nome)])]);
+  const reais=nomes.filter(n=>n!=="(sem área)"), feitas=reais.filter(n=>areaCfg(n)&&areaCfg(n).mapeado).length;
+  const vazias=AREAS_PADRAO.filter(a=>!nomes.some(n=>nrm(n)===nrm(a)));
+  c.innerHTML=`<p class="cap">Fase 1 — cadastre os processos de cada área (pode ser só o nome, o resto vem no levantamento). Quando a área tiver <b>todos</b> os processos cadastrados, quem fez o mapeamento marca <b>✓ 100% mapeado</b>.</p>
+    <div class="kpis"><div class="kpi"><span>Áreas com processos</span><b>${reais.length}</b><small>de ${new Set([...reais,...AREAS_PADRAO]).size} áreas conhecidas</small></div>
+      <div class="kpi"><span>Áreas 100% mapeadas</span><b>${feitas}</b><div class="barra"><i style="width:${reais.length?Math.round(feitas/reais.length*100):0}%"></i></div><small>Fase 1 concluída</small></div>
+      <div class="kpi"><span>Processos cadastrados</span><b>${PROCS.length}</b><small>${PROCS.filter(p=>p.dados.criticidade==="Alta").length} com criticidade Alta</small></div></div>
+    <div class="acoes"><input id="arNova" list="dl-areas" placeholder="Nome de uma nova área" style="max-width:320px"><button type="button" id="arAdd">+ Adicionar área</button><span class="msg" id="arMsg"></span></div>
+    <div id="arLista"></div>
+    ${vazias.length?`<h3>Áreas ainda sem processos</h3><div class="mini4">${vazias.map(a=>`<button type="button" class="peq" data-nova="${esc(a)}">+ ${esc(a)}</button>`).join("")}</div>`:""}`;
+  const addArea=async nome=>{ nome=tx(nome); if(!nome) return; await areaGarantida(nome); await gravarCfg(); estArq.aberta=nome; render(); };
+  $("#arAdd",c).onclick=()=>addArea($("#arNova").value);
+  c.querySelectorAll("[data-nova]").forEach(b=>b.onclick=()=>addArea(b.dataset.nova));
+  const lista=$("#arLista",c);
+  nomes.forEach(nome=>{
+    const procs=(porArea[nome]||[]).slice().sort((a,b)=>String(a.dados.macroprocesso+a.dados.codigo).localeCompare(String(b.dados.macroprocesso+b.dados.codigo),"pt-BR",{numeric:true}));
+    const a=areaCfg(nome), semArea=nome==="(sem área)", porFase={};
+    procs.forEach(p=>{ const k=estadoFases(p).atual||"fim"; porFase[k]=(porFase[k]||0)+1; });
+    const box=el("details","box"); box.open = estArq.aberta===nome;
+    box.ontoggle=()=>{ if(box.open) estArq.aberta=nome; };
+    box.innerHTML=`<summary><span style="font:700 17px 'IBM Plex Sans Condensed',sans-serif">${esc(nome)}</span> &nbsp;
+        ${semArea?'<span class="pill p-warn">defina a área destes processos</span>':a&&a.mapeado?`<span class="pill p-ok">✓ 100% mapeado</span> <span class="muted" style="font-size:12.5px">${esc(a.mapeado_por||"")} · ${esc(dataBR(a.mapeado_em))}</span>`:'<span class="pill p-azul">Em mapeamento</span>'}
+        <span class="muted" style="font-size:12.5px"> · ${procs.length} processo(s) ${FASES.slice(1).map(([id],i)=>porFase[id]?` · F${i+2}: ${porFase[id]}`:"").join("")}${porFase.fim?` · concluídos: ${porFase.fim}`:""}</span></summary>
+      ${semArea?"":`<div class="acoes"><label class="f" style="flex-direction:row;align-items:center;gap:8px;margin:0">Responsável pelo mapeamento da área <input data-resp style="width:240px" value="${esc(a?a.responsavel:"")}"></label>
+        <button type="button" data-cem class="${a&&a.mapeado?"":"primary"}">${a&&a.mapeado?"Desfazer 100% mapeado":"✓ 100% mapeado"}</button></div>`}
+      ${procs.length?`<div class="scroll"><table class="lista"><thead><tr><th>Código</th><th>Processo</th><th>Macroprocesso</th><th>Criticidade</th><th>Fase atual</th></tr></thead><tbody>${
+        procs.map(p=>`<tr class="clic" data-id="${p.id}"><td class="id">${esc(p.dados.codigo)}</td><td>${esc(p.dados.nome)}</td><td>${esc(p.dados.macroprocesso||"—")}</td><td>${pillCrit(p.dados.criticidade)}</td><td>${pillFase(p)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nenhum processo cadastrado nesta área ainda.</p>'}
+      ${semArea?"":`<div class="box" style="background:var(--paper)"><b>Cadastrar processos nesta área</b><p class="cap" style="margin:4px 0 10px">Um processo por linha. Dá para colar uma lista inteira de uma vez.</p>
+        <div class="grade"><label class="f">Macroprocesso (opcional)<input data-macro list="dl-macro" placeholder="Ex.: Pós-venda"></label>
+        <label class="f">Criticidade<select data-crit>${opts(CRITICIDADE,"Média",false)}</select></label></div>
+        <label class="f" style="margin-top:10px">Processos<textarea data-nomes rows="4" placeholder="Troca de produto&#10;Devolução com reembolso&#10;Assistência técnica"></textarea></label>
+        <div class="acoes"><button type="button" class="primary" data-criar>Cadastrar processos</button><span class="msg" data-msg></span></div></div>`}`;
+    box.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>ir("processo",tr.dataset.id,"linha"));
+    const cem=box.querySelector("[data-cem]"); if(cem) cem.onclick=()=>marcarArea(nome,!(a&&a.mapeado));
+    const resp=box.querySelector("[data-resp]"); if(resp) resp.onchange=async()=>{ const ar=await areaGarantida(nome); ar.responsavel=tx(resp.value); await gravarCfg(); };
+    const criar=box.querySelector("[data-criar]");
+    if(criar) criar.onclick=async()=>{ const lst=colarPassos(box.querySelector("[data-nomes]").value), m=box.querySelector("[data-msg]");
+      if(!lst.length){ m.className="msg erro"; m.textContent="Escreva pelo menos um nome de processo."; return; }
+      criar.disabled=true; m.className="msg"; m.textContent="Cadastrando…";
+      try{ await criarProcessos(nome,tx(box.querySelector("[data-macro]").value),box.querySelector("[data-crit]").value,lst);
+        if(!areaCfg(nome)){ await areaGarantida(nome); await gravarCfg(); }
+        estArq.aberta=nome; render(); }
+      catch(e){ m.className="msg erro"; m.textContent=e.message; criar.disabled=false; } };
+    lista.appendChild(box);
+  });
+  if(!nomes.length) lista.innerHTML='<p class="aviso">Nenhuma área ainda. Adicione uma área acima ou clique numa das áreas sugeridas abaixo.</p>';
+}
+const estArq={aberta:""};
+
+// ═══ FASE 5 — Desenho TO BE: pendências + construção da nova IT ═══
+function abaToBe(c,p,d,sv){
+  const tb=d.tobe, E=estadoFases(p), travado=E.f6.ok, R=confronto(d);
+  c.innerHTML=`<p class="cap">O TO BE é discutido e aprovado depois do diagnóstico. Aqui ficam as <b>pendências</b> (o que precisa ser decidido) e a <b>nova Instrução de Trabalho</b>, construída aos poucos com as novas regras, passos e fluxo.</p>
+    ${travado?`<p class="banner">✅ TO BE aprovado em ${esc(dataBR(d.validacao_tobe.data))} por ${esc(d.validacao_tobe.por||"—")} — <b>passou a ser regra</b>. Para alterar, reabra a Validação do TO BE.</p>`:""}
+    <h3>Pendências a discutir</h3><p class="cap">Cada pendência termina como <b>Definida</b> (com a decisão) ou <b>Descartada</b>. O TO BE só pode ser aprovado com todas resolvidas.</p>
+    <div class="acoes" id="tbAc"></div><div id="tbPend"></div>
+    <h3>Nova Instrução de Trabalho</h3>
+    <div class="grade"><label class="f">Código da nova IT<input id="tbCod" value="${esc(tb.codigo||d.it.codigo||"")}" ${travado?"disabled":""}></label>
+      <label class="f">Versão / revisão<input id="tbVer" value="${esc(tb.versao)}" ${travado?"disabled":""}></label></div>
+    <label class="f" style="margin-top:12px">Objetivo e escopo<textarea id="tbObj" rows="2" ${travado?"disabled":""}>${esc(tb.objetivo)}</textarea></label>
+    <h3>Passos da nova IT</h3><div id="tbIni"></div><div id="tbPassos"></div>
+    <label class="f" style="margin-top:14px">Regras gerais (o que passa a valer)<textarea id="tbReg" rows="5" ${travado?"disabled":""} placeholder="Ex.: Toda troca precisa de protocolo no SAC antes do reenvio.">${esc(tb.regras)}</textarea></label>
+    <label class="f" style="margin-top:12px">Fluxo / exceções / observações<textarea id="tbFlu" rows="4" ${travado?"disabled":""}>${esc(tb.fluxo)}</textarea></label>
+    <div class="acoes"><button type="button" id="tbPdf">${ICO.imprimir} Imprimir nova IT (PDF)</button></div>`;
+  if(!travado){ [["tbCod","codigo"],["tbVer","versao"],["tbObj","objetivo"],["tbReg","regras"],["tbFlu","fluxo"]].forEach(([id,k])=>ligar(c,id,tb,k,sv)); }
+  $("#tbPdf",c).onclick=()=>imprimir(`Nova IT — ${tb.codigo||d.codigo}`,novaITHTML(p));
+  const ac=$("#tbAc",c);
+  if(!travado){
+    const b1=el("button"); b1.type="button"; b1.textContent="Trazer gaps do diagnóstico"; ac.appendChild(b1);
+    const b2=el("button"); b2.type="button"; b2.textContent="Trazer oportunidades"; ac.appendChild(b2);
+    const m=el("span","msg"); ac.appendChild(m);
+    const ja=()=>new Set(tb.pendencias.map(x=>x.origem).filter(Boolean));
+    const nova=(origem,tipo,desc,txtOrig)=>({id:uid(),origem,origem_txt:txtOrig,tipo,descricao:desc,responsavel:"",prazo:"",status:"Aberta",decisao:"",autor:USUARIO_NOME,criado_em:agoraISO()});
+    b1.onclick=()=>{ const J=ja(); let n=0;
+      R.divergente.forEach(({real:r,it:i})=>{ if(J.has("div:"+r.id)) return; tb.pendencias.push(nova("div:"+r.id,"Alterar passo",`Feito diferente da IT (IT nº ${i._n}): ${tx(r.descricao)}${r.diferenca?` — ${tx(r.diferenca)}`:""}. Qual será a regra?`,"Gap: feito diferente")); n++; });
+      R.semIT.forEach(({real:r})=>{ if(J.has("sem:"+r.id)) return; tb.pendencias.push(nova("sem:"+r.id,"Novo passo",`Feito sem IT: ${tx(r.descricao)}. Entra na nova IT ou deixa de ser feito?`,"Gap: feito sem IT")); n++; });
+      R.naoFeito.forEach(({it:i})=>{ if(J.has("nao:"+i.id)) return; tb.pendencias.push(nova("nao:"+i.id,"Eliminar passo",`Na IT e não é feito (IT nº ${i._n}): ${tx(i.descricao)}. Passa a ser feito ou sai da IT?`,"Gap: não é feito")); n++; });
+      sv(); render(); };
+    b2.onclick=()=>{ const J=ja(); let n=0;
+      d.oportunidades.filter(o=>o.status!=="Descartada"&&tx(o.descricao)).forEach(o=>{ if(J.has("op:"+o.id)) return;
+        tb.pendencias.push(nova("op:"+o.id,["Integração","Ganho de tempo","Trabalho repetido"].includes(o.tipo)?"Automação":o.tipo==="Gap de IT"?"Alterar passo":"Nova regra",tx(o.descricao),`Oportunidade (${o.tipo})`)); n++; });
+      sv(); render(); };
+  }
+  $("#tbPend",c).appendChild(tabela({chave:"pend",linhas:tb.pendencias,aoSalvar:sv,aoEstrutura:render,leitura:travado,rotuloAdd:"+ Adicionar pendência",
+    novaLinha:()=>({id:uid(),origem:"",origem_txt:"Manual",tipo:"Nova regra",descricao:"",responsavel:"",prazo:"",status:"Aberta",decisao:"",autor:USUARIO_NOME,criado_em:agoraISO()}),
+    colunas:[{campo:"tipo",label:"Tipo",tipo:"select",opcoes:TIPOS_PEND,semVazio:true},{campo:"descricao",label:"O que precisa ser decidido",tipo:"textarea",largura:280},
+      {campo:"_origem",label:"Origem",tipo:"calc",calc:r=>r.origem_txt||"Manual"},{campo:"responsavel",label:"Responsável",largura:120},{campo:"prazo",label:"Prazo",tipo:"date"},
+      {campo:"status",label:"Status",tipo:"select",opcoes:STATUS_PEND,semVazio:true},{campo:"decisao",label:"Decisão / nova regra",tipo:"textarea",largura:240}]}));
+  const ini=$("#tbIni",c);
+  if(!travado && !tb.passos.length){
+    ini.innerHTML=`<p class="aviso">Comece a nova IT a partir de uma base e ajuste: <button type="button" id="tbDaIT">Copiar da IT atual</button> <button type="button" id="tbDoReal">Copiar de como é feito hoje</button> — ou adicione passo a passo abaixo.</p>`;
+    $("#tbDaIT",c).onclick=()=>{ d.passos_it.filter(x=>tx(x.descricao)).forEach(x=>tb.passos.push({id:uid(),descricao:x.descricao,quem:x.quem,sistema:x.sistema,regra:x.regra,mudanca:"Mantido"})); sv(); render(); };
+    $("#tbDoReal",c).onclick=()=>{ d.passos_real.filter(x=>tx(x.descricao)).forEach(x=>tb.passos.push({id:uid(),descricao:x.descricao,quem:x.quem,sistema:x.sistema,regra:"",mudanca:"Mantido"})); sv(); render(); };
+  }
+  $("#tbPassos",c).appendChild(tabela({chave:"tbp",linhas:tb.passos,numerar:true,ordenavel:true,aoSalvar:sv,aoEstrutura:render,leitura:travado,rotuloAdd:"+ Adicionar passo",
+    novaLinha:()=>({id:uid(),descricao:"",quem:"",sistema:"",regra:"",mudanca:"Novo"}),
+    colunas:[{campo:"descricao",label:"Passo (como passa a ser feito)",tipo:"textarea",largura:320},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
+      {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:110},{campo:"regra",label:"Regra / controle",tipo:"textarea",largura:200},
+      {campo:"mudanca",label:"Em relação a hoje",tipo:"select",opcoes:MUDANCA,semVazio:true}]}));
+}
+function novaITHTML(p){
+  const d=p.dados, tb=d.tobe, v=d.validacao_tobe;
+  return `<h1>${esc(tb.codigo||"Nova IT")} — ${esc(d.nome)}</h1>
+    <p>Versão: <b>${esc(tb.versao||"—")}</b> · Área: <b>${esc(d.area||"—")}</b> · Responsável: <b>${esc(d.dono||"—")}</b> · ${String(v.parecer||"").startsWith("Aprovado")?`<b>Aprovada</b> em ${esc(v.data)} por ${esc(v.por)}`:"<b>Rascunho — em aprovação</b>"}</p>
+    ${tb.objetivo?`<h2>Objetivo e escopo</h2><p>${esc(tb.objetivo)}</p>`:""}
+    <h2>Passos</h2><table><tr><th>#</th><th>Passo</th><th>Quem</th><th>Sistema</th><th>Regra / controle</th></tr>${tb.passos.filter(x=>tx(x.descricao)).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.descricao)}</td><td>${esc(x.quem)}</td><td>${esc(x.sistema)}</td><td>${esc(x.regra)}</td></tr>`).join("")}</table>
+    ${tb.regras?`<h2>Regras gerais</h2><p style="white-space:pre-wrap">${esc(tb.regras)}</p>`:""}
+    ${tb.fluxo?`<h2>Fluxo / exceções</h2><p style="white-space:pre-wrap">${esc(tb.fluxo)}</p>`:""}
+    ${tb.pendencias.some(x=>x.status==="Definida")?`<h2>Decisões tomadas</h2><table><tr><th>Tipo</th><th>Pendência</th><th>Decisão</th></tr>${tb.pendencias.filter(x=>x.status==="Definida").map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.descricao)}</td><td>${esc(x.decisao)}</td></tr>`).join("")}</table>`:""}`;
+}
+
+// ═══ FASE 6 — Validação do TO BE (aprovado = passa a ser regra) ═══
+function abaValidToBe(c,p,d,sv){
+  const v=d.validacao_tobe, tb=d.tobe;
+  const abertas=tb.pendencias.filter(x=>!["Definida","Descartada"].includes(x.status)).length;
+  const semPassos=!tb.passos.some(x=>tx(x.descricao));
+  const bloqueio = abertas ? `Ainda há ${abertas} pendência(s) do TO BE sem decisão (Aberta / Em discussão).` : semPassos ? "A nova IT ainda não tem passos." : "";
+  const aprovado=String(v.parecer||"").startsWith("Aprovado");
+  c.innerHTML=`<p class="cap">Com tudo definido, a nova Instrução de Trabalho é aprovada e <b>passa a ser regra</b>. Depois de aprovada, ela fica travada para edição.</p>
+    ${bloqueio&&!aprovado?`<p class="banner">⚠️ ${esc(bloqueio)} Resolva no <b>Desenho TO BE</b> antes de aprovar.</p>`:""}
+    <div class="grade"><label class="f">Aprovado por (nome / cargo)<input id="vtPor" value="${esc(v.por)}"></label>
+      <label class="f">Data<input type="date" id="vtData" value="${esc(v.data)}"></label>
+      <label class="f">Parecer<select id="vtPar"><option value=""></option>${["Aprovado — passa a ser regra","Aprovado com ajustes — passa a ser regra","Reprovado — rever o desenho"].map(o=>`<option${o===v.parecer?" selected":""}${o.startsWith("Aprovado")&&bloqueio&&o!==v.parecer?" disabled":""}>${esc(o)}</option>`).join("")}</select></label></div>
+    <label class="f" style="margin-top:12px">Comentários / ajustes pedidos<textarea id="vtObs" rows="4">${esc(v.obs)}</textarea></label>
+    <div class="acoes"><button type="button" id="vtPdf">${ICO.imprimir} Ver a nova IT (PDF)</button></div>`;
+  ligar(c,"vtPor",v,"por",sv); ligar(c,"vtData",v,"data",sv,"change"); ligar(c,"vtObs",v,"obs",sv);
+  $("#vtPdf",c).onclick=()=>imprimir(`Nova IT — ${tb.codigo||d.codigo}`,novaITHTML(p));
+  $("#vtPar",c).onchange=e=>{ v.parecer=e.target.value; v.registrado_por=USUARIO_NOME; v.registrado_em=agoraISO();
+    if(v.parecer.startsWith("Aprovado")){ if(!v.data) v.data=hojeISO(); if(!d.fases.f5.concluido) Object.assign(d.fases.f5,{concluido:true,por:USUARIO_NOME,em:agoraISO()}); }
+    if(v.parecer.startsWith("Reprovado")) Object.assign(d.fases.f5,{concluido:false,por:"",em:""});
+    sv(); render(); };
+}
+
+// ═══ FASE 7 — Planejar implantação ═══
+function abaImplantacao(c,p,d,sv){
+  const im=d.implantacao, E=estadoFases(p), hoje=hojeISO();
+  const atrasadas=im.acoes.filter(a=>a.prazo&&a.prazo<hoje&&a.status!=="Concluída").length;
+  c.innerHTML=`<p class="cap">Fecho do objetivo inicial: o que precisa acontecer para o TO BE aprovado virar prática — com responsável, prazo e dependência.</p>
+    ${!E.f6.ok?'<p class="aviso">O plano parte do TO BE aprovado. Você pode adiantar ações, mas o ideal é aprovar o TO BE antes (Fase 6).</p>':""}
+    <div class="kpis"><div class="kpi"><span>Ações</span><b>${im.acoes.length}</b></div>
+      <div class="kpi"><span>Concluídas</span><b>${im.acoes.filter(a=>a.status==="Concluída").length}</b></div>
+      <div class="kpi"><span>Atrasadas</span><b style="color:${atrasadas?"var(--bad)":"inherit"}">${atrasadas}</b></div>
+      <div class="kpi"><span>Sem responsável ou prazo</span><b>${im.acoes.filter(a=>!tx(a.responsavel)||!a.prazo).length}</b></div></div>
+    <div class="acoes"><button type="button" id="imTb">Trazer mudanças do TO BE</button><button type="button" id="imOp">Trazer oportunidades priorizadas</button><button type="button" id="imPad">Adicionar ações padrão</button></div>
+    <div id="imTbl"></div>`;
+  const ja=()=>new Set(im.acoes.map(a=>a.origem).filter(Boolean));
+  const nova=(origem,txt,acao)=>({id:uid(),origem,origem_txt:txt,acao,responsavel:"",inicio:"",prazo:"",depende:"",indicador:"",status:"A fazer",autor:USUARIO_NOME,criado_em:agoraISO()});
+  $("#imTb",c).onclick=()=>{ const J=ja(); d.tobe.passos.filter(x=>tx(x.descricao)&&x.mudanca&&x.mudanca!=="Mantido").forEach(x=>{ if(!J.has("tb:"+x.id)) im.acoes.push(nova("tb:"+x.id,`TO BE (${x.mudanca})`,`Implantar: ${tx(x.descricao)}`)); });
+    d.tobe.pendencias.filter(x=>x.status==="Definida"&&tx(x.decisao)).forEach(x=>{ if(!J.has("pd:"+x.id)) im.acoes.push(nova("pd:"+x.id,`Decisão (${x.tipo})`,`Colocar em prática: ${tx(x.decisao)}`)); }); sv(); render(); };
+  $("#imOp",c).onclick=()=>{ const J=ja(); d.oportunidades.filter(o=>!["Descartada","Concluída"].includes(o.status)&&tx(o.descricao)).sort((a,b)=>score(b)-score(a))
+    .forEach(o=>{ if(!J.has("op:"+o.id)) im.acoes.push(nova("op:"+o.id,`Oportunidade${score(o)?` (prioridade ${score(o)})`:""}`,tx(o.acao)||tx(o.descricao))); }); sv(); render(); };
+  $("#imPad",c).onclick=()=>{ const J=ja();
+    [["pad:it","Publicar a nova IT oficialmente (versão aprovada) e retirar a anterior"],["pad:trein","Treinar a equipe na nova IT"],["pad:ind","Acompanhar o indicador do processo por 30 dias após a implantação"]]
+      .forEach(([o,a])=>{ if(!J.has(o)) im.acoes.push(nova(o,"Padrão",a)); }); sv(); render(); };
+  $("#imTbl",c).appendChild(tabela({chave:"acao",linhas:im.acoes,numerar:true,aoSalvar:sv,aoEstrutura:render,rotuloAdd:"+ Adicionar ação",
+    novaLinha:()=>nova("","Manual",""),
+    colunas:[{campo:"acao",label:"Ação",tipo:"textarea",largura:280},{campo:"_o",label:"Origem",tipo:"calc",calc:r=>r.origem_txt||"Manual"},
+      {campo:"responsavel",label:"Responsável",largura:120},{campo:"inicio",label:"Início",tipo:"date"},{campo:"prazo",label:"Prazo",tipo:"date"},
+      {campo:"depende",label:"Depende de",tipo:"select",opcoes:row=>im.acoes.map((a,i)=>[a.id,`${i+1}. ${tx(a.acao).slice(0,40)}`]).filter(x=>x[0]!==row.id),vazio:"—",largura:150},
+      {campo:"indicador",label:"Como saber que deu certo",largura:170},{campo:"status",label:"Status",tipo:"select",opcoes:STATUS_ACAO,semVazio:true}]}));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -933,6 +1256,9 @@ const ICO = {
   gaps:      SV+'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>',
   oport:     SV+'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
   notas:     SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  tobe:      SV+'<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg>',
+  implantacao:SV+'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg>',
+  arq:       SV+'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
   info:      SV+'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h6M7 13h10M7 17h4"/></svg>',
   aprovacao: SV+'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
   historico: SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
@@ -943,19 +1269,23 @@ const ICO = {
 };
 const SECOES_PROC = [
   ["linha","linha","Linha de vida"], ["registrar","registrar","Registrar"], "sep",
-  ["real","real","Como é feito hoje"], ["it","it","Instrução de Trabalho"], ["confronto","gaps","Confronto e GAPs"],
-  ["oportunidades","oport","Oportuni­dades"], ["anotacoes","notas","Anotações"], "sep",
-  ["identificacao","info","Identifi­cação"], ["validacao","aprovacao","Aprovação final"], ["historico","historico","Histórico"],
+  ["identificacao","info","Identifi­cação","F1"], "sep",
+  ["real","real","Como é feito hoje","F2"], ["it","it","IT atual","F2"], ["anotacoes","notas","Anotações","F2"],
+  ["validacao","aprovacao","Validação AS IS","F3"],
+  ["confronto","gaps","Confronto e GAPs","F4"], ["oportunidades","oport","Oportuni­dades","F4"],
+  ["tobe","tobe","TO BE · nova IT","F5"], ["validacao_tobe","aprovacao","Validação TO BE","F6"], ["implantacao","implantacao","Implanta­ção","F7"], "sep",
+  ["historico","historico","Histórico"],
 ];
 const TITULOS_PROC = {
-  registrar:["Registrar",""], real:["Como é feito hoje",""], it:["Instrução de Trabalho",""],
-  confronto:["Confronto e registro de GAPs","O que é feito conforme, diferente, sem IT — e o que está na IT e não é feito."],
-  oportunidades:["Oportunidades",""], anotacoes:["Anotações do levantamento",""],
-  identificacao:["Identificação do processo","Dados do processo e andamento das 5 etapas do levantamento."],
-  validacao:["Aprovação final",""], historico:["Histórico de registros","Tudo o que foi registrado neste processo, do mais recente para o mais antigo."],
+  registrar:["Registrar",""], real:["Como é feito hoje (AS IS)",""], it:["Instrução de Trabalho atual",""],
+  confronto:["Diagnóstico — confronto e registro de GAPs","O que é feito conforme, diferente, sem IT — e o que está na IT e não é feito."],
+  oportunidades:["Diagnóstico — oportunidades",""], anotacoes:["Anotações do levantamento",""],
+  identificacao:["Identificação e arquitetura","Dados do processo, ligação com outras áreas e andamento do levantamento."],
+  validacao:["Validação do AS IS",""], tobe:["Desenho TO BE — nova Instrução de Trabalho",""], validacao_tobe:["Validação do TO BE",""],
+  implantacao:["Planejar implantação",""], historico:["Histórico de registros","Tudo o que foi registrado neste processo, do mais recente para o mais antigo."],
 };
-const SECOES_GERAL = [["painel","painel","Painel"],["confronto","gaps","Confronto geral"],["oportunidades","oport","Oportuni­dades"],["exportar","exportar","Exportar"]];
-const TITULOS_GERAL = {painel:["Painel do mapeamento",""],confronto:["Confronto geral",""],oportunidades:["Oportunidades",""],exportar:["Exportar",""]};
+const SECOES_GERAL = [["arquitetura","arq","Áreas (Fase 1)"],["painel","painel","Painel"],["confronto","gaps","Confronto geral"],["oportunidades","oport","Oportuni­dades"],["exportar","exportar","Exportar"]];
+const TITULOS_GERAL = {arquitetura:["Visão macro e arquitetura — áreas e processos",""],painel:["Painel do mapeamento",""],confronto:["Confronto geral",""],oportunidades:["Oportunidades",""],exportar:["Exportar",""]};
 
 let vista="lista", atual=null, secProc="linha", secGeral="painel";
 const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
@@ -1005,6 +1335,7 @@ function atualizarListas(){
   $("#dl-areas").innerHTML=ordenar([...areas]).map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-sistemas").innerHTML=ordenar([...sist]).map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-quem").innerHTML=ordenar([...quem]).map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-macro").innerHTML=ordenar([...new Set(PROCS.map(p=>tx(p.dados.macroprocesso)).filter(Boolean))]).map(a=>`<option value="${esc(a)}">`).join("");
 }
 function pillStatus(s){ return `<span class="sit ${sitClasse(s)}">${esc(s||"—")}</span>`; }
 function pillCrit(s){ const m={"Alta":"p-bad","Média":"p-warn","Baixa":"p-cinza"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
@@ -1052,21 +1383,22 @@ $("#npSim").onclick=async()=>{
 function renderLista(c){
   const T=totaisGerais(), areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
   c.innerHTML=`<div class="lista-topo"><h1>Processos mapeados</h1>
-      <div class="lista-acoes"><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button>
+      <div class="lista-acoes"><button type="button" id="lsArq">${ICO.arq} Áreas (Fase 1)</button><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button>
       <button type="button" class="primary" id="lsNovo">${ICO.mais} Novo processo</button></div>
-      <p>Cada processo é uma "Linha de vida" independente: como é feito hoje, confrontado com a Instrução de Trabalho. Clique num processo para registrar e acompanhar.</p></div>
-    ${PROCS.length?blocoResumo(T.indice,T.conforme,T.cls,`${PROCS.filter(p=>p.dados.status==="Validado").length} de ${PROCS.length} processo(s) validado(s) pela área`,T):""}
+      <p>Cada processo percorre as 7 fases: visão macro, levantamento AS IS, validação, diagnóstico, desenho TO BE, aprovação e planejamento da implantação. Clique num processo para registrar e acompanhar.</p></div>
+    ${PROCS.length?blocoResumo(T.indice,T.conforme,T.cls,`${PROCS.filter(p=>estadoFases(p).f3.ok).length} de ${PROCS.length} processo(s) com AS IS validado · ${areasCfg().filter(a=>a.mapeado).length} área(s) 100% mapeada(s)`,T):""}
     <div class="filtros" style="margin-top:18px"><input id="fBusca" placeholder="Buscar por nome, código, IT ou dono..." value="${esc(filtro.busca)}" aria-label="Buscar">
       <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select>
-      <select id="fStatus" aria-label="Situação"><option value="">Todas as situações</option>${STATUS_PROC.map(a=>`<option${a===filtro.status?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
+      <select id="fStatus" aria-label="Fase"><option value="">Todas as fases</option>${FASES.slice(1).map(([id,n],i)=>`<option value="${id}"${id===filtro.status?" selected":""}>Fase ${i+2} · ${esc(n)}</option>`).join("")}<option value="fim"${filtro.status==="fim"?" selected":""}>Concluídos</option></select></div>
     <div class="lista-grid" id="grid"></div>`;
   $("#lsNovo",c).onclick=abrirNovoProcesso;
   $("#lsGeral",c).onclick=()=>ir("geral",null,"painel");
+  $("#lsArq",c).onclick=()=>ir("geral",null,"arquitetura");
   $("#lsExp",c).onclick=async()=>{ try{ await salvarTudo(); await excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS)); }catch(e){ alert(e.message); } };
   const desenhar=()=>{
     const t=filtro.busca.toLowerCase();
     const lst=PROCS.filter(p=>{ const d=p.dados;
-      return (!t||[d.nome,d.codigo,d.dono,d.it.codigo].some(x=>String(x||"").toLowerCase().includes(t))) && (!filtro.area||d.area===filtro.area) && (!filtro.status||d.status===filtro.status); })
+      return (!t||[d.nome,d.codigo,d.dono,d.it.codigo].some(x=>String(x||"").toLowerCase().includes(t))) && (!filtro.area||d.area===filtro.area) && (!filtro.status||(estadoFases(p).atual||"fim")===filtro.status); })
       .sort((a,b)=>String(a.dados.codigo).localeCompare(String(b.dados.codigo),"pt-BR",{numeric:true}));
     const g=$("#grid");
     if(!lst.length){ g.innerHTML=`<div class="vazio-lista">${PROCS.length?"Nenhum processo com esse filtro.":'Nenhum processo cadastrado ainda. Clique em "Novo processo" para começar o primeiro levantamento.'}</div>`; return; }
@@ -1075,7 +1407,7 @@ function renderLista(c){
         <div class="ic-area">${esc(d.area||"sem área")}${d.it.codigo?` · ${esc(d.it.codigo)}`:""}${d.dono?` · ${esc(d.dono)}`:""}</div>
         <div class="ic-macro"><b>${pct(R.indice)}</b><span>conforme a IT (${R.conforme.length} de ${cls})</span></div><div class="ic-track track"><i style="width:${w}%"></i></div>
         <div class="mini4">${Object.entries(CAT).map(([k,v])=>`<span class="pill ${v.pill}" title="${esc(v.rot)}">${v.ico} ${R[k].length}</span>`).join("")}</div>
-        <div class="ic-rodape">${pillStatus(d.status)}<span>v${p.versao} · ${esc(dataBR(p.atualizado_em))}</span></div></button>`; }).join("");
+        <div class="ic-rodape">${pillFase(p)}<span>v${p.versao} · ${esc(dataBR(p.atualizado_em))}</span></div></button>`; }).join("");
     g.querySelectorAll(".item-card").forEach(b=>b.onclick=()=>{ const p=procPorId(b.dataset.id); ir("processo",b.dataset.id, registrosDo(p).length?"linha":"registrar"); });
   };
   $("#fBusca",c).oninput=e=>{ filtro.busca=e.target.value; desenhar(); };
@@ -1089,7 +1421,7 @@ function renderLista(c){
 // ═══════════════════════════════════════════════════════════════════
 function menuVertical(secoes, ativa, cont, aoClicar){
   return `<div class="side-rg">${secoes.map(s=>s==="sep"?'<div class="side-sep"></div>':
-    `<button type="button" class="side-btn${s[0]===ativa?" ativo":""}" data-sec="${s[0]}" title="${esc(s[2].replace(/\u00ad/g,""))}" aria-current="${s[0]===ativa}">${ICO[s[1]]}<span>${s[2]}</span>${cont&&cont[s[0]]?`<span class="n">${cont[s[0]]}</span>`:""}</button>`).join("")}</div>`;
+    `<button type="button" class="side-btn${s[0]===ativa?" ativo":""}" data-sec="${s[0]}" title="${esc((s[3]?s[3]+" · ":"")+s[2].replace(/\u00ad/g,""))}" aria-current="${s[0]===ativa}">${s[3]?`<span class="fz">${s[3]}</span>`:""}${ICO[s[1]]}<span>${s[2]}</span>${cont&&cont[s[0]]?`<span class="n">${cont[s[0]]}</span>`:""}</button>`).join("")}</div>`;
 }
 function renderProcessoShell(c){
   const p=procPorId(atual), d=p.dados, R=confronto(d), sv=()=>salvar(p);
@@ -1113,13 +1445,24 @@ function renderProcessoShell(c){
   const [tit,desc]=TITULOS_PROC[secProc]||["",""];
   corpo.innerHTML=`<section><header><h2>${esc(tit)}</h2>${desc?`<p>${esc(desc)}</p>`:""}</header><div id="secBody"></div></section>`;
   const body=$("#secBody",corpo);
+  const etapasAbertas=ETAPAS_LEV.filter(([id])=>!d.etapas[id].feito).map(e=>e[1]);
+  const pendAbertas=d.tobe.pendencias.filter(x=>!["Definida","Descartada"].includes(x.status)).length;
+  const caixa = secProc==="identificacao" ? painelArea(p)
+    : ["real","it","anotacoes"].includes(secProc) ? painelFase(p,"f2","Conclua quando o passo a passo de como é feito hoje estiver completo.", etapasAbertas.length?`Etapas do levantamento ainda sem marcar: ${etapasAbertas.join(", ")} (ver Identificação).`:"")
+    : ["confronto","oportunidades"].includes(secProc) ? painelFase(p,"f4","Conclua quando todos os passos estiverem classificados e as oportunidades levantadas.", R.pendente.length?`${R.pendente.length} passo(s) ligado(s) à IT ainda sem classificação.`:"")
+    : secProc==="tobe" ? painelFase(p,"f5","Conclua quando a nova IT estiver pronta para ir à aprovação.", pendAbertas?`${pendAbertas} pendência(s) ainda sem decisão.`:"")
+    : secProc==="implantacao" ? painelFase(p,"f7","Conclua quando o plano estiver completo, com responsável e prazo em cada ação.", d.implantacao.acoes.some(a=>!tx(a.responsavel)||!a.prazo)?"Há ações sem responsável ou sem prazo.":"")
+    : null;
+  if(caixa) body.appendChild(caixa);
+  const sub=el("div"); body.appendChild(sub);
   ({registrar:renderRegistrarProc,real:abaReal,it:abaIT,confronto:abaConfronto,oportunidades:abaOport,anotacoes:abaNotas,
-    identificacao:abaIdent,validacao:abaValid,historico:(b,p)=>desenharHistorico(b,p,0)})[secProc](body,p,d,sv);
+    identificacao:abaIdent,validacao:abaValid,tobe:abaToBe,validacao_tobe:abaValidToBe,implantacao:abaImplantacao,
+    historico:(b,p)=>desenharHistorico(b,p,0)})[secProc](sub,p,d,sv);
 }
 
 // ─── Linha de vida (página principal do processo, como no RG) ───
 function renderLinha(c,p){
-  const d=p.dados, R=confronto(d), cls=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length;
+  const d=p.dados, R=confronto(d), EF=estadoFases(p), cls=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length;
   const passosIT=d.passos_it.map((x,i)=>({x,i})).filter(o=>tx(o.x.descricao));
   const corte=(s,n)=>{ s=tx(s); return s.length>n?s.slice(0,n-1)+"…":s; };
   const estilo={"Executado conforme":["st-ok","p-ok","Conforme"],"Executado com divergência":["st-warn","p-warn","Divergente"],
@@ -1127,12 +1470,17 @@ function renderLinha(c,p){
   let h=`<header class="doc-head"><div><h1>${esc(d.nome||"(sem nome)")}</h1>
       <p class="obj">${esc(d.objetivo||"Processo em levantamento: registre como é feito hoje e confronte com a Instrução de Trabalho para encontrar os gaps.")}</p></div>
     <div class="stamp"><div class="code">${esc(d.codigo)}</div><dl>
-      <dt>Versão</dt><dd>${p.versao}</dd><dt>Situação</dt><dd>${pillStatus(d.status)}</dd>
+      <dt>Versão</dt><dd>${p.versao}</dd><dt>Fase atual</dt><dd>${pillFase(p)}</dd>
       <dt>IT</dt><dd>${esc(d.it.codigo||"—")}${d.it.versao?` · rev. ${esc(d.it.versao)}`:""}</dd>
       <dt>Área</dt><dd>${esc(d.area||"—")}</dd><dt>Responsável</dt><dd>${esc(d.dono||"—")}</dd><dt>Criticidade</dt><dd>${esc(d.criticidade||"—")}</dd>
       <dt>Atualizado</dt><dd>${esc(dataBR(p.atualizado_em))}<br><span class="muted">${esc(p.atualizado_por||"")}</span></dd></dl></div></header>
+    <section><header><h2>Fases do processo</h2><p>As 7 fases da metodologia — clique numa fase para ir até ela.</p></header>
+      <div class="chain">${FASES.map(([id,nome,sec],i)=>{ const e=EF[id], at=EF.atual===id;
+        const k=e.ok?["st-ok","p-ok","Concluída"]:at?["st-prog","p-azul","Fase atual"]:e.and?["st-warn","p-warn","Em andamento"]:["","p-cinza","A fazer"];
+        if(id==="f1"&&!e.ok) k[2]=tx(d.area)?"Área em mapeamento":"Defina a área";
+        return `<div class="link clic ${k[0]}" data-ir="${sec}" role="button" tabindex="0" title="Ir para: ${esc(nome)}"><div class="knot">${i+1}</div><div class="nm">${esc(nome)}</div><div class="st"><span class="pill ${k[1]}">${k[2]}</span></div><div class="doc">${e.ok&&e.em?esc(dataBR(e.em))+(e.por?" · "+esc(e.por):""):""}</div></div>`; }).join("")}</div></section>
     ${blocoResumo(R.indice,R.conforme.length,cls,`Cobertura da IT: ${pct(R.cobertura)} · Aderência dos executados: ${pct(R.aderencia)}`,{...R,conforme:R.conforme.length,divergente:R.divergente.length,semIT:R.semIT.length,naoFeito:R.naoFeito.length,pendente:R.pendente.length,horas:R.horasMes})}
-    <section><header><h2>Linha de vida da Instrução de Trabalho</h2><p>Cada passo da IT e o que acontece com ele na prática.</p><button type="button" class="add primary" id="lvReg">${ICO.registrar} Registrar</button></header>`;
+    <section><header><h2>Linha de vida da Instrução de Trabalho atual</h2><p>Cada passo da IT e o que acontece com ele na prática.</p><button type="button" class="add primary" id="lvReg">${ICO.registrar} Registrar</button></header>`;
   if(passosIT.length){
     h+=`<div class="legenda-chain"><span><span class="pill p-ok">Conforme</span> feito como a IT manda</span><span><span class="pill p-warn">Divergente</span> feito de outro jeito</span>
         <span><span class="pill p-bad">Não é feito</span> está na IT e ninguém faz</span><span><span class="pill p-cinza">Pendente</span> ligado, falta classificar</span></div>
@@ -1152,6 +1500,7 @@ function renderLinha(c,p){
   if(!passosIT.length && !d.passos_real.some(r=>tx(r.descricao))) h+=`<p class="aviso" style="margin-top:20px">Comece pelo <b>Registrar</b>: escreva o primeiro passo de como o processo é feito hoje.</p>`;
   c.innerHTML=h;
   $("#lvReg",c).onclick=()=>ir("processo",p.id,"registrar");
+  c.querySelectorAll("[data-ir]").forEach(l=>{ const f=()=>ir("processo",p.id,l.dataset.ir); l.onclick=f; l.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); f(); } }; });
 }
 
 // ─── Registrar (dentro do processo) ───
@@ -1256,7 +1605,7 @@ function renderGeralShell(c){
   c.innerHTML=`<div class="shell-item">${menuVertical(SECOES_GERAL,secGeral,null)}<div class="conteudo-item">
     <section><header><h2>${esc(TITULOS_GERAL[secGeral][0])}</h2><p>Todos os processos mapeados.</p></header><div id="secBody"></div></section></div></div>`;
   c.querySelectorAll(".side-btn").forEach(b=>b.onclick=()=>{ secGeral=b.dataset.sec; guardarNav(); render(); });
-  ({painel:renderPainel,confronto:renderConfronto,oportunidades:renderOportunidades,exportar:renderExportar})[secGeral]($("#secBody",c));
+  ({arquitetura:renderArquitetura,painel:renderPainel,confronto:renderConfronto,oportunidades:renderOportunidades,exportar:renderExportar})[secGeral]($("#secBody",c));
 }
 $("#btnVoltar").onclick=()=>ir("lista");
 
@@ -1268,7 +1617,9 @@ async function iniciar(){
   try{
     const {r,j}=await api(API);
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
-    PROCS=(j||[]).map(p=>({...p,dados:normalizar(p.dados)})); setStatus("ok"); render();
+    const todos=j||[];
+    CFG=todos.find(p=>p.dados&&p.dados._tipo==="arquitetura")||null; if(CFG&&!Array.isArray(CFG.dados.areas)) CFG.dados.areas=[];
+    PROCS=todos.filter(p=>!(p.dados&&p.dados._tipo)).map(p=>({...p,dados:normalizar(p.dados)})); setStatus("ok"); render();
   }catch(e){
     if(e.message==="sessão expirada") return;
     setStatus("erro",e.message);
