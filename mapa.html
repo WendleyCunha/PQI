@@ -1,165 +1,293 @@
-<!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<!doctype html>
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mapa Digital King Star</title>
+<title>Mapa Digital King Star — como é feito hoje × Instrução de Trabalho</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Mesma identidade do Painel: fundo escuro + dourado */
-:root[data-theme="dark"]{--bg:#06070b;--panel:#0e1017;--panel-2:#151824;--campo:#0a0c12;--line:rgba(232,179,61,.16);--line-2:rgba(232,179,61,.42);
-  --gold:#e8b33d;--gold-soft:#f3cd6f;--violet:#8b6cff;--ink:#f2f0ea;--ink-2:#c3c5cc;--muted:#8b8f9c;--faint:#565b6b;
-  --ok:#3ddc97;--warn:#f0a43a;--bad:#ff6b6b;--azul:#4fc3f7}
-:root[data-theme="light"]{--bg:#f4f5f8;--panel:#fff;--panel-2:#eef1f6;--campo:#fff;--line:rgba(179,131,20,.22);--line-2:rgba(179,131,20,.6);
-  --gold:#b38314;--gold-soft:#8c640c;--violet:#6846ff;--ink:#1a1c23;--ink-2:#3d4150;--muted:#5e6375;--faint:#8a90a2;
-  --ok:#109658;--warn:#c56a00;--bad:#c62828;--azul:#0277bd}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column}
-h1,h2,h3,.brand b,.kpi b{font-family:"Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.01em}
-h1{font-size:23px;margin:0;font-weight:600} h2{font-size:19px;margin:0 0 4px;font-weight:600} h3{font-size:15px;margin:22px 0 8px;font-weight:600}
-.cap{color:var(--muted);font-size:12.5px;margin:2px 0 12px;max-width:85ch}
-code{background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+/* ═══ Mesmo padrão visual do RG do Pedido (IBM Plex, papel, aço, menu vertical) ═══ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9;
+  --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8;
+  --idle:#8A93A3; --idle-soft:#EEF0F3;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17;
+    --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442;
+    --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17;
+  --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442;
+  --idle:#8A93A3; --idle-soft:#262D3A;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:20px 0 8px;font-weight:600}
+.wrap{max-width:none;margin:0;padding:24px 28px 64px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar-in .who{color:var(--ink-3);font-size:13px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);flex:none}
+.dot.ok{background:var(--ok)} .dot.salvando{background:var(--amber)} .dot.erro{background:var(--bad)}
+.who.erro{color:var(--bad)}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--ink-3)}
+button.primary,.btn.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn,.btn.perigo{color:var(--bad)}
+.btn.peq{padding:6px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.item-card:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[hidden]{display:none}
+.banner{margin:0 0 16px;padding:10px 14px;border-radius:6px;background:var(--amber-soft);color:var(--ink);font-size:14px}
+.banner:empty{display:none}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:80ch}
+.muted{color:var(--ink-3)}
+code{background:var(--rule-2);border-radius:4px;padding:0 5px;font-size:12.5px}
 
-.topo{flex:none;display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
-.brand{display:flex;flex-direction:column;line-height:1.2} .brand b{font-size:15px} .brand span{font-size:11.5px;color:var(--muted)}
-.salvo{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
-.salvo i{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
-.salvo.ok i{background:var(--ok)} .salvo.salvando i{background:var(--gold)} .salvo.erro i{background:var(--bad)} .salvo.erro{color:var(--bad)}
-.corpo{flex:1;min-height:0;display:grid;grid-template-columns:200px 1fr}
-nav.menu{border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:10px 8px}
-nav.menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--ink-2);
-  padding:8px 10px;border-radius:9px;cursor:pointer;font:500 13px Inter,sans-serif;margin-bottom:2px}
-nav.menu button:hover{background:var(--panel-2);color:var(--ink)}
-nav.menu button.ativa{background:var(--gold);color:#16130b;font-weight:600}
-main{overflow-y:auto;padding:22px 26px 80px} .pagina{max-width:1320px}
+/* cabeçalho do documento + carimbo (igual ao RG) */
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:26px 28px;display:grid;grid-template-columns:1fr auto;gap:18px 32px}
+.doc-head h1{margin:0;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.01em}
+.doc-head .obj{margin:10px 0 0;color:var(--ink-2);max-width:68ch}
+.stamp{border:2px solid var(--steel);border-radius:8px;padding:10px 14px;min-width:230px;align-self:start}
+.stamp .code{font:700 20px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.stamp dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:500}
+.sit{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.sit.exec{background:var(--prog-soft);color:var(--prog)} .sit.val{background:var(--amber-soft);color:var(--amber)}
+.sit.fim{background:var(--ok-soft);color:var(--ok)} .sit.susp{background:var(--bad-soft);color:var(--bad)}
 
-.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 14px;border-radius:9px;font:500 13px Inter,sans-serif;
-  cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.btn:hover{border-color:var(--gold)} .btn.primary{background:var(--gold);border-color:var(--gold);color:#16130b;font-weight:600}
-.btn.perigo{color:var(--bad)} .btn.peq{padding:5px 10px;font-size:12px}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn:focus-visible,nav.menu button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.cardp:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.acoes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
-.msg{font-size:12.5px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-label.f input,label.f select,label.f textarea,.inp{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font:14px Inter,sans-serif;width:100%}
-textarea{resize:vertical}
-.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0}
-details.box>summary{cursor:pointer;font-weight:600;font-size:13.5px;list-style:none}
-details.box>summary::before{content:"▸ ";color:var(--gold)} details.box[open]>summary::before{content:"▾ "} details.box[open]>summary{margin-bottom:10px}
-.aviso{background:color-mix(in srgb,var(--azul) 12%,transparent);border:1px solid color-mix(in srgb,var(--azul) 35%,transparent);border-radius:10px;padding:10px 14px;font-size:13px;margin:10px 0}
-.conflito{background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid var(--bad);border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:13px}
+/* resumo: medidor + contagens */
+.summary{display:grid;grid-template-columns:minmax(220px,1.2fr) 3fr;gap:16px;margin-top:16px}
+.meter{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:18px 20px}
+.meter .big{font:700 46px/1 "IBM Plex Sans Condensed",sans-serif}
+.meter .lbl{color:var(--ink-3);font-size:13px;margin-top:4px}
+.track{height:8px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:14px}
+.track i{display:block;height:100%;background:var(--ok)}
+.counts{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px 26px;align-items:center}
+.count{display:flex;align-items:baseline;gap:8px}
+.count b{font:700 26px/1 "IBM Plex Sans Condensed",sans-serif}
+.count span{color:var(--ink-2);font-size:13px}
 
-/* KPIs */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.kpi b{display:block;font-size:26px;font-weight:700;line-height:1.1}
-.kpi span{font-size:12px;color:var(--muted)}
-.kpi small{display:block;font-size:11px;color:var(--faint);margin-top:4px}
-.barra{height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden;margin-top:8px}
-.barra i{display:block;height:100%;background:var(--gold)}
-.cat4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
-.cat{border-radius:12px;padding:12px 14px;border:1px solid var(--line);background:var(--panel)}
-.cat b{font:700 28px "Space Grotesk",sans-serif;display:block}
-.cat span{font-size:12.5px;color:var(--ink-2)}
+/* seções */
+section{margin-top:34px}
+section:first-child{margin-top:0}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+section > header .add{margin-left:auto}
 
-/* tabela editável */
-.tbl-wrap{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-table.tbl{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;font-size:13px}
-table.tbl th{position:sticky;top:0;z-index:1;background:var(--panel-2);color:var(--ink-2);text-align:left;font-weight:600;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
-table.tbl td{border-bottom:1px solid var(--line);padding:2px 3px;vertical-align:top}
-table.tbl tr:last-child td{border-bottom:0}
-table.tbl input,table.tbl select,table.tbl textarea{width:100%;background:transparent;border:1px solid transparent;color:var(--ink);padding:6px;border-radius:6px;font:13px Inter,sans-serif;min-width:70px}
-table.tbl textarea{min-height:34px}
-table.tbl input:hover,table.tbl select:hover,table.tbl textarea:hover{border-color:var(--line)}
-table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--gold);background:var(--campo);outline:none}
-table.tbl select option{background:var(--panel);color:var(--ink)}
-table.tbl .ro{display:block;padding:7px 6px;color:var(--muted);white-space:nowrap}
+/* linha de vida */
+.chain{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(118px,1fr);overflow-x:auto;padding-bottom:6px}
+.link{position:relative;padding:0 6px}
+.link::before{content:"";position:absolute;top:19px;left:0;right:0;height:3px;background:var(--rule)}
+.link:first-child::before{left:50%} .link:last-child::before{right:50%}
+.link.st-ok::before{background:var(--ok)}
+.knot{position:relative;width:40px;height:40px;margin:0 auto;border-radius:50%;display:grid;place-items:center;font:700 15px/1 "IBM Plex Sans Condensed",sans-serif;border:3px solid var(--idle);background:var(--sheet);color:var(--idle)}
+.link .nm{text-align:center;font:600 14px/1.25 "IBM Plex Sans Condensed",sans-serif;margin-top:8px}
+.link .st{text-align:center;margin-top:6px}
+.link .doc{text-align:center;font-size:12px;color:var(--ink-3);margin-top:4px;word-break:break-word}
+.st-ok .knot{border-color:var(--ok);color:var(--ok);background:var(--ok-soft)}
+.st-bad .knot{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.st-warn .knot{border-color:var(--amber);color:var(--amber);background:var(--amber-soft)}
+.st-prog .knot{border-color:var(--prog);color:var(--prog);background:var(--prog-soft)}
+.st-block .knot{border-color:var(--block);color:var(--block);background:var(--block-soft)}
+.chain-detail{margin-top:14px}
+.legenda-chain{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:0 0 12px}
+
+/* tabelas (leitura e edição) */
+.scroll,.tbl-wrap{overflow-x:auto}
+.tbl-wrap{max-height:460px;overflow:auto;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+table{width:100%;border-collapse:collapse;background:var(--sheet);font-size:14px}
+table.lista,table.tbl{min-width:760px}
+.scroll > table,.tbl-wrap > table{border:0}
+th{text-align:left;font:600 13px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom;position:sticky;top:0;z-index:1;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.id{font-weight:600;color:var(--ink-3);white-space:nowrap}
+table.tbl td{padding:3px 4px}
+table.tbl input,table.tbl select,table.tbl textarea{font:inherit;font-size:14px;color:var(--ink);background:transparent;border:1px solid transparent;border-radius:5px;padding:6px 7px;width:100%;min-width:70px}
+table.tbl textarea{min-height:36px;resize:vertical}
+table.tbl input:hover,table.tbl select:hover,table.tbl textarea:hover{border-color:var(--rule)}
+table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--amber);background:color-mix(in srgb,var(--amber-soft) 35%,var(--sheet));outline:none}
+table.tbl .ro{display:block;padding:7px;color:var(--ink-3);white-space:nowrap}
 table.tbl td.acts{white-space:nowrap;width:1%}
-.ib{background:none;border:0;cursor:pointer;opacity:.55;font-size:13px;padding:5px 6px;border-radius:6px;color:var(--ink)}
-.ib:hover{opacity:1;background:var(--panel-2)} .ib.del:hover{background:color-mix(in srgb,var(--bad) 18%,transparent)}
-td.vazio{color:var(--faint);text-align:center;padding:18px!important}
-table.lista{border-collapse:collapse;width:100%;font-size:13px}
-table.lista th{text-align:left;color:var(--ink-2);font-weight:600;padding:8px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0}
-table.lista td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
-table.lista tr.clic{cursor:pointer} table.lista tr.clic:hover td{background:var(--panel-2)}
+.ib{background:none;border:0;padding:5px 7px;font-size:13px;opacity:.6;border-radius:5px}
+.ib:hover{opacity:1;background:var(--rule-2)} .ib.del:hover{background:var(--bad-soft);color:var(--bad)}
+td.vazio{color:var(--ink-3);text-align:center;padding:18px}
+table.lista tr.clic{cursor:pointer} table.lista tr.clic:hover td{background:var(--rule-2)}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-warn{background:var(--amber-soft);color:var(--amber)} .p-azul{background:var(--prog-soft);color:var(--prog)}
+.p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-block{background:var(--block-soft);color:var(--block)}
 
-.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
-.p-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
-.p-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
-.p-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
-.p-azul{background:color-mix(in srgb,var(--azul) 16%,transparent);color:var(--azul)}
-.p-cinza{background:var(--panel-2);color:var(--muted)}
+/* campos */
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{min-height:58px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+details.box > summary{cursor:pointer;font-weight:600;font-size:14px}
+details.box[open] > summary{margin-bottom:10px}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.msg{font-size:13px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);color:var(--ink);font-size:14px}
+.conflito{margin:0 0 16px;padding:12px 14px;border-radius:6px;background:var(--bad-soft);color:var(--ink);font-size:14px;border:1px solid var(--bad)}
+.filtros{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.filtros .inp,.filtros select,.filtros input{width:auto;min-width:200px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:12px 0}
+.kpi{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.kpi > span{color:var(--ink-3);font-size:13px}
+.kpi b{display:block;font:700 30px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
+.kpi small{display:block;color:var(--ink-3);font-size:12px;margin-top:4px}
+.barra{height:6px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:8px}
+.barra i{display:block;height:100%;background:var(--steel)}
+.cat4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0}
+.cat{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.cat b{display:block;font:700 30px/1 "IBM Plex Sans Condensed",sans-serif}
+.cat span{color:var(--ink-2);font-size:13px}
+.mini4{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.etapas{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.etapa{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:12px}
+.etapa.feita{border-color:var(--ok);background:color-mix(in srgb,var(--ok-soft) 50%,var(--sheet))}
+.etapa label.ck{display:flex;gap:8px;align-items:center;font:600 14px "IBM Plex Sans Condensed",sans-serif;cursor:pointer}
+.etapa input[type=checkbox]{width:16px;height:16px;accent-color:var(--steel)}
+.etapa p{font-size:12px;color:var(--ink-3);margin:4px 0 8px}
+.conf4{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bloco{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.bloco h3{margin:0 0 8px;display:flex;gap:8px;align-items:center}
+.bloco ol{margin:0;padding-left:20px} .bloco li{margin:5px 0;font-size:14px}
+.bloco li small{display:block;color:var(--ink-3);font-size:12.5px}
+.lado{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--sheet)}
+.lado > div{padding:9px 12px;border-bottom:1px solid var(--rule-2);font-size:14px}
+.lado > .h{background:var(--rule-2);font:600 13px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2)}
+.lado > .it{border-right:1px solid var(--rule-2)} .lado .vaz{color:var(--ink-3);font-style:italic}
 
-/* lista de processos */
-.filtros{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
-.filtros .inp{width:auto;min-width:180px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.cardp{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
-.cardp:hover{border-color:var(--line-2)}
-.cardp .cod{font:600 12px "Space Grotesk",sans-serif;color:var(--gold-soft)}
-.cardp h3{margin:2px 0 4px;font-size:15.5px}
-.cardp .meta{font-size:12px;color:var(--muted)}
-.mini4{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+/* registrar */
+.tipos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+.tipo{text-align:left;padding:10px 12px;line-height:1.3;border-radius:8px}
+.tipo b{display:block;font:600 14px "IBM Plex Sans Condensed",sans-serif;margin-top:2px}
+.tipo small{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.tipo.ativo{border-color:var(--steel);background:var(--steel-soft);color:var(--steel)}
+.campos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.campos .full{grid-column:1/-1}
+.campos textarea.grande{min-height:130px;font-size:15px;line-height:1.55}
+.rascunho{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+.editando-faixa{background:var(--amber-soft);border-radius:6px;padding:8px 12px;font-size:13px;margin:0 0 12px}
+.hist-filtro{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.hist-filtro button{padding:6px 11px;font-size:12.5px;border-radius:999px}
+.hist-filtro button.ativo{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+.registro{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.registro.recente{border-color:var(--steel);box-shadow:inset 3px 0 0 var(--steel)}
+.registro .topo-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
+.registro .topo-r .acs{margin-left:auto;display:flex}
+.registro p{margin:6px 0 0;white-space:pre-wrap;font-size:14px}
+.registro .det{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.vazio-h{color:var(--ink-3);text-align:center;padding:28px 10px;border:1px dashed var(--rule);border-radius:8px}
+.reg-dupla{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:22px;align-items:start}
 
-/* editor de processo */
-.cab{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px}
-.cab .acoes{margin:0 0 0 auto}
-.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px 0 18px;overflow-x:auto}
-.abas button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;font:500 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
-.abas button.ativa{color:var(--ink);border-bottom-color:var(--gold)}
-.abas button .n{font-size:11px;background:var(--panel-2);border-radius:10px;padding:0 6px;margin-left:4px;color:var(--muted)}
-.etapas{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.etapa{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel)}
-.etapa.feita{border-color:var(--ok)}
-.etapa label.ck{display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px;cursor:pointer}
-.etapa input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
-.etapa p{font-size:11.5px;color:var(--muted);margin:4px 0 6px}
-.etapa input[type=date]{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px;font:12px Inter,sans-serif;width:100%}
+/* lista de processos (tela inicial — igual "Itens em teste" do RG) */
+.lista-topo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.lista-topo h1{margin:0;font-size:28px}
+.lista-topo p{margin:4px 0 0;color:var(--ink-3);font-size:13px;flex-basis:100%}
+.lista-acoes{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.lista-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.item-card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;cursor:pointer;transition:border-color .15s;text-align:left;width:100%;font:inherit;color:inherit}
+.item-card:hover{border-color:var(--steel)}
+.item-card .ic-codigo{font:700 17px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.item-card .ic-item{font-size:14px;color:var(--ink);margin-top:3px;font-weight:500}
+.item-card .ic-area{font-size:12.5px;color:var(--ink-3)}
+.item-card .ic-macro{display:flex;align-items:baseline;gap:6px;margin-top:12px}
+.item-card .ic-macro b{font:700 24px/1 "IBM Plex Sans Condensed",sans-serif}
+.item-card .ic-macro span{color:var(--ink-3);font-size:12px}
+.item-card .ic-track{margin-top:8px}
+.item-card .ic-rodape{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--ink-3);gap:8px}
+.vazio-lista{grid-column:1/-1;text-align:center;color:var(--ink-3);padding:50px 0}
 
-/* confronto */
-.conf4{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.bloco{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px 14px}
-.bloco h3{margin:0 0 8px;display:flex;align-items:center;gap:8px}
-.bloco ol{margin:0;padding-left:20px} .bloco li{margin:4px 0;font-size:13px}
-.bloco li small{display:block;color:var(--muted)}
-.lado{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.lado>div{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
-.lado>.h{background:var(--panel-2);font-weight:600;color:var(--ink-2)}
-.lado>.it{border-right:1px solid var(--line)}
-.lado .vaz{color:var(--faint);font-style:italic}
+/* casca do item aberto: menu vertical + conteúdo (igual ao RG) */
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 8px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px)}
+.side-btn{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;
+  color:var(--ink-3);font-size:10.5px;line-height:1.2;text-align:center;position:relative}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-btn .n{position:absolute;top:4px;right:6px;font-size:10px;font-weight:600;background:var(--rule-2);color:var(--ink-2);border-radius:8px;padding:0 5px}
+.side-btn.ativo .n{background:var(--steel);color:var(--sheet)}
+.side-sep{width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
 
-@media (max-width:900px){
-  .corpo{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-  nav.menu{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:6px}
-  nav.menu button{width:auto;white-space:nowrap;margin:0 3px 0 0}
-  main{padding:16px 14px 60px}
-  .cat4,.conf4{grid-template-columns:1fr 1fr} .etapas{grid-template-columns:1fr 1fr} .lado{grid-template-columns:1fr}
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 12px;font-size:20px}
+dialog label.f{margin:10px 0 0}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+
+@media (max-width:860px){
+  .doc-head{grid-template-columns:1fr;padding:20px} .doc-head h1{font-size:26px}
+  .summary,.reg-dupla{grid-template-columns:1fr}
+  .shell-item{flex-direction:column}
+  .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .cat4,.conf4,.etapas,.tipos{grid-template-columns:1fr 1fr} .campos,.lado{grid-template-columns:1fr}
+  .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
+}
+@media print{
+  .bar,.side-rg,.lista-acoes,.acoes,.tipos,.hist-filtro{display:none!important}
+  body{background:#fff;color:#000} .wrap{padding:0} .shell-item{display:block}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header class="topo">
-  <div class="brand"><b>🧩 Mapa Digital King Star</b><span>Como é feito hoje × Instrução de Trabalho — conhecer antes de automatizar</span></div>
-  <div class="salvo" id="salvo"><i></i><span>Carregando…</span></div>
-  <button class="btn" id="btnTema" type="button" title="Alternar tema claro/escuro">◐ Tema</button>
-</header>
-<div class="corpo">
-  <nav class="menu" id="menu" aria-label="Seções do mapa"></nav>
-  <main id="main"><div class="pagina" id="conteudo"><p class="cap">Carregando processos…</p></div></main>
+<div class="bar"><div class="bar-in">
+  <button id="btnVoltar" type="button" hidden>← Processos</button>
+  <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <span id="barAcoes" style="display:contents"></span>
+</div></div>
+<div class="wrap">
+  <p class="banner" id="banner"></p>
+  <div id="root"><p class="cap">Carregando processos…</p></div>
+  <footer class="doc-foot">Mapa Digital King Star · Conhecer a empresa antes de automatizar a empresa · TI 2027 — King Star Conectada</footer>
 </div>
+
+<dialog id="dlgNovo">
+  <h3>Novo processo</h3>
+  <p class="muted" style="margin:0;font-size:13px">Comece só com o nome. O resto você completa ao longo do levantamento.</p>
+  <label class="f">Nome do processo *<input id="npNome" placeholder="Ex.: Devolução de produto em loja"></label>
+  <label class="f">Área<input id="npArea" list="dl-areas"></label>
+  <label class="f">Responsável (dono do processo)<input id="npDono"></label>
+  <label class="f">Criticidade<select id="npCrit"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></label>
+  <label class="f">Código da IT (se tiver)<input id="npIT" placeholder="Ex.: IT-LOG-012"></label>
+  <p class="msg erro" id="npMsg" style="margin:8px 0 0"></p>
+  <div class="acts"><button type="button" id="npNao">Voltar</button><button type="button" id="npSim" class="primary">Criar e começar a registrar</button></div>
+</dialog>
 <datalist id="dl-areas"></datalist>
 <datalist id="dl-sistemas"></datalist>
 <datalist id="dl-quem"></datalist>
 
 <script>
 'use strict';
+
 // ═══════════════════════════════════════════════════════════════════
 // COMO OS DADOS FICAM
 // Um documento por PROCESSO no Firestore (coleção mapa_processos).
@@ -211,11 +339,6 @@ function horas(v){ return (Math.round(v*10)/10).toLocaleString("pt-BR"); }
 // ═══════════════════════════════════════════════════════════════════
 let PROCS = [];
 const pend = {};
-function setStatus(tipo, det){
-  const s=$("#salvo"); s.className="salvo "+tipo;
-  s.querySelector("span").textContent = tipo==="ok" ? "Tudo salvo" : tipo==="salvando" ? "Salvando…" : "Erro: "+(det||"");
-  s.title=det||"";
-}
 async function api(url, op={}){
   const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
   const j=await r.json().catch(()=>({}));
@@ -223,7 +346,7 @@ async function api(url, op={}){
   return {r,j};
 }
 function sessaoExpirada(){
-  $("#conteudo").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel para continuar. <a href="/" target="_top" style="color:var(--gold-soft)">Ir para o Painel</a></div>';
+  $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel para continuar. <a href="/" target="_top" style="color:var(--gold-soft)">Ir para o Painel</a></div>';
 }
 function procPorId(id){ return PROCS.find(p=>p.id===id); }
 
@@ -255,10 +378,10 @@ function normalizar(d){
   d=d||{};
   const base={codigo:"",nome:"",area:"",dono:"",objetivo:"",gatilho:"",entradas:"",saidas:"",sistemas:"",criticidade:"Média",status:"Em levantamento",
     entrevistados:"",chamados:"",etapas:{},it:{codigo:"",titulo:"",versao:"",data:"",link:"",obs:""},passos_it:[],passos_real:[],oportunidades:[],
-    validacao:{por:"",data:"",parecer:"",obs:""}};
+    validacao:{por:"",data:"",parecer:"",obs:""},anotacoes:[]};
   for(const k in base) if(d[k]==null) d[k]=base[k];
   ETAPAS_LEV.forEach(([id])=>{ if(!d.etapas[id]) d.etapas[id]={feito:false,data:""}; });
-  ["passos_it","passos_real","oportunidades"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[]; d[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
+  ["passos_it","passos_real","oportunidades","anotacoes"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[]; d[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
   return d;
 }
 
@@ -417,14 +540,15 @@ const COL_IT=[["codigo","Código"],["processo","Processo"],["area","Área"],["it
   ["sistema","Sistema (IT)"],["regra","Regra / controle"],["situacao","Situação na prática"],["passos_reais","Passos reais ligados"],["obs","Observação"]];
 const COL_REAL=[["codigo","Código"],["processo","Processo"],["area","Área"],["ordem","Ordem"],["descricao","Como é feito hoje"],["quem","Quem faz"],["sistema","Sistema"],
   ["dado","Dado gerado"],["tempo_min","Tempo (min)"],["vezes_mes","Vezes/mês"],["horas_mes","Horas/mês"],["passo_it","Passo da IT correspondente"],["classificacao","Classificação"],
-  ["diferenca","O que difere da IT"],["obs","Observação"]];
+  ["diferenca","O que difere da IT"],["obs","Observação"],["data_obs","Data da observação"],["fonte","Fonte"],["autor","Registrado por"]];
+const COL_NOTA=[["codigo","Código"],["processo","Processo"],["area","Área"],["data_obs","Data"],["fonte","Fonte"],["com_quem","Com quem"],["texto","Anotação"],["autor","Registrado por"]];
 const COL_CONF=[["codigo","Código"],["processo","Processo"],["area","Área"],["categoria","Categoria"],["passo_it","Passo da IT"],["passo_real","Como é feito hoje"],["detalhe","Diferença / observação"]];
 const COL_OPORT=[["codigo","Código"],["processo","Processo"],["area","Área"],["tipo","Tipo"],["descricao","Oportunidade / dor"],["passo","Passo relacionado"],
   ["volume","Volume"],["tempo","Tempo gasto"],["custo","Custo"],["risco","Risco"],["score","Prioridade (V×T×C×R)"],["horas_mes","Horas/mês devolvidas"],
   ["acao","Ação"],["responsavel","Responsável"],["prazo","Prazo"],["status","Status"]];
 
 function linhasExport(lista){
-  const P=[],IT=[],RE=[],CF=[],OP=[];
+  const P=[],IT=[],RE=[],CF=[],OP=[],NT=[];
   lista.forEach(p=>{
     const d=p.dados, R=confronto(d), base={codigo:d.codigo,processo:d.nome,area:d.area};
     P.push({...base,nome:d.nome,dono:d.dono,criticidade:d.criticidade,status:d.status,it_codigo:d.it.codigo,it_versao:d.it.versao,
@@ -437,7 +561,9 @@ function linhasExport(lista){
         passos_reais:d.passos_real.map((r,j)=>r.it_ref===x.id&&tx(r.descricao)?j+1:null).filter(Boolean).join(", "),obs:x.obs}); });
     d.passos_real.forEach((r,i)=>{ if(!tx(r.descricao)) return;
       RE.push({...base,ordem:i+1,descricao:r.descricao,quem:r.quem,sistema:r.sistema,dado:r.dado,tempo_min:r.tempo_min,vezes_mes:r.vezes_mes,
-        horas_mes:horas(num(r.tempo_min)*num(r.vezes_mes)/60),passo_it:rotuloIT(d,r.it_ref),classificacao:classePassoReal(d,r),diferenca:r.diferenca,obs:r.obs}); });
+        horas_mes:horas(num(r.tempo_min)*num(r.vezes_mes)/60),passo_it:rotuloIT(d,r.it_ref),classificacao:classePassoReal(d,r),diferenca:r.diferenca,obs:r.obs,
+        data_obs:r.data_obs,fonte:r.fonte,autor:r.autor}); });
+    d.anotacoes.forEach(n=>{ if(tx(n.texto)) NT.push({...base,data_obs:n.data_obs,fonte:n.fonte,com_quem:n.com_quem,texto:n.texto,autor:n.autor}); });
     const add=(cat,x)=>CF.push({...base,categoria:CAT[cat]?CAT[cat].rot:"Pendente de classificação",
       passo_it:x.it?`${x.it._n}. ${x.it.descricao}`:"",passo_real:x.real?`${x.real._n}. ${x.real.descricao}`:"",
       detalhe:(x.real&&x.real.diferenca)||(x.it&&!x.real&&x.it.obs)||""});
@@ -446,42 +572,78 @@ function linhasExport(lista){
       volume:o.volume,tempo:o.tempo,custo:o.custo,risco:o.risco,score:score(o)||"",horas_mes:o.horas_mes,acao:o.acao,responsavel:o.responsavel,prazo:o.prazo,status:o.status}));
   });
   return [{nome:"Processos",colunas:COL_PROC,linhas:P},{nome:"Confronto",colunas:COL_CONF,linhas:CF},{nome:"Passos da IT",colunas:COL_IT,linhas:IT},
-          {nome:"Como é feito hoje",colunas:COL_REAL,linhas:RE},{nome:"Oportunidades",colunas:COL_OPORT,linhas:OP}];
+          {nome:"Como é feito hoje",colunas:COL_REAL,linhas:RE},{nome:"Oportunidades",colunas:COL_OPORT,linhas:OP},{nome:"Anotações",colunas:COL_NOTA,linhas:NT}];
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Navegação
+// ✍️ REGISTRAR — a tela do dia a dia do levantamento.
+// Escreve → grava → aparece no histórico do processo. Cada registro
+// guarda quem registrou, quando, e a data/fonte da observação. O que
+// está sendo digitado fica salvo como RASCUNHO neste navegador até ser
+// gravado (fechar a aba no meio não perde o texto).
 // ═══════════════════════════════════════════════════════════════════
-const MENU=[["painel","📊","Painel"],["processos","📁","Processos"],["confronto","⚖️","Confronto geral"],["oportunidades","💡","Oportunidades"],["exportar","⬇️","Exportar"]];
-let vista="painel", atual=null, abaProc="identificacao";
-const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
-try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav")||"{}"); if(s.vista) ({vista,atual,abaProc}={vista:s.vista,atual:s.atual||null,abaProc:s.abaProc||"identificacao"}); }catch(_){}
-function guardarNav(){ try{ sessionStorage.setItem("mapa_nav",JSON.stringify({vista,atual,abaProc})); }catch(_){} }
-function montarMenu(){
-  const m=$("#menu"); m.innerHTML="";
-  MENU.forEach(([id,ico,nome])=>{ const b=el("button"); b.type="button"; b.dataset.v=id; b.innerHTML=`<span>${ico}</span><span>${esc(nome)}</span>`;
-    b.onclick=()=>ir(id); m.appendChild(b); });
+let USUARIO_NOME = "";
+const FONTES = ["Entrevista","Observação no local (Gemba)","Chamado","Documento / IT","Reunião","Outro"];
+const TIPOS_REG = [
+  ["real","🔎","Como é feito hoje","Um passo como ele realmente acontece"],
+  ["it","📘","Passo da IT","Como a Instrução de Trabalho manda fazer"],
+  ["nota","📝","Anotação","Algo que ouviu, viu ou precisa lembrar"],
+  ["op","💡","Dor / oportunidade","Problema, retrabalho, risco ou ideia"],
+];
+const LISTA_DO_TIPO = {real:"passos_real", it:"passos_it", nota:"anotacoes", op:"oportunidades"};
+const reg = {proc:"", tipo:"real", editando:null, filtro:"", ultimo:null};
+try{ Object.assign(reg, JSON.parse(sessionStorage.getItem("mapa_reg")||"{}"), {editando:null, ultimo:null}); }catch(_){}
+function guardarReg(){ try{ sessionStorage.setItem("mapa_reg", JSON.stringify({proc:reg.proc, tipo:reg.tipo, filtro:reg.filtro})); }catch(_){} }
+const chaveRasc = () => `mapa_rasc_${reg.proc}_${reg.tipo}`;
+function lerRasc(){ try{ return JSON.parse(localStorage.getItem(chaveRasc())||"null"); }catch(_){ return null; } }
+function gravarRasc(v){ try{ localStorage.setItem(chaveRasc(), JSON.stringify(v)); }catch(_){} }
+function limparRasc(){ try{ localStorage.removeItem(chaveRasc()); }catch(_){} }
+
+// campos de cada tipo: [campo, rótulo, tipo, opções/extra]
+function camposDoTipo(tipo, p){
+  const opIT = p ? p.dados.passos_it.map((x,i)=>[x.id, `${i+1}. ${tx(x.descricao).slice(0,80)}`]).filter(x=>tx(x[1]).length>3) : [];
+  const opReal = p ? p.dados.passos_real.map((x,i)=>[x.id, `${i+1}. ${tx(x.descricao).slice(0,80)}`]).filter(x=>tx(x[1]).length>3) : [];
+  if(tipo==="real") return [
+    ["descricao","Descreva como é feito hoje *","grande",{full:true,ph:"Ex.: A vendedora recebe o pedido de troca pelo WhatsApp, confere a NF no Protheus e anota numa planilha à parte..."}],
+    ["quem","Quem faz","text",{lista:"dl-quem"}], ["sistema","Sistema usado","text",{lista:"dl-sistemas"}],
+    ["dado","Dado gerado / registrado","text",{}], ["fonte","Fonte da informação","select",{opcoes:FONTES}],
+    ["tempo_min","Tempo por vez (min)","number",{}], ["vezes_mes","Quantas vezes por mês","number",{}],
+    ["it_ref","Corresponde a qual passo da IT?","select",{opcoes:opIT, vazio: opIT.length?"— nenhum / ainda não sei (fica como 'feito sem IT') —":"— cadastre os passos da IT para ligar —", full:true}],
+    ["aderencia","É feito conforme a IT?","select",{opcoes:["Conforme","Divergente"]}], ["data_obs","Data da observação","date",{}],
+    ["diferenca","O que difere da IT","textarea",{full:true}],
+  ];
+  if(tipo==="it") return [
+    ["descricao","Passo como a IT manda fazer *","grande",{full:true,ph:"Copie o passo exatamente como está na Instrução de Trabalho."}],
+    ["quem","Quem faz (segundo a IT)","text",{lista:"dl-quem"}], ["sistema","Sistema (segundo a IT)","text",{lista:"dl-sistemas"}],
+    ["regra","Regra / controle","textarea",{full:true}], ["obs","Observação","textarea",{full:true}],
+  ];
+  if(tipo==="nota") return [
+    ["texto","Anotação *","grande",{full:true,ph:"O que você ouviu, viu, ou precisa lembrar na próxima conversa..."}],
+    ["com_quem","Com quem (pessoa / cargo)","text",{lista:"dl-quem"}], ["fonte","Fonte","select",{opcoes:FONTES}],
+    ["data_obs","Data","date",{}],
+  ];
+  return [
+    ["descricao","Descreva a dor ou oportunidade *","grande",{full:true,ph:"Ex.: A mesma informação é digitada no Protheus e na planilha de controle."}],
+    ["tipo","Tipo","select",{opcoes:TIPOS_OPORT,semVazio:true}], ["passo_ref","Passo relacionado","select",{opcoes:opReal,vazio:"—"}],
+    ["volume","Volume (1–5)","select",{opcoes:ESCALA}], ["tempo","Tempo gasto (1–5)","select",{opcoes:ESCALA}],
+    ["custo","Custo (1–5)","select",{opcoes:ESCALA}], ["risco","Risco (1–5)","select",{opcoes:ESCALA}],
+    ["horas_mes","Horas/mês que voltariam","number",{}], ["status","Status","select",{opcoes:STATUS_OPORT,semVazio:true}],
+    ["acao","Ação proposta","textarea",{full:true}], ["responsavel","Responsável","text",{}], ["prazo","Prazo","date",{}],
+  ];
 }
-function ir(v, id, aba){ vista=v; if(id!==undefined) atual=id; if(aba) abaProc=aba; guardarNav(); $("#main").scrollTop=0; render(); }
-function render(){
-  const ativo = vista==="processo" ? "processos" : vista;
-  document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("ativa",b.dataset.v===ativo));
-  const main=$("#main"), topo=main.scrollTop, c=$("#conteudo"); c.innerHTML="";
-  atualizarListas();
-  if(vista==="processo" && !procPorId(atual)) vista="processos";
-  ({painel:renderPainel,processos:renderProcessos,processo:renderProcesso,confronto:renderConfronto,oportunidades:renderOportunidades,exportar:renderExportar})[vista](c);
-  main.scrollTop=topo;
+function padraoDoTipo(tipo){
+  return tipo==="real" ? {data_obs:hojeISO(), fonte:"Observação no local (Gemba)"} :
+         tipo==="nota" ? {data_obs:hojeISO(), fonte:"Entrevista"} :
+         tipo==="op"   ? {tipo:"Dor", status:"Identificada"} : {};
 }
-function atualizarListas(){
-  const areas=new Set(AREAS_PADRAO), sist=new Set(), quem=new Set();
-  PROCS.forEach(p=>{ const d=p.dados; if(tx(d.area)) areas.add(tx(d.area));
-    [...d.passos_it,...d.passos_real].forEach(x=>{ if(tx(x.sistema)) sist.add(tx(x.sistema)); if(tx(x.quem)) quem.add(tx(x.quem)); }); });
-  $("#dl-areas").innerHTML=ordenar([...areas]).map(a=>`<option value="${esc(a)}">`).join("");
-  $("#dl-sistemas").innerHTML=ordenar([...sist]).map(a=>`<option value="${esc(a)}">`).join("");
-  $("#dl-quem").innerHTML=ordenar([...quem]).map(a=>`<option value="${esc(a)}">`).join("");
+function registrosDo(p){
+  const d=p.dados, L=[];
+  d.passos_real.forEach((x,i)=>L.push({tipo:"real",x,n:i+1,texto:x.descricao}));
+  d.passos_it.forEach((x,i)=>L.push({tipo:"it",x,n:i+1,texto:x.descricao}));
+  d.anotacoes.forEach(x=>L.push({tipo:"nota",x,texto:x.texto}));
+  d.oportunidades.forEach(x=>L.push({tipo:"op",x,texto:x.descricao}));
+  return L.filter(r=>tx(r.texto)).sort((a,b)=>String(b.x.criado_em||"").localeCompare(String(a.x.criado_em||"")));
 }
-function pillStatus(s){ const m={"Validado":"p-ok","Em validação":"p-azul","Revisar":"p-bad"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
-function pillCrit(s){ const m={"Alta":"p-bad","Média":"p-warn","Baixa":"p-cinza"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
 
 // ═══════════════════════════════════════════════════════════════════
 // PAINEL
@@ -501,7 +663,7 @@ function renderPainel(c){
   const totCls=tot.conforme+tot.divergente+tot.semIT+tot.naoFeito;
   const meta=(rot,v,alvo,sub)=>{ const x=alvo?Math.min(1,v/alvo):0;
     return `<div class="kpi"><span>${esc(rot)}</span><b>${typeof v==="number"&&alvo===1?pct(v):esc(String(v))}${alvo!==1&&alvo?`<span style="font-size:14px;color:var(--muted)"> / ${alvo}</span>`:""}</b><div class="barra"><i style="width:${Math.round(x*100)}%"></i></div><small>${esc(sub)}</small></div>`; };
-  c.innerHTML=`<h1>Painel do mapeamento</h1>
+  c.innerHTML=`
     <p class="cap">Conhecer a empresa antes de automatizar a empresa. Cada processo levantado ponta a ponta e confrontado com a Instrução de Trabalho.</p>
     <h3>Resultado do confronto (todos os processos)</h3>
     <div class="cat4">${Object.entries(CAT).map(([k,v])=>`<div class="cat"><b>${tot[k]}</b><span>${v.ico} ${esc(v.rot)}</span></div>`).join("")}</div>
@@ -536,79 +698,6 @@ function renderPainel(c){
 // ═══════════════════════════════════════════════════════════════════
 // LISTA DE PROCESSOS
 // ═══════════════════════════════════════════════════════════════════
-function proximoCodigo(){
-  const n=PROCS.reduce((m,p)=>{ const x=String(p.dados.codigo||"").match(/(\d+)$/); return Math.max(m,x?+x[1]:0); },0);
-  return "PROC-"+String(n+1).padStart(3,"0");
-}
-async function novoProcesso(){
-  const dados=normalizar({codigo:proximoCodigo(),nome:"Novo processo"});
-  setStatus("salvando");
-  try{
-    const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})});
-    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
-    j.dados=normalizar(j.dados); PROCS.push(j); setStatus("ok"); ir("processo",j.id,"identificacao");
-    setTimeout(()=>{ const f=$("#fNome"); if(f){ f.focus(); f.select(); } },50);
-  }catch(e){ if(e.message!=="sessão expirada") setStatus("erro",e.message); }
-}
-function renderProcessos(c){
-  const areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
-  c.innerHTML=`<div class="cab"><div><h1>Processos</h1><p class="cap">Cada card é um processo levantado ponta a ponta. Clique para abrir.</p></div>
-    <div class="acoes"><button class="btn primary" id="btnNovo" type="button">+ Novo processo</button></div></div>
-    <div class="filtros"><input class="inp" id="fBusca" placeholder="Buscar por nome, código ou dono..." value="${esc(filtro.busca)}" aria-label="Buscar">
-      <select class="inp" id="fArea" aria-label="Filtrar por área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select>
-      <select class="inp" id="fStatus" aria-label="Filtrar por status"><option value="">Todos os status</option>${STATUS_PROC.map(a=>`<option${a===filtro.status?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
-    <div class="cards" id="cards"></div>`;
-  $("#btnNovo",c).onclick=novoProcesso;
-  const desenhar=()=>{
-    const t=filtro.busca.toLowerCase();
-    const lst=PROCS.filter(p=>{ const d=p.dados;
-      return (!t||[d.nome,d.codigo,d.dono,d.it.codigo].some(x=>String(x||"").toLowerCase().includes(t))) && (!filtro.area||d.area===filtro.area) && (!filtro.status||d.status===filtro.status); })
-      .sort((a,b)=>String(a.dados.codigo).localeCompare(String(b.dados.codigo),"pt-BR",{numeric:true}));
-    const box=$("#cards");
-    if(!lst.length){ box.innerHTML=`<div class="aviso" style="grid-column:1/-1">${PROCS.length?"Nenhum processo com esse filtro.":"Nenhum processo ainda. Clique em <b>+ Novo processo</b> para começar o primeiro levantamento."}</div>`; return; }
-    box.innerHTML=lst.map(p=>{ const d=p.dados, R=confronto(d);
-      return `<button type="button" class="cardp" data-id="${p.id}"><div class="cod">${esc(d.codigo)}${d.it.codigo?` · ${esc(d.it.codigo)}`:""}</div><h3>${esc(d.nome||"(sem nome)")}</h3>
-        <div class="meta">${esc(d.area||"sem área")} · dono: ${esc(d.dono||"—")}</div>
-        <div class="mini4">${pillStatus(d.status)} ${pillCrit(d.criticidade)} <span class="pill p-cinza">conformidade ${pct(R.indice)}</span></div>
-        <div class="mini4">${Object.entries(CAT).map(([k,v])=>`<span class="pill ${v.pill}" title="${esc(v.rot)}">${v.ico} ${R[k].length}</span>`).join("")}</div>
-        <div class="meta" style="margin-top:8px">atualizado ${esc(dataBR(p.atualizado_em))} por ${esc(p.atualizado_por||"—")}</div></button>`; }).join("");
-    box.querySelectorAll(".cardp").forEach(b=>b.onclick=()=>ir("processo",b.dataset.id,"identificacao"));
-  };
-  $("#fBusca",c).oninput=e=>{ filtro.busca=e.target.value; desenhar(); };
-  $("#fArea",c).onchange=e=>{ filtro.area=e.target.value; desenhar(); };
-  $("#fStatus",c).onchange=e=>{ filtro.status=e.target.value; desenhar(); };
-  desenhar();
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EDITOR DE PROCESSO
-// ═══════════════════════════════════════════════════════════════════
-const ABAS_PROC=[["identificacao","Identificação"],["it","Instrução de Trabalho"],["real","Como é feito hoje"],["confronto","Confronto"],["oportunidades","Oportunidades"],["validacao","Validação"]];
-function renderProcesso(c){
-  const p=procPorId(atual), d=p.dados, R=confronto(d);
-  const sv=()=>salvar(p);
-  const cont={it:d.passos_it.length,real:d.passos_real.length,confronto:R.gaps,oportunidades:d.oportunidades.length};
-  c.innerHTML=`${p._conflito?`<div class="conflito"><b>⚠️ ${esc(p._conflito.atualizado_por||"Outra pessoa")} alterou este processo enquanto você editava</b> (${esc(dataBR(p._conflito.atualizado_em))}). Suas últimas alterações ainda não foram gravadas.
-      <div class="acoes"><button class="btn" id="cfDele" type="button">Ver a versão dele (descarta as minhas)</button><button class="btn perigo" id="cfMinha" type="button">Manter a minha (grava por cima)</button></div></div>`:""}
-    <div class="cab"><div><div class="cap" style="margin:0">${esc(d.codigo)} · ${esc(d.area||"sem área")}</div><h1>${esc(d.nome||"(sem nome)")}</h1>
-      <div class="mini4">${pillStatus(d.status)} ${pillCrit(d.criticidade)} <span class="pill p-cinza">conformidade ${pct(R.indice)}</span> <span class="pill p-cinza">${horas(R.horasMes)} h/mês</span></div></div>
-      <div class="acoes"><button class="btn" id="btVoltar" type="button">← Processos</button><button class="btn" id="btXls" type="button">⬇️ Excel deste processo</button>
-      <button class="btn" id="btPdf" type="button">🖨️ Relatório (PDF)</button><button class="btn perigo" id="btDel" type="button">Excluir</button></div></div>
-    <div class="abas" role="tablist">${ABAS_PROC.map(([id,rot])=>`<button type="button" role="tab" data-a="${id}" class="${id===abaProc?"ativa":""}" aria-selected="${id===abaProc}">${esc(rot)}${cont[id]!=null?`<span class="n">${cont[id]}</span>`:""}</button>`).join("")}</div>
-    <div id="abaCorpo"></div>`;
-  c.querySelectorAll(".abas button").forEach(b=>b.onclick=()=>{ abaProc=b.dataset.a; guardarNav(); render(); });
-  $("#btVoltar",c).onclick=()=>ir("processos");
-  $("#btXls",c).onclick=async()=>{ try{ await salvarTudo(); await excelMulti(`mapa_${d.codigo||"processo"}`, linhasExport([p])); }catch(e){ alert(e.message); } };
-  $("#btPdf",c).onclick=()=>imprimir(`${d.codigo} — ${d.nome}`, relatorioHTML(p));
-  $("#btDel",c).onclick=async()=>{ if(!confirm(`Excluir o processo ${d.codigo} — ${d.nome}? (fica guardado no banco como excluído)`)) return;
-    try{ const {r,j}=await api(`${API}/${p.id}`,{method:"DELETE"}); if(!r.ok) throw new Error(j.detail||r.status); PROCS=PROCS.filter(x=>x!==p); ir("processos"); }catch(e){ alert("Não consegui excluir: "+e.message); } };
-  if(p._conflito){
-    $("#cfDele",c).onclick=()=>{ Object.assign(p,{dados:normalizar(p._conflito.dados),versao:p._conflito.versao,atualizado_por:p._conflito.atualizado_por,atualizado_em:p._conflito.atualizado_em,_conflito:null}); setStatus("ok"); render(); };
-    $("#cfMinha",c).onclick=async()=>{ await enfileirar(p,true); render(); };
-  }
-  const corpo=$("#abaCorpo",c);
-  ({identificacao:abaIdent,it:abaIT,real:abaReal,confronto:abaConfronto,oportunidades:abaOport,validacao:abaValid})[abaProc](corpo,p,d,sv);
-}
 function campo(rot, id, valor, extra=""){ return `<label class="f">${esc(rot)}<input id="${id}" value="${esc(valor)}" ${extra}></label>`; }
 function ligar(c, id, obj, chave, sv, evento="input", depois){ const e=$("#"+id,c); if(!e) return; e.addEventListener(evento,()=>{ obj[chave]=e.value; sv(); depois&&depois(); }); }
 
@@ -735,6 +824,14 @@ function abaOport(c,p,d,sv){
       {campo:"responsavel",label:"Responsável",largura:120},{campo:"prazo",label:"Prazo",tipo:"date"},
       {campo:"status",label:"Status",tipo:"select",opcoes:STATUS_OPORT,semVazio:true}]}));
 }
+function abaNotas(c,p,d,sv){
+  c.innerHTML=`<p class="cap">Tudo o que foi ouvido, visto ou precisa ser lembrado sobre este processo, em ordem de registro. Para escrever uma anotação nova, use <b>✍️ Registrar</b>.</p><div id="nTbl"></div>`;
+  $("#nTbl",c).appendChild(tabela({chave:"nota",linhas:d.anotacoes,aoSalvar:sv,aoEstrutura:render,rotuloAdd:"+ Adicionar anotação",
+    novaLinha:()=>({id:uid(),data_obs:hojeISO(),fonte:"",com_quem:"",texto:"",autor:USUARIO_NOME,criado_em:new Date().toISOString()}),
+    colunas:[{campo:"data_obs",label:"Data",tipo:"date"},{campo:"fonte",label:"Fonte",tipo:"select",opcoes:FONTES},
+      {campo:"com_quem",label:"Com quem",largura:130},{campo:"texto",label:"Anotação",tipo:"textarea",largura:420},
+      {campo:"_autor",label:"Registrado por",tipo:"calc",calc:r=>r.autor||"—"}]}));
+}
 function abaValid(c,p,d,sv){
   const v=d.validacao;
   c.innerHTML=`<p class="cap">Última etapa: a área confirma que o mapeamento é isso mesmo e assume o processo como seu.</p>
@@ -767,7 +864,7 @@ function relatorioHTML(p){
 // ═══════════════════════════════════════════════════════════════════
 function renderConfronto(c){
   const areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
-  c.innerHTML=`<h1>Confronto geral</h1><p class="cap">Todos os itens de todos os processos, classificados. Use os filtros para montar a lista que você precisa.</p>
+  c.innerHTML=`<p class="cap">Todos os itens de todos os processos, classificados. Use os filtros para montar a lista que você precisa.</p>
     <div class="filtros"><select class="inp" id="cfCat" aria-label="Categoria"><option value="">Todas as categorias</option>${Object.entries(CAT).map(([k,v])=>`<option value="${k}"${k===filtro.cat?" selected":""}>${v.ico} ${esc(v.rot)}</option>`).join("")}<option value="pendente"${filtro.cat==="pendente"?" selected":""}>⏳ Pendente de classificação</option></select>
       <select class="inp" id="cfArea" aria-label="Área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
     <div id="cfTbl"></div>`;
@@ -787,7 +884,7 @@ function renderConfronto(c){
   desenhar();
 }
 function renderOportunidades(c){
-  c.innerHTML=`<h1>Oportunidades</h1><p class="cap">Ranking de todas as oportunidades por prioridade (Volume × Tempo × Custo × Risco). O status pode ser atualizado aqui mesmo.</p>
+  c.innerHTML=`<p class="cap">Ranking de todas as oportunidades por prioridade (Volume × Tempo × Custo × Risco). O status pode ser atualizado aqui mesmo.</p>
     <div class="filtros"><select class="inp" id="opTipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS_OPORT.map(t=>`<option${t===filtro.tipo?" selected":""}>${esc(t)}</option>`).join("")}</select>
       <select class="inp" id="opSt" aria-label="Status"><option value="">Todos os status</option>${STATUS_OPORT.map(t=>`<option${t===filtro.stOp?" selected":""}>${esc(t)}</option>`).join("")}</select></div><div id="opTbl"></div>`;
   const desenhar=()=>{
@@ -806,13 +903,14 @@ function renderOportunidades(c){
   desenhar();
 }
 function renderExportar(c){
-  c.innerHTML=`<h1>Exportar</h1><p class="cap">Uma planilha com 5 abas, prontas para filtro e tabela dinâmica — é daqui que sai o confronto entre a documentação oficial (IT) e o levantamento.</p>
+  c.innerHTML=`<p class="cap">Uma planilha com 6 abas, prontas para filtro e tabela dinâmica — é daqui que sai o confronto entre a documentação oficial (IT) e o levantamento.</p>
     <div class="box"><ol style="margin:0;padding-left:20px;line-height:1.8">
       <li><b>Processos</b> — uma linha por processo, com os totais do confronto, índices e horas/mês.</li>
       <li><b>Confronto</b> — uma linha por item, já com a categoria (conforme / diferente / sem IT / não feito).</li>
       <li><b>Passos da IT</b> — cada passo da IT e a situação dele na prática.</li>
       <li><b>Como é feito hoje</b> — cada passo real, com tempo, frequência, passo da IT correspondente e classificação.</li>
-      <li><b>Oportunidades</b> — com prioridade, horas devolvidas, ação, responsável, prazo e status.</li></ol></div>
+      <li><b>Oportunidades</b> — com prioridade, horas devolvidas, ação, responsável, prazo e status.</li>
+      <li><b>Anotações</b> — tudo o que foi registrado no levantamento, com data, fonte e quem registrou.</li></ol></div>
     <div id="expBt"></div>`;
   acoesExport($("#expBt",c),[
     ["⬇️ Exportar tudo (Excel)",()=>excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS))],
@@ -822,12 +920,351 @@ function renderExportar(c){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Tema + início
+// VISUAL NO PADRÃO DO RG DO PEDIDO
+// Tela inicial = lista de processos (como "Itens em teste").
+// Processo aberto = menu vertical de ícones + conteúdo (como no RG).
 // ═══════════════════════════════════════════════════════════════════
-(function(){ let t="dark"; try{ t=localStorage.getItem("diag_tema")||t; }catch(_){} document.documentElement.dataset.theme=t;
-  $("#btnTema").onclick=()=>{ const n=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=n; try{ localStorage.setItem("diag_tema",n); }catch(_){} }; })();
+const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
+const ICO = {
+  linha:     SV+'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6m12-9a3 3 0 11-6 0 3 3 0 016 0zM9 6h3a6 6 0 016 6v0"/></svg>',
+  registrar: SV+'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>',
+  real:      SV+'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  it:        SV+'<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
+  gaps:      SV+'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>',
+  oport:     SV+'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
+  notas:     SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  info:      SV+'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h6M7 13h10M7 17h4"/></svg>',
+  aprovacao: SV+'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  historico: SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
+  painel:    SV+'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
+  exportar:  SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  mais:      SV+'<path d="M12 5v14M5 12h14"/></svg>',
+  imprimir:  SV+'<path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>',
+};
+const SECOES_PROC = [
+  ["linha","linha","Linha de vida"], ["registrar","registrar","Registrar"], "sep",
+  ["real","real","Como é feito hoje"], ["it","it","Instrução de Trabalho"], ["confronto","gaps","Confronto e GAPs"],
+  ["oportunidades","oport","Oportuni­dades"], ["anotacoes","notas","Anotações"], "sep",
+  ["identificacao","info","Identifi­cação"], ["validacao","aprovacao","Aprovação final"], ["historico","historico","Histórico"],
+];
+const TITULOS_PROC = {
+  registrar:["Registrar",""], real:["Como é feito hoje",""], it:["Instrução de Trabalho",""],
+  confronto:["Confronto e registro de GAPs","O que é feito conforme, diferente, sem IT — e o que está na IT e não é feito."],
+  oportunidades:["Oportunidades",""], anotacoes:["Anotações do levantamento",""],
+  identificacao:["Identificação do processo","Dados do processo e andamento das 5 etapas do levantamento."],
+  validacao:["Aprovação final",""], historico:["Histórico de registros","Tudo o que foi registrado neste processo, do mais recente para o mais antigo."],
+};
+const SECOES_GERAL = [["painel","painel","Painel"],["confronto","gaps","Confronto geral"],["oportunidades","oport","Oportuni­dades"],["exportar","exportar","Exportar"]];
+const TITULOS_GERAL = {painel:["Painel do mapeamento",""],confronto:["Confronto geral",""],oportunidades:["Oportunidades",""],exportar:["Exportar",""]};
+
+let vista="lista", atual=null, secProc="linha", secGeral="painel";
+const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
+try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav2")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual||null; secProc=s.secProc||"linha"; secGeral=s.secGeral||"painel"; } }catch(_){}
+function guardarNav(){ try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
+function ir(v, id, sec){
+  vista=v; if(id!==undefined&&id!==null) atual=id;
+  if(sec){ if(v==="processo") secProc=sec; else if(v==="geral") secGeral=sec; }
+  guardarNav(); window.scrollTo(0,0); render();
+}
+
+// ─── barra superior (igual ao RG: voltar · situação · botões) ───
+let statusAtual={tipo:"ok",det:""};
+function setStatus(tipo, det){ statusAtual={tipo,det:det||""}; atualizarWho(); }
+function atualizarWho(){
+  const dot=$("#dot"), t=$("#whoTxt"), w=$("#who"); if(!dot) return;
+  dot.className="dot "+statusAtual.tipo; w.classList.toggle("erro",statusAtual.tipo==="erro");
+  let txt = statusAtual.tipo==="salvando" ? "Salvando…" : statusAtual.tipo==="erro" ? "Erro ao salvar: "+statusAtual.det : "Tudo salvo";
+  if(statusAtual.tipo==="ok"){
+    const p = vista==="processo" ? procPorId(atual) : null;
+    txt += p ? (p.atualizado_em ? ` · última alteração ${dataBR(p.atualizado_em)} por ${p.atualizado_por||"—"}` : "")
+             : ` · Mapa Digital King Star · ${PROCS.length} processo(s)`;
+  }
+  t.textContent=txt;
+}
+function botaoBar(rotulo, fn, cls, icone){
+  const b=el("button",cls||""); b.type="button"; b.innerHTML=(icone?icone+" ":"")+esc(rotulo);
+  b.onclick=async()=>{ b.disabled=true; try{ await fn(); }catch(e){ alert(e.message); } finally{ b.disabled=false; } };
+  $("#barAcoes").appendChild(b); return b;
+}
+function sitClasse(s){ return {"Em levantamento":"exec","Em validação":"val","Validado":"fim","Revisar":"susp"}[s]||"exec"; }
+
+function render(){
+  atualizarListas();
+  if(vista==="processo" && !procPorId(atual)) vista="lista";
+  const root=$("#root"); root.innerHTML=""; $("#barAcoes").innerHTML=""; $("#banner").textContent="";
+  $("#btnVoltar").hidden = vista==="lista";
+  if(vista==="processo") renderProcessoShell(root);
+  else if(vista==="geral") renderGeralShell(root);
+  else renderLista(root);
+  atualizarWho();
+}
+function atualizarListas(){
+  const areas=new Set(AREAS_PADRAO), sist=new Set(), quem=new Set();
+  PROCS.forEach(p=>{ const d=p.dados; if(tx(d.area)) areas.add(tx(d.area));
+    [...d.passos_it,...d.passos_real].forEach(x=>{ if(tx(x.sistema)) sist.add(tx(x.sistema)); if(tx(x.quem)) quem.add(tx(x.quem)); }); });
+  $("#dl-areas").innerHTML=ordenar([...areas]).map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-sistemas").innerHTML=ordenar([...sist]).map(a=>`<option value="${esc(a)}">`).join("");
+  $("#dl-quem").innerHTML=ordenar([...quem]).map(a=>`<option value="${esc(a)}">`).join("");
+}
+function pillStatus(s){ return `<span class="sit ${sitClasse(s)}">${esc(s||"—")}</span>`; }
+function pillCrit(s){ const m={"Alta":"p-bad","Média":"p-warn","Baixa":"p-cinza"}; return `<span class="pill ${m[s]||"p-cinza"}">${esc(s||"—")}</span>`; }
+function totaisGerais(){
+  const t={conforme:0,divergente:0,semIT:0,naoFeito:0,pendente:0,horas:0};
+  PROCS.forEach(p=>{ const R=confronto(p.dados); ["conforme","divergente","semIT","naoFeito","pendente"].forEach(k=>t[k]+=R[k].length); t.horas+=R.horasMes; });
+  t.cls=t.conforme+t.divergente+t.semIT+t.naoFeito; t.indice=t.cls?t.conforme/t.cls:null; return t;
+}
+function blocoResumo(indice, conforme, cls, sub, R){
+  const w=Math.round((indice||0)*100);
+  return `<div class="summary"><div class="meter"><div class="big">${pct(indice)}</div><div class="lbl">dos itens conforme a IT (${conforme} de ${cls})</div>
+      <div class="track"><i style="width:${w}%"></i></div><div class="lbl" style="margin-top:10px">${sub}</div></div>
+    <div class="counts">
+      <div class="count"><b style="color:var(--ok)">${R.conforme}</b><span>✅ feitos conforme a IT</span></div>
+      <div class="count"><b style="color:var(--amber)">${R.divergente}</b><span>⚠️ feitos diferente da IT</span></div>
+      <div class="count"><b style="color:var(--prog)">${R.semIT}</b><span>➕ feitos sem IT</span></div>
+      <div class="count"><b style="color:var(--bad)">${R.naoFeito}</b><span>❌ na IT e não são feitos</span></div>
+      <div class="count"><b style="color:var(--steel)">${horas(R.horas)}</b><span>horas/mês consumidas</span></div>
+      ${R.pendente?`<div class="count"><b style="color:var(--idle)">${R.pendente}</b><span>⏳ pendentes de classificação</span></div>`:""}
+    </div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TELA INICIAL — processos mapeados
+// ═══════════════════════════════════════════════════════════════════
+function proximoCodigo(){
+  const n=PROCS.reduce((m,p)=>{ const x=String(p.dados.codigo||"").match(/(\d+)$/); return Math.max(m,x?+x[1]:0); },0);
+  return "PROC-"+String(n+1).padStart(3,"0");
+}
+function abrirNovoProcesso(){
+  const dl=$("#dlgNovo"); ["npNome","npArea","npDono","npIT"].forEach(i=>$("#"+i).value=""); $("#npCrit").value="Média"; $("#npMsg").textContent="";
+  dl.showModal(); setTimeout(()=>$("#npNome").focus(),30);
+}
+$("#npNao").onclick=()=>$("#dlgNovo").close();
+$("#npSim").onclick=async()=>{
+  const nome=tx($("#npNome").value), m=$("#npMsg");
+  if(!nome){ m.textContent="Informe o nome do processo."; $("#npNome").focus(); return; }
+  const dados=normalizar({codigo:proximoCodigo(),nome,area:tx($("#npArea").value),dono:tx($("#npDono").value),criticidade:$("#npCrit").value});
+  dados.it.codigo=tx($("#npIT").value);
+  $("#npSim").disabled=true;
+  try{ const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    j.dados=normalizar(j.dados); PROCS.push(j); $("#dlgNovo").close(); reg.tipo="real"; reg.editando=null; ir("processo",j.id,"registrar");
+  }catch(e){ m.textContent=e.message; } finally{ $("#npSim").disabled=false; }
+};
+function renderLista(c){
+  const T=totaisGerais(), areas=ordenar([...new Set(PROCS.map(p=>tx(p.dados.area)).filter(Boolean))]);
+  c.innerHTML=`<div class="lista-topo"><h1>Processos mapeados</h1>
+      <div class="lista-acoes"><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button>
+      <button type="button" class="primary" id="lsNovo">${ICO.mais} Novo processo</button></div>
+      <p>Cada processo é uma "Linha de vida" independente: como é feito hoje, confrontado com a Instrução de Trabalho. Clique num processo para registrar e acompanhar.</p></div>
+    ${PROCS.length?blocoResumo(T.indice,T.conforme,T.cls,`${PROCS.filter(p=>p.dados.status==="Validado").length} de ${PROCS.length} processo(s) validado(s) pela área`,T):""}
+    <div class="filtros" style="margin-top:18px"><input id="fBusca" placeholder="Buscar por nome, código, IT ou dono..." value="${esc(filtro.busca)}" aria-label="Buscar">
+      <select id="fArea" aria-label="Área"><option value="">Todas as áreas</option>${areas.map(a=>`<option${a===filtro.area?" selected":""}>${esc(a)}</option>`).join("")}</select>
+      <select id="fStatus" aria-label="Situação"><option value="">Todas as situações</option>${STATUS_PROC.map(a=>`<option${a===filtro.status?" selected":""}>${esc(a)}</option>`).join("")}</select></div>
+    <div class="lista-grid" id="grid"></div>`;
+  $("#lsNovo",c).onclick=abrirNovoProcesso;
+  $("#lsGeral",c).onclick=()=>ir("geral",null,"painel");
+  $("#lsExp",c).onclick=async()=>{ try{ await salvarTudo(); await excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS)); }catch(e){ alert(e.message); } };
+  const desenhar=()=>{
+    const t=filtro.busca.toLowerCase();
+    const lst=PROCS.filter(p=>{ const d=p.dados;
+      return (!t||[d.nome,d.codigo,d.dono,d.it.codigo].some(x=>String(x||"").toLowerCase().includes(t))) && (!filtro.area||d.area===filtro.area) && (!filtro.status||d.status===filtro.status); })
+      .sort((a,b)=>String(a.dados.codigo).localeCompare(String(b.dados.codigo),"pt-BR",{numeric:true}));
+    const g=$("#grid");
+    if(!lst.length){ g.innerHTML=`<div class="vazio-lista">${PROCS.length?"Nenhum processo com esse filtro.":'Nenhum processo cadastrado ainda. Clique em "Novo processo" para começar o primeiro levantamento.'}</div>`; return; }
+    g.innerHTML=lst.map(p=>{ const d=p.dados, R=confronto(d), cls=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length, w=Math.round((R.indice||0)*100);
+      return `<button type="button" class="item-card" data-id="${p.id}"><div class="ic-codigo">${esc(d.codigo)}</div><div class="ic-item">${esc(d.nome||"(sem nome)")}</div>
+        <div class="ic-area">${esc(d.area||"sem área")}${d.it.codigo?` · ${esc(d.it.codigo)}`:""}${d.dono?` · ${esc(d.dono)}`:""}</div>
+        <div class="ic-macro"><b>${pct(R.indice)}</b><span>conforme a IT (${R.conforme.length} de ${cls})</span></div><div class="ic-track track"><i style="width:${w}%"></i></div>
+        <div class="mini4">${Object.entries(CAT).map(([k,v])=>`<span class="pill ${v.pill}" title="${esc(v.rot)}">${v.ico} ${R[k].length}</span>`).join("")}</div>
+        <div class="ic-rodape">${pillStatus(d.status)}<span>v${p.versao} · ${esc(dataBR(p.atualizado_em))}</span></div></button>`; }).join("");
+    g.querySelectorAll(".item-card").forEach(b=>b.onclick=()=>{ const p=procPorId(b.dataset.id); ir("processo",b.dataset.id, registrosDo(p).length?"linha":"registrar"); });
+  };
+  $("#fBusca",c).oninput=e=>{ filtro.busca=e.target.value; desenhar(); };
+  $("#fArea",c).onchange=e=>{ filtro.area=e.target.value; desenhar(); };
+  $("#fStatus",c).onchange=e=>{ filtro.status=e.target.value; desenhar(); };
+  desenhar();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROCESSO ABERTO — menu vertical + seções
+// ═══════════════════════════════════════════════════════════════════
+function menuVertical(secoes, ativa, cont, aoClicar){
+  return `<div class="side-rg">${secoes.map(s=>s==="sep"?'<div class="side-sep"></div>':
+    `<button type="button" class="side-btn${s[0]===ativa?" ativo":""}" data-sec="${s[0]}" title="${esc(s[2].replace(/\u00ad/g,""))}" aria-current="${s[0]===ativa}">${ICO[s[1]]}<span>${s[2]}</span>${cont&&cont[s[0]]?`<span class="n">${cont[s[0]]}</span>`:""}</button>`).join("")}</div>`;
+}
+function renderProcessoShell(c){
+  const p=procPorId(atual), d=p.dados, R=confronto(d), sv=()=>salvar(p);
+  botaoBar("Baixar Excel deste processo",async()=>{ await salvarTudo(); await excelMulti(`mapa_${d.codigo||"processo"}`,linhasExport([p])); },"",ICO.exportar);
+  botaoBar("Imprimir ou salvar PDF",()=>imprimir(`${d.codigo} — ${d.nome}`,relatorioHTML(p)),"",ICO.imprimir);
+  botaoBar("Excluir",async()=>{ if(!confirm(`Excluir o processo ${d.codigo} — ${d.nome}? (fica guardado no banco como excluído)`)) return;
+    const {r,j}=await api(`${API}/${p.id}`,{method:"DELETE"}); if(!r.ok) throw new Error(j.detail||r.status); PROCS=PROCS.filter(x=>x!==p); ir("lista"); },"warn");
+  const cont={real:d.passos_real.filter(x=>tx(x.descricao)).length, it:d.passos_it.filter(x=>tx(x.descricao)).length, confronto:R.gaps,
+    oportunidades:d.oportunidades.length, anotacoes:d.anotacoes.length, historico:registrosDo(p).length};
+  c.innerHTML=`<div class="shell-item">${menuVertical(SECOES_PROC,secProc,cont)}<div class="conteudo-item">
+    ${p._conflito?`<div class="conflito"><b>⚠️ ${esc(p._conflito.atualizado_por||"Outra pessoa")} alterou este processo enquanto você editava</b> (${esc(dataBR(p._conflito.atualizado_em))}). Suas últimas alterações ainda não foram gravadas.
+      <div class="acoes"><button type="button" id="cfDele">Ver a versão dele (descarta as minhas)</button><button type="button" class="warn" id="cfMinha">Manter a minha (grava por cima)</button></div></div>`:""}
+    <div id="secCorpo"></div></div></div>`;
+  c.querySelectorAll(".side-btn").forEach(b=>b.onclick=()=>{ secProc=b.dataset.sec; if(secProc!=="registrar") reg.editando=null; guardarNav(); render(); });
+  if(p._conflito){
+    $("#cfDele",c).onclick=()=>{ Object.assign(p,{dados:normalizar(p._conflito.dados),versao:p._conflito.versao,atualizado_por:p._conflito.atualizado_por,atualizado_em:p._conflito.atualizado_em,_conflito:null}); setStatus("ok"); render(); };
+    $("#cfMinha",c).onclick=async()=>{ await enfileirar(p,true); render(); };
+  }
+  const corpo=$("#secCorpo",c);
+  if(secProc==="linha") return renderLinha(corpo,p);
+  const [tit,desc]=TITULOS_PROC[secProc]||["",""];
+  corpo.innerHTML=`<section><header><h2>${esc(tit)}</h2>${desc?`<p>${esc(desc)}</p>`:""}</header><div id="secBody"></div></section>`;
+  const body=$("#secBody",corpo);
+  ({registrar:renderRegistrarProc,real:abaReal,it:abaIT,confronto:abaConfronto,oportunidades:abaOport,anotacoes:abaNotas,
+    identificacao:abaIdent,validacao:abaValid,historico:(b,p)=>desenharHistorico(b,p,0)})[secProc](body,p,d,sv);
+}
+
+// ─── Linha de vida (página principal do processo, como no RG) ───
+function renderLinha(c,p){
+  const d=p.dados, R=confronto(d), cls=R.conforme.length+R.divergente.length+R.semIT.length+R.naoFeito.length;
+  const passosIT=d.passos_it.map((x,i)=>({x,i})).filter(o=>tx(o.x.descricao));
+  const corte=(s,n)=>{ s=tx(s); return s.length>n?s.slice(0,n-1)+"…":s; };
+  const estilo={"Executado conforme":["st-ok","p-ok","Conforme"],"Executado com divergência":["st-warn","p-warn","Divergente"],
+    "Não executado":["st-bad","p-bad","Não é feito"],"Pendente de classificação":["","p-cinza","Pendente"]};
+  let h=`<header class="doc-head"><div><h1>${esc(d.nome||"(sem nome)")}</h1>
+      <p class="obj">${esc(d.objetivo||"Processo em levantamento: registre como é feito hoje e confronte com a Instrução de Trabalho para encontrar os gaps.")}</p></div>
+    <div class="stamp"><div class="code">${esc(d.codigo)}</div><dl>
+      <dt>Versão</dt><dd>${p.versao}</dd><dt>Situação</dt><dd>${pillStatus(d.status)}</dd>
+      <dt>IT</dt><dd>${esc(d.it.codigo||"—")}${d.it.versao?` · rev. ${esc(d.it.versao)}`:""}</dd>
+      <dt>Área</dt><dd>${esc(d.area||"—")}</dd><dt>Responsável</dt><dd>${esc(d.dono||"—")}</dd><dt>Criticidade</dt><dd>${esc(d.criticidade||"—")}</dd>
+      <dt>Atualizado</dt><dd>${esc(dataBR(p.atualizado_em))}<br><span class="muted">${esc(p.atualizado_por||"")}</span></dd></dl></div></header>
+    ${blocoResumo(R.indice,R.conforme.length,cls,`Cobertura da IT: ${pct(R.cobertura)} · Aderência dos executados: ${pct(R.aderencia)}`,{...R,conforme:R.conforme.length,divergente:R.divergente.length,semIT:R.semIT.length,naoFeito:R.naoFeito.length,pendente:R.pendente.length,horas:R.horasMes})}
+    <section><header><h2>Linha de vida da Instrução de Trabalho</h2><p>Cada passo da IT e o que acontece com ele na prática.</p><button type="button" class="add primary" id="lvReg">${ICO.registrar} Registrar</button></header>`;
+  if(passosIT.length){
+    h+=`<div class="legenda-chain"><span><span class="pill p-ok">Conforme</span> feito como a IT manda</span><span><span class="pill p-warn">Divergente</span> feito de outro jeito</span>
+        <span><span class="pill p-bad">Não é feito</span> está na IT e ninguém faz</span><span><span class="pill p-cinza">Pendente</span> ligado, falta classificar</span></div>
+      <div class="chain">${passosIT.map(({x,i})=>{ const s=situacaoPassoIT(d,x), e=estilo[s]||estilo["Pendente de classificação"];
+        const lig=d.passos_real.map((r,j)=>r.it_ref===x.id&&tx(r.descricao)?j+1:null).filter(Boolean);
+        return `<div class="link ${e[0]}"><div class="knot">${i+1}</div><div class="nm">${esc(corte(x.descricao,48))}</div><div class="st"><span class="pill ${e[1]}">${e[2]}</span></div><div class="doc">${lig.length?"real nº "+lig.join(", "):""}</div></div>`; }).join("")}</div>
+      <div class="chain-detail scroll"><table><thead><tr><th>Passo da IT</th><th>Situação</th><th>Como é feito hoje</th><th>O que difere</th></tr></thead><tbody>${
+        passosIT.map(({x,i})=>{ const s=situacaoPassoIT(d,x), e=estilo[s]||estilo["Pendente de classificação"];
+          const lig=d.passos_real.map((r,j)=>({r,j})).filter(o=>o.r.it_ref===x.id&&tx(o.r.descricao));
+          return `<tr><td><span class="muted" style="font-weight:600">${i+1}.</span> ${esc(x.descricao)}</td><td><span class="pill ${e[1]}">${e[2]}</span></td>
+            <td>${lig.length?lig.map(({r,j})=>`<div><b>${j+1}.</b> ${esc(r.descricao)}</div>`).join(""):'<span class="muted">—</span>'}</td>
+            <td>${lig.map(o=>o.r.diferenca).filter(Boolean).map(esc).join("<br>")||'<span class="muted">—</span>'}</td></tr>`; }).join("")}</tbody></table></div>`;
+  } else h+='<p class="banner">Ainda não há passos da Instrução de Trabalho. Cadastre em <b>Instrução de Trabalho</b> (dá para colar os passos direto do documento) ou pelo <b>Registrar</b>.</p>';
+  h+=`</section>`;
+  if(R.semIT.length) h+=`<section><header><h2>Feito sem Instrução de Trabalho</h2><p>Passos que acontecem na prática e não estão na IT.</p></header>
+      <div class="chain">${R.semIT.map(({real:r})=>`<div class="link st-prog"><div class="knot">${r._n}</div><div class="nm">${esc(corte(r.descricao,48))}</div><div class="st"><span class="pill p-azul">Sem IT</span></div><div class="doc">${esc([r.quem,r.sistema].filter(Boolean).join(" · "))}</div></div>`).join("")}</div></section>`;
+  if(!passosIT.length && !d.passos_real.some(r=>tx(r.descricao))) h+=`<p class="aviso" style="margin-top:20px">Comece pelo <b>Registrar</b>: escreva o primeiro passo de como o processo é feito hoje.</p>`;
+  c.innerHTML=h;
+  $("#lvReg",c).onclick=()=>ir("processo",p.id,"registrar");
+}
+
+// ─── Registrar (dentro do processo) ───
+function renderRegistrarProc(c,p){
+  reg.proc=p.id;
+  const d=p.dados, lista=d[LISTA_DO_TIPO[reg.tipo]];
+  const emEdicao = reg.editando ? lista.find(x=>x.id===reg.editando) : null;
+  if(reg.editando && !emEdicao) reg.editando=null;
+  const rasc = emEdicao ? null : lerRasc();
+  const valores = emEdicao ? {...emEdicao} : {...padraoDoTipo(reg.tipo), ...(rasc||{})};
+  const campos=camposDoTipo(reg.tipo,p);
+  c.innerHTML=`<p class="cap">Escreva o que você levantou e grave. Cada registro fica guardado com data e autor — o mapa vai sendo construído aos poucos, semana a semana.</p>
+    <div class="reg-dupla"><div class="box" style="margin:0" id="rgCorpo"></div>
+    <div><h3 style="margin-top:0">Últimos registros deste processo</h3><div id="rgHist"></div></div></div>`;
+  const corpo=$("#rgCorpo",c);
+  corpo.innerHTML=`<div class="tipos" role="radiogroup" aria-label="O que você vai registrar">${TIPOS_REG.map(([id,ico,rot,desc])=>
+      `<button type="button" role="radio" aria-checked="${id===reg.tipo}" class="tipo${id===reg.tipo?" ativo":""}" data-t="${id}" ${emEdicao?"disabled":""}><span>${ico}</span><b>${esc(rot)}</b><small>${esc(desc)}</small></button>`).join("")}</div>
+    ${emEdicao?`<div class="editando-faixa">✏️ Editando um registro de ${esc(emEdicao.autor||"—")}${emEdicao.criado_em?` (${esc(dataBR(emEdicao.criado_em))})`:""}. Grave para salvar a alteração.</div>`:""}
+    <div class="campos">${campos.map(([k,rot,t,o])=>{ const v=valores[k]??"", cls=o.full?"f full":"f";
+      if(t==="grande"||t==="textarea") return `<label class="${cls}">${esc(rot)}<textarea data-k="${k}" class="${t==="grande"?"grande":""}" rows="${t==="grande"?5:2}" placeholder="${esc(o.ph||"")}">${esc(v)}</textarea></label>`;
+      if(t==="select"){ let ops=(o.opcoes||[]).map(x=>Array.isArray(x)?x:[x,x]); if(!o.semVazio) ops=[["",o.vazio||""],...ops]; if(v&&!ops.some(x=>x[0]===v)) ops.push([v,v]);
+        return `<label class="${cls}">${esc(rot)}<select data-k="${k}">${ops.map(([a,b])=>`<option value="${esc(a)}"${a===v?" selected":""}>${esc(b)}</option>`).join("")}</select></label>`; }
+      return `<label class="${cls}">${esc(rot)}<input data-k="${k}" type="${t}" value="${esc(v)}" ${o.lista?`list="${o.lista}"`:""} ${t==="number"?'min="0" step="any"':""}></label>`; }).join("")}</div>
+    <p class="rascunho" id="rgRasc">${rasc?"📝 Rascunho recuperado — ainda não gravado.":""}</p>
+    <div class="acoes"><button type="button" class="primary" id="rgGravar">${emEdicao?"Salvar alteração":"Gravar registro"}</button>
+      ${emEdicao?'<button type="button" id="rgCancelar">Cancelar edição</button>':'<button type="button" id="rgLimpar">Limpar</button>'}
+      <span class="msg" id="rgMsg" role="status"></span></div>
+    <p class="cap" style="margin:0">Atalho: <code>Ctrl</code> + <code>Enter</code> grava.</p>`;
+  corpo.querySelectorAll(".tipo").forEach(b=>b.onclick=()=>{ reg.tipo=b.dataset.t; guardarReg(); render(); });
+  const ler=()=>{ const o={}; corpo.querySelectorAll("[data-k]").forEach(i=>o[i.dataset.k]=i.value); return o; };
+  const ajustar=()=>{ const it=corpo.querySelector('[data-k="it_ref"]'), ad=corpo.querySelector('[data-k="aderencia"]'), df=corpo.querySelector('[data-k="diferenca"]');
+    if(!it||!ad) return; const lig=!!it.value; ad.disabled=!lig; if(!lig) ad.value=""; if(df) df.closest("label").style.display = ad.value==="Divergente"?"":"none"; };
+  ajustar();
+  corpo.querySelectorAll("[data-k]").forEach(i=>{
+    const ev=i.tagName==="SELECT"||i.type==="date"?"change":"input";
+    i.addEventListener(ev,()=>{ if(i.dataset.k==="it_ref"||i.dataset.k==="aderencia") ajustar();
+      if(!emEdicao){ gravarRasc(ler()); $("#rgRasc").textContent="📝 Rascunho guardado neste navegador — ainda não gravado."; } });
+  });
+  const gravar=async()=>{
+    const v=ler(), m=$("#rgMsg"), obrig=reg.tipo==="nota"?"texto":"descricao";
+    if(!tx(v[obrig])){ m.className="msg erro"; m.textContent="Escreva a descrição antes de gravar."; corpo.querySelector(`[data-k="${obrig}"]`).focus(); return; }
+    if(reg.tipo==="real" && !v.it_ref) v.aderencia="";
+    if(reg.tipo==="real" && v.aderencia!=="Divergente") v.diferenca="";
+    $("#rgGravar").disabled=true;
+    let alvo;
+    if(emEdicao) alvo=Object.assign(emEdicao,v,{alterado_por:USUARIO_NOME,alterado_em:new Date().toISOString()});
+    else{ alvo={id:uid(),...v,autor:USUARIO_NOME,criado_em:new Date().toISOString()};
+      if(reg.tipo==="op") Object.assign(alvo,{tipo:v.tipo||"Dor",status:v.status||"Identificada"});
+      lista.push(alvo); }
+    if(reg.tipo==="real" && !d.etapas.registrar.feito){ d.etapas.registrar.feito=true; d.etapas.registrar.data=hojeISO(); }
+    clearTimeout(pend[p.id]); await enfileirar(p);
+    if(p._conflito){ render(); return; }
+    limparRasc(); reg.editando=null; reg.ultimo=alvo.id;
+    const tot=registrosDo(p).length; render();
+    const m2=$("#rgMsg"); if(m2){ m2.className="msg ok"; m2.textContent=`✓ Gravado às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})} — ${tot} registro(s) neste processo.`; }
+    const f=document.querySelector("#rgCorpo textarea.grande"); f&&f.focus();
+  };
+  $("#rgGravar",c).onclick=gravar;
+  corpo.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); gravar(); } });
+  const lim=$("#rgLimpar",c); if(lim) lim.onclick=()=>{ limparRasc(); render(); };
+  const can=$("#rgCancelar",c); if(can) can.onclick=()=>{ reg.editando=null; render(); };
+  if(!emEdicao && !rasc) setTimeout(()=>{ const f=corpo.querySelector("textarea.grande"); f&&f.focus(); },30);
+  desenharHistorico($("#rgHist",c),p,6);
+}
+
+// ─── histórico (cartões de registro) ───
+function desenharHistorico(box, p, limite){
+  const ROT=Object.fromEntries(TIPOS_REG.map(([id,ico,rot])=>[id,{ico,rot}]));
+  const itens=registrosDo(p), cont={}; itens.forEach(r=>cont[r.tipo]=(cont[r.tipo]||0)+1);
+  let lst = limite ? itens : (reg.filtro ? itens.filter(r=>r.tipo===reg.filtro) : itens);
+  const total=lst.length; if(limite) lst=lst.slice(0,limite);
+  box.innerHTML = (!limite?`<div class="hist-filtro">${[["","Todos",itens.length],...TIPOS_REG.map(([id,ico,rot])=>[id,`${ico} ${rot}`,cont[id]||0])].map(([id,rot,n])=>
+      `<button type="button" data-f="${id}" class="${reg.filtro===id?"ativo":""}">${esc(rot)} · ${n}</button>`).join("")}</div>`:"")
+    + (lst.length ? lst.map(r=>{
+      const x=r.x, R=r.tipo==="real"?classePassoReal(p.dados,x):"";
+      const det = r.tipo==="real" ? [x.quem,x.sistema,x.tempo_min&&`${x.tempo_min} min`,x.vezes_mes&&`${x.vezes_mes}×/mês`,x.fonte].filter(Boolean).join(" · ")
+                : r.tipo==="nota" ? [x.com_quem,x.fonte].filter(Boolean).join(" · ")
+                : r.tipo==="op" ? [x.tipo,score(x)?`prioridade ${score(x)}`:"",x.status].filter(Boolean).join(" · ")
+                : [x.quem,x.sistema].filter(Boolean).join(" · ");
+      const cat = R ? `<span class="pill ${R.startsWith("Feito conforme")?"p-ok":R.startsWith("Feito diferente")?"p-warn":R.startsWith("Feito sem")?"p-azul":"p-cinza"}">${esc(R)}</span>` : "";
+      return `<div class="registro${x.id===reg.ultimo?" recente":""}"><div class="topo-r"><span class="pill p-cinza">${ROT[r.tipo].ico} ${esc(ROT[r.tipo].rot)}${r.n?` nº ${r.n}`:""}</span>${cat}
+          <span>${esc(x.data_obs?dataBR(x.data_obs):dataBR(x.criado_em))} · ${esc(x.autor||"—")}</span>
+          <span class="acs"><button class="ib" type="button" data-ed="${x.id}" data-tp="${r.tipo}" title="Editar">✏️</button><button class="ib del" type="button" data-dl="${x.id}" data-tp="${r.tipo}" title="Excluir">🗑</button></span></div>
+        <p>${esc(r.texto)}</p>${det?`<div class="det">${esc(det)}</div>`:""}${x.diferenca?`<div class="det" style="color:var(--amber)">difere da IT: ${esc(x.diferenca)}</div>`:""}</div>`; }).join("")
+      : `<div class="vazio-h">Nenhum registro ainda neste processo.${limite?" O primeiro começa no formulário ao lado.":""}</div>`)
+    + (limite && total>limite ? `<button type="button" id="hsTudo">Ver histórico completo (${total})</button>` : "");
+  box.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{ reg.filtro=b.dataset.f; guardarReg(); desenharHistorico(box,p,limite); });
+  const tudo=$("#hsTudo",box); if(tudo) tudo.onclick=()=>ir("processo",p.id,"historico");
+  box.querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>{ reg.tipo=b.dataset.tp; reg.editando=b.dataset.ed; ir("processo",p.id,"registrar"); });
+  box.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>{
+    const l=p.dados[LISTA_DO_TIPO[b.dataset.tp]], i=l.findIndex(x=>x.id===b.dataset.dl); if(i<0) return;
+    const aviso = b.dataset.tp==="it" && p.dados.passos_real.some(r=>r.it_ref===b.dataset.dl) ? "\n\nHá passos reais ligados a este passo da IT — eles passarão a contar como 'Feito sem IT'." : "";
+    if(!confirm("Excluir este registro?"+aviso)) return;
+    l.splice(i,1); if(reg.editando===b.dataset.dl) reg.editando=null; salvar(p); render(); });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VISÃO GERAL (todos os processos) — mesmo menu vertical
+// ═══════════════════════════════════════════════════════════════════
+function renderGeralShell(c){
+  botaoBar("Exportar tudo (Excel)",async()=>{ await salvarTudo(); await excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS)); },"",ICO.exportar);
+  c.innerHTML=`<div class="shell-item">${menuVertical(SECOES_GERAL,secGeral,null)}<div class="conteudo-item">
+    <section><header><h2>${esc(TITULOS_GERAL[secGeral][0])}</h2><p>Todos os processos mapeados.</p></header><div id="secBody"></div></section></div></div>`;
+  c.querySelectorAll(".side-btn").forEach(b=>b.onclick=()=>{ secGeral=b.dataset.sec; guardarNav(); render(); });
+  ({painel:renderPainel,confronto:renderConfronto,oportunidades:renderOportunidades,exportar:renderExportar})[secGeral]($("#secBody",c));
+}
+$("#btnVoltar").onclick=()=>ir("lista");
+
+// ═══════════════════════════════════════════════════════════════════
+// Início
+// ═══════════════════════════════════════════════════════════════════
 async function iniciar(){
-  montarMenu();
+  try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO_NOME=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
   try{
     const {r,j}=await api(API);
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
@@ -835,7 +1272,7 @@ async function iniciar(){
   }catch(e){
     if(e.message==="sessão expirada") return;
     setStatus("erro",e.message);
-    $("#conteudo").innerHTML=`<div class="conflito"><b>Não consegui carregar os processos.</b><br>${esc(e.message)}<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
+    $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar os processos.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
   }
 }
 iniciar();
