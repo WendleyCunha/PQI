@@ -69,6 +69,14 @@ MODULOS = [
         "paginas": ["/mapa"],
         "apis": ["/api/mapa"],
     },
+    {
+        "id": "organograma",
+        "nome": "Organogramas",
+        "descricao": "Estrutura de cada setor: quem é quem, a quem responde, nível, escala e horário.",
+        "url": "/organograma", "icone": "🏛️", "tipo": "nuvem",
+        "paginas": ["/organograma"],
+        "apis": ["/api/organograma"],
+    },
 ]
 
 # Só aparece pra quem é admin (não precisa liberar — vem junto com o papel).
