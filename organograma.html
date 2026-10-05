@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organogramas — estrutura por setor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style id="css">
+/* ═══ Mesmo padrão visual do RG do Pedido e do Mapa Digital ═══ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
+  --linha:#B8C0CE;
+  /* cores dos níveis */
+  --nA:#2E4A7A; --nA-s:#E3EAF5; --nB:#2F7D4F; --nB-s:#E1F2E7; --nC:#C98A0B; --nC-s:#FBF1D9; --nD:#6B46A8; --nD-s:#EEE7F8;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A; --linha:#46516A;
+    --nA:#8FB0E6; --nA-s:#22304A; --nB:#6BC28E; --nB-s:#1D3527; --nC:#E8B04A; --nC-s:#3A2F17; --nD:#B79AE6; --nD-s:#2E2442;
+  }
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:20px 0 8px;font-weight:600}
+.wrap{padding:24px 28px 64px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who{color:var(--ink-3);font-size:13px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.who.erro{color:var(--bad)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);flex:none}
+.dot.ok{background:var(--ok)} .dot.salvando{background:var(--amber)} .dot.erro{background:var(--bad)}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--ink-3)}
+button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn{color:var(--bad)} button.peq{padding:6px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+button svg{width:15px;height:15px;vertical-align:-3px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.pcard:focus-visible,.item-card:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[hidden]{display:none}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{min-height:58px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:85ch}
+.muted{color:var(--ink-3)}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.msg{font-size:13px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+.banner{margin:0 0 16px;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px}
+.banner:empty{display:none}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);font-size:14px}
+.conflito{margin:0 0 16px;padding:12px 14px;border-radius:6px;background:var(--bad-soft);border:1px solid var(--bad);font-size:14px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+section{margin-top:28px} section:first-child{margin-top:0}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+table{width:100%;border-collapse:collapse;background:var(--sheet);font-size:14px}
+th{text-align:left;font:600 13px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:9px 10px;border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:1;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+.tbl-wrap{max-height:62vh;overflow:auto;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+table.tbl{min-width:1100px} table.tbl td{padding:3px 4px}
+table.tbl input,table.tbl select,table.tbl textarea{background:transparent;border:1px solid transparent;padding:6px 7px;min-width:80px}
+table.tbl input:hover,table.tbl select:hover{border-color:var(--rule)}
+table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--amber);background:color-mix(in srgb,var(--amber-soft) 35%,var(--sheet));outline:none}
+.ib{background:none;border:0;padding:5px 7px;font-size:13px;opacity:.6;border-radius:5px}
+.ib:hover{opacity:1;background:var(--rule-2)}
+
+/* tela inicial (lista de setores) */
+.lista-topo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.lista-topo h1{margin:0;font-size:28px}
+.lista-topo p{margin:4px 0 0;color:var(--ink-3);font-size:13px;flex-basis:100%}
+.lista-acoes{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.counts{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px 30px;align-items:center;margin-bottom:18px}
+.count{display:flex;align-items:baseline;gap:8px}
+.count b{font:700 28px/1 "IBM Plex Sans Condensed",sans-serif}
+.count span{color:var(--ink-2);font-size:13px}
+.lista-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.item-card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 14px 22px;cursor:pointer;transition:border-color .15s,transform .15s;text-align:left;width:100%;font:inherit;color:inherit;position:relative;overflow:hidden}
+.item-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--cor,var(--steel))}
+.item-card:hover{border-color:var(--steel);transform:translateY(-2px)}
+.ic-nome{font:700 19px/1.15 "IBM Plex Sans Condensed",sans-serif}
+.ic-desc{font-size:13px;color:var(--ink-3);margin-top:3px;min-height:18px}
+.ic-num{display:flex;align-items:baseline;gap:8px;margin-top:12px}
+.ic-num b{font:700 30px/1 "IBM Plex Sans Condensed",sans-serif}
+.ic-num span{color:var(--ink-3);font-size:12.5px}
+.niv-barra{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--rule-2);margin-top:10px}
+.niv-barra i{display:block;height:100%}
+.ic-lider{font-size:12.5px;color:var(--ink-2);margin-top:10px;min-height:18px}
+.ic-rod{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);margin-top:10px;gap:8px}
+.vazio-lista{grid-column:1/-1;text-align:center;color:var(--ink-3);padding:50px 0}
+.resultados{margin:0 0 18px}
+.resultado{display:flex;gap:10px;align-items:center;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;margin-bottom:6px;cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit}
+.resultado:hover{border-color:var(--steel)}
+
+/* setor aberto: menu vertical + conteúdo */
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 8px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px)}
+.side-btn{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:8px;border:1px solid transparent;background:none;color:var(--ink-3);font-size:10.5px;line-height:1.2;text-align:center}
+.side-btn svg{width:20px;height:20px}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-sep{width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+.setores-pills{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.setores-pills button{border-radius:999px;padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.setores-pills button i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.setores-pills button.ativo{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--cor,var(--steel));border-radius:10px;padding:20px 24px;display:grid;grid-template-columns:1fr auto;gap:14px 28px}
+.doc-head h1{margin:0;font-size:30px;line-height:1.1}
+.doc-head .obj{margin:6px 0 0;color:var(--ink-2)}
+.stamp{border:2px solid var(--cor,var(--steel));border-radius:8px;padding:10px 14px;min-width:210px;align-self:start}
+.stamp dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:600}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:14px 0 0}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.legenda i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* barra de ferramentas do organograma */
+.ferr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:16px 0 12px}
+.ferr select,.ferr input{width:auto}
+.ferr .grupo{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.ferr .grupo button{border:0;border-radius:0;padding:7px 11px}
+.ferr .grupo button+button{border-left:1px solid var(--rule)}
+.ferr .grupo span{padding:7px 10px;font-size:13px;color:var(--ink-2);border-left:1px solid var(--rule);border-right:1px solid var(--rule);min-width:56px;text-align:center}
+.dica{font-size:12.5px;color:var(--ink-3)}
+
+/* ── a árvore ── */
+.org-area{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:auto;padding:26px 20px 30px;min-height:360px;
+  background-image:radial-gradient(var(--rule-2) 1px,transparent 1px);background-size:18px 18px}
+.org-tree{display:inline-block;min-width:100%}
+.org-tree ul{position:relative;display:flex;justify-content:center;padding:22px 0 0;margin:0}
+.org-tree > ul{padding-top:0}
+.org-tree li{list-style:none;position:relative;padding:22px 7px 0;display:flex;flex-direction:column;align-items:center}
+.org-tree li::before,.org-tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:2px solid var(--linha)}
+.org-tree li::after{right:auto;left:50%;border-left:2px solid var(--linha)}
+.org-tree li:only-child::before,.org-tree li:only-child::after{display:none}
+.org-tree li:only-child{padding-top:0}
+.org-tree li:first-child::before,.org-tree li:last-child::after{border:0 none}
+.org-tree li:last-child::before{border-right:2px solid var(--linha);border-radius:0 8px 0 0}
+.org-tree li:first-child::after{border-radius:8px 0 0 0}
+.org-tree ul ul::before{content:"";position:absolute;top:0;left:50%;border-left:2px solid var(--linha);height:22px}
+.org-tree > ul > li{padding-top:0}
+.org-tree > ul > li::before,.org-tree > ul > li::after{display:none}
+.org-tree > ul > li + li{margin-left:26px}
+
+/* cartão de pessoa */
+.pcard{--n:var(--nD);--ns:var(--nD-s);width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
+  padding:11px 12px 10px;display:flex;gap:10px;align-items:flex-start;text-align:left;position:relative;cursor:pointer;box-shadow:0 1px 2px rgba(20,30,50,.06);transition:box-shadow .15s,transform .15s}
+.pcard:hover{box-shadow:0 6px 16px rgba(20,30,50,.12);transform:translateY(-1px)}
+.pcard.nv-A{--n:var(--nA);--ns:var(--nA-s)} .pcard.nv-B{--n:var(--nB);--ns:var(--nB-s)} .pcard.nv-C{--n:var(--nC);--ns:var(--nC-s)}
+.pcard.vaga{border-style:dashed;border-top-style:solid;background:repeating-linear-gradient(135deg,var(--sheet),var(--sheet) 8px,var(--rule-2) 8px,var(--rule-2) 9px)}
+.pcard.achado{box-shadow:0 0 0 3px var(--amber)}
+.pcard.alvo{box-shadow:0 0 0 3px var(--steel);transform:scale(1.03)}
+.pcard.arrastando{opacity:.45}
+.av{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--ns);color:var(--n);font:700 15px "IBM Plex Sans Condensed",sans-serif;overflow:hidden;border:2px solid var(--sheet);box-shadow:0 0 0 2px var(--ns)}
+.av img{width:100%;height:100%;object-fit:cover}
+.pi{min-width:0;flex:1}
+.pn{font:600 15px/1.2 "IBM Plex Sans Condensed",sans-serif;overflow-wrap:anywhere}
+.pc{font-size:12.5px;color:var(--ink-2);line-height:1.3;margin-top:2px;overflow-wrap:anywhere}
+.pt{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--rule-2);color:var(--ink-2);white-space:nowrap}
+.chip.n{background:var(--ns);color:var(--n);font-weight:600}
+.pa{position:absolute;top:5px;right:5px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.pcard:hover .pa,.pcard:focus-within .pa{opacity:1}
+.pa button{width:24px;height:24px;padding:0;border-radius:50%;font-size:12px;display:grid;place-items:center;background:var(--sheet)}
+.tg{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);padding:1px 9px;font-size:11.5px;border-radius:999px;background:var(--sheet);color:var(--ink-2);z-index:2}
+.org-tree li > .pcard + ul{margin-top:6px}
+/* equipe empilhada (muitos subordinados sem subordinados) */
+.equipe{background:color-mix(in srgb,var(--rule-2) 60%,var(--sheet));border:1px solid var(--rule);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.equipe .eq-t{font:600 12px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;padding:0 2px}
+.equipe .pcard{width:226px}
+.equipe.duas{display:grid;grid-template-columns:repeat(2,226px)}
+.equipe.duas .eq-t{grid-column:1/-1}
+.topo-drop{border:2px dashed var(--rule);border-radius:10px;padding:10px;text-align:center;color:var(--ink-3);font-size:13px;margin:0 0 14px;display:none}
+.org-area.arrastando-ativo .topo-drop{display:block}
+.topo-drop.alvo{border-color:var(--steel);color:var(--steel);background:var(--steel-soft)}
+
+/* por nível */
+.sub-bloco{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.sub-titulo{font:700 17px "IBM Plex Sans Condensed",sans-serif;display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sub-titulo span{font:500 12.5px "IBM Plex Sans",sans-serif;color:var(--ink-3)}
+.linha-nivel{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:12px 0;border-top:1px dashed var(--rule)}
+.linha-nivel .rot{font:600 13px "IBM Plex Sans Condensed",sans-serif;color:var(--n);display:flex;flex-direction:column;gap:2px}
+.linha-nivel .rot small{font:400 12px "IBM Plex Sans",sans-serif;color:var(--ink-3)}
+.linha-nivel .cards{display:flex;flex-wrap:wrap;gap:12px}
+
+/* gaveta de edição */
+.dw-fundo{position:fixed;inset:0;background:rgba(10,15,25,.4);z-index:40;display:none}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--sheet);border-left:1px solid var(--rule);z-index:41;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer.aberto{transform:none} .dw-fundo.aberto{display:block}
+.dw-cab{padding:18px 22px 12px;border-bottom:1px solid var(--rule)}
+.dw-cab h3{margin:0;font-size:21px}
+.dw-corpo{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px}
+.dw-rod{padding:12px 22px;border-top:1px solid var(--rule);display:flex;gap:10px;flex-wrap:wrap}
+.dw-rod .warn{margin-left:auto}
+.niveis-sel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.niveis-sel button{padding:8px 4px;font-size:12px;line-height:1.25;border-radius:6px;border-top:4px solid var(--n)}
+.niveis-sel button b{display:block;font:700 15px "IBM Plex Sans Condensed",sans-serif;color:var(--n)}
+.niveis-sel button.ativo{background:var(--ns);border-color:var(--n)}
+.foto-linha{display:flex;gap:12px;align-items:center}
+.foto-linha .av{width:56px;height:56px;font-size:18px}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--steel)}
+.cores{display:flex;gap:8px;flex-wrap:wrap}
+.cores button{width:30px;height:30px;border-radius:50%;padding:0;background:var(--c);border:3px solid var(--sheet);box-shadow:0 0 0 1px var(--rule)}
+.cores button.ativo{box-shadow:0 0 0 3px var(--ink)}
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 12px;font-size:20px}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+
+@media (max-width:860px){
+  .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .doc-head{grid-template-columns:1fr} .linha-nivel{grid-template-columns:1fr}
+  .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <button id="btnVoltar" type="button" hidden>← Setores</button>
+  <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <span id="barAcoes" style="display:contents"></span>
+</div></div>
+<div class="wrap">
+  <p class="banner" id="banner"></p>
+  <div id="root"><p class="cap">Carregando organogramas…</p></div>
+  <footer class="doc-foot">Organogramas · estrutura real de cada setor — quem é quem, a quem responde, nível, escala e horário.</footer>
+</div>
+
+<!-- gaveta de edição de pessoa -->
+<div class="dw-fundo" id="dwFundo"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dwTit">
+  <div class="dw-cab"><h3 id="dwTit">Pessoa</h3><div class="muted" style="font-size:13px" id="dwSub"></div></div>
+  <div class="dw-corpo" id="dwCorpo"></div>
+  <div class="dw-rod"><button type="button" class="primary" id="dwSalvar">Salvar</button><button type="button" id="dwCancelar">Cancelar</button><button type="button" class="warn" id="dwExcluir">Excluir</button></div>
+</aside>
+
+<dialog id="dlgSetor">
+  <h3>Novo setor</h3>
+  <label class="f">Nome do setor *<input id="nsNome" placeholder="Ex.: Operações, Comercial, RH"></label>
+  <label class="f" style="margin-top:10px">Descrição<input id="nsDesc" placeholder="Ex.: Backoffice, atendimento e expedição"></label>
+  <div style="margin-top:12px;font-size:13px;color:var(--ink-2)">Cor</div><div class="cores" id="nsCores" style="margin-top:6px"></div>
+  <p class="msg erro" id="nsMsg" style="margin:10px 0 0"></p>
+  <div class="acts"><button type="button" id="nsNao">Voltar</button><button type="button" class="primary" id="nsSim">Criar setor</button></div>
+</dialog>
+<datalist id="dl-sub"></datalist>
+<datalist id="dl-escala"><option value="5x2"><option value="6x1"><option value="12x36"><option value="4x3"><option value="Escala de revezamento"></datalist>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// ORGANOGRAMAS — um documento por SETOR no Firestore.
+// O servidor não conhece os campos: campo novo = só mexer AQUI.
+// Pessoa: {id, nome, cargo, nivel A-D, subsetor, gestor_id, escala,
+//          horario, email, ramal, foto, vaga, obs}
+// "gestor_id" = a quem a pessoa responde (dentro do mesmo setor).
+// ═══════════════════════════════════════════════════════════════════
+const API="/api/organograma/setores";
+const NIVEIS=[["A","Diretoria / Presidência"],["B","Gerência / Coordenação"],["C","Supervisão / Liderança"],["D","Operacional / Analistas"]];
+const CORES=["#2E4A7A","#2F7D4F","#C98A0B","#6B46A8","#B83232","#2B63B0","#0F766E","#9D174D","#4A5568"];
+const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
+const ICO={
+  arvore:SV+'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>',
+  nivel:SV+'<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg>',
+  lista:SV+'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  importar:SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
+  config:SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
+  mais:SV+'<path d="M12 5v14M5 12h14"/></svg>',
+  imprimir:SV+'<path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>',
+  exportar:SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  pessoa:SV+'<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+};
+
+// ─── utilidades ───
+const $=(s,r=document)=>r.querySelector(s);
+function el(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function tx(v){ return String(v==null?"":v).trim(); }
+const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function dataBR(v){ if(!v) return "—"; const d=new Date(v); if(isNaN(d)) return v; return d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+function iniciais(n){ const p=tx(n).split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:"")).toUpperCase():"?"; }
+function nomeNivel(n){ return (NIVEIS.find(x=>x[0]===n)||NIVEIS[3])[1]; }
+const ordemNivel=n=>"ABCD".indexOf(n||"D");
+function ordenarPessoas(a){ return a.slice().sort((x,y)=>ordemNivel(x.nivel)-ordemNivel(y.nivel)||nrm(x.nome).localeCompare(nrm(y.nome))); }
+
+// ═══════════════════════════════════════════════════════════════════
+// Dados e gravação (um setor por documento, com controle de versão)
+// ═══════════════════════════════════════════════════════════════════
+let SETORES=[], USUARIO_NOME="";
+const pend={};
+let statusAtual={tipo:"ok",det:""};
+function setStatus(t,d){ statusAtual={tipo:t,det:d||""}; atualizarWho(); }
+function atualizarWho(){
+  const dot=$("#dot"), w=$("#who"), t=$("#whoTxt");
+  dot.className="dot "+statusAtual.tipo; w.classList.toggle("erro",statusAtual.tipo==="erro");
+  let s=statusAtual.tipo==="salvando"?"Salvando…":statusAtual.tipo==="erro"?"Erro ao salvar: "+statusAtual.det:"Tudo salvo";
+  if(statusAtual.tipo==="ok"){ const st=vista==="setor"?setorPorId(atual):null;
+    s+= st ? (st.atualizado_em?` · última alteração ${dataBR(st.atualizado_em)} por ${st.atualizado_por||"—"}`:"") : ` · ${SETORES.length} setor(es) · ${SETORES.reduce((a,x)=>a+x.dados.pessoas.length,0)} pessoa(s)`; }
+  t.textContent=s;
+}
+async function api(url,op={}){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){ $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  return {r,j};
+}
+function setorPorId(id){ return SETORES.find(s=>s.id===id); }
+function salvar(s){ setStatus("salvando"); clearTimeout(pend[s.id]); pend[s.id]=setTimeout(()=>enfileirar(s),700); }
+function enfileirar(s,forcar){ delete pend[s.id]; s._fila=(s._fila||Promise.resolve()).then(()=>enviar(s,forcar)); return s._fila; }
+async function salvarAgora(s){ clearTimeout(pend[s.id]); return enfileirar(s); }
+async function enviar(s,forcar){
+  if(s._conflito&&!forcar) return;
+  try{
+    const {r,j}=await api(`${API}/${s.id}`,{method:"PUT",body:JSON.stringify({dados:s.dados,versao:forcar?null:s.versao})});
+    if(r.status===409){ s._conflito=j.atual; setStatus("erro","conflito de versão"); render(); return; }
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    Object.assign(s,{versao:j.versao,atualizado_por:j.atualizado_por,atualizado_em:j.atualizado_em,_conflito:null});
+    if(!Object.keys(pend).length) setStatus("ok");
+  }catch(e){ if(e.message!=="sessão expirada") setStatus("erro",e.message); }
+}
+async function salvarTudo(keep){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); const s=setorPorId(id); return s?enfileirar(s):null; })); }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") salvarTudo(); });
+window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvarTudo(); e.preventDefault(); e.returnValue=""; } });
+
+function normalizar(d){
+  d=d||{};
+  const base={_tipo:"setor",nome:"",descricao:"",cor:CORES[0],responsavel:"",subsetores:[],pessoas:[]};
+  for(const k in base) if(d[k]==null) d[k]=base[k];
+  if(!Array.isArray(d.pessoas)) d.pessoas=[];
+  if(!Array.isArray(d.subsetores)) d.subsetores=[];
+  d.pessoas.forEach(p=>{ if(!p.id) p.id=uid(); if(!"ABCD".includes(p.nivel||"")) p.nivel="D"; });
+  return d;
+}
+function subsetoresDe(d){
+  const s=new Set(d.subsetores.map(tx).filter(Boolean)); d.pessoas.forEach(p=>{ if(tx(p.subsetor)) s.add(tx(p.subsetor)); });
+  return [...s].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+}
+
+// ─── hierarquia ───
+function mapaHierarquia(d, filtroSub){
+  const lista = filtroSub ? d.pessoas.filter(p=>tx(p.subsetor)===filtroSub) : d.pessoas;
+  const ids=new Set(lista.map(p=>p.id)), filhos={}, raizes=[];
+  lista.forEach(p=>{ const g=p.gestor_id&&p.gestor_id!==p.id&&ids.has(p.gestor_id)?p.gestor_id:null; if(g) (filhos[g]=filhos[g]||[]).push(p); else raizes.push(p); });
+  Object.keys(filhos).forEach(k=>filhos[k]=ordenarPessoas(filhos[k]));
+  return {lista,filhos,raizes:ordenarPessoas(raizes)};
+}
+function descendentes(d,id){ const out=new Set(), fila=[id]; while(fila.length){ const x=fila.shift(); d.pessoas.forEach(p=>{ if(p.gestor_id===x&&!out.has(p.id)){ out.add(p.id); fila.push(p.id); } }); } return out; }
+function gestorDe(d,p){ return d.pessoas.find(x=>x.id===p.gestor_id); }
+
+// ═══════════════════════════════════════════════════════════════════
+// Navegação
+// ═══════════════════════════════════════════════════════════════════
+let vista="geral", atual=null, visao="arvore", busca="", buscaGeral="", filtroSub="";
+const zoom={}, recolhidos=new Set();
+try{ const s=JSON.parse(sessionStorage.getItem("org_nav")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual; visao=s.visao||"arvore"; } }catch(_){}
+function guardarNav(){ try{ sessionStorage.setItem("org_nav",JSON.stringify({vista,atual,visao})); }catch(_){} }
+function ir(v,id,vis){ vista=v; if(id) atual=id; if(vis) visao=vis; if(v==="setor"){ filtroSub=""; busca=""; } guardarNav(); window.scrollTo(0,0); render(); }
+function botaoBar(rot,fn,cls,ico){ const b=el("button",cls||""); b.type="button"; b.innerHTML=(ico?ico+" ":"")+esc(rot);
+  b.onclick=async()=>{ b.disabled=true; try{ await fn(); }catch(e){ alert(e.message); } finally{ b.disabled=false; } }; $("#barAcoes").appendChild(b); }
+function render(){
+  if(vista==="setor"&&!setorPorId(atual)) vista="geral";
+  $("#barAcoes").innerHTML=""; $("#banner").textContent=""; $("#btnVoltar").hidden=vista==="geral";
+  const root=$("#root"); root.innerHTML="";
+  if(vista==="setor") renderSetor(root); else renderGeral(root);
+  atualizarWho();
+}
+$("#btnVoltar").onclick=()=>ir("geral");
+
+// ─── cartão de pessoa ───
+function cardHTML(p, opt={}){
+  const nome=tx(p.nome)||(p.vaga?"Vaga em aberto":"(sem nome)");
+  const achou=busca&&[p.nome,p.cargo,p.subsetor].some(x=>nrm(x).includes(nrm(busca)));
+  const chips=opt.compacto?"":[
+    `<span class="chip n">${esc(p.nivel)}</span>`,
+    p.subsetor&&!opt.semSub?`<span class="chip">${esc(p.subsetor)}</span>`:"",
+    p.escala?`<span class="chip" title="Escala">${esc(p.escala)}</span>`:"",
+    p.horario?`<span class="chip" title="Horário">${esc(p.horario)}</span>`:""].join("");
+  return `<div class="pcard nv-${p.nivel}${p.vaga?" vaga":""}${achou?" achado":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
+    <div class="av">${p.foto?`<img src="${esc(p.foto)}" alt="">`:p.vaga&&!tx(p.nome)?"?":esc(iniciais(p.nome))}</div>
+    <div class="pi"><div class="pn">${esc(nome)}</div><div class="pc">${esc(p.cargo||"")}</div>${chips?`<div class="pt">${chips}</div>`:""}</div>
+    ${opt.semAcoes?"":`<div class="pa"><button type="button" data-ac="sub" title="Adicionar alguém que responde a ${esc(nome)}">＋</button><button type="button" data-ac="ed" title="Editar">✏️</button></div>`}
+    ${opt.nFilhos?`<button type="button" class="tg" data-tg="${p.id}" title="${opt.recolhido?"Mostrar":"Esconder"} subordinados">${opt.recolhido?"▸":"▾"} ${opt.nFilhos}</button>`:""}
+  </div>`;
+}
+function ligarCards(c, s){
+  c.querySelectorAll(".pcard").forEach(card=>{
+    const id=card.dataset.id;
+    card.onclick=e=>{ const ac=e.target.closest("[data-ac]"), tg=e.target.closest("[data-tg]");
+      if(tg){ e.stopPropagation(); recolhidos.has(id)?recolhidos.delete(id):recolhidos.add(id); render(); return; }
+      if(ac&&ac.dataset.ac==="sub"){ e.stopPropagation(); abrirPessoa(s,null,{gestor_id:id,subsetor:(s.dados.pessoas.find(x=>x.id===id)||{}).subsetor||""}); return; }
+      abrirPessoa(s,id); };
+    card.onkeydown=e=>{ if(e.key==="Enter"&&e.target===card){ e.preventDefault(); abrirPessoa(s,id); } };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TELA INICIAL — setores
+// ═══════════════════════════════════════════════════════════════════
+function barraNiveis(d){
+  const t=d.pessoas.length||1;
+  return `<div class="niv-barra" title="${NIVEIS.map(([n,r])=>`${n} · ${r}: ${d.pessoas.filter(p=>p.nivel===n).length}`).join(" | ")}">${NIVEIS.map(([n])=>{ const q=d.pessoas.filter(p=>p.nivel===n).length; return q?`<i style="width:${q/t*100}%;background:var(--n${n})"></i>`:""; }).join("")}</div>`;
+}
+function renderGeral(c){
+  botaoBar("Excel de todos os setores",()=>exportarExcel(SETORES),"",ICO.exportar);
+  const tot=SETORES.reduce((a,s)=>a+s.dados.pessoas.length,0), vagas=SETORES.reduce((a,s)=>a+s.dados.pessoas.filter(p=>p.vaga).length,0);
+  const lideres=SETORES.reduce((a,s)=>a+s.dados.pessoas.filter(p=>"ABC".includes(p.nivel)&&!p.vaga).length,0);
+  c.innerHTML=`<div class="lista-topo"><h1>Organogramas</h1>
+      <div class="lista-acoes"><input id="bGeral" placeholder="Buscar pessoa em todos os setores..." value="${esc(buscaGeral)}" style="width:280px" aria-label="Buscar pessoa">
+      <button type="button" class="primary" id="btNovoSetor">${ICO.mais} Novo setor</button></div>
+      <p>Um organograma por setor, com a estrutura real: quem é quem, a quem responde, nível, escala e horário. Clique num setor para ver e editar.</p></div>
+    ${SETORES.length?`<div class="counts"><div class="count"><b>${SETORES.length}</b><span>setores</span></div><div class="count"><b>${tot}</b><span>posições</span></div>
+      <div class="count"><b style="color:var(--steel)">${lideres}</b><span>lideranças (níveis A a C)</span></div><div class="count"><b style="color:var(--amber)">${vagas}</b><span>vagas em aberto</span></div>
+      <div class="legenda" style="margin:0 0 0 auto">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)}</span>`).join("")}</div></div>`:""}
+    <div class="resultados" id="res"></div><div class="lista-grid" id="grid"></div>`;
+  $("#btNovoSetor",c).onclick=abrirNovoSetor;
+  const res=$("#res",c), bq=$("#bGeral",c);
+  const desenharBusca=()=>{ const t=nrm(buscaGeral); if(t.length<2){ res.innerHTML=""; return; } const out=[];
+    SETORES.forEach(s=>s.dados.pessoas.forEach(p=>{ if([p.nome,p.cargo,p.subsetor,p.email].some(x=>nrm(x).includes(t))) out.push({s,p}); }));
+    res.innerHTML=out.length?out.slice(0,30).map(({s,p})=>`<button type="button" class="resultado" data-s="${s.id}" data-p="${p.id}"><span class="av" style="width:34px;height:34px;font-size:13px;--n:var(--n${p.nivel});--ns:var(--n${p.nivel}-s);background:var(--n${p.nivel}-s);color:var(--n${p.nivel})">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</span>
+      <span><b>${esc(p.nome||"Vaga em aberto")}</b> <span class="muted">· ${esc(p.cargo||"")}</span><br><span class="muted" style="font-size:12.5px">${esc(s.dados.nome)}${p.subsetor?" · "+esc(p.subsetor):""}</span></span></button>`).join("")
+      :'<p class="muted">Ninguém encontrado com esse termo.</p>';
+    res.querySelectorAll(".resultado").forEach(b=>b.onclick=()=>{ buscaGeral=""; ir("setor",b.dataset.s,"arvore"); busca=(setorPorId(b.dataset.s).dados.pessoas.find(x=>x.id===b.dataset.p)||{}).nome||""; render(); }); };
+  bq.oninput=()=>{ buscaGeral=bq.value; desenharBusca(); }; desenharBusca();
+  const g=$("#grid",c);
+  if(!SETORES.length){ g.innerHTML='<div class="vazio-lista">Nenhum setor ainda. Clique em <b>Novo setor</b> para montar o primeiro organograma.</div>'; return; }
+  g.innerHTML=SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(s=>{ const d=s.dados, H=mapaHierarquia(d);
+    const topo=H.raizes.filter(p=>!p.vaga).slice(0,3).map(p=>tx(p.nome)).filter(Boolean);
+    return `<button type="button" class="item-card" data-id="${s.id}" style="--cor:${esc(d.cor)}"><div class="ic-nome">${esc(d.nome||"(sem nome)")}</div><div class="ic-desc">${esc(d.descricao||"")}</div>
+      <div class="ic-num"><b>${d.pessoas.length}</b><span>posições · ${subsetoresDe(d).length} subsetor(es)${d.pessoas.some(p=>p.vaga)?` · ${d.pessoas.filter(p=>p.vaga).length} vaga(s)`:""}</span></div>
+      ${barraNiveis(d)}<div class="ic-lider">${topo.length?"Liderança: "+esc(topo.join(", ")):'<span class="muted">Sem pessoas cadastradas</span>'}</div>
+      <div class="ic-rod"><span>v${s.versao}</span><span>${esc(dataBR(s.atualizado_em))}</span></div></button>`; }).join("");
+  g.querySelectorAll(".item-card").forEach(b=>b.onclick=()=>ir("setor",b.dataset.id,"arvore"));
+}
+let corNova=CORES[0];
+function abrirNovoSetor(){
+  $("#nsNome").value=""; $("#nsDesc").value=""; $("#nsMsg").textContent=""; corNova=CORES[SETORES.length%CORES.length];
+  const cs=$("#nsCores"); cs.innerHTML=CORES.map(c=>`<button type="button" style="--c:${c}" data-c="${c}" class="${c===corNova?"ativo":""}" aria-label="Cor ${c}"></button>`).join("");
+  cs.querySelectorAll("button").forEach(b=>b.onclick=()=>{ corNova=b.dataset.c; cs.querySelectorAll("button").forEach(x=>x.classList.toggle("ativo",x===b)); });
+  $("#dlgSetor").showModal(); setTimeout(()=>$("#nsNome").focus(),30);
+}
+$("#nsNao").onclick=()=>$("#dlgSetor").close();
+$("#nsSim").onclick=async()=>{
+  const nome=tx($("#nsNome").value), m=$("#nsMsg");
+  if(!nome){ m.textContent="Informe o nome do setor."; return; }
+  if(SETORES.some(s=>nrm(s.dados.nome)===nrm(nome))){ m.textContent="Já existe um setor com esse nome."; return; }
+  $("#nsSim").disabled=true;
+  try{ const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados:normalizar({nome,descricao:tx($("#nsDesc").value),cor:corNova})})});
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`); j.dados=normalizar(j.dados); SETORES.push(j); $("#dlgSetor").close(); ir("setor",j.id,"arvore");
+  }catch(e){ m.textContent=e.message; } finally{ $("#nsSim").disabled=false; }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// SETOR ABERTO
+// ═══════════════════════════════════════════════════════════════════
+const VISOES=[["arvore","arvore","Organo­grama"],["nivel","nivel","Por nível"],["lista","lista","Lista e edição"],"sep",["importar","importar","Importar"],["config","config","Setor"]];
+function renderSetor(c){
+  const s=setorPorId(atual), d=s.dados;
+  $("#dl-sub").innerHTML=subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("");
+  botaoBar("Adicionar pessoa",()=>abrirPessoa(s,null,{}),"primary",ICO.pessoa);
+  botaoBar("Imprimir ou salvar PDF",()=>imprimirSetor(s),"",ICO.imprimir);
+  botaoBar("Excel deste setor",()=>exportarExcel([s]),"",ICO.exportar);
+  const vagas=d.pessoas.filter(p=>p.vaga).length;
+  c.innerHTML=`<div class="setores-pills">${SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(x=>`<button type="button" style="--c:${esc(x.dados.cor)}" data-s="${x.id}" class="${x.id===s.id?"ativo":""}"><i></i>${esc(x.dados.nome)} <span class="muted" style="font-size:12px">${x.dados.pessoas.length}</span></button>`).join("")}
+      <button type="button" id="pNovo" title="Novo setor">${ICO.mais}</button></div>
+    <div class="shell-item"><div class="side-rg">${VISOES.map(v=>v==="sep"?'<div class="side-sep"></div>':`<button type="button" class="side-btn${v[0]===visao?" ativo":""}" data-v="${v[0]}" title="${v[2].replace(/\u00ad/g,"")}">${ICO[v[1]]}<span>${v[2]}</span></button>`).join("")}</div>
+    <div class="conteudo-item">
+      ${s._conflito?`<div class="conflito"><b>⚠️ ${esc(s._conflito.atualizado_por||"Outra pessoa")} alterou este setor enquanto você editava.</b> Suas últimas alterações ainda não foram gravadas.
+        <div class="acoes"><button type="button" id="cfDele">Ver a versão dele (descarta as minhas)</button><button type="button" class="warn" id="cfMinha">Manter a minha (grava por cima)</button></div></div>`:""}
+      <header class="doc-head" style="--cor:${esc(d.cor)}"><div><h1>${esc(d.nome)}</h1><p class="obj">${esc(d.descricao||"Estrutura do setor.")}</p>
+        <div class="legenda">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)} <b>${d.pessoas.filter(p=>p.nivel===n).length}</b></span>`).join("")}</div></div>
+        <div class="stamp"><dl><dt>Posições</dt><dd>${d.pessoas.length}</dd><dt>Vagas em aberto</dt><dd>${vagas}</dd><dt>Subsetores</dt><dd>${subsetoresDe(d).length}</dd>
+          ${d.responsavel?`<dt>Responsável</dt><dd>${esc(d.responsavel)}</dd>`:""}<dt>Atualizado</dt><dd>${esc(dataBR(s.atualizado_em))}<br><span class="muted" style="font-weight:400">${esc(s.atualizado_por||"")}</span></dd></dl></div></header>
+      <div id="vis"></div></div></div>`;
+  c.querySelectorAll(".setores-pills [data-s]").forEach(b=>b.onclick=()=>ir("setor",b.dataset.s));
+  $("#pNovo",c).onclick=abrirNovoSetor;
+  c.querySelectorAll(".side-btn").forEach(b=>b.onclick=()=>{ visao=b.dataset.v; guardarNav(); render(); });
+  if(s._conflito){
+    $("#cfDele",c).onclick=()=>{ Object.assign(s,{dados:normalizar(s._conflito.dados),versao:s._conflito.versao,atualizado_por:s._conflito.atualizado_por,atualizado_em:s._conflito.atualizado_em,_conflito:null}); setStatus("ok"); render(); };
+    $("#cfMinha",c).onclick=async()=>{ await enfileirar(s,true); render(); };
+  }
+  ({arvore:visaoArvore,nivel:visaoNivel,lista:visaoLista,importar:visaoImportar,config:visaoConfig})[visao]($("#vis",c),s);
+}
+
+// ─── Organograma (árvore) ───
+function arvoreHTML(d, filtro){
+  const H=mapaHierarquia(d,filtro), visto=new Set();
+  const li=p=>{
+    visto.add(p.id);
+    const fs=(H.filhos[p.id]||[]).filter(f=>!visto.has(f.id)), rec=recolhidos.has(p.id);
+    if(rec){ const fila=[...fs]; while(fila.length){ const x=fila.shift(); if(visto.has(x.id)) continue; visto.add(x.id); fila.push(...(H.filhos[x.id]||[])); } }  // ramo recolhido: ninguém dele é desenhado
+    let h=cardHTML(p,{nFilhos:fs.length,recolhido:rec,semSub:!!filtro});
+    if(fs.length&&!rec){
+      const folhas=fs.filter(f=>!(H.filhos[f.id]||[]).length);
+      if(folhas.length===fs.length&&fs.length>=4){ fs.forEach(f=>visto.add(f.id));
+        h+=`<ul><li><div class="equipe${fs.length>=8?" duas":""}"><div class="eq-t">Equipe · ${fs.length}</div>${fs.map(f=>cardHTML(f,{semSub:!!filtro})).join("")}</div></li></ul>`; }
+      else h+=`<ul>${fs.map(li).join("")}</ul>`;
+    }
+    return `<li>${h}</li>`;
+  };
+  let html=H.raizes.map(li).join("");
+  for(const p of H.lista){ if(!visto.has(p.id)) html+=li(p); }   // proteção contra ciclos (A→B→A)
+  return {html, n:H.lista.length};
+}
+function visaoArvore(c,s){
+  const d=s.dados, subs=subsetoresDe(d), z=zoom[s.id]||1;
+  c.innerHTML=`<div class="ferr">
+      <select id="aSub" aria-label="Subsetor"><option value="">Todos os subsetores</option>${subs.map(x=>`<option${x===filtroSub?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <input id="aBusca" placeholder="Destacar pessoa..." value="${esc(busca)}" style="width:200px" aria-label="Destacar pessoa">
+      <span class="grupo"><button type="button" id="zMenos" title="Diminuir">−</button><span id="zVal">${Math.round(z*100)}%</span><button type="button" id="zMais" title="Aumentar">+</button></span>
+      <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
+      <span class="dica">Dica: arraste um cartão sobre outro para mudar a quem ele responde.</span></div>
+    <div class="org-area" id="orgArea"><div class="topo-drop" id="topoDrop">Solte aqui para colocar no topo do setor (sem gestor)</div><div class="org-tree" id="tree"></div></div>`;
+  const T=arvoreHTML(d,filtroSub), tree=$("#tree",c);
+  tree.innerHTML = T.n ? `<ul>${T.html}</ul>` : `<div class="aviso" style="text-align:center">Nenhuma pessoa ${filtroSub?"neste subsetor":"neste setor"} ainda. <button type="button" class="primary" id="aPrim">${ICO.pessoa} Adicionar a primeira pessoa</button></div>`;
+  tree.style.zoom=z;
+  const pri=$("#aPrim",c); if(pri) pri.onclick=()=>abrirPessoa(s,null,{subsetor:filtroSub});
+  $("#aSub",c).onchange=e=>{ filtroSub=e.target.value; render(); };
+  const bq=$("#aBusca",c); bq.oninput=()=>{ busca=bq.value; tree.querySelectorAll(".pcard").forEach(card=>{ const p=d.pessoas.find(x=>x.id===card.dataset.id);
+    card.classList.toggle("achado",!!busca&&[p.nome,p.cargo,p.subsetor].some(x=>nrm(x).includes(nrm(busca)))); }); };
+  bq.onkeydown=e=>{ if(e.key==="Enter"){ const a=tree.querySelector(".achado"); if(a){ a.scrollIntoView({behavior:"smooth",block:"center",inline:"center"}); a.focus(); } } };
+  const setZ=v=>{ zoom[s.id]=Math.max(.3,Math.min(1.6,Math.round(v*100)/100)); tree.style.zoom=zoom[s.id]; $("#zVal").textContent=Math.round(zoom[s.id]*100)+"%"; };
+  $("#zMenos",c).onclick=()=>setZ((zoom[s.id]||1)-.1); $("#zMais",c).onclick=()=>setZ((zoom[s.id]||1)+.1);
+  $("#zAjustar",c).onclick=()=>{ tree.style.zoom=1; const w=$("#orgArea").clientWidth-40, sw=tree.scrollWidth; setZ(sw>w?w/sw:1); };
+  $("#aExp",c).onclick=()=>{ recolhidos.clear(); render(); };
+  $("#aRec",c).onclick=()=>{ const H=mapaHierarquia(d,filtroSub); H.raizes.forEach(r=>(H.filhos[r.id]||[]).forEach(f=>{ if((H.filhos[f.id]||[]).length) recolhidos.add(f.id); })); render(); };
+  ligarCards(tree,s); ligarArrastar(c,s);
+}
+// arrastar e soltar: muda "a quem responde"
+function ligarArrastar(c,s){
+  const area=$("#orgArea",c), topo=$("#topoDrop",c); let arrastado=null;
+  area.addEventListener("dragstart",e=>{ const card=e.target.closest(".pcard"); if(!card) return; arrastado=card.dataset.id; card.classList.add("arrastando");
+    e.dataTransfer.setData("text/plain",arrastado); e.dataTransfer.effectAllowed="move"; area.classList.add("arrastando-ativo"); });
+  area.addEventListener("dragend",()=>{ area.classList.remove("arrastando-ativo"); area.querySelectorAll(".arrastando,.alvo").forEach(x=>x.classList.remove("arrastando","alvo")); arrastado=null; });
+  area.addEventListener("dragover",e=>{ if(!arrastado) return; const alvo=e.target.closest(".pcard")||(e.target.closest("#topoDrop")?topo:null);
+    area.querySelectorAll(".alvo").forEach(x=>{ if(x!==alvo) x.classList.remove("alvo"); });
+    if(alvo&&alvo.dataset.id!==arrastado){ e.preventDefault(); alvo.classList.add("alvo"); } });
+  area.addEventListener("drop",e=>{ e.preventDefault(); if(!arrastado) return; const d=s.dados, p=d.pessoas.find(x=>x.id===arrastado);
+    const alvoCard=e.target.closest(".pcard"); const novo= alvoCard ? alvoCard.dataset.id : (e.target.closest("#topoDrop")?"":null);
+    if(novo===null||novo===arrastado||!p) return;
+    if(novo && descendentes(d,p.id).has(novo)){ $("#banner").textContent=`Não dá: ${tx(d.pessoas.find(x=>x.id===novo).nome)} responde (direta ou indiretamente) a ${tx(p.nome)}.`; return; }
+    if((p.gestor_id||"")===novo) return;
+    p.gestor_id=novo; const g=novo&&d.pessoas.find(x=>x.id===novo);
+    if(g) recolhidos.delete(g.id);
+    salvar(s); render(); $("#banner").textContent = g ? `✓ ${tx(p.nome)||"A vaga"} agora responde a ${tx(g.nome)||"vaga"}.` : `✓ ${tx(p.nome)} agora está no topo do setor.`; });
+}
+
+// ─── Por nível (blocos por subsetor, linhas A–D) ───
+function visaoNivel(c,s){
+  const d=s.dados, grupos={};
+  d.pessoas.forEach(p=>{ const k=tx(p.subsetor)||"Sem subsetor"; (grupos[k]=grupos[k]||[]).push(p); });
+  const nomes=Object.keys(grupos).sort((a,b)=>a==="Sem subsetor"?1:b==="Sem subsetor"?-1:a.localeCompare(b,"pt-BR"));
+  if(!nomes.length){ c.innerHTML='<p class="aviso">Nenhuma pessoa neste setor ainda.</p>'; return; }
+  c.innerHTML=`<p class="cap" style="margin-top:16px">Cada subsetor em um bloco, com as pessoas organizadas por nível hierárquico.</p>`+nomes.map(n=>`<div class="sub-bloco"><div class="sub-titulo">${esc(n)} <span>${grupos[n].length} posição(ões)</span></div>
+    ${NIVEIS.map(([nv,rot])=>{ const ps=ordenarPessoas(grupos[n].filter(p=>p.nivel===nv)); if(!ps.length) return "";
+      return `<div class="linha-nivel" style="--n:var(--n${nv})"><div class="rot">Nível ${nv}<small>${esc(rot)}</small></div><div class="cards">${ps.map(p=>{
+        const g=gestorDe(d,p); return cardHTML(p,{semSub:true}).replace('<div class="pt">',`<div class="pt">${g?`<span class="chip" title="Responde a">↑ ${esc(tx(g.nome)||"vaga")}</span>`:""}`); }).join("")}</div></div>`; }).join("")}</div>`).join("");
+  c.querySelectorAll(".pcard").forEach(x=>x.removeAttribute("draggable"));
+  ligarCards(c,s);
+}
+
+// ─── Lista e edição em tabela ───
+function visaoLista(c,s){
+  const d=s.dados;
+  const pessoas=ordenarPessoas(d.pessoas);
+  c.innerHTML=`<p class="cap" style="margin-top:16px">Edição rápida de todo o setor. As alterações são gravadas sozinhas. Para foto e observações, clique em ✏️.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Nível</th><th>Subsetor</th><th>Responde a</th><th>Escala</th><th>Horário</th><th>E-mail</th><th>Ramal / telefone</th><th>Vaga</th><th></th></tr></thead><tbody>${
+      pessoas.length?pessoas.map(p=>`<tr data-id="${p.id}">
+        <td><input data-k="nome" value="${esc(p.nome)}" aria-label="Nome"></td><td><input data-k="cargo" value="${esc(p.cargo)}" aria-label="Cargo"></td>
+        <td><select data-k="nivel" aria-label="Nível">${NIVEIS.map(([n,r])=>`<option value="${n}"${n===p.nivel?" selected":""}>${n} · ${esc(r)}</option>`).join("")}</select></td>
+        <td><input data-k="subsetor" list="dl-sub" value="${esc(p.subsetor)}" aria-label="Subsetor"></td>
+        <td><select data-k="gestor_id" aria-label="Responde a"><option value="">— topo do setor —</option>${ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!descendentes(d,p.id).has(x.id))).map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></td>
+        <td><input data-k="escala" list="dl-escala" value="${esc(p.escala)}" aria-label="Escala"></td><td><input data-k="horario" value="${esc(p.horario)}" aria-label="Horário"></td>
+        <td><input data-k="email" value="${esc(p.email)}" aria-label="E-mail"></td><td><input data-k="ramal" value="${esc(p.ramal)}" aria-label="Ramal"></td>
+        <td><select data-k="vaga" aria-label="Vaga"><option value="">Não</option><option value="1"${p.vaga?" selected":""}>Sim</option></select></td>
+        <td style="white-space:nowrap"><button type="button" class="ib" data-ed title="Editar tudo">✏️</button><button type="button" class="ib" data-del title="Excluir">🗑</button></td></tr>`).join("")
+      :'<tr><td colspan="11" class="muted" style="text-align:center;padding:20px">Nenhuma pessoa ainda.</td></tr>'}</tbody></table></div>
+    <div class="acoes"><button type="button" id="lAdd">${ICO.mais} Adicionar linha</button></div>`;
+  c.querySelectorAll("tr[data-id]").forEach(tr=>{ const p=d.pessoas.find(x=>x.id===tr.dataset.id);
+    tr.querySelectorAll("[data-k]").forEach(i=>{ const ev=i.tagName==="SELECT"?"change":"input";
+      i.addEventListener(ev,()=>{ const k=i.dataset.k; p[k]= k==="vaga" ? !!i.value : i.value; salvar(s); if(k==="gestor_id"||k==="nivel"||k==="subsetor") setTimeout(render,0); }); });
+    tr.querySelector("[data-ed]").onclick=()=>abrirPessoa(s,p.id);
+    tr.querySelector("[data-del]").onclick=()=>excluirPessoa(s,p.id); });
+  $("#lAdd",c).onclick=()=>{ d.pessoas.push({id:uid(),nome:"",cargo:"",nivel:"D",subsetor:filtroSub||"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",vaga:false,obs:""}); salvar(s); render();
+    setTimeout(()=>{ const r=[...document.querySelectorAll("tr[data-id] input[data-k='nome']")].find(i=>!i.value); r&&r.focus(); },20); };
+}
+
+// ─── Importar (colar do Excel) ───
+const COLS_IMP=[["nome","Nome"],["cargo","Cargo"],["nivel","Nível"],["subsetor","Subsetor"],["gestor","Responde a (nome)"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal"]];
+function lerNivel(v){ v=nrm(v); if(/^[abcd]\b/.test(v)) return v[0].toUpperCase();
+  if(/diret|presid|ceo/.test(v)) return "A"; if(/gerent|coorden|head/.test(v)) return "B"; if(/supervis|lider|encarreg/.test(v)) return "C"; return "D"; }
+function parseColagem(txt){
+  const linhas=String(txt||"").split(/\r?\n/).filter(l=>tx(l)); if(!linhas.length) return [];
+  const sep=linhas[0].includes("\t")?"\t":linhas[0].includes(";")?";":",";
+  let cab=linhas[0].split(sep).map(nrm), ini=0, ordem=COLS_IMP.map(c=>c[0]);
+  if(cab.some(h=>h.startsWith("nome"))){ ini=1;
+    ordem=cab.map(h=>{ const m=COLS_IMP.find(([k,r])=>h.startsWith(nrm(r).split(" ")[0])||h===k||(k==="gestor"&&/(gestor|responde|superior|lider imediato)/.test(h))||(k==="nivel"&&/nivel/.test(h)));
+      return m?m[0]:null; }); }
+  return linhas.slice(ini).map(l=>{ const v=l.split(sep), o={}; ordem.forEach((k,i)=>{ if(k) o[k]=tx(v[i]); }); return o; }).filter(o=>tx(o.nome)||tx(o.cargo));
+}
+function visaoImportar(c,s){
+  c.innerHTML=`<p class="cap" style="margin-top:16px">Copie as linhas de uma planilha (Excel ou Google Sheets) e cole abaixo. Com cabeçalho, as colunas são reconhecidas pelo nome; sem cabeçalho, use esta ordem:</p>
+    <p class="muted" style="font-size:13px">${COLS_IMP.map(c=>`<span class="chip" style="font-size:12px">${esc(c[1])}</span>`).join(" ")}</p>
+    <p class="cap">"Responde a" é o nome do gestor — pode ser alguém que já está no setor ou alguém da própria colagem. "Nível" aceita A, B, C, D ou palavras como Diretor, Gerente, Supervisor. Nome vazio vira <b>vaga em aberto</b>.</p>
+    <textarea id="impTxt" rows="9" placeholder="Nome&#9;Cargo&#9;Nível&#9;Subsetor&#9;Responde a&#10;Carlos Eduardo&#9;Coordenador de Atendimento&#9;B&#9;Atendimento&#9;&#10;Ana Souza&#9;Analista&#9;D&#9;Atendimento&#9;Carlos Eduardo"></textarea>
+    <div id="impPrev"></div><div class="acoes"><button type="button" class="primary" id="impOk" disabled>Importar</button><span class="msg" id="impMsg"></span></div>`;
+  const ta=$("#impTxt",c), prev=$("#impPrev",c), ok=$("#impOk",c);
+  const ver=()=>{ const L=parseColagem(ta.value); ok.disabled=!L.length; ok.textContent=L.length?`Importar ${L.length} pessoa(s)`:"Importar";
+    prev.innerHTML=L.length?`<div class="tbl-wrap" style="max-height:260px;margin-top:10px"><table><thead><tr>${COLS_IMP.map(x=>`<th>${esc(x[1])}</th>`).join("")}</tr></thead><tbody>${L.slice(0,12).map(o=>`<tr>${COLS_IMP.map(([k])=>`<td>${esc(k==="nivel"?lerNivel(o[k]):o[k]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${L.length>12?`<p class="muted" style="font-size:12.5px">… e mais ${L.length-12}.</p>`:""}`:""; };
+  ta.oninput=ver;
+  ok.onclick=()=>{ const L=parseColagem(ta.value), d=s.dados, novos=[];
+    L.forEach(o=>{ const p={id:uid(),nome:tx(o.nome),cargo:tx(o.cargo),nivel:lerNivel(o.nivel),subsetor:tx(o.subsetor),gestor_id:"",escala:tx(o.escala),horario:tx(o.horario),email:tx(o.email),ramal:tx(o.ramal),
+      vaga:!tx(o.nome)||nrm(o.nome)==="vaga",obs:"",_g:tx(o.gestor)}; if(p.vaga&&nrm(p.nome)==="vaga") p.nome=""; novos.push(p); d.pessoas.push(p); });
+    let semG=0; novos.forEach(p=>{ if(p._g){ const g=d.pessoas.find(x=>x!==p&&nrm(x.nome)===nrm(p._g)); if(g) p.gestor_id=g.id; else semG++; } delete p._g; });
+    salvar(s); visao="arvore"; guardarNav(); render();
+    $("#banner").textContent=`✓ ${novos.length} pessoa(s) importada(s).${semG?` ${semG} gestor(es) não encontrado(s) pelo nome — essas pessoas ficaram no topo; ajuste arrastando.`:""}`; };
+}
+
+// ─── Configuração do setor ───
+function visaoConfig(c,s){
+  const d=s.dados, subs=subsetoresDe(d);
+  c.innerHTML=`<section style="margin-top:20px"><header><h2>Dados do setor</h2></header>
+      <div class="grade"><label class="f">Nome do setor<input id="cNome" value="${esc(d.nome)}"></label><label class="f">Responsável pelo organograma<input id="cResp" value="${esc(d.responsavel)}"></label></div>
+      <label class="f" style="margin-top:12px">Descrição<input id="cDesc" value="${esc(d.descricao)}"></label>
+      <div style="margin-top:12px;font-size:13px;color:var(--ink-2)">Cor do setor</div><div class="cores" id="cCores" style="margin-top:6px">${CORES.map(x=>`<button type="button" style="--c:${x}" data-c="${x}" class="${x===d.cor?"ativo":""}" aria-label="Cor ${x}"></button>`).join("")}</div></section>
+    <section><header><h2>Subsetores</h2><p>Renomear aqui atualiza todas as pessoas do subsetor.</p></header>
+      <div id="cSubs">${subs.length?subs.map(x=>`<div class="acoes" style="margin:6px 0"><input data-sub="${esc(x)}" value="${esc(x)}" style="max-width:320px"><span class="muted" style="font-size:13px">${d.pessoas.filter(p=>tx(p.subsetor)===x).length} pessoa(s)</span><button type="button" class="ib" data-rm="${esc(x)}" title="Remover subsetor">🗑</button></div>`).join(""):'<p class="muted">Nenhum subsetor ainda.</p>'}</div>
+      <div class="acoes"><input id="cNovoSub" placeholder="Novo subsetor" style="max-width:320px"><button type="button" id="cAddSub">${ICO.mais} Adicionar</button></div></section>
+    <section><header><h2>Excluir setor</h2></header><p class="cap">O setor sai da lista (fica guardado no banco como excluído).</p><button type="button" class="warn" id="cDel">Excluir o setor ${esc(d.nome)}</button></section>`;
+  [["cNome","nome"],["cResp","responsavel"],["cDesc","descricao"]].forEach(([id,k])=>{ const i=$("#"+id,c); i.oninput=()=>{ d[k]=i.value; salvar(s); }; i.onchange=()=>render(); });
+  c.querySelectorAll("#cCores button").forEach(b=>b.onclick=()=>{ d.cor=b.dataset.c; salvar(s); render(); });
+  c.querySelectorAll("[data-sub]").forEach(i=>i.onchange=()=>{ const ant=i.dataset.sub, novo=tx(i.value); if(!novo||novo===ant) return;
+    d.pessoas.forEach(p=>{ if(tx(p.subsetor)===ant) p.subsetor=novo; }); d.subsetores=[...new Set(d.subsetores.map(x=>x===ant?novo:x).concat(novo))]; salvar(s); render(); });
+  c.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ const x=b.dataset.rm, n=d.pessoas.filter(p=>tx(p.subsetor)===x).length;
+    if(!confirm(n?`Remover o subsetor "${x}"? As ${n} pessoa(s) ficam sem subsetor.`:`Remover o subsetor "${x}"?`)) return;
+    d.pessoas.forEach(p=>{ if(tx(p.subsetor)===x) p.subsetor=""; }); d.subsetores=d.subsetores.filter(y=>y!==x); salvar(s); render(); });
+  $("#cAddSub",c).onclick=()=>{ const v=tx($("#cNovoSub").value); if(!v) return; if(!d.subsetores.includes(v)) d.subsetores.push(v); salvar(s); render(); };
+  $("#cDel",c).onclick=async()=>{ const r=prompt(`Para excluir, digite o nome do setor: ${d.nome}`); if(r===null) return; if(nrm(r)!==nrm(d.nome)){ alert("O nome não confere. Nada foi excluído."); return; }
+    try{ const {r:res,j}=await api(`${API}/${s.id}`,{method:"DELETE"}); if(!res.ok) throw new Error(j.detail||res.status); SETORES=SETORES.filter(x=>x!==s); ir("geral"); }catch(e){ alert("Não consegui excluir: "+e.message); } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAVETA — adicionar / editar pessoa
+// ═══════════════════════════════════════════════════════════════════
+let dw=null;  // {s, id, p (rascunho)}
+function abrirPessoa(s, id, pre){
+  const d=s.dados, orig=id?d.pessoas.find(x=>x.id===id):null;
+  const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),nome:"",cargo:"",nivel:"D",subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
+  if(!orig&&p.gestor_id){ const g=d.pessoas.find(x=>x.id===p.gestor_id); if(g) p.nivel="ABCD"[Math.min(3,ordemNivel(g.nivel)+1)]; }
+  dw={s,id,p,setorId:s.id};
+  $("#dwTit").textContent=orig?"Editar pessoa":"Adicionar pessoa";
+  $("#dwExcluir").hidden=!orig;
+  desenharGaveta();
+  $("#drawer").classList.add("aberto"); $("#dwFundo").classList.add("aberto");
+  setTimeout(()=>{ const n=$("#dwNome"); n&&n.focus(); },60);
+}
+function desenharGaveta(){
+  const {p}=dw, alvo=setorPorId(dw.setorId), d=alvo.dados;
+  const proibidos = dw.id && dw.setorId===dw.s.id ? descendentes(d,p.id) : new Set();
+  const gestores=ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!proibidos.has(x.id)));
+  $("#dwSub").textContent=`${alvo.dados.nome}${p.subsetor?" · "+p.subsetor:""}`;
+  $("#dwCorpo").innerHTML=`
+    <div class="foto-linha"><div class="av" style="--n:var(--n${p.nivel});--ns:var(--n${p.nivel}-s);background:var(--n${p.nivel}-s);color:var(--n${p.nivel})">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</div>
+      <div><label class="btn peq" style="display:inline-block;cursor:pointer">Escolher foto<input type="file" id="dwFoto" accept="image/*" hidden></label> ${p.foto?'<button type="button" class="peq" id="dwSemFoto">Remover foto</button>':""}
+      <div class="muted" style="font-size:12px;margin-top:4px">Opcional. A foto é reduzida automaticamente.</div></div></div>
+    <label class="f">Nome<input id="dwNome" value="${esc(p.nome)}" placeholder="${p.vaga?"Deixe em branco para vaga em aberto":"Ex.: Carlos Eduardo"}"></label>
+    <label class="check"><input type="checkbox" id="dwVaga" ${p.vaga?"checked":""}> Posição / vaga em aberto</label>
+    <label class="f">Cargo<input id="dwCargo" value="${esc(p.cargo)}" placeholder="Ex.: Coordenador de Atendimento"></label>
+    <div><div style="font-size:13px;color:var(--ink-2);margin-bottom:4px">Nível hierárquico</div>
+      <div class="niveis-sel">${NIVEIS.map(([n,r])=>`<button type="button" data-n="${n}" style="--n:var(--n${n});--ns:var(--n${n}-s)" class="${n===p.nivel?"ativo":""}"><b>${n}</b>${esc(r)}</button>`).join("")}</div></div>
+    <div class="grade"><label class="f">Setor<select id="dwSetor">${SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(x=>`<option value="${x.id}"${x.id===dw.setorId?" selected":""}>${esc(x.dados.nome)}</option>`).join("")}</select></label>
+      <label class="f">Subsetor<input id="dwSub2" list="dl-sub-dw" value="${esc(p.subsetor)}"><datalist id="dl-sub-dw">${subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label></div>
+    <label class="f">Responde a<select id="dwGestor"><option value="">— topo do setor (não responde a ninguém do setor) —</option>${gestores.map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
+    <div class="grade"><label class="f">Escala<input id="dwEscala" list="dl-escala" value="${esc(p.escala)}" placeholder="5x2, 6x1, 12x36"></label>
+      <label class="f">Horário<input id="dwHorario" value="${esc(p.horario)}" placeholder="08:00 às 17:00"></label></div>
+    <div class="grade"><label class="f">E-mail<input id="dwEmail" type="email" value="${esc(p.email)}"></label><label class="f">Ramal / telefone<input id="dwRamal" value="${esc(p.ramal)}"></label></div>
+    <label class="f">Observações<textarea id="dwObs" rows="3">${esc(p.obs)}</textarea></label>`;
+  const C=$("#dwCorpo");
+  [["dwNome","nome"],["dwCargo","cargo"],["dwSub2","subsetor"],["dwEscala","escala"],["dwHorario","horario"],["dwEmail","email"],["dwRamal","ramal"],["dwObs","obs"]].forEach(([id,k])=>{ $("#"+id,C).oninput=e=>{ p[k]=e.target.value; }; });
+  $("#dwVaga",C).onchange=e=>{ p.vaga=e.target.checked; };
+  $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; };
+  C.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ p.nivel=b.dataset.n; desenharGaveta(); });
+  $("#dwSetor",C).onchange=e=>{ dw.setorId=e.target.value; if(dw.setorId!==dw.s.id) p.gestor_id=""; desenharGaveta(); };
+  $("#dwFoto",C).onchange=e=>{ const f=e.target.files[0]; if(!f) return; reduzirFoto(f).then(url=>{ p.foto=url; desenharGaveta(); }).catch(()=>alert("Não consegui ler essa imagem.")); };
+  const sf=$("#dwSemFoto",C); if(sf) sf.onclick=()=>{ p.foto=""; desenharGaveta(); };
+  C.onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); $("#dwSalvar").click(); } };
+}
+function fecharGaveta(){ $("#drawer").classList.remove("aberto"); $("#dwFundo").classList.remove("aberto"); dw=null; }
+$("#dwCancelar").onclick=fecharGaveta; $("#dwFundo").onclick=fecharGaveta;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&dw) fecharGaveta(); });
+$("#dwSalvar").onclick=()=>{
+  const {s,id,p}=dw, destino=setorPorId(dw.setorId);
+  if(!tx(p.nome)&&!p.vaga){ alert("Informe o nome ou marque como vaga em aberto."); $("#dwNome").focus(); return; }
+  p.nome=tx(p.nome); p.cargo=tx(p.cargo); p.subsetor=tx(p.subsetor);
+  if(destino.id!==s.id){   // mudou de setor: sai de um documento e entra no outro
+    const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id);
+    if(i>=0){ const subs=d.pessoas.filter(x=>x.gestor_id===id);
+      if(subs.length&&!confirm(`${subs.length} pessoa(s) respondem a ${p.nome||"esta posição"} em ${d.nome}. Elas passarão a responder a quem ela respondia. Continuar?`)) return;
+      subs.forEach(x=>x.gestor_id=d.pessoas[i].gestor_id||""); d.pessoas.splice(i,1); salvar(s); }
+    destino.dados.pessoas.push(p); salvar(destino);
+  } else {
+    const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id);
+    if(i>=0) d.pessoas[i]=p; else d.pessoas.push(p);
+    if(p.subsetor&&!d.subsetores.includes(p.subsetor)) d.subsetores.push(p.subsetor);
+    salvar(s);
+  }
+  fecharGaveta(); render();
+};
+$("#dwExcluir").onclick=()=>{ if(dw&&dw.id){ const {s,id}=dw; fecharGaveta(); excluirPessoa(s,id); } };
+function excluirPessoa(s,id){
+  const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id); if(i<0) return;
+  const p=d.pessoas[i], subs=d.pessoas.filter(x=>x.gestor_id===id), g=gestorDe(d,p);
+  if(!confirm(`Excluir ${tx(p.nome)||"esta vaga"}?${subs.length?`\n\n${subs.length} pessoa(s) respondem a ela e passarão a responder a ${g?tx(g.nome)||"vaga":"ninguém (topo do setor)"}.`:""}`)) return;
+  subs.forEach(x=>x.gestor_id=p.gestor_id||""); d.pessoas.splice(i,1); salvar(s); render();
+}
+function reduzirFoto(file){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej; r.onload=()=>{ const img=new Image(); img.onerror=rej;
+    img.onload=()=>{ const T=120, cv=document.createElement("canvas"); cv.width=T; cv.height=T; const ctx=cv.getContext("2d");
+      const m=Math.min(img.width,img.height); ctx.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,T,T); res(cv.toDataURL("image/jpeg",.72)); };
+    img.src=r.result; }; r.readAsDataURL(file); });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PDF e Excel
+// ═══════════════════════════════════════════════════════════════════
+function imprimirSetor(s){
+  const d=s.dados, T=arvoreHTML(d,"");
+  const medir=el("div"); medir.className="org-tree"; medir.style.cssText="position:absolute;left:-99999px;top:0;zoom:1"; medir.innerHTML=`<ul>${T.html}</ul>`; document.body.appendChild(medir);
+  const largura=medir.scrollWidth; medir.remove();
+  const z=Math.min(1, 1040/Math.max(largura,1));
+  const f=el("iframe"); Object.assign(f.style,{position:"fixed",right:0,bottom:0,width:0,height:0,border:0}); document.body.appendChild(f);
+  const doc=f.contentDocument; doc.open();
+  doc.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Organograma — ${esc(d.nome)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>${$("#css").textContent}
+      @page{size:A4 landscape;margin:10mm} :root{--paper:#fff;--sheet:#fff;--ink:#1B2436} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .pa,.tg{display:none!important} .pcard{box-shadow:none} .org-tree{zoom:${z}} h1{margin:0 0 2px;font-size:22px} .sub{color:#7A8599;font-size:12px;margin-bottom:14px}
+    </style></head><body><h1>Organograma — ${esc(d.nome)}</h1><div class="sub">${esc(d.descricao||"")} · ${d.pessoas.length} posições · emitido em ${new Date().toLocaleDateString("pt-BR")}</div>
+    <div class="legenda" style="margin:0 0 14px">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)}</span>`).join("")}</div>
+    <div class="org-tree"><ul>${T.html}</ul></div></body></html>`);
+  doc.close();
+  setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Impressão indisponível: "+e.message); } setTimeout(()=>f.remove(),4000); },700);
+}
+let _xl=null;
+function excelJS(){ if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(!_xl) _xl=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"; s.onload=()=>res(window.ExcelJS); s.onerror=()=>{ _xl=null; rej(new Error("não consegui carregar a biblioteca de Excel")); }; document.head.appendChild(s); });
+  return _xl; }
+async function exportarExcel(lista){
+  await salvarTudo();
+  const X=await excelJS(), wb=new X.Workbook();
+  const cols=[["setor","Setor"],["subsetor","Subsetor"],["nivel","Nível"],["nivel_nome","Descrição do nível"],["nome","Nome"],["cargo","Cargo"],["gestor","Responde a"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal / telefone"],["vaga","Vaga em aberto"],["obs","Observações"]];
+  const linhasDe=s=>ordenarPessoas(s.dados.pessoas).map(p=>{ const g=gestorDe(s.dados,p); return {setor:s.dados.nome,subsetor:p.subsetor,nivel:p.nivel,nivel_nome:nomeNivel(p.nivel),nome:p.nome||(p.vaga?"(vaga em aberto)":""),cargo:p.cargo,gestor:g?(g.nome||"(vaga)"):"",escala:p.escala,horario:p.horario,email:p.email,ramal:p.ramal,vaga:p.vaga?"Sim":"Não",obs:p.obs}; });
+  const aba=(nome,linhas)=>{ const ws=wb.addWorksheet(nome);
+    ws.addRow(cols.map(c=>c[1])); ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
+    linhas.forEach(l=>ws.addRow(cols.map(c=>l[c[0]]??"")));
+    cols.forEach((c,i)=>{ ws.getColumn(i+1).width=Math.max(10,Math.min(45,Math.max(c[1].length,...linhas.map(l=>String(l[c[0]]??"").length))+2)); });
+    ws.views=[{state:"frozen",ySplit:1}]; if(linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}}; };
+  const todos=[]; lista.forEach(s=>todos.push(...linhasDe(s)));
+  if(lista.length>1) aba("Todos os setores",todos);
+  const usados=new Set(); lista.forEach(s=>{ let n=(s.dados.nome||"Setor").replace(/[\\\/\?\*\[\]:]/g," ").slice(0,28), k=n, i=2; while(usados.has(k)) k=n.slice(0,26)+" "+(i++); usados.add(k); aba(k,linhasDe(s)); });
+  const buf=await wb.xlsx.writeBuffer(), u=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})), a=document.createElement("a");
+  a.href=u; a.download=(lista.length>1?"organogramas":"organograma_"+nrm(lista[0].dados.nome).replace(/ /g,"_"))+".xlsx"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Início
+// ═══════════════════════════════════════════════════════════════════
+async function iniciar(){
+  try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO_NOME=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
+  try{ const {r,j}=await api(API); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    SETORES=(j||[]).map(s=>({...s,dados:normalizar(s.dados)})); setStatus("ok"); render();
+  }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
+    $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar os organogramas.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
+}
+iniciar();
+</script>
+</body>
+</html>
