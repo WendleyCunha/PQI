@@ -134,36 +134,45 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .dica{font-size:12.5px;color:var(--ink-3)}
 
 /* ── a árvore ── */
-.org-area{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:auto;padding:26px 20px 30px;min-height:360px;
-  background-image:radial-gradient(var(--rule-2) 1px,transparent 1px);background-size:18px 18px}
-.org-tree{display:inline-block;min-width:100%}
-.org-tree ul{position:relative;display:flex;justify-content:center;padding:22px 0 0;margin:0}
+.org-area{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:auto;padding:26px 20px 30px;min-height:420px;max-height:78vh;
+  background-image:radial-gradient(var(--rule-2) 1px,transparent 1px);background-size:18px 18px;cursor:grab;position:relative}
+.org-area.panning{cursor:grabbing;user-select:none} .org-area.panning *{cursor:grabbing!important}
+.org-area.escolhendo .pcard{cursor:copy;outline:2px dashed var(--steel);outline-offset:2px}
+.tree-sizer{position:relative}
+.org-tree{position:absolute;top:0;left:0;display:inline-block;transform-origin:0 0}
+.org-tree ul{position:relative;display:flex;justify-content:center;align-items:flex-start;padding:44px 0 0;margin:0}
 .org-tree > ul{padding-top:0}
-.org-tree li{list-style:none;position:relative;padding:22px 7px 0;display:flex;flex-direction:column;align-items:center}
-.org-tree li::before,.org-tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:2px solid var(--linha)}
-.org-tree li::after{right:auto;left:50%;border-left:2px solid var(--linha)}
-.org-tree li:only-child::before,.org-tree li:only-child::after{display:none}
-.org-tree li:only-child{padding-top:0}
-.org-tree li:first-child::before,.org-tree li:last-child::after{border:0 none}
-.org-tree li:last-child::before{border-right:2px solid var(--linha);border-radius:0 8px 0 0}
-.org-tree li:first-child::after{border-radius:8px 0 0 0}
-.org-tree ul ul::before{content:"";position:absolute;top:0;left:50%;border-left:2px solid var(--linha);height:22px}
-.org-tree > ul > li{padding-top:0}
-.org-tree > ul > li::before,.org-tree > ul > li::after{display:none}
+.org-tree li{list-style:none;position:relative;padding:0 8px;display:flex;flex-direction:column;align-items:center}
 .org-tree > ul > li + li{margin-left:26px}
-/* vínculo SUGERIDO pelo nível (ainda sem "responde a"): linha tracejada */
-.org-tree li.sug::before,.org-tree li.sug::after{border-top-style:dashed}
-.org-tree li.sug::after{border-left-style:dashed}
-.org-tree li.sug:last-child::before{border-right-style:dashed}
-.org-tree ul.so-sug::before{border-left-style:dashed}
+.org-tree ul,.org-tree li{pointer-events:none}
+.org-tree .pcard,.org-tree .equipe,.org-tree button,.org-tree .aviso{pointer-events:auto}
+svg.linhas{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:0}
+svg.linhas path.l{fill:none;stroke:var(--linha);stroke-width:2;stroke-linejoin:round}
+svg.linhas path.l.extra{stroke:var(--amber);stroke-dasharray:7 5}
+svg.linhas path.l.sug{stroke-dasharray:5 5}
+svg.linhas path.l.sel{stroke:var(--steel);stroke-width:3.5}
+svg.linhas path.hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
+svg.linhas path.hit:hover{stroke:color-mix(in srgb,var(--steel) 18%,transparent)}
+svg.linhas path.temp{fill:none;stroke:var(--steel);stroke-width:2.5;stroke-dasharray:4 4}
 .equipe.sug{border-style:dashed;background:transparent}
-.ligar{margin-top:16px;font-size:12px;padding:4px 11px;border-radius:999px;border:1px dashed var(--steel);color:var(--steel);background:var(--sheet);line-height:1.3}
+.ligar{margin-top:16px;font-size:12px;padding:4px 11px;border-radius:999px;border:1px dashed var(--steel);color:var(--steel);background:var(--sheet);line-height:1.3;position:relative;z-index:1}
 .ligar:hover{background:var(--steel-soft);border-style:solid}
-.eq-t .ligar{margin:0 0 0 8px;text-transform:none;letter-spacing:0;font-weight:500}
+.eq-t .ligar{margin:0 0 0 auto}
 .pcard.sugerido{border-top-style:dashed}
+.chip.rep{background:var(--steel-soft);color:var(--steel)} .chip.dup{background:var(--amber-soft);color:var(--amber)}
+.hnd{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);width:16px;height:16px;padding:0;border-radius:50%;background:var(--steel);border:3px solid var(--sheet);
+  box-shadow:0 0 0 1px var(--steel);opacity:0;cursor:crosshair;z-index:3;transition:opacity .15s}
+.pcard:hover .hnd,.pcard:focus-within .hnd,.org-area.ligando .hnd{opacity:1}
+.org-area.ligando .pcard{cursor:crosshair}
+.menu-flut{position:fixed;z-index:60;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:0 12px 32px rgba(10,15,25,.22);padding:6px;min-width:280px;max-width:380px;display:flex;flex-direction:column;gap:2px}
+.menu-flut .mt{font:600 12px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);padding:6px 10px 8px;border-bottom:1px solid var(--rule-2);margin-bottom:2px}
+.menu-flut button{text-align:left;border:0;background:none;padding:9px 10px;font-size:13.5px;line-height:1.35;border-radius:6px;color:var(--ink)}
+.menu-flut button:hover:not(:disabled),.menu-flut button:focus-visible{background:var(--rule-2)}
+.menu-flut button small{display:block;font-size:11.5px;color:var(--ink-3)}
+.menu-flut button.cancelar{color:var(--ink-3);border-top:1px solid var(--rule-2);border-radius:0 0 6px 6px;margin-top:2px}
 
 /* cartão de pessoa */
-.pcard{--n:var(--idle);--ns:var(--idle-soft);width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
+.pcard{--n:var(--idle);--ns:var(--idle-soft);z-index:1;width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
   padding:11px 12px 10px;display:flex;gap:10px;align-items:flex-start;text-align:left;position:relative;cursor:pointer;box-shadow:0 1px 2px rgba(20,30,50,.06);transition:box-shadow .15s,transform .15s}
 .pcard:hover{box-shadow:0 6px 16px rgba(20,30,50,.12);transform:translateY(-1px)}
 .pcard.vaga{border-style:dashed;border-top-style:solid;background:repeating-linear-gradient(135deg,var(--sheet),var(--sheet) 8px,var(--rule-2) 8px,var(--rule-2) 9px)}
@@ -181,11 +190,11 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .pa{position:absolute;top:5px;right:5px;display:flex;gap:2px;opacity:0;transition:opacity .15s}
 .pcard:hover .pa,.pcard:focus-within .pa{opacity:1}
 .pa button{width:24px;height:24px;padding:0;border-radius:50%;font-size:12px;display:grid;place-items:center;background:var(--sheet)}
-.tg{position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);padding:1px 9px;font-size:11.5px;border-radius:999px;background:var(--sheet);color:var(--ink-2);z-index:2}
-.org-tree li > .pcard + ul{margin-top:6px}
+.tg{position:absolute;left:12px;bottom:-12px;padding:1px 9px;font-size:11.5px;border-radius:999px;background:var(--sheet);color:var(--ink-2);z-index:2}
 /* equipe empilhada (muitos subordinados sem subordinados) */
-.equipe{background:color-mix(in srgb,var(--rule-2) 60%,var(--sheet));border:1px solid var(--rule);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
-.equipe .eq-t{font:600 12px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;padding:0 2px}
+.equipe{position:relative;z-index:1;background:color-mix(in srgb,var(--rule-2) 60%,var(--sheet));border:1px solid var(--rule);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.equipe .eq-t{display:flex;align-items:center;gap:8px;font:700 13.5px "IBM Plex Sans Condensed",sans-serif;color:var(--ink);padding:0 2px}
+.equipe .eq-t small{font:600 11px "IBM Plex Sans",sans-serif;color:var(--ink-2);background:var(--sheet);border:1px solid var(--rule);padding:0 7px;border-radius:999px}
 .equipe .pcard{width:226px}
 .equipe.duas{display:grid;grid-template-columns:repeat(2,226px)}
 .equipe.duas .eq-t{grid-column:1/-1}
@@ -220,6 +229,9 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .foto-linha .av{width:56px;height:56px;font-size:18px}
 .check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
 .check input{width:16px;height:16px;accent-color:var(--steel)}
+.multi{max-height:160px;overflow:auto;border:1px solid var(--rule);border-radius:6px;padding:6px 10px;background:var(--paper)}
+.multi label{display:flex;gap:8px;align-items:center;font-size:13.5px;padding:3px 0;cursor:pointer}
+.multi input{width:16px;height:16px;accent-color:var(--amber)}
 .cores{display:flex;gap:8px;flex-wrap:wrap}
 .cores button{width:30px;height:30px;border-radius:50%;padding:0;background:var(--c);border:3px solid var(--sheet);box-shadow:0 0 0 1px var(--rule)}
 .cores button.ativo{box-shadow:0 0 0 3px var(--ink)}
@@ -387,7 +399,8 @@ function normalizar(d){
   for(const k in base) if(d[k]==null) d[k]=base[k];
   if(!Array.isArray(d.pessoas)) d.pessoas=[];
   if(!Array.isArray(d.subsetores)) d.subsetores=[];
-  d.pessoas.forEach(p=>{ if(!p.id) p.id=uid(); if(!NIVEIS.some(x=>x[0]===p.nivel)) p.nivel=nivelPadrao(); });
+  d.pessoas.forEach(p=>{ if(!p.id) p.id=uid(); if(!NIVEIS.some(x=>x[0]===p.nivel)) p.nivel=nivelPadrao();
+    if(!Array.isArray(p.extras)) p.extras=[]; if(p.abaixo_de==null) p.abaixo_de=""; });
   return d;
 }
 function subsetoresDe(d){
@@ -396,10 +409,18 @@ function subsetoresDe(d){
 }
 
 // ─── hierarquia ───
+// posição no desenho: "posicionar abaixo de" (se houver) senão "responde a"
+function paiPosicao(p, ids){
+  if(p.abaixo_de&&p.abaixo_de!==p.id&&ids.has(p.abaixo_de)) return p.abaixo_de;
+  if(p.gestor_id&&p.gestor_id!==p.id&&ids.has(p.gestor_id)) return p.gestor_id;
+  return null;
+}
+function descendentesPos(d,id){ const ids=new Set(d.pessoas.map(p=>p.id)), out=new Set(), fila=[id];
+  while(fila.length){ const x=fila.shift(); d.pessoas.forEach(p=>{ if(paiPosicao(p,ids)===x&&!out.has(p.id)){ out.add(p.id); fila.push(p.id); } }); } return out; }
 function mapaHierarquia(d, filtroSub){
   const lista = filtroSub ? d.pessoas.filter(p=>tx(p.subsetor)===filtroSub) : d.pessoas;
   const ids=new Set(lista.map(p=>p.id)), filhos={}, raizes=[];
-  lista.forEach(p=>{ const g=p.gestor_id&&p.gestor_id!==p.id&&ids.has(p.gestor_id)?p.gestor_id:null; if(g) (filhos[g]=filhos[g]||[]).push(p); else raizes.push(p); });
+  lista.forEach(p=>{ const g=paiPosicao(p,ids); if(g) (filhos[g]=filhos[g]||[]).push(p); else raizes.push(p); });
   Object.keys(filhos).forEach(k=>filhos[k]=ordenarPessoas(filhos[k]));
   return {lista,filhos,raizes:ordenarPessoas(raizes)};
 }
@@ -433,18 +454,25 @@ function cardHTML(p, opt={}){
     `<span class="chip n" title="${esc(nomeNivel(p.nivel))}">${esc(sig(p.nivel))}</span>`,
     p.subsetor&&!opt.semSub?`<span class="chip">${esc(p.subsetor)}</span>`:"",
     p.escala?`<span class="chip" title="Escala">${esc(p.escala)}</span>`:"",
-    p.horario?`<span class="chip" title="Horário">${esc(p.horario)}</span>`:""].join("");
+    p.horario?`<span class="chip" title="Horário">${esc(p.horario)}</span>`:"",
+    ...(()=>{ const dd=(setorPorId(atual)||{}).dados; if(!dd||opt.compacto) return [];
+      const out=[]; if(p.abaixo_de&&p.gestor_id&&p.abaixo_de!==p.gestor_id) out.push(`<span class="chip rep" title="Responde a">↑ responde a ${esc(nomeP(dd,p.gestor_id))}</span>`);
+      const ex=(p.extras||[]).filter(x=>x!==p.gestor_id&&dd.pessoas.some(z=>z.id===x)); if(ex.length) out.push(`<span class="chip dup" title="Também responde a">↑ também: ${esc(ex.map(x=>nomeP(dd,x)).join(", "))}</span>`);
+      return out; })()].join("");
   return `<div style="${estNivel(p.nivel)}" class="pcard${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
     <div class="av">${p.foto?`<img src="${esc(p.foto)}" alt="">`:p.vaga&&!tx(p.nome)?"?":esc(iniciais(p.nome))}</div>
     <div class="pi"><div class="pn">${esc(nome)}</div><div class="pc">${esc(p.cargo||"")}</div>${chips?`<div class="pt">${chips}</div>`:""}</div>
     ${opt.semAcoes?"":`<div class="pa"><button type="button" data-ac="sub" title="Adicionar alguém que responde a ${esc(nome)}">＋</button><button type="button" data-ac="ed" title="Editar">✏️</button></div>`}
+    ${opt.semAcoes?"":`<button type="button" class="hnd" data-hnd="${p.id}" draggable="false" title="Puxe até outra pessoa para criar uma ligação" aria-label="Criar ligação a partir de ${esc(nome)}"></button>`}
     ${opt.nFilhos?`<button type="button" class="tg" data-tg="${p.id}" title="${opt.recolhido?"Mostrar":"Esconder"} subordinados">${opt.recolhido?"▸":"▾"} ${opt.nFilhos}</button>`:""}
   </div>`;
 }
 function ligarCards(c, s){
   c.querySelectorAll(".pcard").forEach(card=>{
     const id=card.dataset.id;
-    card.onclick=e=>{ const ac=e.target.closest("[data-ac]"), tg=e.target.closest("[data-tg]");
+    card.onclick=e=>{ if(e.target.closest(".hnd")) return;
+      if(ESCOLHA){ e.stopPropagation(); if(id!==ESCOLHA.antigo) aplicarEscolha(id); return; }
+      const ac=e.target.closest("[data-ac]"), tg=e.target.closest("[data-tg]");
       if(tg){ e.stopPropagation(); recolhidos.has(id)?recolhidos.delete(id):recolhidos.add(id); render(); return; }
       if(ac&&ac.dataset.ac==="sub"){ e.stopPropagation(); abrirPessoa(s,null,{gestor_id:id,subsetor:(s.dados.pessoas.find(x=>x.id===id)||{}).subsetor||""}); return; }
       abrirPessoa(s,id); };
@@ -546,90 +574,260 @@ function renderSetor(c){
 }
 
 // ─── Organograma (árvore) ───
+// POSIÇÃO no desenho: "posicionar abaixo de" (se houver) senão "responde a".
+// LINHAS: desenhadas por cima, uma a uma — contínua = responde a; tracejada âmbar =
+// também responde a; tracejada cinza = sugerida pelo nível (ainda sem "responde a").
 function arvoreHTML(d, filtro){
-  const H=mapaHierarquia(d,filtro), visto=new Set(), virt={}, topo=[];
-  // VÍNCULO SUGERIDO: quem não tem "responde a" mas tem nível abaixo de outra pessoa do topo
-  // fica embaixo dela (nível superior mais próximo; de preferência o mesmo subsetor), com linha tracejada.
+  const H=mapaHierarquia(d,filtro), visto=new Set(), virt={}, sugPai={}, topo=[];
   H.raizes.forEach(r=>{
+    if(r.gestor_id){ topo.push(r); return; }   // tem gestor (fora do filtro): fica no topo, sem sugestão
     const cands=H.raizes.filter(x=>x!==r&&ordemNivel(x.nivel)<ordemNivel(r.nivel));
     if(!cands.length){ topo.push(r); return; }
     const m=Math.max(...cands.map(x=>ordemNivel(x.nivel)));
     let pool=cands.filter(x=>ordemNivel(x.nivel)===m);
     const mesmo=pool.filter(x=>tx(x.subsetor)&&tx(x.subsetor)===tx(r.subsetor)); if(mesmo.length) pool=mesmo;
-    (virt[pool[0].id]=virt[pool[0].id]||[]).push(r);
+    (virt[pool[0].id]=virt[pool[0].id]||[]).push(r); sugPai[r.id]=pool[0].id;
   });
-  const nSug=H.raizes.length-topo.length;
+  const nSug=Object.keys(sugPai).length;
   const temFilhos=f=>(H.filhos[f.id]||[]).length||(virt[f.id]||[]).length;
   const marcarRamo=lst=>{ const fila=[...lst]; while(fila.length){ const x=fila.shift(); if(visto.has(x.id)) continue; visto.add(x.id); fila.push(...(H.filhos[x.id]||[]),...(virt[x.id]||[])); } };
   const nomeDe=p=>tx(p.nome)||"vaga";
+  // cada SUBSETOR vira a sua própria caixa, com os seus colaboradores, embaixo do líder
+  const caixa=(lst,titulo,sug,pai)=>{ lst.forEach(f=>visto.add(f.id));
+    return `<li><div class="equipe${sug?" sug":""}${lst.length>=8?" duas":""}" data-caixa="${lst.map(f=>f.id).join(",")}" data-pai="${pai.id}">
+      <div class="eq-t"><span>${esc(titulo)}</span><small>${lst.length}</small>${sug?`<button type="button" class="ligar" data-ligar="${lst.map(f=>f.id).join(",")}" data-g="${pai.id}">🔗 Confirmar com ${esc(nomeDe(pai))}</button>`:""}</div>
+      ${lst.map(f=>cardHTML(f,{semSub:true,sugerido:sug})).join("")}</div></li>`; };
   const grupo=(lst,sug,pai)=>{
     if(!lst.length) return "";
-    if(lst.every(f=>!temFilhos(f)) && lst.length>=4){ lst.forEach(f=>visto.add(f.id));
-      return `<li class="${sug?"sug":""}"><div class="equipe${sug?" sug":""}${lst.length>=8?" duas":""}"><div class="eq-t">${sug
-        ?`Sem "responde a" definido · ${lst.length}<button type="button" class="ligar" data-ligar="${lst.map(f=>f.id).join(",")}" data-g="${pai.id}">🔗 Confirmar todos com ${esc(nomeDe(pai))}</button>`
-        :`Equipe · ${lst.length}`}</div>${lst.map(f=>cardHTML(f,{semSub:!!filtro,sugerido:sug})).join("")}</div></li>`; }
-    return lst.map(f=>li(f,sug?pai:null)).join("");
+    const folhas=lst.filter(f=>!temFilhos(f)&&(sug||f.gestor_id===pai.id));
+    let h=lst.filter(f=>!folhas.includes(f)).map(f=>li(f,sug?pai:null)).join("");
+    const porSub={}, semSub=[];
+    folhas.forEach(f=>{ const k=tx(f.subsetor); if(k) (porSub[k]=porSub[k]||[]).push(f); else semSub.push(f); });
+    Object.keys(porSub).sort((a,b)=>a.localeCompare(b,"pt-BR")).forEach(k=>{ h+=caixa(porSub[k],k,sug,pai); });
+    if(semSub.length>=4) h+=caixa(semSub,sug?'Sem "responde a" definido':"Equipe",sug,pai);
+    else h+=semSub.map(f=>li(f,sug?pai:null)).join("");
+    return h;
   };
   const li=(p,sugDe)=>{
     visto.add(p.id);
     const fs=(H.filhos[p.id]||[]).filter(f=>!visto.has(f.id)), vs=(virt[p.id]||[]).filter(f=>!visto.has(f.id)), rec=recolhidos.has(p.id);
     if(rec) marcarRamo([...fs,...vs]);   // ramo recolhido: ninguém dele é desenhado
-    let h=cardHTML(p,{nFilhos:fs.length+vs.length,recolhido:rec,semSub:!!filtro,sugerido:!!sugDe});
+    let h=cardHTML(p,{nFilhos:fs.length+vs.length,recolhido:rec,sugerido:!!sugDe});
     if(sugDe) h+=`<button type="button" class="ligar" data-ligar="${p.id}" data-g="${sugDe.id}" title="Gravar que ${esc(nomeDe(p))} responde a ${esc(nomeDe(sugDe))}">🔗 Responde a ${esc(nomeDe(sugDe))}? Confirmar</button>`;
-    if(!rec&&(fs.length||vs.length)) h+=`<ul class="${!fs.length?"so-sug":""}">${grupo(fs,false,p)}${grupo(vs,true,p)}</ul>`;
-    return `<li class="${sugDe?"sug":""}">${h}</li>`;
+    if(!rec&&(fs.length||vs.length)) h+=`<ul>${grupo(fs,false,p)}${grupo(vs,true,p)}</ul>`;
+    return `<li>${h}</li>`;
   };
   let html=topo.map(r=>li(r)).join("");
-  for(const p of H.lista){ if(!visto.has(p.id)) html+=li(p); }   // proteção contra ciclos (A→B→A)
-  return {html, n:H.lista.length, nSug};
+  for(const p of H.lista){ if(!visto.has(p.id)) html+=li(p); }   // proteção contra ciclos
+  return {html, n:H.lista.length, nSug, sugPai};
 }
+
+// ─── linhas de conexão (SVG por cima do desenho) ───
+const GAP_V=44;   // espaço vertical entre faixas (padding do <ul>)
+let LINKS=[], redesenhar=null;
+function desenharLinhas(s, tree, sugPai){
+  const d=s.dados, svg=tree.querySelector("svg.linhas"); if(!svg) return;
+  const sc=zoom[s.id]||1, tr=tree.getBoundingClientRect();
+  const R=e=>{ const r=e.getBoundingClientRect(); return {x:(r.left-tr.left)/sc,y:(r.top-tr.top)/sc,w:r.width/sc,h:r.height/sc}; };
+  const card=id=>tree.querySelector(`.pcard[data-id="${id}"]`);
+  const ids=new Set(d.pessoas.map(p=>p.id)), feitos=new Set();
+  LINKS=[];
+  const add=(tipo,de,p)=>{ const cx=card(p.id).closest(".equipe");
+    if(tipo!=="extra"&&cx&&cx.dataset.pai===de){ const k=tipo+":"+cx.dataset.caixa; if(feitos.has(k)) return; feitos.add(k);
+      LINKS.push({tipo,de,para:cx.dataset.caixa.split(","),el:cx,posPai:cx.dataset.pai}); }
+    else LINKS.push({tipo,de,para:[p.id],el:card(p.id),posPai:paiPosicao(p,ids)});
+  };
+  d.pessoas.forEach(p=>{
+    if(!card(p.id)) return;
+    if(p.gestor_id&&ids.has(p.gestor_id)&&card(p.gestor_id)) add("pri",p.gestor_id,p);
+    else if(sugPai[p.id]&&card(sugPai[p.id])) add("sug",sugPai[p.id],p);
+    (p.extras||[]).forEach(g=>{ if(g!==p.gestor_id&&ids.has(g)&&card(g)) add("extra",g,p); });
+  });
+  svg.setAttribute("width",tree.offsetWidth); svg.setAttribute("height",tree.offsetHeight);
+  const blocos=[...tree.querySelectorAll(".pcard,.equipe")].filter(e=>!e.closest(".equipe")||e.classList.contains("equipe")).map(e=>({e,r:R(e)}));
+  const bloqueio=(x,yA,yB,excl)=>blocos.find(({e,r})=>!excl.includes(e)&&x>r.x-4&&x<r.x+r.w+4&&r.y<yB-2&&r.y+r.h>yA+2);
+  svg.innerHTML=LINKS.map((L,i)=>{
+    const ca=card(L.de), a=R(ca), b=R(L.el), x1=a.x+a.w/2, y1=a.y+a.h, x2=b.x+b.w/2, y2=b.y;
+    let ym = L.tipo==="extra" ? y2-GAP_V/2+9 : (L.posPai===L.de ? y2-GAP_V/2 : y1+14);   // pula faixa: corre logo abaixo de quem responde
+    let dd=`M${x1} ${y1}V${ym}H${x2}V${y2}`;
+    const bl=bloqueio(x2,ym,y2,[ca,L.el,ca.closest(".equipe"),L.el.closest&&L.el.closest(".equipe")].filter(Boolean));
+    if(bl){ // desvia: desce pela lateral do cartão que está no caminho e entra por cima do destino
+      const lane = x2<=bl.r.x+bl.r.w/2 ? bl.r.x-14 : bl.r.x+bl.r.w+14, yb=y2-GAP_V/2+(L.tipo==="extra"?9:0);
+      dd=`M${x1} ${y1}V${ym}H${lane}V${yb}H${x2}V${y2}`; }
+    L.d=dd; L.x2=x2; L.y2=y2;
+    return `<path class="l ${L.tipo}" data-i="${i}" d="${L.d}"/><path class="hit" data-i="${i}" d="${L.d}"><title>${esc(rotuloLink(d,L))}</title></path>`;
+  }).join("")+`<path class="temp" id="tempLinha" d=""/>`;
+}
+function nomeP(d,id){ const p=d.pessoas.find(x=>x.id===id); return p?(tx(p.nome)||"vaga"):"?"; }
+function rotuloLink(d,L){ const quem=L.para.length>1?`${L.para.length} pessoas`:nomeP(d,L.para[0]);
+  return L.tipo==="extra"?`${quem} também responde a ${nomeP(d,L.de)}`:L.tipo==="sug"?`${quem} → ${nomeP(d,L.de)} (sugerido pelo nível)`:`${quem} responde a ${nomeP(d,L.de)}`; }
+
+// ─── menu flutuante (escolher o tipo de vínculo / ações da linha) ───
+let MENU=null;
+function fecharMenu(){ if(MENU){ MENU.remove(); MENU=null; document.removeEventListener("pointerdown",foraMenu,true); document.querySelectorAll("path.l.sel").forEach(x=>x.classList.remove("sel")); } }
+function foraMenu(e){ if(MENU&&!MENU.contains(e.target)) fecharMenu(); }
+function menuFlut(x,y,titulo,opcoes){
+  fecharMenu(); const m=el("div","menu-flut"); m.setAttribute("role","menu");
+  m.innerHTML=`<div class="mt">${titulo}</div>`;
+  opcoes.forEach(([rot,fn,motivo])=>{ const b=el("button"); b.type="button"; b.setAttribute("role","menuitem"); b.innerHTML=rot;
+    if(motivo){ b.disabled=true; b.title=motivo; b.innerHTML+=`<small>${esc(motivo)}</small>`; } else b.onclick=()=>{ fecharMenu(); fn(); }; m.appendChild(b); });
+  const c=el("button"); c.type="button"; c.textContent="Cancelar"; c.className="cancelar"; c.onclick=fecharMenu; m.appendChild(c);
+  document.body.appendChild(m); MENU=m;
+  const r=m.getBoundingClientRect(); m.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+"px"; m.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+"px";
+  setTimeout(()=>document.addEventListener("pointerdown",foraMenu,true),0); const f=m.querySelector("button:not(:disabled)"); f&&f.focus();
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&MENU) fecharMenu(); });
+
+// ligar a pessoa P ao gestor G: pergunta qual tipo de vínculo
+function escolherVinculo(s, gId, pId, x, y){
+  const d=s.dados, p=d.pessoas.find(z=>z.id===pId), g=d.pessoas.find(z=>z.id===gId);
+  if(!p||!g||pId===gId) return;
+  const P=esc(tx(p.nome)||"a vaga"), G=esc(tx(g.nome)||"a vaga"), desc=descendentes(d,pId), descPos=descendentesPos(d,pId);
+  const ciclo=desc.has(gId)?`${tx(g.nome)||"vaga"} responde (direta ou indiretamente) a ${tx(p.nome)||"vaga"}`:"";
+  const ops=[[`<b>${P}</b> passa a responder a <b>${G}</b>`,()=>{ p.gestor_id=gId; p.extras=(p.extras||[]).filter(x=>x!==gId); p.abaixo_de=""; feito(s,`✓ ${tx(p.nome)||"A vaga"} agora responde a ${tx(g.nome)||"vaga"}.`); },
+      p.gestor_id===gId?"já é o gestor principal":ciclo]];
+  ops.push([`<b>${P}</b> também responde a <b>${G}</b> <span class="muted">(linha tracejada)</span>`,()=>{ p.extras=[...new Set([...(p.extras||[]),gId])]; feito(s,`✓ ${tx(p.nome)||"A vaga"} também responde a ${tx(g.nome)||"vaga"}.`); },
+      p.gestor_id===gId?"já é o gestor principal":(p.extras||[]).includes(gId)?"já está ligado":ciclo]);
+  if(p.gestor_id&&p.gestor_id!==gId){ const atualG=esc(nomeP(d,p.gestor_id));
+    ops.push([`Só <b>posicionar</b> ${P} abaixo de <b>${G}</b> <span class="muted">(continua respondendo a ${atualG})</span>`,()=>{ p.abaixo_de=gId; feito(s,`✓ ${tx(p.nome)||"A vaga"} agora aparece abaixo de ${tx(g.nome)||"vaga"}, respondendo a ${nomeP(d,p.gestor_id)}.`); },
+      descPos.has(gId)?`${tx(g.nome)||"vaga"} está desenhado abaixo de ${tx(p.nome)||"vaga"}`:p.abaixo_de===gId?"já está posicionado aí":""]); }
+  menuFlut(x,y,"Ligar pessoas",ops);
+}
+function feito(s,msg){ salvar(s); recolhidos.clear(); render(); $("#banner").textContent=msg; }
+
+// clicar numa linha: ações
+function acoesDaLinha(s,L,x,y){
+  const d=s.dados, ps=L.para.map(id=>d.pessoas.find(z=>z.id===id)).filter(Boolean), quem=ps.length>1?`${ps.length} pessoas (${esc(ps.slice(0,3).map(p=>tx(p.nome)||"vaga").join(", "))}${ps.length>3?"…":""})`:esc(tx(ps[0].nome)||"vaga");
+  const G=esc(nomeP(d,L.de)), ops=[];
+  if(L.tipo==="pri"){
+    ops.push([`🗑 Remover: ${quem} deixa de responder a ${G}`,()=>{ ps.forEach(p=>{ p.gestor_id=""; if(p.abaixo_de===L.de) p.abaixo_de=""; }); feito(s,"✓ Vínculo removido. Para ligar de novo, puxe o ponto ● de quem será o gestor."); }]);
+    ops.push([`↪ Trocar o gestor — clique no novo gestor`,()=>modoEscolher(s,ps.map(p=>p.id),"pri",L.de)]);
+  } else if(L.tipo==="extra"){
+    const p=ps[0];
+    ops.push([`🗑 Remover: ${quem} deixa de “também responder” a ${G}`,()=>{ p.extras=(p.extras||[]).filter(x=>x!==L.de); feito(s,"✓ Ligação tracejada removida."); }]);
+    ops.push([`⇄ Tornar ${G} o gestor principal de ${quem}`,()=>{ const ant=p.gestor_id; p.gestor_id=L.de; p.extras=(p.extras||[]).filter(x=>x!==L.de); if(ant) p.extras.push(ant); p.abaixo_de=""; feito(s,"✓ Gestor principal trocado (o anterior virou “também responde a”)."); },
+      descendentes(d,p.id).has(L.de)?"criaria um ciclo":""]);
+  } else {
+    ops.push([`🔗 Confirmar: ${quem} responde a ${G}`,()=>{ ps.forEach(p=>{ if(!descendentes(d,p.id).has(L.de)) p.gestor_id=L.de; }); feito(s,"✓ Vínculo confirmado — a linha agora é contínua."); }]);
+    ops.push([`↪ Ligar a outra pessoa — clique no gestor certo`,()=>modoEscolher(s,ps.map(p=>p.id),"pri","")]);
+  }
+  menuFlut(x,y,"Linha de conexão",ops);
+}
+// "clique no novo gestor": usado por Trocar gestor
+let ESCOLHA=null;
+function modoEscolher(s,ids,tipo,antigo){
+  ESCOLHA={s,ids,tipo,antigo}; const a=$("#orgArea"); a&&a.classList.add("escolhendo");
+  $("#banner").textContent="Clique no cartão do novo gestor (Esc cancela).";
+}
+function sairEscolha(){ ESCOLHA=null; const a=$("#orgArea"); a&&a.classList.remove("escolhendo"); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&ESCOLHA){ sairEscolha(); $("#banner").textContent=""; } });
+function aplicarEscolha(gId){
+  const {s,ids}=ESCOLHA, d=s.dados; sairEscolha(); let n=0, bloq=0;
+  ids.forEach(id=>{ const p=d.pessoas.find(z=>z.id===id); if(!p||id===gId) return; if(descendentes(d,id).has(gId)){ bloq++; return; }
+    p.gestor_id=gId; p.extras=(p.extras||[]).filter(x=>x!==gId); p.abaixo_de=""; n++; });
+  feito(s,`✓ ${n} pessoa(s) agora respondem a ${nomeP(d,gId)}.${bloq?` ${bloq} não mudaram (criaria um ciclo).`:""}`);
+}
+
 function visaoArvore(c,s){
-  const d=s.dados, subs=subsetoresDe(d), z=zoom[s.id]||1;
+  const d=s.dados, subs=subsetoresDe(d);
   c.innerHTML=`<div class="ferr">
       <select id="aSub" aria-label="Subsetor"><option value="">Todos os subsetores</option>${subs.map(x=>`<option${x===filtroSub?" selected":""}>${esc(x)}</option>`).join("")}</select>
       <input id="aBusca" placeholder="Destacar pessoa..." value="${esc(busca)}" style="width:200px" aria-label="Destacar pessoa">
-      <span class="grupo"><button type="button" id="zMenos" title="Diminuir">−</button><span id="zVal">${Math.round(z*100)}%</span><button type="button" id="zMais" title="Aumentar">+</button></span>
-      <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
-      <span class="dica">Dica: arraste um cartão sobre outro para mudar a quem ele responde.</span></div>
+      <span class="grupo"><button type="button" id="zMenos" title="Diminuir">−</button><span id="zVal">100%</span><button type="button" id="zMais" title="Aumentar">+</button></span>
+      <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button></div>
+    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover · arraste um <b>cartão</b> sobre outro para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar.</p>
     <div id="aSug"></div>
-    <div class="org-area" id="orgArea"><div class="topo-drop" id="topoDrop">Solte aqui para colocar no topo do setor (sem gestor)</div><div class="org-tree" id="tree"></div></div>`;
-  const T=arvoreHTML(d,filtroSub), tree=$("#tree",c);
-  tree.innerHTML = T.n ? `<ul>${T.html}</ul>` : `<div class="aviso" style="text-align:center">Nenhuma pessoa ${filtroSub?"neste subsetor":"neste setor"} ainda. <button type="button" class="primary" id="aPrim">${ICO.pessoa} Adicionar a primeira pessoa</button></div>`;
-  tree.style.zoom=z;
+    <div class="org-area" id="orgArea"><div class="topo-drop" id="topoDrop">Solte aqui para colocar no topo do setor (sem gestor)</div>
+      <div class="tree-sizer" id="sizer"><div class="org-tree" id="tree"></div></div></div>`;
+  const T=arvoreHTML(d,filtroSub), tree=$("#tree",c), area=$("#orgArea",c), sizer=$("#sizer",c);
+  tree.innerHTML = T.n ? `<svg class="linhas" aria-hidden="true"></svg><ul>${T.html}</ul>` : `<div class="aviso" style="text-align:center;margin:20px">Nenhuma pessoa ${filtroSub?"neste subsetor":"neste setor"} ainda. <button type="button" class="primary" id="aPrim">${ICO.pessoa} Adicionar a primeira pessoa</button></div>`;
   if(T.nSug) $("#aSug",c).innerHTML=`<p class="aviso">🔗 <b>${T.nSug}</b> pessoa(s) ainda sem “responde a” definido — posicionadas pelo nível, com <b>linha tracejada</b>. Confira e clique em <b>Confirmar</b> (ou arraste para o gestor certo). <button type="button" class="peq" id="aSugTodos">Confirmar todas as sugestões</button></p>`;
+  // zoom por transform (as linhas acompanham)
+  const setZ=v=>{ zoom[s.id]=Math.max(.25,Math.min(1.6,Math.round(v*100)/100)); const z=zoom[s.id];
+    tree.style.transform=`scale(${z})`; tree.style.minWidth=Math.max(0,(area.clientWidth-40)/z)+"px";
+    sizer.style.width=tree.offsetWidth*z+"px"; sizer.style.height=tree.offsetHeight*z+"px"; $("#zVal").textContent=Math.round(z*100)+"%"; };
+  redesenhar=()=>{ if(!document.body.contains(tree)) return; setZ(zoom[s.id]||1); desenharLinhas(s,tree,T.sugPai); setZ(zoom[s.id]||1); };
+  redesenhar(); requestAnimationFrame(redesenhar); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(redesenhar);
+  $("#zMenos",c).onclick=()=>{ setZ((zoom[s.id]||1)-.1); };
+  $("#zMais",c).onclick=()=>{ setZ((zoom[s.id]||1)+.1); };
+  $("#zAjustar",c).onclick=()=>{ tree.style.minWidth="0"; tree.style.transform="none"; const w=area.clientWidth-40, sw=tree.offsetWidth; setZ(sw>w?w/sw:1); desenharLinhas(s,tree,T.sugPai); setZ(zoom[s.id]); };
   const ligar=pares=>{ let n=0; pares.forEach(([id,g])=>{ const x=d.pessoas.find(y=>y.id===id); if(x&&g&&!descendentes(d,id).has(g)){ x.gestor_id=g; n++; } });
     if(n){ salvar(s); render(); $("#banner").textContent=`✓ ${n} vínculo(s) confirmado(s) — a linha agora é contínua.`; } };
   tree.querySelectorAll("[data-ligar]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); ligar(b.dataset.ligar.split(",").map(id=>[id,b.dataset.g])); });
-  const st=$("#aSugTodos",c); if(st) st.onclick=()=>ligar([...tree.querySelectorAll("[data-ligar]")].flatMap(b=>b.dataset.ligar.split(",").map(id=>[id,b.dataset.g])));
+  const st=$("#aSugTodos",c); if(st) st.onclick=()=>ligar(Object.entries(T.sugPai));
   const pri=$("#aPrim",c); if(pri) pri.onclick=()=>abrirPessoa(s,null,{subsetor:filtroSub});
   $("#aSub",c).onchange=e=>{ filtroSub=e.target.value; render(); };
   const bq=$("#aBusca",c); bq.oninput=()=>{ busca=bq.value; tree.querySelectorAll(".pcard").forEach(card=>{ const p=d.pessoas.find(x=>x.id===card.dataset.id);
     card.classList.toggle("achado",!!busca&&[p.nome,p.cargo,p.subsetor].some(x=>nrm(x).includes(nrm(busca)))); }); };
   bq.onkeydown=e=>{ if(e.key==="Enter"){ const a=tree.querySelector(".achado"); if(a){ a.scrollIntoView({behavior:"smooth",block:"center",inline:"center"}); a.focus(); } } };
-  const setZ=v=>{ zoom[s.id]=Math.max(.3,Math.min(1.6,Math.round(v*100)/100)); tree.style.zoom=zoom[s.id]; $("#zVal").textContent=Math.round(zoom[s.id]*100)+"%"; };
-  $("#zMenos",c).onclick=()=>setZ((zoom[s.id]||1)-.1); $("#zMais",c).onclick=()=>setZ((zoom[s.id]||1)+.1);
-  $("#zAjustar",c).onclick=()=>{ tree.style.zoom=1; const w=$("#orgArea").clientWidth-40, sw=tree.scrollWidth; setZ(sw>w?w/sw:1); };
   $("#aExp",c).onclick=()=>{ recolhidos.clear(); render(); };
   $("#aRec",c).onclick=()=>{ const H=mapaHierarquia(d,filtroSub); H.raizes.forEach(r=>(H.filhos[r.id]||[]).forEach(f=>{ if((H.filhos[f.id]||[]).length) recolhidos.add(f.id); })); render(); };
-  ligarCards(tree,s); ligarArrastar(c,s);
+  ligarCards(tree,s); ligarArrastar(c,s); ligarPan(area); ligarLinhas(s,tree,area);
 }
-// arrastar e soltar: muda "a quem responde"
+if(window.ResizeObserver){ let t=null; new ResizeObserver(()=>{ clearTimeout(t); t=setTimeout(()=>redesenhar&&redesenhar(),80); }).observe(document.documentElement); }
+
+// segurar o botão esquerdo no fundo e arrastar = mover o organograma
+let PAN=null;
+window.addEventListener("pointermove",e=>{ if(!PAN) return; PAN.area.scrollLeft=PAN.sl-(e.clientX-PAN.x); PAN.area.scrollTop=PAN.st-(e.clientY-PAN.y); });
+window.addEventListener("pointerup",()=>{ if(PAN){ PAN.area.classList.remove("panning"); PAN=null; } });
+function ligarPan(area){
+  area.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="mouse"||e.button!==0) return;
+    if(e.target.closest(".pcard,.equipe,button,input,select,a,path.hit,.hnd")) return;
+    PAN={area,x:e.clientX,y:e.clientY,sl:area.scrollLeft,st:area.scrollTop}; area.classList.add("panning"); e.preventDefault();
+  });
+}
+
+// linhas: clicar = ações; arrastar = religar a outra pessoa. Ponto ● = criar linha nova.
+let LIGANDO=false;
+function ligarLinhas(s,tree,area){
+  const sc=()=>zoom[s.id]||1, temp=()=>tree.querySelector("#tempLinha");
+  const pt=e=>{ const r=tree.getBoundingClientRect(); return {x:(e.clientX-r.left)/sc(),y:(e.clientY-r.top)/sc()}; };
+  const cardSob=e=>{ const t=document.elementFromPoint(e.clientX,e.clientY); return t&&t.closest(".pcard"); };
+  const marcarAlvo=card=>{ tree.querySelectorAll(".pcard.alvo").forEach(x=>{ if(x!==card) x.classList.remove("alvo"); }); if(card) card.classList.add("alvo"); };
+  // arrastar a partir de uma LINHA (ponta de cima = gestor)
+  // delegação: as linhas são redesenhadas várias vezes (fontes, zoom, redimensionar)
+  tree.addEventListener("pointerdown",e=>{ const h=e.target.closest("path.hit"); if(h) aoLinha(e,h); const hd=e.target.closest(".hnd"); if(hd) aoPonto(e,hd); });
+  function aoLinha(e,h){ if(e.button!==0) return; e.preventDefault(); e.stopPropagation();
+      const L=LINKS[+h.dataset.i], ini={x:e.clientX,y:e.clientY}; let arrastou=false;
+      const mov=ev=>{ if(!arrastou&&Math.hypot(ev.clientX-ini.x,ev.clientY-ini.y)<6) return; arrastou=true;
+        tree.querySelector(`path.l[data-i="${h.dataset.i}"]`).classList.add("sel"); const p=pt(ev);
+        temp().setAttribute("d",`M${L.x2} ${L.y2}L${p.x} ${p.y}`); marcarAlvo(cardSob(ev)); };
+      const fim=ev=>{ window.removeEventListener("pointermove",mov); window.removeEventListener("pointerup",fim); temp().setAttribute("d",""); marcarAlvo(null);
+        if(!arrastou){ tree.querySelector(`path.l[data-i="${h.dataset.i}"]`).classList.add("sel"); acoesDaLinha(s,L,ev.clientX,ev.clientY); return; }
+        tree.querySelectorAll("path.l.sel").forEach(x=>x.classList.remove("sel"));
+        const alvo=cardSob(ev); if(!alvo||alvo.dataset.id===L.de) return;
+        const d=s.dados, g=alvo.dataset.id;
+        if(L.tipo==="extra"){ const p=d.pessoas.find(z=>z.id===L.para[0]); if(descendentes(d,p.id).has(g)||g===p.id){ $("#banner").textContent="Não dá: criaria um ciclo."; return; }
+          p.extras=[...new Set((p.extras||[]).filter(x=>x!==L.de).concat(g===p.gestor_id?[]:[g]))]; feito(s,`✓ Linha tracejada religada a ${nomeP(d,g)}.`); }
+        else { ESCOLHA={s,ids:L.para}; aplicarEscolha(g); } };
+      window.addEventListener("pointermove",mov); window.addEventListener("pointerup",fim);
+  }
+  // ponto ● = criar uma ligação nova saindo de quem será o gestor
+  function aoPonto(e,hd){ if(e.button!==0) return; e.preventDefault(); e.stopPropagation(); LIGANDO=true; area.classList.add("ligando");
+      const g=hd.dataset.hnd, cg=hd.closest(".pcard"), r=cg.getBoundingClientRect(), tr=tree.getBoundingClientRect();
+      const x0=(r.left+r.width/2-tr.left)/sc(), y0=(r.bottom-tr.top)/sc();
+      const mov=ev=>{ const p=pt(ev); temp().setAttribute("d",`M${x0} ${y0}L${p.x} ${p.y}`); const c2=cardSob(ev); marcarAlvo(c2&&c2!==cg?c2:null); };
+      const fim=ev=>{ window.removeEventListener("pointermove",mov); window.removeEventListener("pointerup",fim); temp().setAttribute("d",""); marcarAlvo(null);
+        LIGANDO=false; area.classList.remove("ligando"); const alvo=cardSob(ev); if(alvo&&alvo.dataset.id!==g) escolherVinculo(s,g,alvo.dataset.id,ev.clientX,ev.clientY); };
+      window.addEventListener("pointermove",mov); window.addEventListener("pointerup",fim);
+  }
+}
+
+// arrastar o CARTÃO sobre outro: pergunta o tipo de vínculo
 function ligarArrastar(c,s){
   const area=$("#orgArea",c), topo=$("#topoDrop",c); let arrastado=null;
-  area.addEventListener("dragstart",e=>{ const card=e.target.closest(".pcard"); if(!card) return; arrastado=card.dataset.id; card.classList.add("arrastando");
+  area.addEventListener("dragstart",e=>{ if(LIGANDO){ e.preventDefault(); return; } const card=e.target.closest(".pcard"); if(!card) return; arrastado=card.dataset.id; card.classList.add("arrastando");
     e.dataTransfer.setData("text/plain",arrastado); e.dataTransfer.effectAllowed="move"; area.classList.add("arrastando-ativo"); });
   area.addEventListener("dragend",()=>{ area.classList.remove("arrastando-ativo"); area.querySelectorAll(".arrastando,.alvo").forEach(x=>x.classList.remove("arrastando","alvo")); arrastado=null; });
   area.addEventListener("dragover",e=>{ if(!arrastado) return; const alvo=e.target.closest(".pcard")||(e.target.closest("#topoDrop")?topo:null);
     area.querySelectorAll(".alvo").forEach(x=>{ if(x!==alvo) x.classList.remove("alvo"); });
     if(alvo&&alvo.dataset.id!==arrastado){ e.preventDefault(); alvo.classList.add("alvo"); } });
-  area.addEventListener("drop",e=>{ e.preventDefault(); if(!arrastado) return; const d=s.dados, p=d.pessoas.find(x=>x.id===arrastado);
-    const alvoCard=e.target.closest(".pcard"); const novo= alvoCard ? alvoCard.dataset.id : (e.target.closest("#topoDrop")?"":null);
-    if(novo===null||novo===arrastado||!p) return;
-    if(novo && descendentes(d,p.id).has(novo)){ $("#banner").textContent=`Não dá: ${tx(d.pessoas.find(x=>x.id===novo).nome)} responde (direta ou indiretamente) a ${tx(p.nome)}.`; return; }
-    if((p.gestor_id||"")===novo) return;
-    p.gestor_id=novo; const g=novo&&d.pessoas.find(x=>x.id===novo);
-    if(g) recolhidos.delete(g.id);
-    salvar(s); render(); $("#banner").textContent = g ? `✓ ${tx(p.nome)||"A vaga"} agora responde a ${tx(g.nome)||"vaga"}.` : `✓ ${tx(p.nome)} agora está no topo do setor.`; });
+  area.addEventListener("drop",e=>{ e.preventDefault(); if(!arrastado) return; const d=s.dados, p=d.pessoas.find(x=>x.id===arrastado), id=arrastado;
+    const alvoCard=e.target.closest(".pcard");
+    if(!alvoCard&&e.target.closest("#topoDrop")){ if(p){ p.gestor_id=""; p.abaixo_de=""; feito(s,`✓ ${tx(p.nome)||"A vaga"} agora está no topo do setor.`); } return; }
+    if(!alvoCard||alvoCard.dataset.id===id||!p) return;
+    escolherVinculo(s,alvoCard.dataset.id,id,e.clientX,e.clientY); });
 }
 
 // ─── Por nível (blocos por subsetor, linhas A–D) ───
@@ -642,7 +840,7 @@ function visaoNivel(c,s){
     ${NIVEIS.map(([nv,rot,sg])=>{ const ps=ordenarPessoas(grupos[n].filter(p=>p.nivel===nv)); if(!ps.length) return "";
       return `<div class="linha-nivel" style="${estNivel(nv)}"><div class="rot">Nível ${esc(sg)}<small>${esc(rot)}</small></div><div class="cards">${ps.map(p=>{
         const g=gestorDe(d,p); return cardHTML(p,{semSub:true}).replace('<div class="pt">',`<div class="pt">${g?`<span class="chip" title="Responde a">↑ ${esc(tx(g.nome)||"vaga")}</span>`:""}`); }).join("")}</div></div>`; }).join("")}</div>`).join("");
-  c.querySelectorAll(".pcard").forEach(x=>x.removeAttribute("draggable"));
+  c.querySelectorAll(".pcard").forEach(x=>x.removeAttribute("draggable")); c.querySelectorAll(".hnd").forEach(x=>x.remove());
   ligarCards(c,s);
 }
 
@@ -651,17 +849,18 @@ function visaoLista(c,s){
   const d=s.dados;
   const pessoas=ordenarPessoas(d.pessoas);
   c.innerHTML=`<p class="cap" style="margin-top:16px">Edição rápida de todo o setor. As alterações são gravadas sozinhas. Para foto e observações, clique em ✏️.</p>
-    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Nível</th><th>Subsetor</th><th>Responde a</th><th>Escala</th><th>Horário</th><th>E-mail</th><th>Ramal / telefone</th><th>Vaga</th><th></th></tr></thead><tbody>${
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Nível</th><th>Subsetor</th><th>Responde a</th><th>Também responde a</th><th>Escala</th><th>Horário</th><th>E-mail</th><th>Ramal / telefone</th><th>Vaga</th><th></th></tr></thead><tbody>${
       pessoas.length?pessoas.map(p=>`<tr data-id="${p.id}">
         <td><input data-k="nome" value="${esc(p.nome)}" aria-label="Nome"></td><td><input data-k="cargo" value="${esc(p.cargo)}" aria-label="Cargo"></td>
         <td><select data-k="nivel" aria-label="Nível">${NIVEIS.map(([n,r,sg])=>`<option value="${esc(n)}"${n===p.nivel?" selected":""}>${esc(sg)} · ${esc(r)}</option>`).join("")}</select></td>
         <td><input data-k="subsetor" list="dl-sub" value="${esc(p.subsetor)}" aria-label="Subsetor"></td>
         <td><select data-k="gestor_id" aria-label="Responde a"><option value="">— topo do setor —</option>${ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!descendentes(d,p.id).has(x.id))).map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></td>
+        <td><span class="muted" style="display:block;padding:7px;font-size:13px;min-width:120px">${esc((p.extras||[]).map(x=>nomeP(d,x)).join(", ")||"—")}</span></td>
         <td><input data-k="escala" list="dl-escala" value="${esc(p.escala)}" aria-label="Escala"></td><td><input data-k="horario" value="${esc(p.horario)}" aria-label="Horário"></td>
         <td><input data-k="email" value="${esc(p.email)}" aria-label="E-mail"></td><td><input data-k="ramal" value="${esc(p.ramal)}" aria-label="Ramal"></td>
         <td><select data-k="vaga" aria-label="Vaga"><option value="">Não</option><option value="1"${p.vaga?" selected":""}>Sim</option></select></td>
         <td style="white-space:nowrap"><button type="button" class="ib" data-ed title="Editar tudo">✏️</button><button type="button" class="ib" data-del title="Excluir">🗑</button></td></tr>`).join("")
-      :'<tr><td colspan="11" class="muted" style="text-align:center;padding:20px">Nenhuma pessoa ainda.</td></tr>'}</tbody></table></div>
+      :'<tr><td colspan="12" class="muted" style="text-align:center;padding:20px">Nenhuma pessoa ainda.</td></tr>'}</tbody></table></div>
     <div class="acoes"><button type="button" id="lAdd">${ICO.mais} Adicionar linha</button></div>`;
   c.querySelectorAll("tr[data-id]").forEach(tr=>{ const p=d.pessoas.find(x=>x.id===tr.dataset.id);
     tr.querySelectorAll("[data-k]").forEach(i=>{ const ev=i.tagName==="SELECT"?"change":"input";
@@ -673,7 +872,12 @@ function visaoLista(c,s){
 }
 
 // ─── Importar (colar do Excel) ───
-const COLS_IMP=[["nome","Nome"],["cargo","Cargo"],["nivel","Nível"],["subsetor","Subsetor"],["gestor","Responde a (nome)"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal"]];
+const COLS_IMP=[["nome","Nome"],["cargo","Cargo"],["nivel","Nível"],["subsetor","Subsetor"],["gestor","Responde a (nome)"],["extras","Também responde a (nomes)"],["abaixo","Posicionar abaixo de (nome)"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal"]];
+function colunaDoCabecalho(h){
+  if(/^tambem/.test(h)) return "extras"; if(/^posicion|^abaixo/.test(h)) return "abaixo";
+  if(/^nome/.test(h)) return "nome"; if(/^cargo|^funcao/.test(h)) return "cargo"; if(/nivel/.test(h)) return "nivel"; if(/^sub/.test(h)) return "subsetor";
+  if(/gestor|responde|superior|lider imediato/.test(h)) return "gestor"; if(/^escala/.test(h)) return "escala"; if(/^hor/.test(h)) return "horario";
+  if(/mail/.test(h)) return "email"; if(/ramal|telefone|fone/.test(h)) return "ramal"; return null; }
 function lerNivel(v){ const t=nrm(v); if(!t) return nivelPadrao();
   const porSigla=NIVEIS.find(([id,nome,sg])=>nrm(sg)===t||nrm(id)===t); if(porSigla) return porSigla[0];
   const porNome=NIVEIS.find(([id,nome])=>nrm(nome).split(/[\s\/]+/).filter(w=>w.length>3).some(w=>t.includes(w.slice(0,6)))); if(porNome) return porNome[0];
@@ -685,13 +889,13 @@ function parseColagem(txt){
   const sep=linhas[0].includes("\t")?"\t":linhas[0].includes(";")?";":",";
   let cab=linhas[0].split(sep).map(nrm), ini=0, ordem=COLS_IMP.map(c=>c[0]);
   if(cab.some(h=>h.startsWith("nome"))){ ini=1;
-    ordem=cab.map(h=>{ const m=COLS_IMP.find(([k,r])=>h.startsWith(nrm(r).split(" ")[0])||h===k||(k==="gestor"&&/(gestor|responde|superior|lider imediato)/.test(h))||(k==="nivel"&&/nivel/.test(h)));
-      return m?m[0]:null; }); }
+    ordem=cab.map(colunaDoCabecalho); }
   return linhas.slice(ini).map(l=>{ const v=l.split(sep), o={}; ordem.forEach((k,i)=>{ if(k) o[k]=tx(v[i]); }); return o; }).filter(o=>tx(o.nome)||tx(o.cargo));
 }
 function visaoImportar(c,s){
   c.innerHTML=`<p class="cap" style="margin-top:16px">Copie as linhas de uma planilha (Excel ou Google Sheets) e cole abaixo. Com cabeçalho, as colunas são reconhecidas pelo nome; sem cabeçalho, use esta ordem:</p>
     <p class="muted" style="font-size:13px">${COLS_IMP.map(c=>`<span class="chip" style="font-size:12px">${esc(c[1])}</span>`).join(" ")}</p>
+    <p class="cap">"Também responde a" aceita mais de um nome separado por vírgula (dupla subordinação). "Posicionar abaixo de" muda só a posição no desenho (ex.: alguém que responde ao gerente mas aparece abaixo do coordenador).</p>
     <p class="cap">"Responde a" é o nome do gestor — pode ser alguém que já está no setor ou alguém da própria colagem. "Nível" aceita a sigla (${NIVEIS.map(x=>esc(x[2])).join(", ")}) ou o nome do nível. Nome vazio vira <b>vaga em aberto</b>.</p>
     <textarea id="impTxt" rows="9" placeholder="Nome&#9;Cargo&#9;Nível&#9;Subsetor&#9;Responde a&#10;Carlos Eduardo&#9;Coordenador de Atendimento&#9;B&#9;Atendimento&#9;&#10;Ana Souza&#9;Analista&#9;D&#9;Atendimento&#9;Carlos Eduardo"></textarea>
     <div id="impPrev"></div><div class="acoes"><button type="button" class="primary" id="impOk" disabled>Importar</button><span class="msg" id="impMsg"></span></div>`;
@@ -700,9 +904,12 @@ function visaoImportar(c,s){
     prev.innerHTML=L.length?`<div class="tbl-wrap" style="max-height:260px;margin-top:10px"><table><thead><tr>${COLS_IMP.map(x=>`<th>${esc(x[1])}</th>`).join("")}</tr></thead><tbody>${L.slice(0,12).map(o=>`<tr>${COLS_IMP.map(([k])=>`<td>${esc(k==="nivel"?sig(lerNivel(o[k])):o[k]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${L.length>12?`<p class="muted" style="font-size:12.5px">… e mais ${L.length-12}.</p>`:""}`:""; };
   ta.oninput=ver;
   ok.onclick=()=>{ const L=parseColagem(ta.value), d=s.dados, novos=[];
-    L.forEach(o=>{ const p={id:uid(),nome:tx(o.nome),cargo:tx(o.cargo),nivel:lerNivel(o.nivel),subsetor:tx(o.subsetor),gestor_id:"",escala:tx(o.escala),horario:tx(o.horario),email:tx(o.email),ramal:tx(o.ramal),
+    L.forEach(o=>{ const p={id:uid(),extras:[],abaixo_de:"",_ex:tx(o.extras),_ab:tx(o.abaixo),nome:tx(o.nome),cargo:tx(o.cargo),nivel:lerNivel(o.nivel),subsetor:tx(o.subsetor),gestor_id:"",escala:tx(o.escala),horario:tx(o.horario),email:tx(o.email),ramal:tx(o.ramal),
       vaga:!tx(o.nome)||nrm(o.nome)==="vaga",obs:"",_g:tx(o.gestor)}; if(p.vaga&&nrm(p.nome)==="vaga") p.nome=""; novos.push(p); d.pessoas.push(p); });
-    let semG=0; novos.forEach(p=>{ if(p._g){ const g=d.pessoas.find(x=>x!==p&&nrm(x.nome)===nrm(p._g)); if(g) p.gestor_id=g.id; else semG++; } delete p._g; });
+    const acha=(nome,p)=>d.pessoas.find(x=>x!==p&&nrm(x.nome)===nrm(nome));
+    let semG=0; novos.forEach(p=>{ if(p._g){ const g=acha(p._g,p); if(g) p.gestor_id=g.id; else semG++; } delete p._g; });
+    novos.forEach(p=>{ if(p._ex) p.extras=p._ex.split(/\s*[,;\/]\s*|\s+e\s+/).map(n=>acha(n,p)).filter(Boolean).map(x=>x.id).filter(x=>x!==p.gestor_id);
+      if(p._ab){ const a=acha(p._ab,p); if(a) p.abaixo_de=a.id; } delete p._ex; delete p._ab; });
     salvar(s); visao="arvore"; guardarNav(); render();
     $("#banner").textContent=`✓ ${novos.length} pessoa(s) importada(s).${semG?` ${semG} gestor(es) não encontrado(s) pelo nome — essas pessoas ficaram no topo; ajuste arrastando.`:""}`; };
 }
@@ -746,7 +953,7 @@ function sugerirGestor(d, nivel, sub, proibidos){
 }
 function abrirPessoa(s, id, pre){
   const d=s.dados, orig=id?d.pessoas.find(x=>x.id===id):null;
-  const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),nome:"",cargo:"",nivel:nivelPadrao(),subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
+  const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),extras:[],abaixo_de:"",nome:"",cargo:"",nivel:nivelPadrao(),subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
   if(!orig&&p.gestor_id){ const g=d.pessoas.find(x=>x.id===p.gestor_id); if(g) p.nivel=NIVEIS[Math.min(NIVEIS.length-1,ordemNivel(g.nivel)+1)][0]; }
   if(!orig&&!p.gestor_id){ p.gestor_id=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id])); p._gSug=!!p.gestor_id; }
   dw={s,id,p,setorId:s.id};
@@ -773,6 +980,10 @@ function desenharGaveta(){
     <div class="grade"><label class="f">Setor<select id="dwSetor">${SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(x=>`<option value="${x.id}"${x.id===dw.setorId?" selected":""}>${esc(x.dados.nome)}</option>`).join("")}</select></label>
       <label class="f">Subsetor<input id="dwSub2" list="dl-sub-dw" value="${esc(p.subsetor)}"><datalist id="dl-sub-dw">${subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label></div>
     <label class="f"><span>Responde a ${p._gSug?'<span class="pill" style="background:var(--steel-soft);color:var(--steel);margin-left:4px">sugerido pelo nível — confira</span>':""}</span><select id="dwGestor"><option value="">— topo do setor (não responde a ninguém do setor) —</option>${gestores.map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
+    <label class="f"><span>Posicionar abaixo de <span class="muted" style="font-size:12px">(opcional — só muda a posição no desenho)</span></span><select id="dwAbaixo"><option value="">— abaixo de quem responde (padrão) —</option>${
+      ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!(dw.id&&dw.setorId===dw.s.id&&descendentesPos(d,p.id).has(x.id)))).map(x=>`<option value="${x.id}"${x.id===p.abaixo_de?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
+    <div><div style="font-size:13px;color:var(--ink-2);margin-bottom:4px">Também responde a <span class="muted" style="font-size:12px">(dupla subordinação — linha tracejada)</span></div>
+      <div class="multi">${(()=>{ const ops=ordenarPessoas(gestores.filter(x=>x.id!==p.gestor_id)); return ops.length?ops.map(x=>`<label><input type="checkbox" data-ex="${x.id}" ${(p.extras||[]).includes(x.id)?"checked":""}> ${esc(tx(x.nome)||"(vaga)")}${x.cargo?` <span class="muted" style="font-size:12px">— ${esc(x.cargo)}</span>`:""}</label>`).join(""):'<span class="muted" style="font-size:13px">Ninguém disponível.</span>'; })()}</div></div>
     <div class="grade"><label class="f">Escala<input id="dwEscala" list="dl-escala" value="${esc(p.escala)}" placeholder="5x2, 6x1, 12x36"></label>
       <label class="f">Horário<input id="dwHorario" value="${esc(p.horario)}" placeholder="08:00 às 17:00"></label></div>
     <div class="grade"><label class="f">E-mail<input id="dwEmail" type="email" value="${esc(p.email)}"></label><label class="f">Ramal / telefone<input id="dwRamal" value="${esc(p.ramal)}"></label></div>
@@ -780,12 +991,14 @@ function desenharGaveta(){
   const C=$("#dwCorpo");
   [["dwNome","nome"],["dwCargo","cargo"],["dwSub2","subsetor"],["dwEscala","escala"],["dwHorario","horario"],["dwEmail","email"],["dwRamal","ramal"],["dwObs","obs"]].forEach(([id,k])=>{ $("#"+id,C).oninput=e=>{ p[k]=e.target.value; }; });
   $("#dwVaga",C).onchange=e=>{ p.vaga=e.target.checked; };
-  $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; p._gSug=false; desenharGaveta(); };
+  $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; p._gSug=false; p.extras=(p.extras||[]).filter(x=>x!==p.gestor_id); desenharGaveta(); };
+  $("#dwAbaixo",C).onchange=e=>{ p.abaixo_de=e.target.value; };
+  C.querySelectorAll("[data-ex]").forEach(i=>i.onchange=()=>{ const set=new Set(p.extras||[]); i.checked?set.add(i.dataset.ex):set.delete(i.dataset.ex); p.extras=[...set]; });
   const resugerir=()=>{ if(p._gSug||!p.gestor_id){ const g=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id,...proibidos])); p.gestor_id=g; p._gSug=!!g; } };
   C.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ p.nivel=b.dataset.n; resugerir(); desenharGaveta(); });
   $("#dwNiveis",C).onclick=()=>abrirNiveis();
   $("#dwSub2",C).onchange=()=>{ resugerir(); desenharGaveta(); };
-  $("#dwSetor",C).onchange=e=>{ dw.setorId=e.target.value; if(dw.setorId!==dw.s.id) p.gestor_id=""; desenharGaveta(); };
+  $("#dwSetor",C).onchange=e=>{ dw.setorId=e.target.value; if(dw.setorId!==dw.s.id){ p.gestor_id=""; p.extras=[]; p.abaixo_de=""; } desenharGaveta(); };
   $("#dwFoto",C).onchange=e=>{ const f=e.target.files[0]; if(!f) return; reduzirFoto(f).then(url=>{ p.foto=url; desenharGaveta(); }).catch(()=>alert("Não consegui ler essa imagem.")); };
   const sf=$("#dwSemFoto",C); if(sf) sf.onclick=()=>{ p.foto=""; desenharGaveta(); };
   C.onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); $("#dwSalvar").click(); } };
@@ -797,11 +1010,12 @@ $("#dwSalvar").onclick=()=>{
   const {s,id,p}=dw, destino=setorPorId(dw.setorId);
   if(!tx(p.nome)&&!p.vaga){ alert("Informe o nome ou marque como vaga em aberto."); $("#dwNome").focus(); return; }
   p.nome=tx(p.nome); p.cargo=tx(p.cargo); p.subsetor=tx(p.subsetor); delete p._gSug;
+  p.extras=[...new Set((p.extras||[]).filter(x=>x&&x!==p.gestor_id&&x!==p.id))]; if(p.abaixo_de===p.gestor_id) p.abaixo_de="";
   if(destino.id!==s.id){   // mudou de setor: sai de um documento e entra no outro
     const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id);
     if(i>=0){ const subs=d.pessoas.filter(x=>x.gestor_id===id);
       if(subs.length&&!confirm(`${subs.length} pessoa(s) respondem a ${p.nome||"esta posição"} em ${d.nome}. Elas passarão a responder a quem ela respondia. Continuar?`)) return;
-      subs.forEach(x=>x.gestor_id=d.pessoas[i].gestor_id||""); d.pessoas.splice(i,1); salvar(s); }
+      subs.forEach(x=>x.gestor_id=d.pessoas[i].gestor_id||""); d.pessoas.splice(i,1); limparReferencias(d,id); salvar(s); }
     destino.dados.pessoas.push(p); salvar(destino);
   } else {
     const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id);
@@ -812,11 +1026,12 @@ $("#dwSalvar").onclick=()=>{
   fecharGaveta(); render();
 };
 $("#dwExcluir").onclick=()=>{ if(dw&&dw.id){ const {s,id}=dw; fecharGaveta(); excluirPessoa(s,id); } };
+function limparReferencias(d,id){ d.pessoas.forEach(x=>{ x.extras=(x.extras||[]).filter(y=>y!==id); if(x.abaixo_de===id) x.abaixo_de=""; }); }
 function excluirPessoa(s,id){
   const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id); if(i<0) return;
   const p=d.pessoas[i], subs=d.pessoas.filter(x=>x.gestor_id===id), g=gestorDe(d,p);
   if(!confirm(`Excluir ${tx(p.nome)||"esta vaga"}?${subs.length?`\n\n${subs.length} pessoa(s) respondem a ela e passarão a responder a ${g?tx(g.nome)||"vaga":"ninguém (topo do setor)"}.`:""}`)) return;
-  subs.forEach(x=>x.gestor_id=p.gestor_id||""); d.pessoas.splice(i,1); salvar(s); render();
+  subs.forEach(x=>x.gestor_id=p.gestor_id||""); d.pessoas.splice(i,1); limparReferencias(d,id); salvar(s); render();
 }
 function reduzirFoto(file){
   return new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=rej; r.onload=()=>{ const img=new Image(); img.onerror=rej;
@@ -887,20 +1102,23 @@ $("#nvSim").onclick=async()=>{
 // PDF e Excel
 // ═══════════════════════════════════════════════════════════════════
 function imprimirSetor(s){
-  const d=s.dados, T=arvoreHTML(d,"");
-  const medir=el("div"); medir.className="org-tree"; medir.style.cssText="position:absolute;left:-99999px;top:0;zoom:1"; medir.innerHTML=`<ul>${T.html}</ul>`; document.body.appendChild(medir);
-  const largura=medir.scrollWidth; medir.remove();
-  const z=Math.min(1, 1040/Math.max(largura,1));
+  // imprime o organograma como está desenhado na tela (com as linhas), ajustado à página
+  if(vista!=="setor"||visao!=="arvore"||atual!==s.id){ visao="arvore"; atual=s.id; vista="setor"; guardarNav(); render(); setTimeout(()=>imprimirSetor(s),500); return; }
+  const d=s.dados, tree=$("#tree"); if(!tree) return;
+  const z0=zoom[s.id]||1, w=tree.offsetWidth, h=tree.offsetHeight;
+  const z=Math.min(1, 1040/Math.max(w,1));
   const f=el("iframe"); Object.assign(f.style,{position:"fixed",right:0,bottom:0,width:0,height:0,border:0}); document.body.appendChild(f);
   const doc=f.contentDocument; doc.open();
   doc.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Organograma — ${esc(d.nome)}</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>${$("#css").textContent}
-      @page{size:A4 landscape;margin:10mm} :root{--paper:#fff;--sheet:#fff;--ink:#1B2436} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .pa,.tg{display:none!important} .pcard{box-shadow:none} .org-tree{zoom:${z}} h1{margin:0 0 2px;font-size:22px} .sub{color:#7A8599;font-size:12px;margin-bottom:14px}
+      @page{size:A4 landscape;margin:10mm} :root{--paper:#fff;--sheet:#fff} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .pa,.tg,.hnd,.ligar{display:none!important} .pcard{box-shadow:none} h1{margin:0 0 2px;font-size:22px} .sub{color:#7A8599;font-size:12px;margin-bottom:10px}
+      .caixa-print{position:relative;width:${Math.ceil(w*z)}px;height:${Math.ceil(h*z)}px}
+      .caixa-print .org-tree{transform:scale(${z})!important;min-width:0!important}
     </style></head><body><h1>Organograma — ${esc(d.nome)}</h1><div class="sub">${esc(d.descricao||"")} · ${d.pessoas.length} posições · emitido em ${new Date().toLocaleDateString("pt-BR")}</div>
-    <div class="legenda" style="margin:0 0 14px">${legendaNiveis(d)}</div>
-    <div class="org-tree"><ul>${T.html}</ul></div></body></html>`);
+    <div class="legenda" style="margin:0 0 12px">${legendaNiveis(d)}<span>— responde a</span><span style="color:var(--amber)">- - também responde a</span></div>
+    <div class="caixa-print"><div class="org-tree" style="width:${w}px">${tree.innerHTML}</div></div></body></html>`);
   doc.close();
   setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Impressão indisponível: "+e.message); } setTimeout(()=>f.remove(),4000); },700);
 }
@@ -911,8 +1129,8 @@ function excelJS(){ if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
 async function exportarExcel(lista){
   await salvarTudo();
   const X=await excelJS(), wb=new X.Workbook();
-  const cols=[["setor","Setor"],["subsetor","Subsetor"],["nivel","Nível"],["nivel_nome","Descrição do nível"],["nome","Nome"],["cargo","Cargo"],["gestor","Responde a"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal / telefone"],["vaga","Vaga em aberto"],["obs","Observações"]];
-  const linhasDe=s=>ordenarPessoas(s.dados.pessoas).map(p=>{ const g=gestorDe(s.dados,p); return {setor:s.dados.nome,subsetor:p.subsetor,nivel:sig(p.nivel),nivel_nome:nomeNivel(p.nivel),nome:p.nome||(p.vaga?"(vaga em aberto)":""),cargo:p.cargo,gestor:g?(g.nome||"(vaga)"):"",escala:p.escala,horario:p.horario,email:p.email,ramal:p.ramal,vaga:p.vaga?"Sim":"Não",obs:p.obs}; });
+  const cols=[["setor","Setor"],["subsetor","Subsetor"],["nivel","Nível"],["nivel_nome","Descrição do nível"],["nome","Nome"],["cargo","Cargo"],["gestor","Responde a"],["extras","Também responde a"],["abaixo","Posicionado abaixo de"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal / telefone"],["vaga","Vaga em aberto"],["obs","Observações"]];
+  const linhasDe=s=>ordenarPessoas(s.dados.pessoas).map(p=>{ const g=gestorDe(s.dados,p); return {setor:s.dados.nome,subsetor:p.subsetor,nivel:sig(p.nivel),nivel_nome:nomeNivel(p.nivel),nome:p.nome||(p.vaga?"(vaga em aberto)":""),cargo:p.cargo,gestor:g?(g.nome||"(vaga)"):"",extras:(p.extras||[]).map(x=>nomeP(s.dados,x)).join(", "),abaixo:p.abaixo_de?nomeP(s.dados,p.abaixo_de):"",escala:p.escala,horario:p.horario,email:p.email,ramal:p.ramal,vaga:p.vaga?"Sim":"Não",obs:p.obs}; });
   const aba=(nome,linhas)=>{ const ws=wb.addWorksheet(nome);
     ws.addRow(cols.map(c=>c[1])); ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
     linhas.forEach(l=>ws.addRow(cols.map(c=>l[c[0]]??"")));
