@@ -160,6 +160,7 @@ svg.linhas path.temp{fill:none;stroke:var(--steel);stroke-width:2.5;stroke-dasha
 .eq-t .ligar{margin:0 0 0 auto}
 .pcard.sugerido{border-top-style:dashed}
 .chip.rep{background:var(--steel-soft);color:var(--steel)} .chip.dup{background:var(--amber-soft);color:var(--amber)}
+.chip.rep,.chip.dup{white-space:normal;line-height:1.35;padding:2px 7px}
 .hnd{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);width:16px;height:16px;padding:0;border-radius:50%;background:var(--steel);border:3px solid var(--sheet);
   box-shadow:0 0 0 1px var(--steel);opacity:0;cursor:crosshair;z-index:3;transition:opacity .15s}
 .pcard:hover .hnd,.pcard:focus-within .hnd,.org-area.ligando .hnd{opacity:1}
@@ -1106,15 +1107,17 @@ function imprimirSetor(s){
   if(vista!=="setor"||visao!=="arvore"||atual!==s.id){ visao="arvore"; atual=s.id; vista="setor"; guardarNav(); render(); setTimeout(()=>imprimirSetor(s),500); return; }
   const d=s.dados, tree=$("#tree"); if(!tree) return;
   const z0=zoom[s.id]||1, w=tree.offsetWidth, h=tree.offsetHeight;
-  const z=Math.min(1, 1040/Math.max(w,1));
+  // cabe numa página só: A4 paisagem; se ficar pequeno demais, A3 paisagem
+  const zA4=Math.min(1, 1040/Math.max(w,1), 610/Math.max(h,1)), a3=zA4<.6;
+  const z=a3 ? Math.min(1, 1500/Math.max(w,1), 900/Math.max(h,1)) : zA4;
   const f=el("iframe"); Object.assign(f.style,{position:"fixed",right:0,bottom:0,width:0,height:0,border:0}); document.body.appendChild(f);
   const doc=f.contentDocument; doc.open();
   doc.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Organograma — ${esc(d.nome)}</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>${$("#css").textContent}
-      @page{size:A4 landscape;margin:10mm} :root{--paper:#fff;--sheet:#fff} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @page{size:${a3?"A3":"A4"} landscape;margin:10mm} .caixa-print{break-inside:avoid;page-break-inside:avoid} :root{--paper:#fff;--sheet:#fff} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .pa,.tg,.hnd,.ligar{display:none!important} .pcard{box-shadow:none} h1{margin:0 0 2px;font-size:22px} .sub{color:#7A8599;font-size:12px;margin-bottom:10px}
-      .caixa-print{position:relative;width:${Math.ceil(w*z)}px;height:${Math.ceil(h*z)}px}
+      .caixa-print{position:relative;width:${Math.ceil(w*z)}px;height:${Math.ceil(h*z)}px;overflow:hidden;margin:0 auto}
       .caixa-print .org-tree{transform:scale(${z})!important;min-width:0!important}
     </style></head><body><h1>Organograma — ${esc(d.nome)}</h1><div class="sub">${esc(d.descricao||"")} · ${d.pessoas.length} posições · emitido em ${new Date().toLocaleDateString("pt-BR")}</div>
     <div class="legenda" style="margin:0 0 12px">${legendaNiveis(d)}<span>— responde a</span><span style="color:var(--amber)">- - também responde a</span></div>
