@@ -14,7 +14,7 @@
   --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
   --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
   --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
-  --linha:#B8C0CE;
+  --linha:#97A1B3;
   /* cores dos níveis */
   --nA:#2E4A7A; --nA-s:#E3EAF5; --nB:#2F7D4F; --nB-s:#E1F2E7; --nC:#C98A0B; --nC-s:#FBF1D9; --nD:#6B46A8; --nD-s:#EEE7F8;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -24,7 +24,7 @@
     --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
     --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
     --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
-    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A; --linha:#46516A;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A; --linha:#5C6884;
     --nA:#8FB0E6; --nA-s:#22304A; --nB:#6BC28E; --nB-s:#1D3527; --nC:#E8B04A; --nC-s:#3A2F17; --nD:#B79AE6; --nD-s:#2E2442;
   }
 }
@@ -154,6 +154,16 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .org-tree > ul > li{padding-top:0}
 .org-tree > ul > li::before,.org-tree > ul > li::after{display:none}
 .org-tree > ul > li + li{margin-left:26px}
+/* vínculo SUGERIDO pelo nível (ainda sem "responde a"): linha tracejada */
+.org-tree li.sug::before,.org-tree li.sug::after{border-top-style:dashed}
+.org-tree li.sug::after{border-left-style:dashed}
+.org-tree li.sug:last-child::before{border-right-style:dashed}
+.org-tree ul.so-sug::before{border-left-style:dashed}
+.equipe.sug{border-style:dashed;background:transparent}
+.ligar{margin-top:16px;font-size:12px;padding:4px 11px;border-radius:999px;border:1px dashed var(--steel);color:var(--steel);background:var(--sheet);line-height:1.3}
+.ligar:hover{background:var(--steel-soft);border-style:solid}
+.eq-t .ligar{margin:0 0 0 8px;text-transform:none;letter-spacing:0;font-weight:500}
+.pcard.sugerido{border-top-style:dashed}
 
 /* cartão de pessoa */
 .pcard{--n:var(--nD);--ns:var(--nD-s);width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
@@ -393,7 +403,7 @@ function cardHTML(p, opt={}){
     p.subsetor&&!opt.semSub?`<span class="chip">${esc(p.subsetor)}</span>`:"",
     p.escala?`<span class="chip" title="Escala">${esc(p.escala)}</span>`:"",
     p.horario?`<span class="chip" title="Horário">${esc(p.horario)}</span>`:""].join("");
-  return `<div class="pcard nv-${p.nivel}${p.vaga?" vaga":""}${achou?" achado":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
+  return `<div class="pcard nv-${p.nivel}${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
     <div class="av">${p.foto?`<img src="${esc(p.foto)}" alt="">`:p.vaga&&!tx(p.nome)?"?":esc(iniciais(p.nome))}</div>
     <div class="pi"><div class="pn">${esc(nome)}</div><div class="pc">${esc(p.cargo||"")}</div>${chips?`<div class="pt">${chips}</div>`:""}</div>
     ${opt.semAcoes?"":`<div class="pa"><button type="button" data-ac="sub" title="Adicionar alguém que responde a ${esc(nome)}">＋</button><button type="button" data-ac="ed" title="Editar">✏️</button></div>`}
@@ -501,23 +511,41 @@ function renderSetor(c){
 
 // ─── Organograma (árvore) ───
 function arvoreHTML(d, filtro){
-  const H=mapaHierarquia(d,filtro), visto=new Set();
-  const li=p=>{
-    visto.add(p.id);
-    const fs=(H.filhos[p.id]||[]).filter(f=>!visto.has(f.id)), rec=recolhidos.has(p.id);
-    if(rec){ const fila=[...fs]; while(fila.length){ const x=fila.shift(); if(visto.has(x.id)) continue; visto.add(x.id); fila.push(...(H.filhos[x.id]||[])); } }  // ramo recolhido: ninguém dele é desenhado
-    let h=cardHTML(p,{nFilhos:fs.length,recolhido:rec,semSub:!!filtro});
-    if(fs.length&&!rec){
-      const folhas=fs.filter(f=>!(H.filhos[f.id]||[]).length);
-      if(folhas.length===fs.length&&fs.length>=4){ fs.forEach(f=>visto.add(f.id));
-        h+=`<ul><li><div class="equipe${fs.length>=8?" duas":""}"><div class="eq-t">Equipe · ${fs.length}</div>${fs.map(f=>cardHTML(f,{semSub:!!filtro})).join("")}</div></li></ul>`; }
-      else h+=`<ul>${fs.map(li).join("")}</ul>`;
-    }
-    return `<li>${h}</li>`;
+  const H=mapaHierarquia(d,filtro), visto=new Set(), virt={}, topo=[];
+  // VÍNCULO SUGERIDO: quem não tem "responde a" mas tem nível abaixo de outra pessoa do topo
+  // fica embaixo dela (nível superior mais próximo; de preferência o mesmo subsetor), com linha tracejada.
+  H.raizes.forEach(r=>{
+    const cands=H.raizes.filter(x=>x!==r&&ordemNivel(x.nivel)<ordemNivel(r.nivel));
+    if(!cands.length){ topo.push(r); return; }
+    const m=Math.max(...cands.map(x=>ordemNivel(x.nivel)));
+    let pool=cands.filter(x=>ordemNivel(x.nivel)===m);
+    const mesmo=pool.filter(x=>tx(x.subsetor)&&tx(x.subsetor)===tx(r.subsetor)); if(mesmo.length) pool=mesmo;
+    (virt[pool[0].id]=virt[pool[0].id]||[]).push(r);
+  });
+  const nSug=H.raizes.length-topo.length;
+  const temFilhos=f=>(H.filhos[f.id]||[]).length||(virt[f.id]||[]).length;
+  const marcarRamo=lst=>{ const fila=[...lst]; while(fila.length){ const x=fila.shift(); if(visto.has(x.id)) continue; visto.add(x.id); fila.push(...(H.filhos[x.id]||[]),...(virt[x.id]||[])); } };
+  const nomeDe=p=>tx(p.nome)||"vaga";
+  const grupo=(lst,sug,pai)=>{
+    if(!lst.length) return "";
+    if(lst.every(f=>!temFilhos(f)) && lst.length>=4){ lst.forEach(f=>visto.add(f.id));
+      return `<li class="${sug?"sug":""}"><div class="equipe${sug?" sug":""}${lst.length>=8?" duas":""}"><div class="eq-t">${sug
+        ?`Sem "responde a" definido · ${lst.length}<button type="button" class="ligar" data-ligar="${lst.map(f=>f.id).join(",")}" data-g="${pai.id}">🔗 Confirmar todos com ${esc(nomeDe(pai))}</button>`
+        :`Equipe · ${lst.length}`}</div>${lst.map(f=>cardHTML(f,{semSub:!!filtro,sugerido:sug})).join("")}</div></li>`; }
+    return lst.map(f=>li(f,sug?pai:null)).join("");
   };
-  let html=H.raizes.map(li).join("");
+  const li=(p,sugDe)=>{
+    visto.add(p.id);
+    const fs=(H.filhos[p.id]||[]).filter(f=>!visto.has(f.id)), vs=(virt[p.id]||[]).filter(f=>!visto.has(f.id)), rec=recolhidos.has(p.id);
+    if(rec) marcarRamo([...fs,...vs]);   // ramo recolhido: ninguém dele é desenhado
+    let h=cardHTML(p,{nFilhos:fs.length+vs.length,recolhido:rec,semSub:!!filtro,sugerido:!!sugDe});
+    if(sugDe) h+=`<button type="button" class="ligar" data-ligar="${p.id}" data-g="${sugDe.id}" title="Gravar que ${esc(nomeDe(p))} responde a ${esc(nomeDe(sugDe))}">🔗 Responde a ${esc(nomeDe(sugDe))}? Confirmar</button>`;
+    if(!rec&&(fs.length||vs.length)) h+=`<ul class="${!fs.length?"so-sug":""}">${grupo(fs,false,p)}${grupo(vs,true,p)}</ul>`;
+    return `<li class="${sugDe?"sug":""}">${h}</li>`;
+  };
+  let html=topo.map(r=>li(r)).join("");
   for(const p of H.lista){ if(!visto.has(p.id)) html+=li(p); }   // proteção contra ciclos (A→B→A)
-  return {html, n:H.lista.length};
+  return {html, n:H.lista.length, nSug};
 }
 function visaoArvore(c,s){
   const d=s.dados, subs=subsetoresDe(d), z=zoom[s.id]||1;
@@ -527,10 +555,16 @@ function visaoArvore(c,s){
       <span class="grupo"><button type="button" id="zMenos" title="Diminuir">−</button><span id="zVal">${Math.round(z*100)}%</span><button type="button" id="zMais" title="Aumentar">+</button></span>
       <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
       <span class="dica">Dica: arraste um cartão sobre outro para mudar a quem ele responde.</span></div>
+    <div id="aSug"></div>
     <div class="org-area" id="orgArea"><div class="topo-drop" id="topoDrop">Solte aqui para colocar no topo do setor (sem gestor)</div><div class="org-tree" id="tree"></div></div>`;
   const T=arvoreHTML(d,filtroSub), tree=$("#tree",c);
   tree.innerHTML = T.n ? `<ul>${T.html}</ul>` : `<div class="aviso" style="text-align:center">Nenhuma pessoa ${filtroSub?"neste subsetor":"neste setor"} ainda. <button type="button" class="primary" id="aPrim">${ICO.pessoa} Adicionar a primeira pessoa</button></div>`;
   tree.style.zoom=z;
+  if(T.nSug) $("#aSug",c).innerHTML=`<p class="aviso">🔗 <b>${T.nSug}</b> pessoa(s) ainda sem “responde a” definido — posicionadas pelo nível, com <b>linha tracejada</b>. Confira e clique em <b>Confirmar</b> (ou arraste para o gestor certo). <button type="button" class="peq" id="aSugTodos">Confirmar todas as sugestões</button></p>`;
+  const ligar=pares=>{ let n=0; pares.forEach(([id,g])=>{ const x=d.pessoas.find(y=>y.id===id); if(x&&g&&!descendentes(d,id).has(g)){ x.gestor_id=g; n++; } });
+    if(n){ salvar(s); render(); $("#banner").textContent=`✓ ${n} vínculo(s) confirmado(s) — a linha agora é contínua.`; } };
+  tree.querySelectorAll("[data-ligar]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); ligar(b.dataset.ligar.split(",").map(id=>[id,b.dataset.g])); });
+  const st=$("#aSugTodos",c); if(st) st.onclick=()=>ligar([...tree.querySelectorAll("[data-ligar]")].flatMap(b=>b.dataset.ligar.split(",").map(id=>[id,b.dataset.g])));
   const pri=$("#aPrim",c); if(pri) pri.onclick=()=>abrirPessoa(s,null,{subsetor:filtroSub});
   $("#aSub",c).onchange=e=>{ filtroSub=e.target.value; render(); };
   const bq=$("#aBusca",c); bq.oninput=()=>{ busca=bq.value; tree.querySelectorAll(".pcard").forEach(card=>{ const p=d.pessoas.find(x=>x.id===card.dataset.id);
@@ -660,10 +694,18 @@ function visaoConfig(c,s){
 // GAVETA — adicionar / editar pessoa
 // ═══════════════════════════════════════════════════════════════════
 let dw=null;  // {s, id, p (rascunho)}
+function sugerirGestor(d, nivel, sub, proibidos){
+  const n=ordemNivel(nivel), cands=d.pessoas.filter(x=>ordemNivel(x.nivel)<n&&!proibidos.has(x.id));
+  if(!cands.length) return "";
+  const m=Math.max(...cands.map(x=>ordemNivel(x.nivel))); let pool=cands.filter(x=>ordemNivel(x.nivel)===m);
+  const mesmo=pool.filter(x=>tx(sub)&&tx(x.subsetor)===tx(sub)); if(mesmo.length) pool=mesmo;
+  return pool.length===1 ? pool[0].id : "";
+}
 function abrirPessoa(s, id, pre){
   const d=s.dados, orig=id?d.pessoas.find(x=>x.id===id):null;
   const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),nome:"",cargo:"",nivel:"D",subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
   if(!orig&&p.gestor_id){ const g=d.pessoas.find(x=>x.id===p.gestor_id); if(g) p.nivel="ABCD"[Math.min(3,ordemNivel(g.nivel)+1)]; }
+  if(!orig&&!p.gestor_id){ p.gestor_id=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id])); p._gSug=!!p.gestor_id; }
   dw={s,id,p,setorId:s.id};
   $("#dwTit").textContent=orig?"Editar pessoa":"Adicionar pessoa";
   $("#dwExcluir").hidden=!orig;
@@ -687,7 +729,7 @@ function desenharGaveta(){
       <div class="niveis-sel">${NIVEIS.map(([n,r])=>`<button type="button" data-n="${n}" style="--n:var(--n${n});--ns:var(--n${n}-s)" class="${n===p.nivel?"ativo":""}"><b>${n}</b>${esc(r)}</button>`).join("")}</div></div>
     <div class="grade"><label class="f">Setor<select id="dwSetor">${SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(x=>`<option value="${x.id}"${x.id===dw.setorId?" selected":""}>${esc(x.dados.nome)}</option>`).join("")}</select></label>
       <label class="f">Subsetor<input id="dwSub2" list="dl-sub-dw" value="${esc(p.subsetor)}"><datalist id="dl-sub-dw">${subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label></div>
-    <label class="f">Responde a<select id="dwGestor"><option value="">— topo do setor (não responde a ninguém do setor) —</option>${gestores.map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
+    <label class="f"><span>Responde a ${p._gSug?'<span class="pill" style="background:var(--steel-soft);color:var(--steel);margin-left:4px">sugerido pelo nível — confira</span>':""}</span><select id="dwGestor"><option value="">— topo do setor (não responde a ninguém do setor) —</option>${gestores.map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
     <div class="grade"><label class="f">Escala<input id="dwEscala" list="dl-escala" value="${esc(p.escala)}" placeholder="5x2, 6x1, 12x36"></label>
       <label class="f">Horário<input id="dwHorario" value="${esc(p.horario)}" placeholder="08:00 às 17:00"></label></div>
     <div class="grade"><label class="f">E-mail<input id="dwEmail" type="email" value="${esc(p.email)}"></label><label class="f">Ramal / telefone<input id="dwRamal" value="${esc(p.ramal)}"></label></div>
@@ -695,8 +737,10 @@ function desenharGaveta(){
   const C=$("#dwCorpo");
   [["dwNome","nome"],["dwCargo","cargo"],["dwSub2","subsetor"],["dwEscala","escala"],["dwHorario","horario"],["dwEmail","email"],["dwRamal","ramal"],["dwObs","obs"]].forEach(([id,k])=>{ $("#"+id,C).oninput=e=>{ p[k]=e.target.value; }; });
   $("#dwVaga",C).onchange=e=>{ p.vaga=e.target.checked; };
-  $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; };
-  C.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ p.nivel=b.dataset.n; desenharGaveta(); });
+  $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; p._gSug=false; desenharGaveta(); };
+  const resugerir=()=>{ if(p._gSug||!p.gestor_id){ const g=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id,...proibidos])); p.gestor_id=g; p._gSug=!!g; } };
+  C.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ p.nivel=b.dataset.n; resugerir(); desenharGaveta(); });
+  $("#dwSub2",C).onchange=()=>{ resugerir(); desenharGaveta(); };
   $("#dwSetor",C).onchange=e=>{ dw.setorId=e.target.value; if(dw.setorId!==dw.s.id) p.gestor_id=""; desenharGaveta(); };
   $("#dwFoto",C).onchange=e=>{ const f=e.target.files[0]; if(!f) return; reduzirFoto(f).then(url=>{ p.foto=url; desenharGaveta(); }).catch(()=>alert("Não consegui ler essa imagem.")); };
   const sf=$("#dwSemFoto",C); if(sf) sf.onclick=()=>{ p.foto=""; desenharGaveta(); };
@@ -708,7 +752,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&dw) fecharGaveta()
 $("#dwSalvar").onclick=()=>{
   const {s,id,p}=dw, destino=setorPorId(dw.setorId);
   if(!tx(p.nome)&&!p.vaga){ alert("Informe o nome ou marque como vaga em aberto."); $("#dwNome").focus(); return; }
-  p.nome=tx(p.nome); p.cargo=tx(p.cargo); p.subsetor=tx(p.subsetor);
+  p.nome=tx(p.nome); p.cargo=tx(p.cargo); p.subsetor=tx(p.subsetor); delete p._gSug;
   if(destino.id!==s.id){   // mudou de setor: sai de um documento e entra no outro
     const d=s.dados, i=d.pessoas.findIndex(x=>x.id===id);
     if(i>=0){ const subs=d.pessoas.filter(x=>x.gestor_id===id);
