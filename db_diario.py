@@ -445,3 +445,54 @@ def mapa_excluir(processo_id: str, usuario: str) -> bool:
         return False
     ref.update({"excluido": True, "excluido_por": usuario, "excluido_em": _now_iso()}, timeout=TIMEOUT_FS)
     return True
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.2] DOCUMENTOS GENÉRICOS COM VERSÃO — mesma lógica do Mapa Digital,
+# mas servindo qualquer coleção (usado pelo Organograma: um documento por
+# setor). O servidor não conhece os campos: quem decide é o HTML.
+# ──────────────────────────────────────────────────────────────────────────
+def docs_listar(colecao: str) -> list[dict]:
+    saida = []
+    for doc in get_db().collection(colecao).stream(timeout=TIMEOUT_FS):
+        d = doc.to_dict() or {}
+        if not d.get("excluido"):
+            saida.append(_mapa_publico(doc.id, d))
+    return saida
+
+
+def docs_criar(colecao: str, dados: dict, usuario: str) -> dict:
+    agora = _now_iso()
+    ref = get_db().collection(colecao).document()
+    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_em": agora,
+                "atualizado_por": usuario, "atualizado_em": agora}
+    ref.set(registro, timeout=TIMEOUT_FS)
+    return _mapa_publico(ref.id, registro)
+
+
+def docs_salvar(colecao: str, doc_id: str, dados: dict, versao_esperada: Optional[int], usuario: str):
+    ref = get_db().collection(colecao).document(doc_id)
+    transacao = get_db().transaction()
+
+    @firestore.transactional
+    def _tx(t):
+        snap = ref.get(transaction=t)
+        if not snap.exists or (snap.to_dict() or {}).get("excluido"):
+            return "nao_existe", None
+        atual = snap.to_dict() or {}
+        versao_atual = int(atual.get("versao", 1))
+        if versao_esperada is not None and versao_esperada != versao_atual:
+            return "conflito", _mapa_publico(doc_id, atual)
+        novo = {"dados": dados, "versao": versao_atual + 1, "atualizado_por": usuario, "atualizado_em": _now_iso()}
+        t.update(ref, novo)
+        return "ok", _mapa_publico(doc_id, {**atual, **novo})
+
+    return _tx(transacao)
+
+
+def docs_excluir(colecao: str, doc_id: str, usuario: str) -> bool:
+    ref = get_db().collection(colecao).document(doc_id)
+    if not ref.get(timeout=TIMEOUT_FS).exists:
+        return False
+    ref.update({"excluido": True, "excluido_por": usuario, "excluido_em": _now_iso()}, timeout=TIMEOUT_FS)
+    return True
