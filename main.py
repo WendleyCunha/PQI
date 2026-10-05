@@ -738,6 +738,46 @@ def mapa_excluir(processo_id: str, request: Request):
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.2] ORGANOGRAMAS — um documento por setor (coleção própria).
+# Rotas genéricas: campos novos se resolvem só no organograma.html.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_ORGANOGRAMA = "organograma_setores"
+
+
+@app.get("/api/organograma/setores")
+def org_listar():
+    return db.docs_listar(COLECAO_ORGANOGRAMA)
+
+
+@app.post("/api/organograma/setores")
+def org_criar(payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Dados do setor inválidos.")
+    _checar_tamanho(payload.dados)
+    return db.docs_criar(COLECAO_ORGANOGRAMA, payload.dados, _nome_de(request))
+
+
+@app.put("/api/organograma/setores/{setor_id}")
+def org_salvar(setor_id: str, payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Dados do setor inválidos.")
+    _checar_tamanho(payload.dados)
+    resultado, registro = db.docs_salvar(COLECAO_ORGANOGRAMA, setor_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Setor não encontrado (pode ter sido excluído).")
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    return registro
+
+
+@app.delete("/api/organograma/setores/{setor_id}")
+def org_excluir(setor_id: str, request: Request):
+    if not db.docs_excluir(COLECAO_ORGANOGRAMA, setor_id, _nome_de(request)):
+        raise HTTPException(status_code=404, detail="Setor não encontrado.")
+    return {"sucesso": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # [AJUSTADO v2.3] PÁGINAS HTML — o mesmo servidor agora entrega o Painel
 # (túnel) e todos os sistemas que são arquivo HTML.
 #
@@ -755,7 +795,8 @@ PAGINAS = {
     "/diario": "diario.html",                                            # Diário de Bordo
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico N2
-    "/mapa": "mapa.html",                                                # Mapa Digital King Star
+    "/mapa": "mapa.html",
+    "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
 }
 
