@@ -15,8 +15,6 @@
   --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
   --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
   --linha:#97A1B3;
-  /* cores dos níveis */
-  --nA:#2E4A7A; --nA-s:#E3EAF5; --nB:#2F7D4F; --nB-s:#E1F2E7; --nC:#C98A0B; --nC-s:#FBF1D9; --nD:#6B46A8; --nD-s:#EEE7F8;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
@@ -25,7 +23,6 @@
     --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
     --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
     --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A; --linha:#5C6884;
-    --nA:#8FB0E6; --nA-s:#22304A; --nB:#6BC28E; --nB-s:#1D3527; --nC:#E8B04A; --nC-s:#3A2F17; --nD:#B79AE6; --nD-s:#2E2442;
   }
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -166,10 +163,9 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .pcard.sugerido{border-top-style:dashed}
 
 /* cartão de pessoa */
-.pcard{--n:var(--nD);--ns:var(--nD-s);width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
+.pcard{--n:var(--idle);--ns:var(--idle-soft);width:236px;background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--n);border-radius:10px;
   padding:11px 12px 10px;display:flex;gap:10px;align-items:flex-start;text-align:left;position:relative;cursor:pointer;box-shadow:0 1px 2px rgba(20,30,50,.06);transition:box-shadow .15s,transform .15s}
 .pcard:hover{box-shadow:0 6px 16px rgba(20,30,50,.12);transform:translateY(-1px)}
-.pcard.nv-A{--n:var(--nA);--ns:var(--nA-s)} .pcard.nv-B{--n:var(--nB);--ns:var(--nB-s)} .pcard.nv-C{--n:var(--nC);--ns:var(--nC-s)}
 .pcard.vaga{border-style:dashed;border-top-style:solid;background:repeating-linear-gradient(135deg,var(--sheet),var(--sheet) 8px,var(--rule-2) 8px,var(--rule-2) 9px)}
 .pcard.achado{box-shadow:0 0 0 3px var(--amber)}
 .pcard.alvo{box-shadow:0 0 0 3px var(--steel);transform:scale(1.03)}
@@ -216,7 +212,7 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .dw-corpo{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px}
 .dw-rod{padding:12px 22px;border-top:1px solid var(--rule);display:flex;gap:10px;flex-wrap:wrap}
 .dw-rod .warn{margin-left:auto}
-.niveis-sel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.niveis-sel{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
 .niveis-sel button{padding:8px 4px;font-size:12px;line-height:1.25;border-radius:6px;border-top:4px solid var(--n)}
 .niveis-sel button b{display:block;font:700 15px "IBM Plex Sans Condensed",sans-serif;color:var(--n)}
 .niveis-sel button.ativo{background:var(--ns);border-color:var(--n)}
@@ -227,6 +223,17 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .cores{display:flex;gap:8px;flex-wrap:wrap}
 .cores button{width:30px;height:30px;border-radius:50%;padding:0;background:var(--c);border:3px solid var(--sheet);box-shadow:0 0 0 1px var(--rule)}
 .cores button.ativo{box-shadow:0 0 0 3px var(--ink)}
+/* gerenciar níveis */
+.niv-lista{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.niv-linha{display:grid;grid-template-columns:auto 44px 70px 1fr auto auto;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--rule);border-left:6px solid var(--c);border-radius:8px;padding:6px 8px}
+.niv-linha .ord{display:flex;flex-direction:column}
+.niv-linha .ord button{padding:0 6px;font-size:11px;line-height:1.4;border:0;background:none}
+.niv-linha input[type=color]{width:40px;height:32px;padding:2px;cursor:pointer}
+.niv-linha .uso{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.niv-linha.removendo{opacity:.85;background:var(--bad-soft)}
+.niv-mover{grid-column:1/-1;display:flex;gap:8px;align-items:center;font-size:13px;flex-wrap:wrap}
+.niv-mover select{width:auto}
+dialog.largo{max-width:680px}
 dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
@@ -270,6 +277,14 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   <p class="msg erro" id="nsMsg" style="margin:10px 0 0"></p>
   <div class="acts"><button type="button" id="nsNao">Voltar</button><button type="button" class="primary" id="nsSim">Criar setor</button></div>
 </dialog>
+<dialog id="dlgNiveis" class="largo" aria-labelledby="nvTit">
+  <h3 id="nvTit">Níveis hierárquicos</h3>
+  <p class="muted" style="margin:0;font-size:13px">Valem para todos os setores. <b>A ordem define a hierarquia</b>: o primeiro é o mais alto — quem está num nível aparece acima dos níveis seguintes no organograma. Use ↑ ↓ para posicionar (ex.: Aprendiz abaixo de Operacional).</p>
+  <div class="niv-lista" id="nvLista"></div>
+  <button type="button" id="nvAdd">＋ Novo nível</button>
+  <p class="msg erro" id="nvMsg" style="margin:10px 0 0"></p>
+  <div class="acts"><button type="button" id="nvNao">Cancelar</button><button type="button" class="primary" id="nvSim">Salvar níveis</button></div>
+</dialog>
 <datalist id="dl-sub"></datalist>
 <datalist id="dl-escala"><option value="5x2"><option value="6x1"><option value="12x36"><option value="4x3"><option value="Escala de revezamento"></datalist>
 
@@ -283,7 +298,17 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 // "gestor_id" = a quem a pessoa responde (dentro do mesmo setor).
 // ═══════════════════════════════════════════════════════════════════
 const API="/api/organograma/setores";
-const NIVEIS=[["A","Diretoria / Presidência"],["B","Gerência / Coordenação"],["C","Supervisão / Liderança"],["D","Operacional / Analistas"]];
+// NÍVEIS — cadastráveis (valem para todos os setores). Ficam num documento
+// especial da mesma coleção (dados._tipo = "niveis"). A ORDEM define a hierarquia:
+// o primeiro é o mais alto. Os ids "A"–"D" são os níveis originais.
+const NIVEIS_PADRAO=[{id:"A",sigla:"A",nome:"Diretoria / Presidência",cor:"#2E4A7A"},{id:"B",sigla:"B",nome:"Gerência / Coordenação",cor:"#2F7D4F"},
+  {id:"C",sigla:"C",nome:"Supervisão / Liderança",cor:"#C98A0B"},{id:"D",sigla:"D",nome:"Operacional / Analistas",cor:"#6B46A8"}];
+let NIV_CFG=null, NIVEIS=[];   // NIVEIS = [id, nome, sigla, cor] na ordem da hierarquia
+function aplicarNiveis(){
+  const lst=NIV_CFG&&Array.isArray(NIV_CFG.dados.niveis)&&NIV_CFG.dados.niveis.length?NIV_CFG.dados.niveis:NIVEIS_PADRAO;
+  NIVEIS=lst.map(n=>[n.id,n.nome||n.sigla||n.id,n.sigla||n.id,n.cor||"#4A5568"]);
+}
+aplicarNiveis();
 const CORES=["#2E4A7A","#2F7D4F","#C98A0B","#6B46A8","#B83232","#2B63B0","#0F766E","#9D174D","#4A5568"];
 const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
 const ICO={
@@ -307,8 +332,14 @@ const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function dataBR(v){ if(!v) return "—"; const d=new Date(v); if(isNaN(d)) return v; return d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
 function iniciais(n){ const p=tx(n).split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:"")).toUpperCase():"?"; }
-function nomeNivel(n){ return (NIVEIS.find(x=>x[0]===n)||NIVEIS[3])[1]; }
-const ordemNivel=n=>"ABCD".indexOf(n||"D");
+function nivelInfo(id){ return NIVEIS.find(x=>x[0]===id)||NIVEIS[NIVEIS.length-1]; }
+function nomeNivel(id){ return nivelInfo(id)[1]; }
+function sig(id){ return nivelInfo(id)[2]; }
+function corNivel(id){ return nivelInfo(id)[3]; }
+// cor do nível ajustada ao tema (claro/escuro) + fundo suave
+function estNivel(id){ const c=corNivel(id); return `--n:color-mix(in srgb,${c} 82%,var(--ink));--ns:color-mix(in srgb,${c} 16%,var(--sheet))`; }
+const ordemNivel=id=>{ const i=NIVEIS.findIndex(x=>x[0]===id); return i<0?NIVEIS.length:i; };
+function nivelPadrao(){ return NIVEIS.some(x=>x[0]==="D")?"D":NIVEIS[NIVEIS.length-1][0]; }
 function ordenarPessoas(a){ return a.slice().sort((x,y)=>ordemNivel(x.nivel)-ordemNivel(y.nivel)||nrm(x.nome).localeCompare(nrm(y.nome))); }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -346,7 +377,7 @@ async function enviar(s,forcar){
     if(!Object.keys(pend).length) setStatus("ok");
   }catch(e){ if(e.message!=="sessão expirada") setStatus("erro",e.message); }
 }
-async function salvarTudo(keep){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); const s=setorPorId(id); return s?enfileirar(s):null; })); }
+async function salvarTudo(keep){ await Promise.all(Object.keys(pend).map(id=>{ clearTimeout(pend[id]); const s=setorPorId(id)||(NIV_CFG&&NIV_CFG.id===id?NIV_CFG:null); return s?enfileirar(s):null; })); }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") salvarTudo(); });
 window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvarTudo(); e.preventDefault(); e.returnValue=""; } });
 
@@ -356,7 +387,7 @@ function normalizar(d){
   for(const k in base) if(d[k]==null) d[k]=base[k];
   if(!Array.isArray(d.pessoas)) d.pessoas=[];
   if(!Array.isArray(d.subsetores)) d.subsetores=[];
-  d.pessoas.forEach(p=>{ if(!p.id) p.id=uid(); if(!"ABCD".includes(p.nivel||"")) p.nivel="D"; });
+  d.pessoas.forEach(p=>{ if(!p.id) p.id=uid(); if(!NIVEIS.some(x=>x[0]===p.nivel)) p.nivel=nivelPadrao(); });
   return d;
 }
 function subsetoresDe(d){
@@ -399,11 +430,11 @@ function cardHTML(p, opt={}){
   const nome=tx(p.nome)||(p.vaga?"Vaga em aberto":"(sem nome)");
   const achou=busca&&[p.nome,p.cargo,p.subsetor].some(x=>nrm(x).includes(nrm(busca)));
   const chips=opt.compacto?"":[
-    `<span class="chip n">${esc(p.nivel)}</span>`,
+    `<span class="chip n" title="${esc(nomeNivel(p.nivel))}">${esc(sig(p.nivel))}</span>`,
     p.subsetor&&!opt.semSub?`<span class="chip">${esc(p.subsetor)}</span>`:"",
     p.escala?`<span class="chip" title="Escala">${esc(p.escala)}</span>`:"",
     p.horario?`<span class="chip" title="Horário">${esc(p.horario)}</span>`:""].join("");
-  return `<div class="pcard nv-${p.nivel}${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
+  return `<div style="${estNivel(p.nivel)}" class="pcard${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
     <div class="av">${p.foto?`<img src="${esc(p.foto)}" alt="">`:p.vaga&&!tx(p.nome)?"?":esc(iniciais(p.nome))}</div>
     <div class="pi"><div class="pn">${esc(nome)}</div><div class="pc">${esc(p.cargo||"")}</div>${chips?`<div class="pt">${chips}</div>`:""}</div>
     ${opt.semAcoes?"":`<div class="pa"><button type="button" data-ac="sub" title="Adicionar alguém que responde a ${esc(nome)}">＋</button><button type="button" data-ac="ed" title="Editar">✏️</button></div>`}
@@ -424,27 +455,32 @@ function ligarCards(c, s){
 // ═══════════════════════════════════════════════════════════════════
 // TELA INICIAL — setores
 // ═══════════════════════════════════════════════════════════════════
+function legendaNiveis(d){
+  return NIVEIS.map(([n,r,sg,cor])=>{ const q=d?d.pessoas.filter(p=>p.nivel===n).length:null;
+    return `<span><i style="background:${cor}"></i>${esc(sg)} · ${esc(r)}${q!==null?` <b>${q}</b>`:""}</span>`; }).join("");
+}
 function barraNiveis(d){
   const t=d.pessoas.length||1;
-  return `<div class="niv-barra" title="${NIVEIS.map(([n,r])=>`${n} · ${r}: ${d.pessoas.filter(p=>p.nivel===n).length}`).join(" | ")}">${NIVEIS.map(([n])=>{ const q=d.pessoas.filter(p=>p.nivel===n).length; return q?`<i style="width:${q/t*100}%;background:var(--n${n})"></i>`:""; }).join("")}</div>`;
+  return `<div class="niv-barra" title="${esc(NIVEIS.map(([n,r,sg])=>`${sg} · ${r}: ${d.pessoas.filter(p=>p.nivel===n).length}`).join(" | "))}">${NIVEIS.map(([n,r,sg,cor])=>{ const q=d.pessoas.filter(p=>p.nivel===n).length; return q?`<i style="width:${q/t*100}%;background:${cor}"></i>`:""; }).join("")}</div>`;
 }
 function renderGeral(c){
   botaoBar("Excel de todos os setores",()=>exportarExcel(SETORES),"",ICO.exportar);
   const tot=SETORES.reduce((a,s)=>a+s.dados.pessoas.length,0), vagas=SETORES.reduce((a,s)=>a+s.dados.pessoas.filter(p=>p.vaga).length,0);
   const lideres=SETORES.reduce((a,s)=>a+s.dados.pessoas.filter(p=>"ABC".includes(p.nivel)&&!p.vaga).length,0);
   c.innerHTML=`<div class="lista-topo"><h1>Organogramas</h1>
-      <div class="lista-acoes"><input id="bGeral" placeholder="Buscar pessoa em todos os setores..." value="${esc(buscaGeral)}" style="width:280px" aria-label="Buscar pessoa">
+      <div class="lista-acoes"><button type="button" id="btNiveis">Níveis hierárquicos</button><input id="bGeral" placeholder="Buscar pessoa em todos os setores..." value="${esc(buscaGeral)}" style="width:280px" aria-label="Buscar pessoa">
       <button type="button" class="primary" id="btNovoSetor">${ICO.mais} Novo setor</button></div>
       <p>Um organograma por setor, com a estrutura real: quem é quem, a quem responde, nível, escala e horário. Clique num setor para ver e editar.</p></div>
     ${SETORES.length?`<div class="counts"><div class="count"><b>${SETORES.length}</b><span>setores</span></div><div class="count"><b>${tot}</b><span>posições</span></div>
       <div class="count"><b style="color:var(--steel)">${lideres}</b><span>lideranças (níveis A a C)</span></div><div class="count"><b style="color:var(--amber)">${vagas}</b><span>vagas em aberto</span></div>
-      <div class="legenda" style="margin:0 0 0 auto">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)}</span>`).join("")}</div></div>`:""}
+      <div class="legenda" style="margin:0 0 0 auto">${legendaNiveis()}</div></div>`:""}
     <div class="resultados" id="res"></div><div class="lista-grid" id="grid"></div>`;
   $("#btNovoSetor",c).onclick=abrirNovoSetor;
+  $("#btNiveis",c).onclick=abrirNiveis;
   const res=$("#res",c), bq=$("#bGeral",c);
   const desenharBusca=()=>{ const t=nrm(buscaGeral); if(t.length<2){ res.innerHTML=""; return; } const out=[];
     SETORES.forEach(s=>s.dados.pessoas.forEach(p=>{ if([p.nome,p.cargo,p.subsetor,p.email].some(x=>nrm(x).includes(t))) out.push({s,p}); }));
-    res.innerHTML=out.length?out.slice(0,30).map(({s,p})=>`<button type="button" class="resultado" data-s="${s.id}" data-p="${p.id}"><span class="av" style="width:34px;height:34px;font-size:13px;--n:var(--n${p.nivel});--ns:var(--n${p.nivel}-s);background:var(--n${p.nivel}-s);color:var(--n${p.nivel})">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</span>
+    res.innerHTML=out.length?out.slice(0,30).map(({s,p})=>`<button type="button" class="resultado" data-s="${s.id}" data-p="${p.id}"><span class="av" style="width:34px;height:34px;font-size:13px;${estNivel(p.nivel)};background:var(--ns);color:var(--n)">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</span>
       <span><b>${esc(p.nome||"Vaga em aberto")}</b> <span class="muted">· ${esc(p.cargo||"")}</span><br><span class="muted" style="font-size:12.5px">${esc(s.dados.nome)}${p.subsetor?" · "+esc(p.subsetor):""}</span></span></button>`).join("")
       :'<p class="muted">Ninguém encontrado com esse termo.</p>';
     res.querySelectorAll(".resultado").forEach(b=>b.onclick=()=>{ buscaGeral=""; ir("setor",b.dataset.s,"arvore"); busca=(setorPorId(b.dataset.s).dados.pessoas.find(x=>x.id===b.dataset.p)||{}).nome||""; render(); }); };
@@ -495,7 +531,7 @@ function renderSetor(c){
       ${s._conflito?`<div class="conflito"><b>⚠️ ${esc(s._conflito.atualizado_por||"Outra pessoa")} alterou este setor enquanto você editava.</b> Suas últimas alterações ainda não foram gravadas.
         <div class="acoes"><button type="button" id="cfDele">Ver a versão dele (descarta as minhas)</button><button type="button" class="warn" id="cfMinha">Manter a minha (grava por cima)</button></div></div>`:""}
       <header class="doc-head" style="--cor:${esc(d.cor)}"><div><h1>${esc(d.nome)}</h1><p class="obj">${esc(d.descricao||"Estrutura do setor.")}</p>
-        <div class="legenda">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)} <b>${d.pessoas.filter(p=>p.nivel===n).length}</b></span>`).join("")}</div></div>
+        <div class="legenda">${legendaNiveis(d)}</div></div>
         <div class="stamp"><dl><dt>Posições</dt><dd>${d.pessoas.length}</dd><dt>Vagas em aberto</dt><dd>${vagas}</dd><dt>Subsetores</dt><dd>${subsetoresDe(d).length}</dd>
           ${d.responsavel?`<dt>Responsável</dt><dd>${esc(d.responsavel)}</dd>`:""}<dt>Atualizado</dt><dd>${esc(dataBR(s.atualizado_em))}<br><span class="muted" style="font-weight:400">${esc(s.atualizado_por||"")}</span></dd></dl></div></header>
       <div id="vis"></div></div></div>`;
@@ -603,8 +639,8 @@ function visaoNivel(c,s){
   const nomes=Object.keys(grupos).sort((a,b)=>a==="Sem subsetor"?1:b==="Sem subsetor"?-1:a.localeCompare(b,"pt-BR"));
   if(!nomes.length){ c.innerHTML='<p class="aviso">Nenhuma pessoa neste setor ainda.</p>'; return; }
   c.innerHTML=`<p class="cap" style="margin-top:16px">Cada subsetor em um bloco, com as pessoas organizadas por nível hierárquico.</p>`+nomes.map(n=>`<div class="sub-bloco"><div class="sub-titulo">${esc(n)} <span>${grupos[n].length} posição(ões)</span></div>
-    ${NIVEIS.map(([nv,rot])=>{ const ps=ordenarPessoas(grupos[n].filter(p=>p.nivel===nv)); if(!ps.length) return "";
-      return `<div class="linha-nivel" style="--n:var(--n${nv})"><div class="rot">Nível ${nv}<small>${esc(rot)}</small></div><div class="cards">${ps.map(p=>{
+    ${NIVEIS.map(([nv,rot,sg])=>{ const ps=ordenarPessoas(grupos[n].filter(p=>p.nivel===nv)); if(!ps.length) return "";
+      return `<div class="linha-nivel" style="${estNivel(nv)}"><div class="rot">Nível ${esc(sg)}<small>${esc(rot)}</small></div><div class="cards">${ps.map(p=>{
         const g=gestorDe(d,p); return cardHTML(p,{semSub:true}).replace('<div class="pt">',`<div class="pt">${g?`<span class="chip" title="Responde a">↑ ${esc(tx(g.nome)||"vaga")}</span>`:""}`); }).join("")}</div></div>`; }).join("")}</div>`).join("");
   c.querySelectorAll(".pcard").forEach(x=>x.removeAttribute("draggable"));
   ligarCards(c,s);
@@ -618,7 +654,7 @@ function visaoLista(c,s){
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Cargo</th><th>Nível</th><th>Subsetor</th><th>Responde a</th><th>Escala</th><th>Horário</th><th>E-mail</th><th>Ramal / telefone</th><th>Vaga</th><th></th></tr></thead><tbody>${
       pessoas.length?pessoas.map(p=>`<tr data-id="${p.id}">
         <td><input data-k="nome" value="${esc(p.nome)}" aria-label="Nome"></td><td><input data-k="cargo" value="${esc(p.cargo)}" aria-label="Cargo"></td>
-        <td><select data-k="nivel" aria-label="Nível">${NIVEIS.map(([n,r])=>`<option value="${n}"${n===p.nivel?" selected":""}>${n} · ${esc(r)}</option>`).join("")}</select></td>
+        <td><select data-k="nivel" aria-label="Nível">${NIVEIS.map(([n,r,sg])=>`<option value="${esc(n)}"${n===p.nivel?" selected":""}>${esc(sg)} · ${esc(r)}</option>`).join("")}</select></td>
         <td><input data-k="subsetor" list="dl-sub" value="${esc(p.subsetor)}" aria-label="Subsetor"></td>
         <td><select data-k="gestor_id" aria-label="Responde a"><option value="">— topo do setor —</option>${ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!descendentes(d,p.id).has(x.id))).map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></td>
         <td><input data-k="escala" list="dl-escala" value="${esc(p.escala)}" aria-label="Escala"></td><td><input data-k="horario" value="${esc(p.horario)}" aria-label="Horário"></td>
@@ -632,14 +668,18 @@ function visaoLista(c,s){
       i.addEventListener(ev,()=>{ const k=i.dataset.k; p[k]= k==="vaga" ? !!i.value : i.value; salvar(s); if(k==="gestor_id"||k==="nivel"||k==="subsetor") setTimeout(render,0); }); });
     tr.querySelector("[data-ed]").onclick=()=>abrirPessoa(s,p.id);
     tr.querySelector("[data-del]").onclick=()=>excluirPessoa(s,p.id); });
-  $("#lAdd",c).onclick=()=>{ d.pessoas.push({id:uid(),nome:"",cargo:"",nivel:"D",subsetor:filtroSub||"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",vaga:false,obs:""}); salvar(s); render();
+  $("#lAdd",c).onclick=()=>{ d.pessoas.push({id:uid(),nome:"",cargo:"",nivel:nivelPadrao(),subsetor:filtroSub||"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",vaga:false,obs:""}); salvar(s); render();
     setTimeout(()=>{ const r=[...document.querySelectorAll("tr[data-id] input[data-k='nome']")].find(i=>!i.value); r&&r.focus(); },20); };
 }
 
 // ─── Importar (colar do Excel) ───
 const COLS_IMP=[["nome","Nome"],["cargo","Cargo"],["nivel","Nível"],["subsetor","Subsetor"],["gestor","Responde a (nome)"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal"]];
-function lerNivel(v){ v=nrm(v); if(/^[abcd]\b/.test(v)) return v[0].toUpperCase();
-  if(/diret|presid|ceo/.test(v)) return "A"; if(/gerent|coorden|head/.test(v)) return "B"; if(/supervis|lider|encarreg/.test(v)) return "C"; return "D"; }
+function lerNivel(v){ const t=nrm(v); if(!t) return nivelPadrao();
+  const porSigla=NIVEIS.find(([id,nome,sg])=>nrm(sg)===t||nrm(id)===t); if(porSigla) return porSigla[0];
+  const porNome=NIVEIS.find(([id,nome])=>nrm(nome).split(/[\s\/]+/).filter(w=>w.length>3).some(w=>t.includes(w.slice(0,6)))); if(porNome) return porNome[0];
+  const tem=id=>NIVEIS.some(x=>x[0]===id)?id:null;
+  if(/diret|presid|ceo/.test(t)&&tem("A")) return "A"; if(/gerent|coorden|head/.test(t)&&tem("B")) return "B"; if(/supervis|lider|encarreg/.test(t)&&tem("C")) return "C";
+  return nivelPadrao(); }
 function parseColagem(txt){
   const linhas=String(txt||"").split(/\r?\n/).filter(l=>tx(l)); if(!linhas.length) return [];
   const sep=linhas[0].includes("\t")?"\t":linhas[0].includes(";")?";":",";
@@ -652,12 +692,12 @@ function parseColagem(txt){
 function visaoImportar(c,s){
   c.innerHTML=`<p class="cap" style="margin-top:16px">Copie as linhas de uma planilha (Excel ou Google Sheets) e cole abaixo. Com cabeçalho, as colunas são reconhecidas pelo nome; sem cabeçalho, use esta ordem:</p>
     <p class="muted" style="font-size:13px">${COLS_IMP.map(c=>`<span class="chip" style="font-size:12px">${esc(c[1])}</span>`).join(" ")}</p>
-    <p class="cap">"Responde a" é o nome do gestor — pode ser alguém que já está no setor ou alguém da própria colagem. "Nível" aceita A, B, C, D ou palavras como Diretor, Gerente, Supervisor. Nome vazio vira <b>vaga em aberto</b>.</p>
+    <p class="cap">"Responde a" é o nome do gestor — pode ser alguém que já está no setor ou alguém da própria colagem. "Nível" aceita a sigla (${NIVEIS.map(x=>esc(x[2])).join(", ")}) ou o nome do nível. Nome vazio vira <b>vaga em aberto</b>.</p>
     <textarea id="impTxt" rows="9" placeholder="Nome&#9;Cargo&#9;Nível&#9;Subsetor&#9;Responde a&#10;Carlos Eduardo&#9;Coordenador de Atendimento&#9;B&#9;Atendimento&#9;&#10;Ana Souza&#9;Analista&#9;D&#9;Atendimento&#9;Carlos Eduardo"></textarea>
     <div id="impPrev"></div><div class="acoes"><button type="button" class="primary" id="impOk" disabled>Importar</button><span class="msg" id="impMsg"></span></div>`;
   const ta=$("#impTxt",c), prev=$("#impPrev",c), ok=$("#impOk",c);
   const ver=()=>{ const L=parseColagem(ta.value); ok.disabled=!L.length; ok.textContent=L.length?`Importar ${L.length} pessoa(s)`:"Importar";
-    prev.innerHTML=L.length?`<div class="tbl-wrap" style="max-height:260px;margin-top:10px"><table><thead><tr>${COLS_IMP.map(x=>`<th>${esc(x[1])}</th>`).join("")}</tr></thead><tbody>${L.slice(0,12).map(o=>`<tr>${COLS_IMP.map(([k])=>`<td>${esc(k==="nivel"?lerNivel(o[k]):o[k]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${L.length>12?`<p class="muted" style="font-size:12.5px">… e mais ${L.length-12}.</p>`:""}`:""; };
+    prev.innerHTML=L.length?`<div class="tbl-wrap" style="max-height:260px;margin-top:10px"><table><thead><tr>${COLS_IMP.map(x=>`<th>${esc(x[1])}</th>`).join("")}</tr></thead><tbody>${L.slice(0,12).map(o=>`<tr>${COLS_IMP.map(([k])=>`<td>${esc(k==="nivel"?sig(lerNivel(o[k])):o[k]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${L.length>12?`<p class="muted" style="font-size:12.5px">… e mais ${L.length-12}.</p>`:""}`:""; };
   ta.oninput=ver;
   ok.onclick=()=>{ const L=parseColagem(ta.value), d=s.dados, novos=[];
     L.forEach(o=>{ const p={id:uid(),nome:tx(o.nome),cargo:tx(o.cargo),nivel:lerNivel(o.nivel),subsetor:tx(o.subsetor),gestor_id:"",escala:tx(o.escala),horario:tx(o.horario),email:tx(o.email),ramal:tx(o.ramal),
@@ -677,9 +717,12 @@ function visaoConfig(c,s){
     <section><header><h2>Subsetores</h2><p>Renomear aqui atualiza todas as pessoas do subsetor.</p></header>
       <div id="cSubs">${subs.length?subs.map(x=>`<div class="acoes" style="margin:6px 0"><input data-sub="${esc(x)}" value="${esc(x)}" style="max-width:320px"><span class="muted" style="font-size:13px">${d.pessoas.filter(p=>tx(p.subsetor)===x).length} pessoa(s)</span><button type="button" class="ib" data-rm="${esc(x)}" title="Remover subsetor">🗑</button></div>`).join(""):'<p class="muted">Nenhum subsetor ainda.</p>'}</div>
       <div class="acoes"><input id="cNovoSub" placeholder="Novo subsetor" style="max-width:320px"><button type="button" id="cAddSub">${ICO.mais} Adicionar</button></div></section>
+    <section><header><h2>Níveis hierárquicos</h2><p>Valem para todos os setores.</p></header>
+      <div class="legenda" style="margin:0 0 10px">${legendaNiveis(d)}</div><button type="button" id="cNiveis">Gerenciar níveis</button></section>
     <section><header><h2>Excluir setor</h2></header><p class="cap">O setor sai da lista (fica guardado no banco como excluído).</p><button type="button" class="warn" id="cDel">Excluir o setor ${esc(d.nome)}</button></section>`;
   [["cNome","nome"],["cResp","responsavel"],["cDesc","descricao"]].forEach(([id,k])=>{ const i=$("#"+id,c); i.oninput=()=>{ d[k]=i.value; salvar(s); }; i.onchange=()=>render(); });
   c.querySelectorAll("#cCores button").forEach(b=>b.onclick=()=>{ d.cor=b.dataset.c; salvar(s); render(); });
+  $("#cNiveis",c).onclick=abrirNiveis;
   c.querySelectorAll("[data-sub]").forEach(i=>i.onchange=()=>{ const ant=i.dataset.sub, novo=tx(i.value); if(!novo||novo===ant) return;
     d.pessoas.forEach(p=>{ if(tx(p.subsetor)===ant) p.subsetor=novo; }); d.subsetores=[...new Set(d.subsetores.map(x=>x===ant?novo:x).concat(novo))]; salvar(s); render(); });
   c.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ const x=b.dataset.rm, n=d.pessoas.filter(p=>tx(p.subsetor)===x).length;
@@ -703,8 +746,8 @@ function sugerirGestor(d, nivel, sub, proibidos){
 }
 function abrirPessoa(s, id, pre){
   const d=s.dados, orig=id?d.pessoas.find(x=>x.id===id):null;
-  const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),nome:"",cargo:"",nivel:"D",subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
-  if(!orig&&p.gestor_id){ const g=d.pessoas.find(x=>x.id===p.gestor_id); if(g) p.nivel="ABCD"[Math.min(3,ordemNivel(g.nivel)+1)]; }
+  const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),nome:"",cargo:"",nivel:nivelPadrao(),subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
+  if(!orig&&p.gestor_id){ const g=d.pessoas.find(x=>x.id===p.gestor_id); if(g) p.nivel=NIVEIS[Math.min(NIVEIS.length-1,ordemNivel(g.nivel)+1)][0]; }
   if(!orig&&!p.gestor_id){ p.gestor_id=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id])); p._gSug=!!p.gestor_id; }
   dw={s,id,p,setorId:s.id};
   $("#dwTit").textContent=orig?"Editar pessoa":"Adicionar pessoa";
@@ -719,14 +762,14 @@ function desenharGaveta(){
   const gestores=ordenarPessoas(d.pessoas.filter(x=>x.id!==p.id&&!proibidos.has(x.id)));
   $("#dwSub").textContent=`${alvo.dados.nome}${p.subsetor?" · "+p.subsetor:""}`;
   $("#dwCorpo").innerHTML=`
-    <div class="foto-linha"><div class="av" style="--n:var(--n${p.nivel});--ns:var(--n${p.nivel}-s);background:var(--n${p.nivel}-s);color:var(--n${p.nivel})">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</div>
+    <div class="foto-linha"><div class="av" style="${estNivel(p.nivel)};background:var(--ns);color:var(--n)">${p.foto?`<img src="${esc(p.foto)}" alt="">`:esc(iniciais(p.nome))}</div>
       <div><label class="btn peq" style="display:inline-block;cursor:pointer">Escolher foto<input type="file" id="dwFoto" accept="image/*" hidden></label> ${p.foto?'<button type="button" class="peq" id="dwSemFoto">Remover foto</button>':""}
       <div class="muted" style="font-size:12px;margin-top:4px">Opcional. A foto é reduzida automaticamente.</div></div></div>
     <label class="f">Nome<input id="dwNome" value="${esc(p.nome)}" placeholder="${p.vaga?"Deixe em branco para vaga em aberto":"Ex.: Carlos Eduardo"}"></label>
     <label class="check"><input type="checkbox" id="dwVaga" ${p.vaga?"checked":""}> Posição / vaga em aberto</label>
     <label class="f">Cargo<input id="dwCargo" value="${esc(p.cargo)}" placeholder="Ex.: Coordenador de Atendimento"></label>
-    <div><div style="font-size:13px;color:var(--ink-2);margin-bottom:4px">Nível hierárquico</div>
-      <div class="niveis-sel">${NIVEIS.map(([n,r])=>`<button type="button" data-n="${n}" style="--n:var(--n${n});--ns:var(--n${n}-s)" class="${n===p.nivel?"ativo":""}"><b>${n}</b>${esc(r)}</button>`).join("")}</div></div>
+    <div><div style="font-size:13px;color:var(--ink-2);margin-bottom:4px;display:flex;justify-content:space-between">Nível hierárquico <button type="button" class="peq" id="dwNiveis" style="padding:2px 8px;font-size:12px">Gerenciar níveis</button></div>
+      <div class="niveis-sel">${NIVEIS.map(([n,r,sg])=>`<button type="button" data-n="${esc(n)}" style="${estNivel(n)}" class="${n===p.nivel?"ativo":""}"><b>${esc(sg)}</b>${esc(r)}</button>`).join("")}</div></div>
     <div class="grade"><label class="f">Setor<select id="dwSetor">${SETORES.slice().sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR")).map(x=>`<option value="${x.id}"${x.id===dw.setorId?" selected":""}>${esc(x.dados.nome)}</option>`).join("")}</select></label>
       <label class="f">Subsetor<input id="dwSub2" list="dl-sub-dw" value="${esc(p.subsetor)}"><datalist id="dl-sub-dw">${subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label></div>
     <label class="f"><span>Responde a ${p._gSug?'<span class="pill" style="background:var(--steel-soft);color:var(--steel);margin-left:4px">sugerido pelo nível — confira</span>':""}</span><select id="dwGestor"><option value="">— topo do setor (não responde a ninguém do setor) —</option>${gestores.map(x=>`<option value="${x.id}"${x.id===p.gestor_id?" selected":""}>${esc(tx(x.nome)||"(vaga)")}${x.cargo?" — "+esc(x.cargo):""}</option>`).join("")}</select></label>
@@ -740,6 +783,7 @@ function desenharGaveta(){
   $("#dwGestor",C).onchange=e=>{ p.gestor_id=e.target.value; p._gSug=false; desenharGaveta(); };
   const resugerir=()=>{ if(p._gSug||!p.gestor_id){ const g=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id,...proibidos])); p.gestor_id=g; p._gSug=!!g; } };
   C.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ p.nivel=b.dataset.n; resugerir(); desenharGaveta(); });
+  $("#dwNiveis",C).onclick=()=>abrirNiveis();
   $("#dwSub2",C).onchange=()=>{ resugerir(); desenharGaveta(); };
   $("#dwSetor",C).onchange=e=>{ dw.setorId=e.target.value; if(dw.setorId!==dw.s.id) p.gestor_id=""; desenharGaveta(); };
   $("#dwFoto",C).onchange=e=>{ const f=e.target.files[0]; if(!f) return; reduzirFoto(f).then(url=>{ p.foto=url; desenharGaveta(); }).catch(()=>alert("Não consegui ler essa imagem.")); };
@@ -782,6 +826,64 @@ function reduzirFoto(file){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// GERENCIAR NÍVEIS (criar, renomear, cor, ordem, excluir movendo as pessoas)
+// ═══════════════════════════════════════════════════════════════════
+let edNiv=null;
+function usoNivel(id){ return SETORES.reduce((a,s)=>a+s.dados.pessoas.filter(p=>p.nivel===id).length,0); }
+function abrirNiveis(){
+  edNiv=NIVEIS.map(([id,nome,sigla,cor])=>({id,nome,sigla,cor,_del:false,_mover:""}));
+  $("#nvMsg").textContent=""; desenharNiveis(); if(!$("#dlgNiveis").open) $("#dlgNiveis").showModal();
+}
+function desenharNiveis(){
+  const box=$("#nvLista"), vivos=edNiv.filter(n=>!n._del);
+  box.innerHTML=edNiv.map((n,i)=>{ const uso=usoNivel(n.id);
+    return `<div class="niv-linha${n._del?" removendo":""}" style="--c:${esc(n.cor)}" data-i="${i}">
+      <span class="ord"><button type="button" data-up title="Subir (mais alto na hierarquia)" ${i===0?"disabled":""}>▲</button><button type="button" data-dn title="Descer" ${i===edNiv.length-1?"disabled":""}>▼</button></span>
+      <input type="color" data-cor value="${esc(n.cor)}" aria-label="Cor do nível">
+      <input data-sig value="${esc(n.sigla)}" maxlength="4" placeholder="Sigla" aria-label="Sigla" ${n._del?"disabled":""}>
+      <input data-nome value="${esc(n.nome)}" placeholder="Ex.: Aprendiz / Estagiário" aria-label="Nome do nível" ${n._del?"disabled":""}>
+      <span class="uso">${i+1}º · ${uso} pessoa(s)</span>
+      <button type="button" class="ib" data-del title="${n._del?"Desfazer exclusão":"Excluir nível"}">${n._del?"↺":"🗑"}</button>
+      ${n._del&&uso?`<div class="niv-mover">Mover as ${uso} pessoa(s) para <select data-mover><option value="">— escolha —</option>${vivos.map(v=>`<option value="${esc(v.id)}"${v.id===n._mover?" selected":""}>${esc(v.sigla||"?")} · ${esc(v.nome||"")}</option>`).join("")}</select></div>`:""}
+    </div>`; }).join("");
+  box.querySelectorAll(".niv-linha").forEach(row=>{ const i=+row.dataset.i, n=edNiv[i];
+    row.querySelector("[data-up]").onclick=()=>{ [edNiv[i-1],edNiv[i]]=[edNiv[i],edNiv[i-1]]; desenharNiveis(); };
+    row.querySelector("[data-dn]").onclick=()=>{ [edNiv[i+1],edNiv[i]]=[edNiv[i],edNiv[i+1]]; desenharNiveis(); };
+    row.querySelector("[data-cor]").oninput=e=>{ n.cor=e.target.value; row.style.setProperty("--c",n.cor); };
+    row.querySelector("[data-sig]").oninput=e=>{ n.sigla=e.target.value; };
+    row.querySelector("[data-nome]").oninput=e=>{ n.nome=e.target.value; };
+    row.querySelector("[data-del]").onclick=()=>{ n._del=!n._del; if(!n._del) n._mover=""; desenharNiveis(); };
+    const mv=row.querySelector("[data-mover]"); if(mv) mv.onchange=e=>{ n._mover=e.target.value; };
+  });
+}
+$("#nvAdd").onclick=()=>{
+  const letras=edNiv.map(n=>tx(n.sigla)).filter(x=>/^[A-Z]$/.test(x)).sort(), ult=letras.length?letras[letras.length-1]:"@";
+  const sug=ult<"Z"?String.fromCharCode(ult.charCodeAt(0)+1):"";
+  edNiv.push({id:uid(),sigla:sug,nome:"",cor:CORES[edNiv.length%CORES.length],_del:false,_mover:""}); desenharNiveis();
+  setTimeout(()=>{ const r=[...$("#nvLista").querySelectorAll("[data-nome]")].pop(); r&&r.focus(); },20);
+};
+$("#nvNao").onclick=()=>$("#dlgNiveis").close();
+$("#nvSim").onclick=async()=>{
+  const m=$("#nvMsg"), vivos=edNiv.filter(n=>!n._del);
+  if(!vivos.length){ m.textContent="Mantenha pelo menos um nível."; return; }
+  if(vivos.some(n=>!tx(n.sigla)||!tx(n.nome))){ m.textContent="Preencha sigla e nome de todos os níveis."; return; }
+  const sigs=vivos.map(n=>nrm(n.sigla)); if(new Set(sigs).size!==sigs.length){ m.textContent="Há siglas repetidas."; return; }
+  const semDestino=edNiv.filter(n=>n._del&&usoNivel(n.id)&&!n._mover); if(semDestino.length){ m.textContent=`Escolha para qual nível mover as pessoas de "${semDestino[0].sigla} · ${semDestino[0].nome}".`; return; }
+  $("#nvSim").disabled=true;
+  try{
+    const moves={}; edNiv.filter(n=>n._del).forEach(n=>{ if(n._mover) moves[n.id]=n._mover; });
+    SETORES.forEach(st=>{ let mudou=false; st.dados.pessoas.forEach(p=>{ if(moves[p.nivel]){ p.nivel=moves[p.nivel]; mudou=true; } }); if(mudou) salvar(st); });
+    const niveis=vivos.map(n=>({id:n.id,sigla:tx(n.sigla),nome:tx(n.nome),cor:n.cor}));
+    if(!NIV_CFG){ const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados:{_tipo:"niveis",niveis}})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`); NIV_CFG=j; }
+    else { NIV_CFG.dados.niveis=niveis; await salvarAgora(NIV_CFG);
+      if(NIV_CFG._conflito){ NIV_CFG={...NIV_CFG._conflito,_conflito:null}; aplicarNiveis(); $("#dlgNiveis").close(); render(); alert("Outra pessoa alterou os níveis ao mesmo tempo. A tela foi atualizada com a versão dela — refaça a alteração."); return; } }
+    aplicarNiveis(); $("#dlgNiveis").close();
+    if(dw) desenharGaveta();
+    render(); $("#banner").textContent="✓ Níveis atualizados.";
+  }catch(e){ m.textContent=e.message; } finally{ $("#nvSim").disabled=false; }
+};
+
+// ═══════════════════════════════════════════════════════════════════
 // PDF e Excel
 // ═══════════════════════════════════════════════════════════════════
 function imprimirSetor(s){
@@ -797,7 +899,7 @@ function imprimirSetor(s){
       @page{size:A4 landscape;margin:10mm} :root{--paper:#fff;--sheet:#fff;--ink:#1B2436} body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .pa,.tg{display:none!important} .pcard{box-shadow:none} .org-tree{zoom:${z}} h1{margin:0 0 2px;font-size:22px} .sub{color:#7A8599;font-size:12px;margin-bottom:14px}
     </style></head><body><h1>Organograma — ${esc(d.nome)}</h1><div class="sub">${esc(d.descricao||"")} · ${d.pessoas.length} posições · emitido em ${new Date().toLocaleDateString("pt-BR")}</div>
-    <div class="legenda" style="margin:0 0 14px">${NIVEIS.map(([n,r])=>`<span><i style="background:var(--n${n})"></i>${n} · ${esc(r)}</span>`).join("")}</div>
+    <div class="legenda" style="margin:0 0 14px">${legendaNiveis(d)}</div>
     <div class="org-tree"><ul>${T.html}</ul></div></body></html>`);
   doc.close();
   setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Impressão indisponível: "+e.message); } setTimeout(()=>f.remove(),4000); },700);
@@ -810,7 +912,7 @@ async function exportarExcel(lista){
   await salvarTudo();
   const X=await excelJS(), wb=new X.Workbook();
   const cols=[["setor","Setor"],["subsetor","Subsetor"],["nivel","Nível"],["nivel_nome","Descrição do nível"],["nome","Nome"],["cargo","Cargo"],["gestor","Responde a"],["escala","Escala"],["horario","Horário"],["email","E-mail"],["ramal","Ramal / telefone"],["vaga","Vaga em aberto"],["obs","Observações"]];
-  const linhasDe=s=>ordenarPessoas(s.dados.pessoas).map(p=>{ const g=gestorDe(s.dados,p); return {setor:s.dados.nome,subsetor:p.subsetor,nivel:p.nivel,nivel_nome:nomeNivel(p.nivel),nome:p.nome||(p.vaga?"(vaga em aberto)":""),cargo:p.cargo,gestor:g?(g.nome||"(vaga)"):"",escala:p.escala,horario:p.horario,email:p.email,ramal:p.ramal,vaga:p.vaga?"Sim":"Não",obs:p.obs}; });
+  const linhasDe=s=>ordenarPessoas(s.dados.pessoas).map(p=>{ const g=gestorDe(s.dados,p); return {setor:s.dados.nome,subsetor:p.subsetor,nivel:sig(p.nivel),nivel_nome:nomeNivel(p.nivel),nome:p.nome||(p.vaga?"(vaga em aberto)":""),cargo:p.cargo,gestor:g?(g.nome||"(vaga)"):"",escala:p.escala,horario:p.horario,email:p.email,ramal:p.ramal,vaga:p.vaga?"Sim":"Não",obs:p.obs}; });
   const aba=(nome,linhas)=>{ const ws=wb.addWorksheet(nome);
     ws.addRow(cols.map(c=>c[1])); ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
     linhas.forEach(l=>ws.addRow(cols.map(c=>l[c[0]]??"")));
@@ -829,7 +931,9 @@ async function exportarExcel(lista){
 async function iniciar(){
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO_NOME=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
   try{ const {r,j}=await api(API); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
-    SETORES=(j||[]).map(s=>({...s,dados:normalizar(s.dados)})); setStatus("ok"); render();
+    const todos=j||[];
+    NIV_CFG=todos.find(x=>x.dados&&x.dados._tipo==="niveis")||null; aplicarNiveis();
+    SETORES=todos.filter(x=>!(x.dados&&x.dados._tipo==="niveis")).map(s=>({...s,dados:normalizar(s.dados)})); setStatus("ok"); render();
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar os organogramas.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
 }
