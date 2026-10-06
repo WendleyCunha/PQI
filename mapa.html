@@ -311,7 +311,8 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 //   passo da IT que nenhum passo real usa             → ❌ na IT e não é feito
 // ═══════════════════════════════════════════════════════════════════
 const API = "/api/mapa/processos";
-const AREAS_PADRAO = ["Comercial","Lojas","Financeiro","Faturamento / Fiscal","Logística","Expedição","Estoque","Compras","SAC / CX","Qualidade","RH","Marketing","TI","Diretoria"];
+// [v3.4] Lista de reserva: vale só se o Organograma não responder. Com ele no ar, as áreas são os setores do Organograma.
+let AREAS_PADRAO = ["Comercial","Lojas","Financeiro","Faturamento / Fiscal","Logística","Expedição","Estoque","Compras","SAC / CX","Qualidade","RH","Marketing","TI","Diretoria"];
 const STATUS_PROC = ["Em levantamento","Em validação","Validado","Revisar"];
 const CRITICIDADE = ["Alta","Média","Baixa"];
 const ETAPAS_LEV = [
@@ -1089,11 +1090,13 @@ function renderArquitetura(c){
   const nomes=ordenar([...new Set([...Object.keys(porArea),...areasCfg().map(a=>a.nome)])]);
   const reais=nomes.filter(n=>n!=="(sem área)"), feitas=reais.filter(n=>areaCfg(n)&&areaCfg(n).mapeado).length;
   const vazias=AREAS_PADRAO.filter(a=>!nomes.some(n=>nrm(n)===nrm(a)));
+  const foraOrg=BASE?reais.filter(n=>!setorOficial(n)):[];   // [v3.4] áreas digitadas que não são setor do Organograma
   c.innerHTML=`<p class="cap">Fase 1 — cadastre os processos de cada área (pode ser só o nome, o resto vem no levantamento). Quando a área tiver <b>todos</b> os processos cadastrados, quem fez o mapeamento marca <b>✓ 100% mapeado</b>.</p>
     <div class="kpis"><div class="kpi"><span>Áreas com processos</span><b>${reais.length}</b><small>de ${new Set([...reais,...AREAS_PADRAO]).size} áreas conhecidas</small></div>
       <div class="kpi"><span>Áreas 100% mapeadas</span><b>${feitas}</b><div class="barra"><i style="width:${reais.length?Math.round(feitas/reais.length*100):0}%"></i></div><small>Fase 1 concluída</small></div>
       <div class="kpi"><span>Processos cadastrados</span><b>${PROCS.length}</b><small>${PROCS.filter(p=>p.dados.criticidade==="Alta").length} com criticidade Alta</small></div></div>
     <div class="acoes"><input id="arNova" list="dl-areas" placeholder="Nome de uma nova área" style="max-width:320px"><button type="button" id="arAdd">+ Adicionar área</button><span class="msg" id="arMsg"></span></div>
+    ${foraOrg.length?`<div class="conflito" style="margin:10px 0"><b>${foraOrg.length} área(s) com processos não existem no Organograma:</b> ${foraOrg.map(esc).join(", ")}.<br><span style="font-size:12px">Para ligar ao cadastro oficial, renomeie a área nos processos para o nome do setor do Organograma (ou cadastre o setor lá).</span></div>`:""}
     <div id="arLista"></div>
     ${vazias.length?`<h3>Áreas ainda sem processos</h3><div class="mini4">${vazias.map(a=>`<button type="button" class="peq" data-nova="${esc(a)}">+ ${esc(a)}</button>`).join("")}</div>`:""}`;
   const addArea=async nome=>{ nome=tx(nome); if(!nome) return; await areaGarantida(nome); await gravarCfg(); estArq.aberta=nome; render(); };
@@ -1334,13 +1337,25 @@ function render(){
   else renderLista(root);
   atualizarWho();
 }
+// [NOVO v3.4] CADASTRO MESTRE — setores e pessoas vêm do Organograma (/api/base/cadastros).
+let BASE=null;   // {setores:[{id,nome,pessoas:[{id,nome,cargo}]}]} ou null se não carregou
+async function carregarBase(){
+  try{ const r=await fetch("/api/base/cadastros",{cache:"no-store"}); if(!r.ok) return;
+    const j=await r.json(); if(!j||!Array.isArray(j.setores)||!j.setores.length) return;
+    BASE=j; AREAS_PADRAO=j.setores.map(s=>s.nome); }catch(_){}
+}
+const setorOficial=nome=>BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(nome));
 function atualizarListas(){
   const areas=new Set(AREAS_PADRAO), sist=new Set(), quem=new Set();
   PROCS.forEach(p=>{ const d=p.dados; if(tx(d.area)) areas.add(tx(d.area));
     [...d.passos_it,...d.passos_real].forEach(x=>{ if(tx(x.sistema)) sist.add(tx(x.sistema)); if(tx(x.quem)) quem.add(tx(x.quem)); }); });
   $("#dl-areas").innerHTML=ordenar([...areas]).map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-sistemas").innerHTML=ordenar([...sist]).map(a=>`<option value="${esc(a)}">`).join("");
-  $("#dl-quem").innerHTML=ordenar([...quem]).map(a=>`<option value="${esc(a)}">`).join("");
+  // [v3.4] pessoas do Organograma primeiro (com cargo e setor como dica); depois o que já foi digitado nos processos
+  const oficiais=BASE?BASE.setores.flatMap(s=>s.pessoas.map(p=>({nome:p.nome,dica:[p.cargo,s.nome].filter(Boolean).join(" · ")}))):[];
+  const nomesOf=new Set(oficiais.map(o=>nrm(o.nome)));
+  $("#dl-quem").innerHTML=oficiais.map(o=>`<option value="${esc(o.nome)}" label="${esc(o.dica)}">`).join("")
+    +ordenar([...quem].filter(q=>!nomesOf.has(nrm(q)))).map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-macro").innerHTML=ordenar([...new Set(PROCS.map(p=>tx(p.dados.macroprocesso)).filter(Boolean))]).map(a=>`<option value="${esc(a)}">`).join("");
 }
 function pillStatus(s){ return `<span class="sit ${sitClasse(s)}">${esc(s||"—")}</span>`; }
@@ -1619,6 +1634,7 @@ $("#btnVoltar").onclick=()=>ir("lista");
 // Início
 // ═══════════════════════════════════════════════════════════════════
 async function iniciar(){
+  await carregarBase();   // [v3.4] setores e pessoas do Organograma (se falhar, segue com a lista de reserva)
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO_NOME=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
   try{
     const {r,j}=await api(API);
