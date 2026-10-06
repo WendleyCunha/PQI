@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="diario"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 :root{
@@ -566,6 +567,8 @@ tbody tr:hover{background:rgba(255,255,255,0.02);}
 </div>
 
 <script>
+// [AJUSTADO] Endereço relativo: a API está no MESMO servidor que entrega
+// esta página (Render). Funciona igual em casa, no Render ou onde for.
 const API = "/api";
 
 // ---- cores oficiais de status e prioridade (do documento de especificação) ----
@@ -1503,8 +1506,7 @@ document.getElementById('formAtividade').addEventListener('submit', async (e)=>{
       evidenciaValor = document.getElementById('f-evidencia').value;
     }
   }catch(err){
-    msg.textContent = 'Erro ao enviar o arquivo de evidência: ' + err.message +
-      ' — confira se rodou "pip install -r requirements.txt" de novo (precisa do python-multipart) e reiniciou o servidor.';
+    msg.textContent = 'Erro ao enviar o arquivo de evidência: ' + err.message;
     msg.classList.add('erro');
     btn.disabled = false; btn.textContent = 'Cadastrar atividade';
     return;
