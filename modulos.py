@@ -82,10 +82,29 @@ MODULOS = [
 # Só aparece pra quem é admin (não precisa liberar — vem junto com o papel).
 MODULO_ADMIN = {
     "id": "admin",
-    "nome": "Usuários e Permissões",
-    "descricao": "Criar usuários, definir senha inicial, papel e quais módulos cada um enxerga.",
+    "nome": "Segurança — Usuários e Permissões",
+    "descricao": "Usuários, perfis de acesso (Visualizar · Adicionar · Editar), departamentos e histórico de alterações.",
     "url": "/admin", "icone": "🔐", "tipo": "admin",
 }
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.3] PERFIS DE ACESSO — cada perfil define um nível por sistema:
+#   0 Sem acesso · 1 Visualizar · 2 Adicionar · 3 Editar   (ver permissoes.py)
+# Sistemas externos e o RG (que guarda no próprio navegador) só têm
+# "acessa / não acessa": qualquer nível ≥ 1 vira 1.
+# Estes perfis são criados uma vez (se ainda não existir nenhum) e depois
+# o administrador ajusta e cria outros na aba Permissões.
+# ──────────────────────────────────────────────────────────────────────────
+PERFIS_PADRAO = [
+    {"id": "gestor", "nome": "Gestor", "descricao": "Edita tudo nos sistemas da área.",
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 3, "mapa": 3, "organograma": 3}},
+    {"id": "analista", "nome": "Analista", "descricao": "Edita o Diário; adiciona no Diagnóstico e no Mapa; consulta o Organograma.",
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 2, "mapa": 2, "organograma": 1}},
+    {"id": "colaborador", "nome": "Colaborador", "descricao": "Adiciona demandas e registros, sem alterar os existentes.",
+     "niveis": {"diario": 2, "diagnostico": 2, "mapa": 1, "organograma": 1}},
+    {"id": "leitura", "nome": "Somente leitura", "descricao": "Consulta os sistemas da área, sem gravar nada.",
+     "niveis": {"diario": 1, "rg": 1, "diagnostico": 1, "mapa": 1, "organograma": 1}},
+]
 
 PAPEIS = {
     "admin": "Administrador — vê e gerencia tudo",
@@ -94,6 +113,31 @@ PAPEIS = {
 }
 
 IDS_VALIDOS = {m["id"] for m in MODULOS}
+
+
+def so_acesso(modulo: dict) -> bool:
+    """Sistemas onde só existe "acessa ou não" (externos e arquivos locais)."""
+    return modulo.get("tipo") in ("externo", "arquivo")
+
+
+IDS_SO_ACESSO = {m["id"] for m in MODULOS if so_acesso(m)}
+
+
+def niveis_do_usuario(usuario: dict, perfil) -> dict:
+    """Nível (0–3) de cada sistema para esta pessoa.
+    admin → tudo 3 · com perfil → o do perfil · sem perfil (cadastro antigo) →
+    3 nos módulos que estavam marcados, como era antes dos perfis."""
+    if usuario.get("papel") == "admin":
+        return {m["id"]: (1 if so_acesso(m) else 3) for m in MODULOS}
+    saida = {}
+    for m in MODULOS:
+        if perfil is not None:
+            n = int((perfil.get("niveis") or {}).get(m["id"], 0) or 0)
+        else:
+            n = 3 if m["id"] in (usuario.get("modulos") or []) else 0
+        n = max(0, min(3, n))
+        saida[m["id"]] = min(n, 1) if so_acesso(m) else n
+    return saida
 
 
 def modulo_da_rota(caminho: str):
@@ -107,18 +151,14 @@ def modulo_da_rota(caminho: str):
     return None
 
 
-def tem_acesso(usuario: dict, modulo_id: str) -> bool:
-    return usuario.get("papel") == "admin" or modulo_id in (usuario.get("modulos") or [])
-
-
-def cards_do_usuario(usuario: dict) -> list:
+def cards_do_usuario(usuario: dict, niveis: dict) -> list:
     """O que o Painel mostra pra esta pessoa (sem as regras internas de rota)."""
     publico = lambda m: {k: m[k] for k in ("id", "nome", "descricao", "url", "icone", "tipo")}
-    cards = [publico(m) for m in MODULOS if tem_acesso(usuario, m["id"])]
+    cards = [publico(m) for m in MODULOS if niveis.get(m["id"], 0) >= 1]
     if usuario.get("papel") == "admin":
         cards.append(publico(MODULO_ADMIN))
     return cards
 
 
 def catalogo_publico() -> list:
-    return [{k: m[k] for k in ("id", "nome", "icone", "tipo")} for m in MODULOS]
+    return [{**{k: m[k] for k in ("id", "nome", "icone", "tipo", "descricao")}, "so_acesso": so_acesso(m)} for m in MODULOS]
