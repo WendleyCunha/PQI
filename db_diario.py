@@ -241,9 +241,10 @@ def acoes_listar(atividade_id: str) -> list[dict]:
     return linhas
 
 
-def acoes_inserir(atividade_id: str, descricao: str, lembrete: Optional[str]) -> str:
+def acoes_inserir(atividade_id: str, descricao: str, lembrete: Optional[str], criado_por_email: Optional[str] = None) -> str:
     _, ref = _col_acoes().add({
         "atividade_id": atividade_id,
+        "criado_por_email": criado_por_email,
         "descricao": descricao,
         "lembrete": lembrete or None,
         "lembrete_encerrado": False,
@@ -407,11 +408,11 @@ def mapa_listar() -> list[dict]:
     return saida
 
 
-def mapa_criar(dados: dict, usuario: str) -> dict:
+def mapa_criar(dados: dict, usuario: str, email: Optional[str] = None) -> dict:
     agora = _now_iso()
     ref = _col_mapa().document()
-    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_em": agora,
-                "atualizado_por": usuario, "atualizado_em": agora}
+    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_por_email": email,
+                "criado_em": agora, "atualizado_por": usuario, "atualizado_em": agora}
     ref.set(registro, timeout=TIMEOUT_FS)
     return _mapa_publico(ref.id, registro)
 
@@ -461,10 +462,10 @@ def docs_listar(colecao: str) -> list[dict]:
     return saida
 
 
-def docs_criar(colecao: str, dados: dict, usuario: str) -> dict:
+def docs_criar(colecao: str, dados: dict, usuario: str, email: Optional[str] = None) -> dict:
     agora = _now_iso()
     ref = get_db().collection(colecao).document()
-    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_em": agora,
+    registro = {"dados": dados, "versao": 1, "excluido": False, "criado_por": usuario, "criado_por_email": email, "criado_em": agora,
                 "atualizado_por": usuario, "atualizado_em": agora}
     ref.set(registro, timeout=TIMEOUT_FS)
     return _mapa_publico(ref.id, registro)
@@ -496,3 +497,135 @@ def docs_excluir(colecao: str, doc_id: str, usuario: str) -> bool:
         return False
     ref.update({"excluido": True, "excluido_por": usuario, "excluido_em": _now_iso()}, timeout=TIMEOUT_FS)
     return True
+
+
+def docs_ler(colecao: str, doc_id: str) -> Optional[dict]:
+    """Um documento (com versão e autor) — None se não existir ou estiver excluído."""
+    doc = get_db().collection(colecao).document(doc_id).get(timeout=TIMEOUT_FS)
+    if not doc.exists:
+        return None
+    d = doc.to_dict() or {}
+    if d.get("excluido"):
+        return None
+    return {**_mapa_publico(doc_id, d), "criado_por_email": d.get("criado_por_email")}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.3] PERFIS DE ACESSO + HISTÓRICO DE ALTERAÇÕES DE PERMISSÃO
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_PERFIS = "pqi_perfis"
+COLECAO_LOG_PERMISSOES = "pqi_permissoes_log"
+
+
+def perfis_listar() -> list[dict]:
+    linhas = [{**(d.to_dict() or {}), "id": d.id} for d in get_db().collection(COLECAO_PERFIS).stream(timeout=TIMEOUT_FS)]
+    linhas.sort(key=lambda p: (p.get("ordem", 99), (p.get("nome") or "").lower()))
+    return linhas
+
+
+def perfil_ler(perfil_id: str) -> Optional[dict]:
+    doc = get_db().collection(COLECAO_PERFIS).document(perfil_id).get(timeout=TIMEOUT_FS)
+    return {**(doc.to_dict() or {}), "id": doc.id} if doc.exists else None
+
+
+def perfil_gravar(perfil_id: str, campos: dict) -> None:
+    get_db().collection(COLECAO_PERFIS).document(perfil_id).set(campos, merge=True, timeout=TIMEOUT_FS)
+
+
+def perfis_semear(padroes: list) -> int:
+    """Cria os perfis padrão SÓ se a coleção estiver vazia (nunca sobrescreve ajustes)."""
+    col = get_db().collection(COLECAO_PERFIS)
+    if any(True for _ in col.limit(1).stream(timeout=TIMEOUT_FS)):
+        return 0
+    for i, p in enumerate(padroes):
+        col.document(p["id"]).set({"nome": p["nome"], "descricao": p["descricao"], "niveis": p["niveis"],
+                                   "arquivado": False, "ordem": i, "padrao": True,
+                                   "criado_em": _now_iso(), "criado_por": "sistema"}, timeout=TIMEOUT_FS)
+    return len(padroes)
+
+
+def log_permissao(registro: dict) -> None:
+    get_db().collection(COLECAO_LOG_PERMISSOES).add({**registro, "em": _now_iso()}, timeout=TIMEOUT_FS)
+
+
+def log_permissoes_listar(limite: int = 200) -> list[dict]:
+    linhas = [d.to_dict() or {} for d in get_db().collection(COLECAO_LOG_PERMISSOES).stream(timeout=TIMEOUT_FS)]
+    linhas.sort(key=lambda r: r.get("em") or "", reverse=True)
+    return linhas[:limite]
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.3] DIAGNÓSTICO POR DEPARTAMENTO — coleção "diagnostico_dep",
+# um documento por (departamento, seção): id = "<departamento>__<seção>".
+# O departamento é o SETOR do Organograma (mesmo id), então os dois
+# sistemas falam do mesmo departamento.
+# A coleção antiga "diagnostico" (sem departamento) fica intacta: ela pode
+# ser trazida uma vez para um departamento (diagdep_importar_legado).
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_DIAG_DEP = "diagnostico_dep"
+
+
+def _col_diag_dep():
+    return get_db().collection(COLECAO_DIAG_DEP)
+
+
+def diagdep_ler_todos(dep: str) -> dict:
+    docs = _col_diag_dep().where(filter=FieldFilter("dep", "==", dep)).stream(timeout=TIMEOUT_FS)
+    return {(d.to_dict() or {}).get("secao"): (d.to_dict() or {}).get("dados") for d in docs}
+
+
+def diagdep_ler(dep: str, secao: str):
+    doc = _col_diag_dep().document(f"{dep}__{secao}").get(timeout=TIMEOUT_FS)
+    return (doc.to_dict() or {}).get("dados") if doc.exists else None
+
+
+def diagdep_salvar(dep: str, secao: str, dados, usuario: str) -> None:
+    _col_diag_dep().document(f"{dep}__{secao}").set(
+        {"dep": dep, "secao": secao, "dados": dados, "atualizado_em": _now_iso(), "atualizado_por": usuario},
+        timeout=TIMEOUT_FS)
+
+
+def diagdep_checklists() -> dict:
+    """{departamento: dados do checklist} — usado para mostrar o andamento."""
+    docs = _col_diag_dep().where(filter=FieldFilter("secao", "==", "checklist")).stream(timeout=TIMEOUT_FS)
+    return {(d.to_dict() or {}).get("dep"): (d.to_dict() or {}).get("dados") for d in docs}
+
+
+def diag_legado_resumo() -> dict:
+    """O diagnóstico antigo (sem departamento): quantas seções têm dados e se já foi importado."""
+    secoes, importado = 0, None
+    for d in _col_diag().stream(timeout=TIMEOUT_FS):
+        x = d.to_dict() or {}
+        if x.get("importado_para"):
+            importado = x.get("importado_para")
+        if x.get("dados") not in (None, [], {}, ""):
+            secoes += 1
+    return {"secoes": secoes, "importado_para": importado}
+
+
+def diagdep_importar_legado(dep: str, usuario: str) -> int:
+    """Copia o diagnóstico antigo para o departamento (sem sobrescrever seção que
+    já tenha dados lá) e marca o antigo como importado. Devolve quantas seções vieram."""
+    n = 0
+    for d in _col_diag().stream(timeout=TIMEOUT_FS):
+        x = d.to_dict() or {}
+        dados = x.get("dados")
+        if dados in (None, [], {}, ""):
+            continue
+        if diagdep_ler(dep, d.id) not in (None, [], {}, ""):
+            continue
+        diagdep_salvar(dep, d.id, dados, usuario)
+        n += 1
+    for d in _col_diag().stream(timeout=TIMEOUT_FS):
+        d.reference.update({"importado_para": dep, "importado_em": _now_iso(), "importado_por": usuario}, timeout=TIMEOUT_FS)
+    return n
+
+
+def atividade_dono(atividade_id: str) -> Optional[str]:
+    doc = _col().document(atividade_id).get(timeout=TIMEOUT_FS)
+    return (doc.to_dict() or {}).get("criado_por_email") if doc.exists else None
+
+
+def acao_dono(acao_id: str) -> Optional[str]:
+    doc = _col_acoes().document(acao_id).get(timeout=TIMEOUT_FS)
+    return (doc.to_dict() or {}).get("criado_por_email") if doc.exists else None
