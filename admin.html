@@ -1,174 +1,388 @@
-<!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<!doctype html>
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Usuários e Permissões</title>
+<title>Segurança — Usuários e Permissões</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root[data-theme="dark"]{--bg:#06070b;--panel:#0e1017;--panel-2:#151824;--campo:#0a0c12;--line:rgba(232,179,61,.16);--line-2:rgba(232,179,61,.42);
-  --gold:#e8b33d;--gold-soft:#f3cd6f;--violet:#8b6cff;--ink:#f2f0ea;--ink-2:#c3c5cc;--muted:#8b8f9c;--faint:#565b6b;--ok:#3ddc97;--bad:#ff6b6b;--azul:#4fc3f7}
-:root[data-theme="light"]{--bg:#f4f5f8;--panel:#fff;--panel-2:#eef1f6;--campo:#fff;--line:rgba(179,131,20,.22);--line-2:rgba(179,131,20,.6);
-  --gold:#b38314;--gold-soft:#8c640c;--violet:#6846ff;--ink:#1a1c23;--ink-2:#3d4150;--muted:#5e6375;--faint:#8a90a2;--ok:#109658;--bad:#c62828;--azul:#0277bd}
-*{box-sizing:border-box}
-html,body{margin:0;min-height:100%}
-body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-  padding:calc(env(safe-area-inset-top,0px) + 24px) 24px calc(env(safe-area-inset-bottom,0px) + 60px)}
-.pagina{max-width:1180px;margin:0 auto}
-h1,h2{font-family:"Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.01em;font-weight:600}
-h1{font-size:24px;margin:0 0 4px} h2{font-size:17px;margin:0 0 12px}
-.cap{color:var(--muted);font-size:12.5px;margin:0 0 16px;max-width:80ch}
-.topo{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-.topo .acoes{margin-left:auto}
-.btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 14px;border-radius:9px;font:500 13px Inter,sans-serif;cursor:pointer}
-.btn:hover{border-color:var(--gold)} .btn.primary{background:var(--gold);border-color:var(--gold);color:#16130b;font-weight:600}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}
-.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-.busca{width:100%;margin-bottom:10px}
-input.inp,select.inp{background:var(--campo);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font:14px Inter,sans-serif;width:100%}
-.lista{display:flex;flex-direction:column;gap:6px;max-height:68vh;overflow:auto}
-.u{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:11px;
-  background:var(--panel-2);cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
-.u:hover{border-color:var(--line-2)} .u.sel{border-color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
-.u.inativo{opacity:.55}
-.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:700 15px "Space Grotesk",sans-serif;
-  background:conic-gradient(from 220deg,var(--gold),var(--violet),var(--gold));color:#16130b}
-.u b{display:block;font-size:14px} .u small{color:var(--muted);font-size:12px}
-.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:260px}
-.tag{font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(79,195,247,.14);color:var(--azul);white-space:nowrap}
-.tag.admin{background:rgba(232,179,61,.18);color:var(--gold-soft)} .tag.supervisor{background:rgba(139,108,255,.16);color:var(--violet)}
-.tag.off{background:rgba(255,107,107,.14);color:var(--bad)}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);margin-bottom:12px}
-.linha{display:flex;gap:8px} .linha .inp{flex:1}
-fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px}
-legend{font-size:12px;color:var(--muted);padding:0 6px}
-.mods{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
-.mods label{display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0;cursor:pointer}
-.mods input,.chk input{accent-color:var(--gold);width:16px;height:16px}
-.chk{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:12px;cursor:pointer}
-.nota{font-size:12px;color:var(--muted);margin:-4px 0 12px}
-.msg{font-size:13px;margin-top:10px;min-height:20px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
-.senha-gerada{margin-top:10px;padding:10px 12px;border:1px dashed var(--gold);border-radius:10px;font-size:13px;display:none}
-.senha-gerada code{font:600 15px "Space Grotesk",monospace;color:var(--gold-soft)}
-.vazio{color:var(--faint);text-align:center;padding:30px 0}
-@media (max-width:860px){.layout{grid-template-columns:1fr} .mods{grid-template-columns:1fr} body{padding-left:14px;padding-right:14px}}
+/* ═══════════════════════════════════════════════════════════════════
+   Diagnóstico N2 — mesmo padrão visual do RG do Pedido, do Mapa Digital
+   e dos Organogramas (IBM Plex, papel, azul-aço, menu vertical).
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --idle:#8A93A3; --idle-soft:#EEF0F3; --run:#1B2A4A;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --idle:#8A93A3; --idle-soft:#262D3A; --run:#22304A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --idle:#8A93A3; --idle-soft:#262D3A; --run:#22304A;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:22px 0 8px;font-weight:600}
+code{background:var(--rule-2);border-radius:4px;padding:0 5px;font-size:12.5px}
+a{color:var(--steel)}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:85ch}
+
+/* barra fixa (igual ao RG) */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar-tit{font:600 15px "IBM Plex Sans Condensed",sans-serif;color:var(--ink)}
+.bar-tit span{font:400 13px "IBM Plex Sans",sans-serif;color:var(--ink-3);margin-left:6px}
+.salvo{margin-right:auto;color:var(--ink-3);font-size:13px;display:flex;align-items:center;gap:8px}
+.salvo i{width:8px;height:8px;border-radius:50%;background:var(--idle);display:inline-block;flex:none}
+.salvo.ok i{background:var(--ok)} .salvo.salvando i{background:var(--amber)} .salvo.erro i{background:var(--bad)}
+.salvo.erro{color:var(--bad)}
+
+/* casca: menu vertical de ícones + conteúdo */
+.wrap{padding:24px 28px 64px}
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);
+  border-radius:10px;padding:12px 8px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow-y:auto}
+.side-btn{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:1px solid transparent;background:none;
+  color:var(--ink-3);font:500 10.5px/1.2 "IBM Plex Sans",sans-serif;text-align:center;cursor:pointer;position:relative}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativa{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--rule-2);color:var(--ink-2);border-radius:8px;padding:0 5px}
+.side-btn.ativa .n{background:var(--steel);color:var(--sheet)}
+.side-sep{flex:none;width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+.pagina > h2{font-size:22px;font-weight:700;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.pagina > .doc-head + h2{margin-top:28px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+
+/* cabeçalho do documento + carimbo + medidor (igual ao RG) */
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--steel);border-radius:10px;padding:22px 26px;display:grid;grid-template-columns:1fr auto;gap:16px 30px}
+.doc-head h1{margin:0;font-size:30px;line-height:1.1;font-weight:700}
+.doc-head .obj{margin:8px 0 0;color:var(--ink-2);max-width:70ch}
+.stamp{border:2px solid var(--steel);border-radius:8px;padding:10px 14px;min-width:220px;align-self:start}
+.stamp .code{font:700 18px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.stamp dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:600}
+.medidor{display:flex;align-items:baseline;gap:10px;margin-top:14px}
+.medidor b{font:700 40px/1 "IBM Plex Sans Condensed",sans-serif}
+.medidor span{color:var(--ink-3);font-size:13px}
+.track{height:8px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:10px;max-width:520px}
+.track i{display:block;height:100%;background:var(--ok)}
+
+/* botões e campos (igual ao RG) */
+.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,.side-btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.acoes{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0;align-items:center}
+.msg{font-size:13px;margin-left:4px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+label.f input,label.f select,label.f textarea,.inp{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{resize:vertical}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+details.box > summary{cursor:pointer;font-weight:600;font-size:14px}
+details.box[open] > summary{margin-bottom:10px}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);color:var(--ink);font-size:14px}
+.erro-box{margin:20px 0;padding:14px 16px;border-radius:6px;background:var(--bad-soft);border:1px solid var(--bad);color:var(--ink)}
+
+/* tabela editável (padrão do RG) */
+.tbl-wrap{max-height:420px;overflow:auto;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+table.tbl{border-collapse:collapse;width:100%;min-width:720px;font-size:14px;background:var(--sheet)}
+table.tbl th{position:sticky;top:0;z-index:1;background:var(--rule-2);color:var(--ink-2);text-align:left;font:600 13px/1.3 "IBM Plex Sans Condensed",sans-serif;
+  padding:9px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.tbl td{border-bottom:1px solid var(--rule-2);padding:3px 4px;vertical-align:top}
+table.tbl tr:last-child td{border-bottom:0}
+table.tbl input,table.tbl select,table.tbl textarea{width:100%;background:transparent;border:1px solid transparent;color:var(--ink);
+  padding:6px 7px;border-radius:5px;font:14px "IBM Plex Sans",sans-serif;min-width:90px}
+table.tbl textarea{min-height:36px}
+table.tbl input:hover,table.tbl select:hover,table.tbl textarea:hover{border-color:var(--rule)}
+table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-color:var(--amber);background:color-mix(in srgb,var(--amber-soft) 35%,var(--sheet));outline:none}
+table.tbl select option{background:var(--sheet);color:var(--ink)}
+table.tbl .ro{display:block;padding:7px;color:var(--ink-3)}
+table.tbl td.td-del{width:36px;text-align:center}
+.btn-del{background:none;border:0;cursor:pointer;opacity:.55;font-size:13px;padding:6px;border-radius:5px;color:var(--ink)}
+.btn-del:hover{opacity:1;background:var(--bad-soft)}
+td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
+.btn-add{margin-top:8px}
+
+/* ─── específico da Segurança ─── */
+[hidden]{display:none!important}
+section{margin-top:30px}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section > header h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-azul{background:var(--steel-soft);color:var(--steel)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-amb{background:var(--amber-soft);color:var(--amber)}
+table.lista{border-collapse:collapse;width:100%;background:var(--sheet);font-size:14px}
+table.lista th{text-align:left;font:600 13px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:9px 10px;border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:1}
+table.lista td{padding:9px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+table.lista tr.clic{cursor:pointer} table.lista tr.clic:hover td{background:var(--steel-soft)}
+table.lista tr.inativo td{opacity:.55}
+.av{width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;background:var(--steel-soft);color:var(--steel);font:700 13px "IBM Plex Sans Condensed",sans-serif;vertical-align:middle;margin-right:8px}
+.ferr{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+.ferr input{max-width:300px}
+/* matriz de permissões */
+.matriz-wrap{overflow:auto;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);max-height:70vh}
+table.matriz{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+table.matriz th,table.matriz td{border-bottom:1px solid var(--rule-2);padding:10px 12px;background:var(--sheet)}
+table.matriz thead th{position:sticky;top:0;z-index:2;background:var(--rule-2);font:600 13px "IBM Plex Sans Condensed",sans-serif;text-align:center;min-width:120px;vertical-align:bottom}
+table.matriz thead th:first-child{text-align:left;left:0;z-index:3}
+table.matriz tbody th{position:sticky;left:0;z-index:1;text-align:left;font-weight:500;min-width:260px;max-width:320px}
+table.matriz tbody th small{display:block;color:var(--ink-3);font-size:12px;font-weight:400;line-height:1.35;margin-top:2px}
+table.matriz td{text-align:center}
+.nv{width:46px;height:34px;border-radius:8px;border:1px solid var(--rule);background:var(--paper);cursor:pointer;font:600 15px/1 "IBM Plex Sans",sans-serif;color:var(--ink-3)}
+.nv:hover{border-color:var(--ink-3)}
+.nv[data-n="1"]{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.nv[data-n="2"]{background:var(--amber-soft);color:var(--amber);border-color:var(--amber)}
+.nv[data-n="3"]{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.nv.so[data-n="1"]{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.th-perfil b{display:block;font-size:14px;color:var(--ink)} .th-perfil small{display:block;font:400 11.5px "IBM Plex Sans",sans-serif;color:var(--ink-3)}
+.legenda-n{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:6px 0 14px}
+.legenda-n span{display:inline-flex;gap:6px;align-items:center}
+.legenda-n .nv{width:34px;height:26px;font-size:13px;cursor:default}
+/* gaveta */
+.dw-fundo{position:fixed;inset:0;background:rgba(10,15,25,.4);z-index:40;display:none}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:var(--sheet);border-left:1px solid var(--rule);z-index:41;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer.aberto{transform:none} .dw-fundo.aberto{display:block}
+.dw-cab{padding:18px 22px 12px;border-bottom:1px solid var(--rule)} .dw-cab h3{margin:0;font-size:21px}
+.dw-corpo{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px}
+.dw-rod{padding:12px 22px;border-top:1px solid var(--rule);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.multi{max-height:180px;overflow:auto;border:1px solid var(--rule);border-radius:6px;padding:6px 10px;background:var(--paper)}
+.multi label,.radio label{display:flex;gap:8px;align-items:center;font-size:14px;padding:3px 0;cursor:pointer}
+.multi input,.radio input,.chk input{width:16px;height:16px;accent-color:var(--steel)}
+.radio{display:flex;gap:18px;flex-wrap:wrap}
+.resultado-acesso{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+.dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.dep{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 14px 22px;position:relative;overflow:hidden}
+.dep::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--cor,var(--steel))}
+.dep h4{margin:0;font:700 19px "IBM Plex Sans Condensed",sans-serif}
+.dep .meta{font-size:13px;color:var(--ink-3);margin-top:6px}
+.dep .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.dep .links a{font-size:13px;text-decoration:none;border:1px solid var(--rule);border-radius:6px;padding:6px 10px;color:var(--ink)}
+.dep .links a:hover{border-color:var(--steel);color:var(--steel)}
+.track{height:7px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:8px} .track i{display:block;height:100%;background:var(--ok)}
 </style>
 </head>
 <body>
-<div class="pagina">
-  <div class="topo">
-    <div><h1>🔐 Usuários e Permissões</h1>
-      <p class="cap">Crie o acesso de cada pessoa, defina a senha inicial e marque quais módulos ela enxerga. Na primeira entrada, o sistema obriga a pessoa a trocar a senha que você definiu.</p></div>
-    <div class="acoes"><button class="btn primary" id="btnNovo" type="button">+ Novo usuário</button></div>
+<div class="bar"><div class="bar-in">
+  <span class="bar-tit">🔐 Segurança<span>Usuários · perfis de acesso · departamentos · histórico</span></span>
+  <span class="salvo ok" id="salvo"><i></i><span>Carregando…</span></span>
+</div></div>
+<div class="wrap">
+  <div class="shell-item">
+    <nav class="side-rg" id="menu" aria-label="Seções da Segurança"></nav>
+    <div class="conteudo-item"><main class="pagina" id="conteudo"><p class="cap">Carregando…</p></main></div>
   </div>
-  <div class="layout">
-    <section class="box" aria-label="Lista de usuários">
-      <input class="inp busca" id="busca" placeholder="Buscar por nome ou e-mail..." aria-label="Buscar usuário">
-      <div class="lista" id="lista"><div class="vazio">Carregando…</div></div>
-    </section>
-    <section class="box" aria-label="Formulário do usuário">
-      <h2 id="fTitulo">Novo usuário</h2>
-      <label class="f">Nome<input class="inp" id="fNome" autocomplete="off"></label>
-      <label class="f">E-mail (é o login)<input class="inp" id="fEmail" type="email" autocomplete="off"></label>
-      <label class="f">Papel<select class="inp" id="fPapel"></select></label>
-      <p class="nota" id="fPapelNota"></p>
-      <fieldset id="fMods"><legend>Módulos liberados</legend><div class="mods" id="modsLista"></div></fieldset>
-      <label class="f"><span id="fSenhaLbl">Senha inicial (mín. 8 caracteres)</span>
-        <span class="linha"><input class="inp" id="fSenha" type="text" autocomplete="new-password"><button class="btn" id="btnGerar" type="button">Gerar</button></span></label>
-      <label class="chk"><input type="checkbox" id="fAtivo" checked> Acesso ativo</label>
-      <button class="btn primary" id="btnSalvar" type="button">💾 Salvar</button>
-      <div class="msg" id="msg" role="status"></div>
-      <div class="senha-gerada" id="senhaInfo"></div>
-    </section>
-  </div>
+  <footer class="doc-foot">Segurança do Painel PQI · toda alteração de permissão fica registrada com quem fez e quando.</footer>
 </div>
+
+<div class="dw-fundo" id="dwFundo"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dwTit">
+  <div class="dw-cab"><h3 id="dwTit">Usuário</h3><div class="cap" id="dwSub" style="margin:4px 0 0"></div></div>
+  <div class="dw-corpo" id="dwCorpo"></div>
+  <div class="dw-rod"><button type="button" class="btn primary" id="dwSalvar">Salvar</button><button type="button" class="btn" id="dwCancelar">Cancelar</button><span class="msg" id="dwMsg"></span></div>
+</aside>
+
 <script>
 'use strict';
-const $=s=>document.querySelector(s);
-const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let USUARIOS=[], MODULOS=[], PAPEIS={}, editando=null;
-try{ const t=localStorage.getItem("diag_tema"); if(t) document.documentElement.dataset.theme=t; }catch(_){}
+// ═══════════════════════════════════════════════════════════════════
+// SEGURANÇA — o servidor (main.py + permissoes.py) é quem faz valer as
+// regras; esta tela só cadastra. Níveis por sistema:
+//   0 Sem acesso · 1 Visualizar · 2 Adicionar · 3 Editar
+// ═══════════════════════════════════════════════════════════════════
+const $=(s,r=document)=>r.querySelector(s);
+function el(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function dataBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+function iniciais(n){ const p=String(n||"").trim().split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:"")).toUpperCase():"?"; }
+const SIMBOLO={0:"✕",1:"👁",2:"＋",3:"✎"};
+const ETAPAS_DIAG=["inv","org","dia","ent","gem","mat","jou","val"];
+let D={usuarios:[],modulos:[],perfis:[],departamentos:[],niveis:{},papeis:{}}, USO={}, aba="usuarios", busca="";
+try{ aba=sessionStorage.getItem("seg_aba")||"usuarios"; }catch(_){}
 
-async function api(url, opcoes){
-  const r=await fetch(url,{headers:{"Content-Type":"application/json"},...opcoes});
+async function api(url,op={}){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
   return j;
 }
-function msg(t,tipo){ const m=$("#msg"); m.className="msg "+(tipo||""); m.textContent=t||""; }
-function dataBR(iso){ if(!iso) return "nunca"; const d=new Date(iso); return isNaN(d)?iso:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
-
+function status(t,tipo){ const s=$("#salvo"); s.className="salvo "+(tipo||"ok"); s.querySelector("span").textContent=t; }
 async function carregar(){
-  try{ const j=await api("/api/admin/usuarios"); USUARIOS=j.usuarios; MODULOS=j.modulos; PAPEIS=j.papeis; }
-  catch(e){ $("#lista").innerHTML=`<div class="vazio">Não consegui carregar: ${esc(e.message)}</div>`; return; }
-  $("#fPapel").innerHTML=Object.keys(PAPEIS).map(p=>`<option value="${p}">${p==="admin"?"Administrador":p==="supervisor"?"Supervisor":"Usuário"}</option>`).join("");
-  $("#modsLista").innerHTML=MODULOS.map(m=>`<label><input type="checkbox" value="${esc(m.id)}"> ${m.icone} ${esc(m.nome)}${m.tipo==="externo"?' <small style="color:var(--faint)">(externo)</small>':""}</label>`).join("");
-  renderLista();
-  if(editando){ const u=USUARIOS.find(x=>x.email===editando); u?abrir(u):novo(); } else novo();
+  const [u,p]=await Promise.all([api("/api/admin/usuarios"),api("/api/admin/perfis")]);
+  D=u; USO=p.uso||{}; D.perfis=p.perfis; status(`${D.usuarios.length} usuário(s) · ${D.perfis.filter(x=>!x.arquivado).length} perfil(is) · ${D.departamentos.length} departamento(s)`);
 }
-function renderLista(){
-  const termo=$("#busca").value.trim().toLowerCase();
-  const lst=USUARIOS.filter(u=>!termo||(u.nome||"").toLowerCase().includes(termo)||u.email.includes(termo));
-  if(!lst.length){ $("#lista").innerHTML='<div class="vazio">Nenhum usuário encontrado.</div>'; return; }
-  const nomeMod=id=>{ const m=MODULOS.find(x=>x.id===id); return m?`${m.icone} ${m.nome}`:id; };
-  $("#lista").innerHTML=lst.map(u=>{
-    const tags = u.papel==="admin" ? '<span class="tag admin">Admin · tudo</span>'
-      : (u.papel==="supervisor"?'<span class="tag supervisor">Supervisor</span>':"") + ((u.modulos||[]).map(id=>`<span class="tag">${esc(nomeMod(id))}</span>`).join("")||'<span class="tag off">nenhum módulo</span>');
-    return `<button type="button" class="u${u.email===editando?" sel":""}${u.ativo===false?" inativo":""}" data-email="${esc(u.email)}">
-      <span class="av">${esc((u.nome||u.email).trim().charAt(0).toUpperCase())}</span>
-      <span><b>${esc(u.nome||"(sem nome)")}${u.ativo===false?' <span class="tag off">desativado</span>':""}</b><small>${esc(u.email)} · último acesso: ${esc(dataBR(u.ultimo_login))}</small></span>
-      <span class="tags">${tags}</span></button>`; }).join("");
-  document.querySelectorAll(".u").forEach(b=>b.onclick=()=>abrir(USUARIOS.find(u=>u.email===b.dataset.email)));
+
+// ─── menu ───
+const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
+const ABAS=[["usuarios","Usuários",SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',renderUsuarios],
+  ["permissoes","Permissões",SV+'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',renderPermissoes],
+  ["departamentos","Departa\u00admentos",SV+'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>',renderDepartamentos],
+  ["historico","Histórico",SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',renderHistorico]];
+function montarMenu(){ const m=$("#menu"); m.innerHTML=ABAS.map(([id,nome,ico])=>`<button type="button" class="side-btn${id===aba?" ativa":""}" data-a="${id}" title="${nome.replace(/\u00ad/g,"")}">${ico}<span>${nome}</span></button>`).join("");
+  m.querySelectorAll("button").forEach(b=>b.onclick=()=>{ aba=b.dataset.a; try{ sessionStorage.setItem("seg_aba",aba); }catch(_){} render(); }); }
+function render(){ montarMenu(); const c=$("#conteudo"); c.innerHTML=""; (ABAS.find(a=>a[0]===aba)||ABAS[0])[3](c); }
+
+// ─── níveis resultantes (mesma regra do servidor: modulos.niveis_do_usuario) ───
+function niveisDe(u, perfilId){
+  const perfil=D.perfis.find(p=>p.id===perfilId);
+  const out={};
+  D.modulos.forEach(m=>{ let n;
+    if(u.papel==="admin") n=3;
+    else if(perfil) n=Number((perfil.niveis||{})[m.id]||0);
+    else n=(u.modulos||[]).includes(m.id)?3:0;
+    out[m.id]=m.so_acesso?Math.min(n,1):n; });
+  return out;
 }
-function atualizarPapelUI(){
-  const p=$("#fPapel").value;
-  $("#fPapelNota").textContent=PAPEIS[p]||"";
-  $("#fMods").disabled = p==="admin";
-  $("#fMods").style.opacity = p==="admin" ? .5 : 1;
+function rotuloNivel(m,n){ return m.so_acesso ? (n?"Acessa":"Sem acesso") : D.niveis[n]; }
+function pillNivel(m,n){ const cls=n===0?"p-cinza":m.so_acesso?"p-ok":n===1?"p-azul":n===2?"p-amb":"p-ok"; return `<span class="pill ${cls}">${SIMBOLO[m.so_acesso&&n?3:n]==="✎"&&m.so_acesso?"✓":SIMBOLO[n]} ${esc(rotuloNivel(m,n))}</span>`; }
+
+// ═══ USUÁRIOS ═══
+function nomeDeps(ids){ if(!ids||!ids.length) return "Todos"; return ids.map(i=>(D.departamentos.find(d=>d.id===i)||{}).nome||"?").join(", "); }
+function renderUsuarios(c){
+  const lst=D.usuarios.filter(u=>!busca||[u.nome,u.email,u.perfil_nome].some(x=>String(x||"").toLowerCase().includes(busca.toLowerCase())));
+  c.innerHTML=`<h2>Usuários</h2><p class="cap">Cada pessoa tem um <b>perfil de acesso</b> (o que pode fazer em cada sistema) e, se quiser, uma lista de <b>departamentos</b> que ela enxerga no Diagnóstico e no Organograma. Administradores têm acesso total sempre.</p>
+    <div class="ferr"><input class="inp" id="uBusca" placeholder="Buscar por nome, e-mail ou perfil..." value="${esc(busca)}"><button type="button" class="btn primary" id="uNovo">＋ Novo usuário</button></div>
+    <div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Pessoa</th><th>Papel</th><th>Perfil de acesso</th><th>Departamentos</th><th>Situação</th><th>Último acesso</th></tr></thead><tbody>${
+      lst.map(u=>`<tr class="clic${u.ativo===false?" inativo":""}" data-e="${esc(u.email)}"><td><span class="av">${esc(iniciais(u.nome))}</span><b>${esc(u.nome)}</b><br><span class="cap" style="margin-left:42px">${esc(u.email)}</span></td>
+        <td>${u.papel==="admin"?'<span class="pill p-azul">Administrador</span>':esc((D.papeis[u.papel]||u.papel).split(" —")[0])}</td>
+        <td>${u.papel==="admin"?'<span class="cap">acesso total</span>':u.perfil?esc(u.perfil_nome):'<span class="pill p-amb">sem perfil</span> <span class="cap">módulos marcados</span>'}</td>
+        <td>${u.papel==="admin"?"Todos":esc(nomeDeps(u.departamentos))}</td>
+        <td>${u.ativo===false?'<span class="pill p-bad">Inativo</span>':u.trocar_senha?'<span class="pill p-amb">1º acesso pendente</span>':'<span class="pill p-ok">Ativo</span>'}</td>
+        <td>${esc(dataBR(u.ultimo_login))}</td></tr>`).join("")||'<tr><td colspan="6" class="cap" style="text-align:center;padding:20px">Ninguém encontrado.</td></tr>'}</tbody></table></div>
+    ${D.usuarios.some(u=>u.papel!=="admin"&&!u.perfil)?'<p class="aviso">💡 Quem está <b>sem perfil</b> continua com o acesso antigo (Editar nos módulos que estavam marcados). Abra a pessoa e escolha um perfil para passar a usar a nova regra.</p>':""}`;
+  const b=$("#uBusca",c); b.oninput=()=>{ busca=b.value; const pos=b.selectionStart; render(); const nb=$("#uBusca"); nb.focus(); nb.setSelectionRange(pos,pos); };
+  $("#uNovo",c).onclick=()=>abrirUsuario(null);
+  c.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>abrirUsuario(D.usuarios.find(u=>u.email===tr.dataset.e)));
 }
-function marcarModulos(lst){ document.querySelectorAll("#modsLista input").forEach(i=>i.checked=(lst||[]).includes(i.value)); }
-function novo(){
-  editando=null; $("#fTitulo").textContent="Novo usuário";
-  $("#fNome").value=""; $("#fEmail").value=""; $("#fEmail").disabled=false; $("#fPapel").value="usuario";
-  $("#fSenha").value=""; $("#fSenhaLbl").textContent="Senha inicial (mín. 8 caracteres)"; $("#fAtivo").checked=true;
-  marcarModulos([]); atualizarPapelUI(); msg(""); $("#senhaInfo").style.display="none"; renderLista(); $("#fNome").focus();
+let dw=null;
+function abrirUsuario(u){
+  const novo=!u;
+  dw={novo, u:u?JSON.parse(JSON.stringify(u)):{nome:"",email:"",papel:"usuario",perfil:(D.perfis.find(p=>p.id==="colaborador"&&!p.arquivado)||{}).id||"",departamentos:[],ativo:true,modulos:[]}, senha:""};
+  $("#dwTit").textContent=novo?"Novo usuário":dw.u.nome; $("#dwSub").textContent=novo?"Nasce com troca de senha obrigatória no primeiro acesso.":dw.u.email;
+  desenharGaveta(); $("#drawer").classList.add("aberto"); $("#dwFundo").classList.add("aberto"); $("#dwMsg").textContent="";
 }
-function abrir(u){
-  editando=u.email; $("#fTitulo").textContent="Editar usuário";
-  $("#fNome").value=u.nome||""; $("#fEmail").value=u.email; $("#fEmail").disabled=true; $("#fPapel").value=u.papel||"usuario";
-  $("#fSenha").value=""; $("#fSenhaLbl").textContent="Nova senha (deixe em branco para manter a atual)"; $("#fAtivo").checked=u.ativo!==false;
-  marcarModulos(u.modulos); atualizarPapelUI(); msg(""); $("#senhaInfo").style.display="none"; renderLista();
+function desenharGaveta(){
+  const u=dw.u, perfisAtivos=D.perfis.filter(p=>!p.arquivado), restrito=(u.departamentos||[]).length>0;
+  const nv=niveisDe(u,u.perfil);
+  $("#dwCorpo").innerHTML=`
+    <label class="f">Nome<input id="fNome" value="${esc(u.nome)}"></label>
+    ${dw.novo?`<label class="f">E-mail (login)<input id="fEmail" type="email" value="${esc(u.email)}"></label>`:""}
+    <label class="f">Papel<select id="fPapel">${Object.entries(D.papeis).map(([k,v])=>`<option value="${k}"${k===u.papel?" selected":""}>${esc(v)}</option>`).join("")}</select></label>
+    ${u.papel==="admin"?'<p class="aviso">Administrador tem <b>acesso total</b> a todos os sistemas e departamentos, e gerencia a Segurança.</p>':`
+    <label class="f">Perfil de acesso<select id="fPerfil">${!u.perfil?'<option value="">— sem perfil (módulos marcados, cadastro antigo) —</option>':""}${perfisAtivos.map(p=>`<option value="${p.id}"${p.id===u.perfil?" selected":""}>${esc(p.nome)}</option>`).join("")}</select></label>
+    <div><div class="cap" style="margin:0 0 4px">Acesso resultante</div><div class="resultado-acesso">${D.modulos.map(m=>`<span>${m.icone} ${esc(m.nome)}</span>${pillNivel(m,nv[m.id])}`).join("")}</div></div>
+    <div><div class="cap" style="margin:0 0 4px">Departamentos que enxerga (Diagnóstico e Organograma)</div>
+      <div class="radio"><label><input type="radio" name="fDepModo" value="todos" ${!restrito?"checked":""}> Todos</label><label><input type="radio" name="fDepModo" value="alguns" ${restrito?"checked":""}> Somente estes:</label></div>
+      ${restrito?`<div class="multi" style="margin-top:6px">${D.departamentos.map(d=>`<label><input type="checkbox" data-dep="${d.id}" ${(u.departamentos||[]).includes(d.id)?"checked":""}> ${esc(d.nome)}</label>`).join("")||'<span class="cap">Nenhum departamento cadastrado ainda.</span>'}</div>`:""}</div>`}
+    <label class="chk" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="fAtivo" ${u.ativo!==false?"checked":""}> Ativo (pode entrar)</label>
+    <div><label class="f">${dw.novo?"Senha inicial":"Nova senha (opcional — obriga a trocar no próximo acesso)"}<input id="fSenha" value="${esc(dw.senha)}" autocomplete="new-password"></label>
+      <button type="button" class="btn" id="fGerar" style="margin-top:6px">Gerar senha aleatória</button></div>`;
+  const C=$("#dwCorpo");
+  $("#fNome",C).oninput=e=>u.nome=e.target.value;
+  const em=$("#fEmail",C); if(em) em.oninput=e=>u.email=e.target.value;
+  $("#fPapel",C).onchange=e=>{ u.papel=e.target.value; desenharGaveta(); };
+  const fp=$("#fPerfil",C); if(fp) fp.onchange=e=>{ u.perfil=e.target.value; desenharGaveta(); };
+  C.querySelectorAll('input[name="fDepModo"]').forEach(r=>r.onchange=()=>{ u.departamentos = r.value==="todos" ? [] : (u.departamentos&&u.departamentos.length?u.departamentos:(D.departamentos[0]?[D.departamentos[0].id]:[])); desenharGaveta(); });
+  C.querySelectorAll("[data-dep]").forEach(i=>i.onchange=()=>{ const s=new Set(u.departamentos||[]); i.checked?s.add(i.dataset.dep):s.delete(i.dataset.dep); u.departamentos=[...s]; });
+  $("#fAtivo",C).onchange=e=>u.ativo=e.target.checked;
+  $("#fSenha",C).oninput=e=>dw.senha=e.target.value;
+  $("#fGerar",C).onclick=async()=>{ const j=await api("/api/admin/senha-aleatoria"); dw.senha=j.senha; $("#fSenha").value=j.senha; };
 }
-$("#btnNovo").onclick=novo;
-$("#busca").oninput=renderLista;
-$("#fPapel").onchange=atualizarPapelUI;
-$("#btnGerar").onclick=async()=>{ try{ const j=await api("/api/admin/senha-aleatoria"); $("#fSenha").value=j.senha; }catch(e){ msg(e.message,"erro"); } };
-$("#btnSalvar").onclick=async()=>{
-  const b=$("#btnSalvar"); b.disabled=true; msg("Salvando…");
-  const papel=$("#fPapel").value, senha=$("#fSenha").value;
-  const modulos=papel==="admin"?[]:[...document.querySelectorAll("#modsLista input:checked")].map(i=>i.value);
+function fechar(){ $("#drawer").classList.remove("aberto"); $("#dwFundo").classList.remove("aberto"); dw=null; }
+$("#dwCancelar").onclick=fechar; $("#dwFundo").onclick=fechar;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&dw) fechar(); });
+$("#dwSalvar").onclick=async()=>{
+  const u=dw.u, m=$("#dwMsg"), b=$("#dwSalvar");
+  if(u.papel!=="admin"&&(u.departamentos||[]).length===0&&document.querySelector('input[name="fDepModo"][value="alguns"]:checked')){ m.className="msg erro"; m.textContent="Marque pelo menos um departamento (ou escolha “Todos”)."; return; }
+  const corpo={nome:u.nome,papel:u.papel,perfil:u.papel==="admin"?"":(u.perfil||""),departamentos:u.papel==="admin"?[]:(u.departamentos||[]),ativo:u.ativo!==false};
+  b.disabled=true; m.className="msg"; m.textContent="Salvando…";
   try{
-    if(editando){
-      const corpo={nome:$("#fNome").value,papel,modulos,ativo:$("#fAtivo").checked};
-      if(senha) corpo.nova_senha=senha;
-      await api(`/api/admin/usuarios/${encodeURIComponent(editando)}`,{method:"PUT",body:JSON.stringify(corpo)});
-    } else {
-      await api("/api/admin/usuarios",{method:"POST",body:JSON.stringify({nome:$("#fNome").value,email:$("#fEmail").value,senha,papel,modulos,ativo:$("#fAtivo").checked})});
-      editando=$("#fEmail").value.trim().toLowerCase();
-    }
-    const email=editando;
-    await carregar();
-    msg("Salvo! As permissões valem em até 30 segundos.","ok");
-    if(senha){ const i=$("#senhaInfo"); i.style.display="block";
-      i.innerHTML=`Passe para a pessoa (só aparece agora): login <b>${esc(email)}</b> · senha <code>${esc(senha)}</code><br><small>Ela será obrigada a trocar essa senha no primeiro acesso.</small>`; }
-  }catch(e){ msg(e.message,"erro"); }
-  finally{ b.disabled=false; }
+    if(dw.novo) await api("/api/admin/usuarios",{method:"POST",body:JSON.stringify({...corpo,email:u.email,senha:dw.senha})});
+    else await api(`/api/admin/usuarios/${encodeURIComponent(u.email)}`,{method:"PUT",body:JSON.stringify({...corpo,...(dw.senha?{nova_senha:dw.senha}:{})})});
+    fechar(); await carregar(); render(); status("Usuário salvo · "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
+  }catch(e){ m.className="msg erro"; m.textContent=e.message; } finally{ b.disabled=false; }
 };
-carregar();
+
+// ═══ PERMISSÕES (matriz perfis × sistemas) ═══
+function renderPermissoes(c){
+  const ativos=D.perfis.filter(p=>!p.arquivado), arquivados=D.perfis.filter(p=>p.arquivado);
+  c.innerHTML=`<h2>Permissões</h2><p class="cap">O que cada <b>perfil</b> pode fazer em cada sistema. Vale para todas as pessoas com aquele perfil. Clique numa célula para girar entre os níveis — a mudança é gravada na hora e fica no Histórico. Perfil novo nasce <b>sem nenhuma permissão</b>.</p>
+    <div class="legenda-n"><span><button class="nv" data-n="0" tabindex="-1">✕</button>Sem acesso</span><span><button class="nv" data-n="1" tabindex="-1">👁</button>Visualizar — consulta, não grava</span>
+      <span><button class="nv" data-n="2" tabindex="-1">＋</button>Adicionar — inclui e completa campos vazios; não altera o que é de outra pessoa</span><span><button class="nv" data-n="3" tabindex="-1">✎</button>Editar — tudo, inclusive excluir</span></div>
+    ${ativos.length?`<div class="matriz-wrap"><table class="matriz"><thead><tr><th>Sistema</th>${ativos.map(p=>`<th><div class="th-perfil"><b>${esc(p.nome)}</b><small>${USO[p.id]||0} pessoa(s)</small></div></th>`).join("")}</tr></thead><tbody>${
+      D.modulos.map(m=>`<tr><th>${m.icone} ${esc(m.nome)}<small>${m.so_acesso?"Só “acessa ou não” — "+(m.tipo==="externo"?"sistema externo, com login próprio.":"os dados ficam no navegador de cada pessoa."):esc(m.descricao||"")}</small></th>${
+        ativos.map(p=>{ const n=Number((p.niveis||{})[m.id]||0), nn=m.so_acesso?Math.min(n,1):n;
+          return `<td><button type="button" class="nv${m.so_acesso?" so":""}" data-p="${p.id}" data-m="${m.id}" data-n="${nn}" title="${esc(p.nome)} · ${esc(m.nome)}: ${esc(rotuloNivel(m,nn))} — clique para mudar">${m.so_acesso?(nn?"✓":"✕"):SIMBOLO[nn]}</button></td>`; }).join("")}</tr>`).join("")}
+      <tr><th>🔐 Segurança<small>Só administradores (papel), nunca por perfil.</small></th>${ativos.map(()=>"<td><span class='cap'>—</span></td>").join("")}</tr></tbody></table></div>`:'<p class="aviso">Nenhum perfil ativo. Crie um abaixo.</p>'}
+    <section><header><h2>Novo perfil</h2><p>Nasce sem nenhuma permissão; depois marque na matriz o que ele pode.</p></header>
+      <div class="grade" style="max-width:720px"><label class="f">Nome<input class="inp" id="pNome" placeholder="Ex.: Auditor, Líder de turno, RH"></label><label class="f">Descrição (opcional)<input class="inp" id="pDesc"></label></div>
+      <div class="acoes"><button type="button" class="btn primary" id="pCriar">Criar perfil</button><span class="msg" id="pMsg"></span></div></section>
+    <section><header><h2>Perfis</h2><p>Renomear, descrever ou arquivar. Não é possível arquivar perfil em uso — as pessoas ficariam sem regra.</p></header>
+      <div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Perfil</th><th>Descrição</th><th>Pessoas</th><th></th></tr></thead><tbody>${
+        [...ativos,...arquivados].map(p=>`<tr${p.arquivado?' class="inativo"':""}><td><input class="inp" data-nome="${p.id}" value="${esc(p.nome)}" ${p.arquivado?"disabled":""}></td><td><input class="inp" data-desc="${p.id}" value="${esc(p.descricao||"")}" ${p.arquivado?"disabled":""}></td>
+          <td>${USO[p.id]||0}</td><td>${p.arquivado?`<button type="button" class="btn" data-arq="${p.id}" data-v="0">Reativar</button>`:`<button type="button" class="btn" data-arq="${p.id}" data-v="1" ${USO[p.id]?'disabled title="Em uso — troque o perfil das pessoas antes"':""}>Arquivar</button>`}</td></tr>`).join("")}</tbody></table></div></section>`;
+  c.querySelectorAll("table.matriz .nv").forEach(b=>b.onclick=async()=>{
+    const m=D.modulos.find(x=>x.id===b.dataset.m), p=D.perfis.find(x=>x.id===b.dataset.p), atual=Number(b.dataset.n);
+    const prox=m.so_acesso?(atual?0:1):(atual+1)%4;
+    b.dataset.n=prox; b.textContent=m.so_acesso?(prox?"✓":"✕"):SIMBOLO[prox]; status("Salvando…","salvando");
+    try{ await api(`/api/admin/perfis/${p.id}`,{method:"PUT",body:JSON.stringify({niveis:{[m.id]:prox}})}); p.niveis={...(p.niveis||{}),[m.id]:prox};
+      b.title=`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — clique para mudar`; status(`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — gravado`); }
+    catch(e){ b.dataset.n=atual; b.textContent=m.so_acesso?(atual?"✓":"✕"):SIMBOLO[atual]; status("Erro: "+e.message,"erro"); }
+  });
+  $("#pCriar",c).onclick=async()=>{ const m=$("#pMsg"); try{ await api("/api/admin/perfis",{method:"POST",body:JSON.stringify({nome:$("#pNome").value,descricao:$("#pDesc").value})}); await carregar(); render(); status("Perfil criado — marque as permissões na matriz"); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
+  c.querySelectorAll("[data-nome]").forEach(i=>i.onchange=async()=>{ try{ await api(`/api/admin/perfis/${i.dataset.nome}`,{method:"PUT",body:JSON.stringify({nome:i.value})}); await carregar(); render(); }catch(e){ alert(e.message); render(); } });
+  c.querySelectorAll("[data-desc]").forEach(i=>i.onchange=async()=>{ try{ await api(`/api/admin/perfis/${i.dataset.desc}`,{method:"PUT",body:JSON.stringify({descricao:i.value})}); await carregar(); status("Descrição gravada"); }catch(e){ alert(e.message); } });
+  c.querySelectorAll("[data-arq]").forEach(b=>b.onclick=async()=>{ try{ await api(`/api/admin/perfis/${b.dataset.arq}/arquivar`,{method:"POST",body:JSON.stringify({arquivado:b.dataset.v==="1"})}); await carregar(); render(); }catch(e){ alert(e.message); } });
+}
+
+// ═══ DEPARTAMENTOS ═══
+async function renderDepartamentos(c){
+  c.innerHTML=`<h2>Departamentos</h2><p class="cap">Departamento é o mesmo <b>setor do Organograma</b>: criado aqui, no Diagnóstico ou no Organograma, aparece nos três. O diagnóstico de cada departamento fica separado. Restrinja quem enxerga cada um na ficha do usuário.</p>
+    <div class="box"><div class="grade"><label class="f">Nome do departamento<input class="inp" id="dNome" placeholder="Ex.: Logística, SAC, Financeiro"></label><label class="f">Descrição<input class="inp" id="dDesc"></label></div>
+    <div class="acoes"><button type="button" class="btn primary" id="dCriar">＋ Criar departamento</button><span class="msg" id="dMsg"></span></div></div><div id="dLista"><p class="cap">Carregando…</p></div>`;
+  $("#dCriar",c).onclick=async()=>{ const m=$("#dMsg"); try{ await api("/api/admin/departamentos",{method:"POST",body:JSON.stringify({nome:$("#dNome").value,descricao:$("#dDesc").value})}); await carregar(); render(); status("Departamento criado — já aparece no Organograma e no Diagnóstico"); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
+  try{ const j=await api("/api/admin/departamentos"), L=$("#dLista"); if(!L) return;
+    L.innerHTML=j.departamentos.length?`<div class="dep-grid">${j.departamentos.sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR")).map(d=>{ const feitas=ETAPAS_DIAG.filter(k=>(d.checklist||{})[k]).length, pct=Math.round(feitas/ETAPAS_DIAG.length*100);
+      return `<div class="dep" style="--cor:${esc(d.cor||"#2E4A7A")}"><h4>${esc(d.nome)}</h4><div class="meta">${esc(d.descricao||"")}</div>
+        <div class="meta">👥 ${d.pessoas} pessoa(s) no organograma · Diagnóstico ${pct}% (${feitas}/${ETAPAS_DIAG.length})</div><div class="track"><i style="width:${pct}%"></i></div>
+        <div class="meta">${d.restritos.length?`🔒 Acesso restrito liberado para: ${esc(d.restritos.join(", "))}`:"Visível a todos que têm acesso aos sistemas"}</div>
+        <div class="links"><a href="/organograma?setor=${encodeURIComponent(d.id)}">🏛️ Organograma</a><a href="/diagnostico?dep=${encodeURIComponent(d.id)}">🗺️ Diagnóstico</a></div></div>`; }).join("")}</div>`:'<p class="aviso">Nenhum departamento ainda.</p>';
+  }catch(e){ const L=$("#dLista"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
+}
+
+// ═══ HISTÓRICO ═══
+async function renderHistorico(c){
+  c.innerHTML=`<h2>Histórico de permissões</h2><p class="cap">Toda mudança de perfil, nível, usuário e departamento — com quem fez e quando (últimas 200).</p><div id="hLista"><p class="cap">Carregando…</p></div>`;
+  try{ const j=await api("/api/admin/permissoes-log"), L=$("#hLista"); if(!L) return;
+    L.innerHTML=j.historico.length?`<div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Quando</th><th>Quem</th><th>Onde</th><th>O quê</th><th>Antes → depois</th></tr></thead><tbody>${
+      j.historico.map(h=>`<tr><td>${esc(dataBR(h.em))}</td><td>${esc(h.por_nome||h.por)}</td><td><span class="pill p-cinza">${esc({perfil:"Perfil",usuario:"Usuário",departamento:"Departamento"}[h.tipo]||h.tipo)}</span> ${esc(h.alvo)}</td><td>${esc(h.descricao)}</td>
+        <td>${h.antes!=null||h.depois!=null?`${esc(h.antes??"—")} → <b>${esc(h.depois??"—")}</b>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<p class="aviso">Nenhuma alteração registrada ainda.</p>';
+  }catch(e){ const L=$("#hLista"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
+}
+
+(async function(){
+  try{ await carregar(); render(); }
+  catch(e){ status("Erro: "+e.message,"erro"); $("#conteudo").innerHTML=`<div class="erro-box"><b>Não consegui carregar a Segurança.</b><br>${esc(e.message)}</div>`; }
+})();
 </script>
 </body>
 </html>
