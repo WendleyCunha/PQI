@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="mapa"></script>
 <style>
 /* ═══ Mesmo padrão visual do RG do Pedido (IBM Plex, papel, aço, menu vertical) ═══ */
 :root{
@@ -374,6 +375,11 @@ async function enviar(p, forcar){
   try{
     const {r,j}=await api(`${API}/${p.id}`,{method:"PUT",body:JSON.stringify({dados:p.dados, versao: forcar?null:p.versao})});
     if(r.status===409){ p._conflito=j.atual; setStatus("erro","conflito de versão"); if(vista==="processo" && atual===p.id) render(); return; }
+    if(r.status===403){   // [v3.3] perfil não permite esta alteração: volta ao que está gravado
+      setStatus("erro", j.detail||"sem permissão para esta alteração");
+      try{ const x=await api(API); const at=(x.j||[]).find(z=>z.id===p.id); if(at){ p.dados=p.dados&&p.dados._tipo?at.dados:normalizar(at.dados); p.versao=at.versao; } }catch(_){}
+      render(); return;
+    }
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
     p.versao=j.versao; p.atualizado_por=j.atualizado_por; p.atualizado_em=j.atualizado_em; p._conflito=null;
     if(!Object.keys(pend).length) setStatus("ok");
