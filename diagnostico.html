@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="diagnostico"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    Diagnóstico N2 — mesmo padrão visual do RG do Pedido, do Mapa Digital
@@ -161,6 +162,20 @@ td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
 .relatorio table{border-collapse:collapse;font-size:13px;margin:6px 0}
 .relatorio td,.relatorio th{border:1px solid var(--rule);padding:4px 8px}
 
+/* tela de departamentos */
+.dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;margin-top:6px}
+.dep{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px 14px 22px;position:relative;overflow:hidden;cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit;transition:border-color .15s,transform .15s}
+.dep::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--cor,var(--steel))}
+.dep:hover{border-color:var(--steel);transform:translateY(-2px)}
+.dep h4{margin:0;font:700 19px "IBM Plex Sans Condensed",sans-serif}
+.dep .meta{font-size:13px;color:var(--ink-3);margin-top:5px}
+.dep .pct{display:flex;align-items:baseline;gap:8px;margin-top:10px} .dep .pct b{font:700 26px/1 "IBM Plex Sans Condensed",sans-serif}
+.dep .track{max-width:none;margin-top:6px}
+.oficial{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.oficial .num{font:700 28px/1 "IBM Plex Sans Condensed",sans-serif}
+a.btn{text-decoration:none}
+[hidden]{display:none!important}
+td .ro.trava{color:var(--ink-2)}
 @media (max-width:860px){
   .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px} .bar-tit span{display:none}
   .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
@@ -173,7 +188,8 @@ td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
 </head>
 <body>
 <div class="bar"><div class="bar-in">
-  <span class="bar-tit">Diagnóstico N2<span>Mapeamento de Atividades Operacionais · CX Backoffice (N2) · PQI</span></span>
+  <button class="btn" id="btnDeps" type="button" hidden>← Departamentos</button>
+  <span class="bar-tit">Diagnóstico<span id="barDep">Mapeamento de atividades por departamento · PQI</span></span>
   <span class="salvo" id="salvo"><i></i><span>Carregando…</span></span>
   <button class="btn" id="btnTema" type="button" title="Alternar tema claro/escuro">◐ Tema</button>
 </div></div>
@@ -182,7 +198,7 @@ td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
     <nav class="side-rg" id="menu" aria-label="Seções do diagnóstico"></nav>
     <div class="conteudo-item"><main id="main"><div class="pagina" id="conteudo"><p class="cap">Carregando dados do diagnóstico…</p></div></main></div>
   </div>
-  <footer class="doc-foot">Diagnóstico N2 · o objetivo é compreender o processo, não avaliar desempenho individual.</footer>
+  <footer class="doc-foot">Diagnóstico por departamento · o objetivo é compreender o processo, não avaliar desempenho individual.</footer>
 </div>
 <datalist id="dl-atividades"></datalist>
 <datalist id="dl-pessoas"></datalist>
@@ -319,6 +335,12 @@ function baixarTexto(nome, conteudo, mime){ baixarBlob(new Blob([conteudo],{type
 // ═══════════════════════════════════════════════════════════════════
 let D = {};
 const pendentes = {};
+// [v3.3] departamento aberto (= setor do Organograma) e permissão da pessoa
+let DEP=null, DEP_INFO=null, DEPS=[], LEGADO={secoes:0}, OFICIAL=null;
+let NIVEL=3, EMAIL="", PERM={};
+const NOMES_NIVEL={0:"Sem acesso",1:"Visualizar",2:"Adicionar",3:"Editar"};
+function urlSecao(sec){ return `${API}/dep/${encodeURIComponent(DEP)}/${encodeURIComponent(sec)}`; }
+function meu(o){ if(o&&typeof o==="object") o._por=EMAIL; return o; }   // autor do registro (base do perfil "Adicionar")
 
 function lista(sec){ if(!Array.isArray(D[sec])) D[sec]=[]; return D[sec]; }
 function objeto(sec){ if(!D[sec] || typeof D[sec]!=="object" || Array.isArray(D[sec])) D[sec]={}; return D[sec]; }
@@ -337,8 +359,13 @@ async function salvarAgora(sec){ clearTimeout(pendentes[sec]); return enviar(sec
 async function enviar(sec, keepalive){
   delete pendentes[sec];
   try{
-    const r=await fetch(`${API}/${encodeURIComponent(sec)}`, {method:"PUT", keepalive:!!keepalive,
+    if(!DEP) return;
+    const r=await fetch(urlSecao(sec), {method:"PUT", keepalive:!!keepalive,
       headers:{"Content-Type":"application/json"}, body:JSON.stringify({dados:D[sec]})});
+    if(r.status===403){   // perfil não permite esta alteração: volta ao que está gravado
+      const j=await r.json().catch(()=>({})); setStatus("erro", j.detail||"sem permissão para esta alteração");
+      await lerDoServidor(sec); renderAba(); return;
+    }
     if(!r.ok){ const t=await r.text().catch(()=> ""); throw new Error(`HTTP ${r.status} ${t.slice(0,160)}`); }
     if(!Object.keys(pendentes).length) setStatus("ok");
   }catch(e){ setStatus("erro", e.message); }
@@ -348,16 +375,19 @@ async function salvarTudoPendente(keepalive){
 }
 // Relê UMA seção do servidor antes de uma operação crítica (ex.: toque
 // no Diário) — evita apagar o que outra pessoa gravou nesse meio-tempo.
+async function lerDoServidor(sec){
+  try{ const r=await fetch(urlSecao(sec),{cache:"no-store"}); if(r.ok){ const j=await r.json(); D[sec]=j.dados; } }catch(_){}
+}
 async function recarregar(sec){
   if(pendentes[sec]) await salvarAgora(sec);
-  try{ const r=await fetch(`${API}/${encodeURIComponent(sec)}`,{cache:"no-store"}); if(r.ok){ const j=await r.json(); D[sec]=j.dados; } }catch(_){}
+  await lerDoServidor(sec);
 }
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") salvarTudoPendente(true); });
 window.addEventListener("beforeunload", e=>{ if(Object.keys(pendentes).length){ salvarTudoPendente(true); e.preventDefault(); e.returnValue=""; } });
 
 // opções dinâmicas (Inventário → Atividade, Organograma → Pessoa)
 function opcoesAtividades(){ return ordenar([...new Set(lista("inventario").map(i=>texto(i.atividade)).filter(Boolean))]); }
-function opcoesPessoas(){ return ordenar([...new Set(lista("organograma").map(o=>texto(o.pessoa)).filter(Boolean))]); }
+function opcoesPessoas(){ return ordenar([...new Set([...lista("organograma").map(o=>texto(o.pessoa)),...(OFICIAL||[]).map(p=>texto(p.nome))].filter(Boolean))]); }
 function atualizarListas(){
   $("#dl-atividades").innerHTML = opcoesAtividades().map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-pessoas").innerHTML = opcoesPessoas().map(a=>`<option value="${esc(a)}">`).join("");
@@ -366,7 +396,7 @@ function addInventarioSeNova(atividade){
   atividade=texto(atividade); if(!atividade) return;
   const inv=lista("inventario");
   if(inv.some(i=>norm(i.atividade)===norm(atividade))) return;
-  inv.push({atividade, categoria:"", descricao:"", registrada:""});
+  inv.push(meu({atividade, categoria:"", descricao:"", registrada:""}));
   inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
   salvar("inventario"); atualizarListas();
 }
@@ -391,20 +421,22 @@ function tabela(o){
   const tb=el("tbody");
   if(!linhas.length) tb.innerHTML=`<tr><td colspan="${colunas.length+1}" class="vazio">Nenhuma linha ainda.</td></tr>`;
   linhas.forEach((row,i)=>{
-    const tr=el("tr");
-    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(campoCelula(row,c,tr,colunas,secao,aoMudar)); tr.appendChild(td); });
+    const tr=el("tr"), livre = NIVEL>=3 || (NIVEL===2 && row._por===EMAIL);
+    colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(livre?campoCelula(row,c,tr,colunas,secao,aoMudar):celulaTravada(row,c)); tr.appendChild(td); });
     if(!semDel){
-      const td=el("td","td-del"), b=el("button","btn-del"); b.type="button"; b.title="Excluir esta linha"; b.textContent="🗑";
-      b.onclick=()=>{ linhas.splice(i,1); salvar(secao); aoEstrutura&&aoEstrutura(); };
-      td.appendChild(b); tr.appendChild(td);
+      const td=el("td","td-del");
+      if(livre){ const b=el("button","btn-del"); b.type="button"; b.title="Excluir esta linha"; b.textContent="🗑";
+        b.onclick=()=>{ linhas.splice(i,1); salvar(secao); aoEstrutura&&aoEstrutura(); }; td.appendChild(b); }
+      else if(NIVEL===2) td.innerHTML='<span class="ro" title="Registrado por outra pessoa — seu perfil permite só adicionar">🔒</span>';
+      tr.appendChild(td);
     }
     tb.appendChild(tr);
   });
   t.appendChild(tb); tw.appendChild(t); wrap.appendChild(tw);
-  if(!semAdd){
+  if(!semAdd && NIVEL>=2){
     const b=el("button","btn btn-add"); b.type="button"; b.textContent="+ Adicionar linha";
     b.onclick=()=>{
-      linhas.push(novaLinha ? novaLinha() : Object.fromEntries(colunas.filter(c=>c.tipo!=="calc").map(c=>[c.campo, c.padrao??""])));
+      linhas.push(meu(novaLinha ? novaLinha() : Object.fromEntries(colunas.filter(c=>c.tipo!=="calc").map(c=>[c.campo, c.padrao??""]))));
       salvar(secao); focarUltima=secao; aoEstrutura&&aoEstrutura();
     };
     wrap.appendChild(b);
@@ -414,6 +446,12 @@ function tabela(o){
     setTimeout(()=>{ tw.scrollTop=tw.scrollHeight; const f=tb.lastElementChild&&tb.lastElementChild.querySelector("input,select,textarea"); f&&f.focus(); },0);
   }
   return wrap;
+}
+function celulaTravada(row, c){
+  const s=el("span","ro trava"), v=c.tipo==="calc"?c.calc(row):(row[c.campo]??"");
+  s.textContent=v===""?"—":v; s.style.whiteSpace="pre-wrap";
+  if(NIVEL===2) s.title="Registrado por outra pessoa — seu perfil permite só adicionar";
+  return s;
 }
 function campoCelula(row, c, tr, colunas, secao, aoMudar){
   const v = row[c.campo]==null ? (c.padrao??"") : row[c.campo];
@@ -432,8 +470,8 @@ function campoCelula(row, c, tr, colunas, secao, aoMudar){
   const aplicar=()=>{
     row[c.campo]=inp.value;
     colunas.filter(cc=>cc.tipo==="calc").forEach(cc=>{
-      row[cc.campo]=cc.calc(row);
-      const s=tr.querySelector(`td[data-campo="${cc.campo}"] .ro`); if(s) s.textContent=row[cc.campo];
+      const v=cc.calc(row); if(!String(cc.campo).startsWith("_")) row[cc.campo]=v;   // "_..." = só exibição, não grava
+      const s=tr.querySelector(`td[data-campo="${cc.campo}"] .ro`); if(s) s.textContent=v;
     });
     salvar(secao);
   };
@@ -444,7 +482,7 @@ function campoCelula(row, c, tr, colunas, secao, aoMudar){
 }
 function botoesExport(c, lista_){
   const d=el("div","acoes");
-  lista_.forEach(([label,fn])=>{ const b=el("button","btn"); b.type="button"; b.textContent=label;
+  lista_.forEach(([label,fn])=>{ const b=el("button","btn btn-exp"); b.type="button"; b.textContent=label;
     b.onclick=async()=>{ b.disabled=true; try{ await fn(); }catch(e){ alert("Não foi possível gerar o arquivo: "+e.message); } finally{ b.disabled=false; } };
     d.appendChild(b); });
   c.appendChild(d); return d;
@@ -564,11 +602,89 @@ function abrirAba(id){
   window.scrollTo(0,0); renderAba();
 }
 function renderAba(){
+  if(!DEP) return renderInicio();
   const topo=window.scrollY, c=$("#conteudo");
   c.innerHTML=""; atualizarListas();
   ABAS.find(a=>a[0]===abaAtiva)[3](c);
+  aplicarPermissaoUI(c);
   window.scrollTo(0,topo);
 }
+// Visualizar: tudo só leitura (menos navegação e downloads). Adicionar: as
+// tabelas já travam linhas de outras pessoas; aqui some o que só Editar faz.
+function aplicarPermissaoUI(c){
+  if(NIVEL>=3) return;
+  c.querySelectorAll("[data-nivel]").forEach(e=>{ if(NIVEL<Number(e.dataset.nivel)) e.remove(); });
+  if(NIVEL<=1){
+    c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil no Diagnóstico permite consultar e baixar relatórios, sem gravar.</p>');
+    c.querySelectorAll("input,select,textarea,button").forEach(e=>{ if(e.closest("[data-livre]")||e.classList.contains("btn-exp")) return; e.disabled=true; });
+    return;
+  }
+  const pc=(objeto("checklist")._por_campo)||{};
+  c.querySelectorAll('input[type="checkbox"][data-id]:checked').forEach(e=>{ if(pc[e.dataset.id]!==EMAIL) e.disabled=true; });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// [v3.3] DEPARTAMENTOS — cada departamento é um setor do Organograma
+// ═══════════════════════════════════════════════════════════════════
+function progressoDep(ck){ ck=ck||{}; const f=ETAPAS_CHECKLIST.filter(([id])=>ck[id]).length; return {f,pct:Math.round(f/ETAPAS_CHECKLIST.length*100)}; }
+function renderInicio(){
+  $("#menu").style.display="none"; $("#btnDeps").hidden=true; $("#barDep").textContent="Mapeamento de atividades por departamento · PQI";
+  const c=$("#conteudo"), iniciados=DEPS.filter(d=>progressoDep(d.checklist).f>0).length;
+  c.innerHTML=`<header class="doc-head"><div><h1>Diagnóstico por departamento</h1>
+      <p class="obj">Primeiro o departamento, depois o diagnóstico dele: inventário, organograma real, RACI, Diário de Bordo, entrevistas, Gemba, matriz, jornada e relatório — cada departamento com os seus dados, sem misturar pessoas.</p>
+      <p class="cap" style="margin-top:8px">O departamento é o mesmo <b>setor do Organograma</b>: o que você cria aqui aparece lá, e as pessoas cadastradas lá aparecem na aba Organograma do diagnóstico.</p></div>
+    <div class="stamp"><div class="code">Departamentos</div><dl><dt>Cadastrados</dt><dd>${DEPS.length}</dd><dt>Com diagnóstico iniciado</dt><dd>${iniciados}</dd><dt>Seu acesso</dt><dd>${NOMES_NIVEL[NIVEL]}</dd></dl></div></header>
+    ${LEGADO.secoes&&!LEGADO.importado_para&&NIVEL>=3&&DEPS.length?`<div class="box" style="border-left:6px solid var(--amber)"><b>Existe um diagnóstico feito antes da separação por departamento</b> (${LEGADO.secoes} seção(ões) com dados).
+      <p class="cap" style="margin:6px 0 10px">Escolha a qual departamento ele pertence. Ele é copiado para lá (seções que já tiverem dados no departamento não são sobrescritas) e o original fica guardado.</p>
+      <div class="acoes"><select class="inp" id="legDep" style="max-width:320px">${DEPS.map(d=>`<option value="${esc(d.id)}">${esc(d.nome)}</option>`).join("")}</select><button type="button" class="btn primary" id="legOk">Trazer para este departamento</button><span class="msg" id="legMsg"></span></div></div>`:""}
+    <h2 style="margin-top:28px">Escolha o departamento</h2>
+    ${DEPS.length?`<div class="dep-grid">${DEPS.map(d=>{ const pr=progressoDep(d.checklist);
+      return `<button type="button" class="dep" data-dep="${esc(d.id)}" style="--cor:${esc(d.cor||"#2E4A7A")}"><h4>${esc(d.nome)}</h4><div class="meta">${esc(d.descricao||"")}</div>
+        <div class="pct"><b>${pr.pct}%</b><span class="meta" style="margin:0">da metodologia (${pr.f}/${ETAPAS_CHECKLIST.length} etapas)</span></div><div class="track"><i style="width:${pr.pct}%"></i></div>
+        <div class="meta">👥 ${d.pessoas} pessoa(s) no organograma oficial</div></button>`; }).join("")}</div>`
+      :'<p class="aviso">Nenhum departamento ainda. Crie o primeiro abaixo — ele também aparece no Organograma.</p>'}
+    ${NIVEL>=2?`<div class="box"><h3 style="margin-top:0">＋ Novo departamento</h3>
+      <div class="grade"><label class="f">Nome<input id="ndNome" placeholder="Ex.: Logística, SAC, Financeiro"></label><label class="f">Descrição (opcional)<input id="ndDesc"></label></div>
+      <div class="acoes"><button type="button" class="btn primary" id="ndOk">Criar e abrir o diagnóstico</button><span class="msg" id="ndMsg"></span></div></div>`:""}`;
+  c.querySelectorAll("[data-dep]").forEach(b=>b.onclick=()=>abrirDep(b.dataset.dep));
+  const nd=$("#ndOk",c); if(nd) nd.onclick=async()=>{ const m=$("#ndMsg"); nd.disabled=true;
+    try{ const r=await fetch(`${API}/departamentos`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome:$("#ndNome").value,descricao:$("#ndDesc").value})});
+      const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+      await carregarDepartamentos(); abrirDep(j.id); }catch(e){ m.className="msg erro"; m.textContent=e.message; nd.disabled=false; } };
+  const lg=$("#legOk",c); if(lg) lg.onclick=async()=>{ const dep=$("#legDep").value, m=$("#legMsg"); lg.disabled=true;
+    try{ const r=await fetch(`${API}/dep/${encodeURIComponent(dep)}/importar-legado`,{method:"POST"}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+      await carregarDepartamentos(); abrirDep(dep); }catch(e){ m.className="msg erro"; m.textContent=e.message; lg.disabled=false; } };
+}
+async function carregarDepartamentos(){
+  const r=await fetch(`${API}/departamentos`,{cache:"no-store"});
+  if(!r.ok) throw new Error(`HTTP ${r.status} — ${(await r.text()).slice(0,200)}`);
+  const j=await r.json(); DEPS=j.departamentos||[]; LEGADO=j.legado||{secoes:0};
+}
+async function abrirDep(id){
+  await salvarTudoPendente();
+  $("#conteudo").innerHTML='<p class="cap">Abrindo o diagnóstico do departamento…</p>';
+  try{
+    const r=await fetch(`${API}/dep/${encodeURIComponent(id)}`,{cache:"no-store"}), j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    DEP=id; DEP_INFO=j.departamento; D=j.secoes||{}; OFICIAL=null;
+  }catch(e){ DEP=null; renderInicio(); $("#conteudo").insertAdjacentHTML("afterbegin",`<div class="erro-box">${esc(e.message)}</div>`); return; }
+  try{ sessionStorage.setItem("diag_dep",id); }catch(_){}
+  try{ history.replaceState(null,"",`${location.pathname}?dep=${encodeURIComponent(id)}`); }catch(_){}
+  $("#menu").style.display=""; montarMenu(); $("#btnDeps").hidden=false; $("#barDep").textContent=DEP_INFO.nome;
+  abrirAba(abaAtiva); carregarOficial();
+}
+async function carregarOficial(){
+  try{ const r=await fetch(`${API}/dep/${encodeURIComponent(DEP)}/organograma-oficial`,{cache:"no-store"});
+    if(r.ok){ OFICIAL=(await r.json()).pessoas||[]; atualizarListas();
+      if(["organograma","checklist"].includes(abaAtiva)&&!document.activeElement?.closest?.("#conteudo input,#conteudo textarea")) renderAba(); } }catch(_){}
+}
+async function voltarDeps(){
+  await salvarTudoPendente(); DEP=null; DEP_INFO=null; D={}; OFICIAL=null;
+  try{ sessionStorage.removeItem("diag_dep"); history.replaceState(null,"",location.pathname); }catch(_){}
+  try{ await carregarDepartamentos(); }catch(_){}
+  window.scrollTo(0,0); renderInicio();
+}
+$("#btnDeps").onclick=voltarDeps;
 
 // ═══════════════════════════════════════════════════════════════════
 // 01 · Checklist
@@ -576,16 +692,17 @@ function renderAba(){
 function cabecalhoDiag(){
   const ck=objeto("checklist"), feitas=ETAPAS_CHECKLIST.filter(([id])=>ck[id]).length, pct=Math.round(feitas/ETAPAS_CHECKLIST.length*100);
   const info=objeto("raci_matriz_info");
-  return `<header class="doc-head"><div><h1>Diagnóstico N2 — Mapeamento de Atividades</h1>
-      <p class="obj">CX · Backoffice (N2) · Área responsável: PQI. Inventário → organograma real (+ RACI) → Diário de Bordo → entrevistas → Gemba → Matriz → Mapa de Jornada → validação.</p>
+  return `<header class="doc-head" style="border-left-color:${esc((DEP_INFO&&DEP_INFO.cor)||"#2E4A7A")}"><div><h1>Diagnóstico — ${esc(DEP_INFO?DEP_INFO.nome:"")}</h1>
+      <p class="obj">${esc((DEP_INFO&&DEP_INFO.descricao)||"Mapeamento de atividades do departamento.")} Inventário → organograma real (+ RACI) → Diário de Bordo → entrevistas → Gemba → Matriz → Mapa de Jornada → validação.</p>
       <div class="medidor"><b>${pct}%</b><span>da metodologia concluída (${feitas} de ${ETAPAS_CHECKLIST.length} etapas)</span></div><div class="track"><i style="width:${pct}%"></i></div></div>
-    <div class="stamp"><div class="code">${esc(info.projeto||"Diagnóstico N2")}</div><dl>
+    <div class="stamp"><div class="code">${esc(DEP_INFO?DEP_INFO.nome:(info.projeto||"Diagnóstico"))}</div><dl>
+      <dt>Organograma oficial</dt><dd>${OFICIAL?OFICIAL.length+" pessoa(s)":"…"}</dd>
       <dt>Atividades</dt><dd>${lista("inventario").filter(i=>texto(i.atividade)).length}</dd>
       <dt>Pessoas</dt><dd>${lista("organograma").filter(o=>texto(o.pessoa)).length}</dd>
       <dt>Registros no diário</dt><dd>${lista("diario").length}</dd>
       <dt>Entrevistas</dt><dd>${lista("entrevistas").filter(e=>texto(e.nome)).length}</dd>
       <dt>Gemba</dt><dd>${lista("gemba").filter(g=>texto(g.observado)).length}</dd>
-      <dt>Entrega</dt><dd>05/08/2026</dd></dl></div></header>`;
+      <dt>Seu acesso</dt><dd>${NOMES_NIVEL[NIVEL]}</dd></dl></div></header>`;
 }
 function renderChecklist(c){
   const m=objeto("checklist");
@@ -610,7 +727,7 @@ function renderInventario(c){
   c.innerHTML=`<h2>📋 Inventário de atividades</h2>
     <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
     <div id="invTbl"></div>
-    <div class="box"><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
+    <div class="box" ${NIVEL<2?'style="display:none"':""}><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
       <div class="grade">
         <label class="f">Atividade *<input id="invNova"></label>
         <label class="f">Categoria<select id="invCat">${opts(CATEGORIAS_INVENTARIO)}</select></label>
@@ -631,7 +748,7 @@ function renderInventario(c){
     const nome=texto($("#invNova").value), msg=$("#invMsg");
     if(!nome){ msg.className="msg erro"; msg.textContent="Informe o nome da atividade."; return; }
     if(inv.some(i=>norm(i.atividade)===norm(nome))){ msg.className="msg erro"; msg.textContent=`'${nome}' já existe no Inventário.`; return; }
-    inv.push({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value});
+    inv.push(meu({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value}));
     inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
     salvar("inventario"); renderAba();
     const m2=$("#invMsg"); m2.className="msg ok"; m2.textContent=`Atividade '${nome}' adicionada!`;
@@ -697,6 +814,7 @@ function renderOrganograma(c){
   const org=lista("organograma"), raci=lista("raci");
   c.innerHTML=`<h2>🧭 Organograma funcional real</h2>
     <p class="cap">O organograma oficial nem sempre reflete quem faz o quê. Registre a divisão real: individuais x coletivas, especialistas x generalistas, hierarquia informal.</p>
+    <div class="box" id="orgOficial"></div>
     <div id="orgTbl"></div>
     <h3>🌳 Organograma visual</h3>
     <p class="cap">Montado automaticamente a partir da coluna <b>"Responde para"</b> — inclusive quando mais de uma pessoa responde para o mesmo grupo, ou uma pessoa responde para duas ao mesmo tempo.</p>
@@ -710,10 +828,34 @@ function renderOrganograma(c){
     if(!validos.length){ v.innerHTML='<div class="aviso">Cadastre ao menos uma pessoa acima para gerar o organograma visual.</div>'; return; }
     v.innerHTML=`<div class="org-vis">${organogramaSVG(validos)}</div>`;
   };
+  // Organograma OFICIAL (módulo Organogramas) × funcional real (esta tabela)
+  const oficialDe=nome=>(OFICIAL||[]).find(p=>norm(p.nome)===norm(nome));
+  const chefesOficiais=p=>[p.gestor,...(p.tambem||[])].filter(Boolean).map(norm).sort().join("|");
+  const chefesReais=r=>String(r.responde_para||"").split(",").map(x=>norm(x)).filter(Boolean).sort().join("|");
+  const box=$("#orgOficial",c);
+  if(OFICIAL===null) box.innerHTML='<p class="cap" style="margin:0">Carregando o organograma oficial do departamento…</p>';
+  else {
+    const comNome=OFICIAL.filter(p=>texto(p.nome)), faltam=comNome.filter(p=>!org.some(o=>norm(o.pessoa)===norm(p.nome)));
+    const difs=org.filter(o=>{ const p=oficialDe(o.pessoa); return p&&texto(o.responde_para)&&chefesOficiais(p)!==chefesReais(o); }).length;
+    const fora=org.filter(o=>texto(o.pessoa)&&!oficialDe(o.pessoa)).length;
+    box.innerHTML=`<div class="oficial"><div><div class="num">${comNome.length}</div><div class="cap" style="margin:0">pessoa(s) no organograma oficial${OFICIAL.length>comNome.length?` + ${OFICIAL.length-comNome.length} vaga(s)`:""}</div></div>
+      <div><div class="num" style="color:${faltam.length?"var(--amber)":"var(--ok)"}">${faltam.length}</div><div class="cap" style="margin:0">ainda não estão nesta tabela</div></div>
+      <div><div class="num" style="color:${difs?"var(--bad)":"var(--ok)"}">${difs}</div><div class="cap" style="margin:0">respondem a alguém diferente do oficial</div></div>
+      <div><div class="num">${fora}</div><div class="cap" style="margin:0">nesta tabela e fora do oficial</div></div>
+      <div class="acoes" style="margin:0 0 0 auto">${faltam.length&&NIVEL>=2?`<button type="button" class="btn primary" id="orgTrazer">⤵ Trazer as ${faltam.length} pessoa(s) do oficial</button>`:""}
+        ${PERM.organograma>=1?`<a class="btn" href="/organograma?setor=${encodeURIComponent(DEP)}">🏛️ Abrir no Organogramas</a>`:""}</div></div>
+      ${!OFICIAL.length?'<p class="cap" style="margin:10px 0 0">O setor ainda não tem pessoas no módulo Organogramas. Cadastre lá a estrutura oficial — ela aparece aqui automaticamente.</p>':""}`;
+    const tr=$("#orgTrazer",box);
+    if(tr) tr.onclick=()=>{ faltam.forEach(p=>org.push(meu({pessoa:p.nome,papel:p.cargo||"",responde_para:[p.gestor,...(p.tambem||[])].filter(Boolean).join(", "),especialista:"",cobre:"",obs:"",oficial_id:p.id})));
+      salvar("organograma"); renderAba(); };
+  }
   $("#orgTbl",c).appendChild(tabela({secao:"organograma", linhas:org, aoEstrutura:renderAba,
     aoMudar:()=>{ desenhar(); atualizarListas(); },
     colunas:[
       {campo:"pessoa",label:"Pessoa",largura:150},
+      {campo:"_oficial",label:"No organograma oficial",tipo:"calc",calc:r=>{ if(!texto(r.pessoa)||OFICIAL===null) return ""; const p=oficialDe(r.pessoa);
+        if(!p) return "— não está no oficial"; const chefes=[p.gestor,...(p.tambem||[])].filter(Boolean).join(", ");
+        return `${p.cargo||"—"} · ${chefes?"responde a "+chefes:"topo do setor"}${texto(r.responde_para)&&chefesOficiais(p)!==chefesReais(r)?"  ⚠ difere do real":""}`; }},
       {campo:"papel",label:"Papel real (não o cargo)",largura:170},
       {campo:"responde_para",label:"Responde para",largura:170,placeholder:"nomes separados por vírgula"},
       {campo:"especialista",label:"Especialista em",largura:150},
@@ -728,7 +870,7 @@ function renderOrganograma(c){
   $("#raciInv",c).onclick=()=>{
     const novas=sugerirDoInventario(new Set(raci.map(r=>norm(r.tipo_demanda)))), msg=$("#raciMsg");
     if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas aqui)."; return; }
-    novas.forEach(n=>raci.push({tipo_demanda:n,responsavel:"",aprovador:"",consultado:"",informado:""}));
+    novas.forEach(n=>raci.push(meu({tipo_demanda:n,responsavel:"",aprovador:"",consultado:"",informado:""})));
     salvar("raci"); renderAba();
     const m2=$("#raciMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
   };
@@ -815,7 +957,7 @@ function renderRaciMatriz(c){
     $("#rmInv").onclick=()=>{
       const novas=sugerirDoInventario(new Set(matriz.map(r=>norm(r.atividade)))), msg=$("#rmMsg");
       if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas na matriz)."; return; }
-      novas.forEach(n=>matriz.push({atividade:n, ...Object.fromEntries(nomes.map(x=>[x,"-"]))}));
+      novas.forEach(n=>matriz.push(meu({atividade:n, ...Object.fromEntries(nomes.map(x=>[x,"-"]))})));
       salvar("raci_matriz"); parteMatriz();
       const m2=$("#rmMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
     };
@@ -863,7 +1005,7 @@ async function registrarToque(analista, atividade){
   const diario=lista("diario"), agora=agoraHM(), hoje=hojeISO(), i=registroAberto(diario,analista,hoje);
   if(i>=0){ diario[i].hora_fim=agora; diario[i].duracao=duracaoMin(diario[i].hora_inicio,agora); }
   const ctx=contextoUltima(atividade,diario);
-  diario.push({data:hoje,analista,hora_inicio:agora,hora_fim:"",duracao:"",atividade,...ctx,quem:"",obs:""});
+  diario.push(meu({data:hoje,analista,hora_inicio:agora,hora_fim:"",duracao:"",atividade,...ctx,quem:"",obs:""}));
   await salvarAgora("diario"); addInventarioSeNova(atividade);
 }
 async function encerrarDia(analista){
@@ -944,8 +1086,8 @@ function renderDiario(c){
     if(!a||!at){ msg.className="msg erro"; msg.textContent="Preencha ao menos Analista e Atividade antes de salvar."; return; }
     const hi=$("#mHi").value, hf=$("#mHf").value;
     await recarregar("diario");
-    lista("diario").push({data:$("#mData").value,analista:a,hora_inicio:hi,hora_fim:hf,duracao:duracaoMin(hi,hf),atividade:at,
-      categoria:$("#mCat").value,origem:$("#mOri").value,sistemas:$("#mSis").value,depende_terceiros:$("#mDep").value,quem:$("#mQuem").value,obs:$("#mObs").value});
+    lista("diario").push(meu({data:$("#mData").value,analista:a,hora_inicio:hi,hora_fim:hf,duracao:duracaoMin(hi,hf),atividade:at,
+      categoria:$("#mCat").value,origem:$("#mOri").value,sistemas:$("#mSis").value,depende_terceiros:$("#mDep").value,quem:$("#mQuem").value,obs:$("#mObs").value}));
     await salvarAgora("diario"); addInventarioSeNova(at); renderAba();
     const m2=$("#mMsg"); m2.className="msg ok"; m2.textContent="Linha salva!";
   };
@@ -1030,11 +1172,11 @@ function renderMatriz(c){
   c.innerHTML=`<h2>📐 Matriz de Atividades x Responsabilidades x Tempo</h2>
     <p class="cap">Cruza tudo que foi coletado no Diário, nas entrevistas e no Gemba — colunas na ordem do documento de diretrizes (Etapa 6).</p>
     <div class="acoes"><button class="btn" id="mxSug" type="button">🔄 Gerar sugestões a partir do Diário</button>
-    <button class="btn" id="mxPct" type="button">📐 Recalcular % do tempo total</button><span class="msg" id="mxMsg"></span></div><div id="mxTbl"></div>`;
+    <button class="btn" id="mxPct" type="button" data-nivel="3" title="Altera todas as linhas — só para perfil Editar">📐 Recalcular % do tempo total</button><span class="msg" id="mxMsg"></span></div><div id="mxTbl"></div>`;
   const aviso=(t,ok)=>{ const m=$("#mxMsg"); m.className="msg"+(ok?" ok":""); m.textContent=t; };
   $("#mxSug",c).onclick=()=>{ const novas=sugerirMatriz(lista("diario"),lista("inventario"),matriz);
     if(!novas.length) return aviso("Nenhuma atividade nova encontrada no Diário (ou já estão todas na Matriz).");
-    matriz.push(...novas); salvar("matriz"); renderAba();
+    matriz.push(...novas.map(meu)); salvar("matriz"); renderAba();
     aviso(`${novas.length} linha(s) sugerida(s) adicionada(s). Revise antes de finalizar (principalmente "dependência", que não é gerada automaticamente).`,true); };
   $("#mxPct",c).onclick=()=>{ const p=calcularPercentual(matriz);
     matriz.forEach(l=>{ const k=norm(l.atividade); if(k in p) l.percentual=p[k]; }); salvar("matriz"); renderAba(); aviso("Percentuais recalculados.",true); };
@@ -1087,17 +1229,17 @@ function jornadaHTMLImpressao(atividade, j){
 }
 function jornadasRegistros(){
   const out=[];
-  Object.entries(objeto("jornadas")).forEach(([k,j])=>ETAPAS_JORNADA.forEach(e=>{ const et=(j.etapas||{})[e.id]||{}, l={atividade:j.atividade||k, etapa:e.nome};
+  Object.entries(objeto("jornadas")).filter(([k])=>!k.startsWith("_")).forEach(([k,j])=>ETAPAS_JORNADA.forEach(e=>{ const et=(j.etapas||{})[e.id]||{}, l={atividade:j.atividade||k, etapa:e.nome};
     LINHAS_JORNADA.forEach(c=>{ if(c.campo==="experiencia"){ l.experiencia_emoji=et.emoji||""; l.experiencia_frase=et.experiencia||""; } else l[c.campo]=et[c.campo]||""; });
     out.push(l); }));
   return out;
 }
 function renderJornada(c){
-  const atividades=listarTodasAtividades(), jornadas=objeto("jornadas");
+  const atividades=listarTodasAtividades(), jornadas=objeto("jornadas");   // chaves "_..." são controle interno
   const atividade = estJ.sel==="__nova__" ? texto(estJ.nova) : estJ.sel;
   c.innerHTML=`<h2>🗺️ Mapa de Jornada de Trabalho — por atividade</h2>
     <p class="cap">Para cada atividade/tipo de demanda: objetivo, ações, ferramentas, responsável, experiência do colaborador, dores e oportunidades de melhoria por etapa.</p>
-    <div class="grade" style="max-width:720px"><label class="f">Atividade<select id="jSel"><option value="">— selecione —</option>${atividades.map(a=>`<option${a===estJ.sel?" selected":""}>${esc(a)}</option>`).join("")}<option value="__nova__"${estJ.sel==="__nova__"?" selected":""}>+ nova atividade...</option></select></label>
+    <div class="grade" style="max-width:720px" data-livre><label class="f">Atividade<select id="jSel"><option value="">— selecione —</option>${atividades.map(a=>`<option${a===estJ.sel?" selected":""}>${esc(a)}</option>`).join("")}<option value="__nova__"${estJ.sel==="__nova__"?" selected":""}>+ nova atividade...</option></select></label>
     ${estJ.sel==="__nova__"?`<label class="f">Nome da nova atividade<input id="jNova" value="${esc(estJ.nova)}"></label>`:""}</div><div id="jCorpo"></div>`;
   $("#jSel",c).onchange=e=>{ estJ.sel=e.target.value; renderAba(); };
   const nova=$("#jNova",c); if(nova){ nova.oninput=e=>estJ.nova=e.target.value; nova.onchange=()=>renderAba(); }
@@ -1186,7 +1328,7 @@ function renderResumoIA(c){
     const b=$("#iaBtn"), m=$("#iaMsg"); b.disabled=true; m.className="msg"; m.textContent="Consultando a IA… (pode levar até 1 minuto)";
     try{
       await salvarTudoPendente();
-      const r=await fetch(API_IA,{method:"POST"}), j=await r.json().catch(()=>({}));
+      const r=await fetch(`${API_IA}?dep=${encodeURIComponent(DEP)}`,{method:"POST"}), j=await r.json().catch(()=>({}));
       if(!r.ok||j.erro) throw new Error(j.erro||j.detail||`HTTP ${r.status}`);
       D.resumo_ia=j.texto||""; await salvarAgora("resumo_ia"); $("#iaTxt").value=D.resumo_ia;
       m.className="msg ok"; m.textContent="Resumo gerado.";
@@ -1203,7 +1345,7 @@ function gerarRelatorio(){
   const ck=objeto("checklist"), inv=lista("inventario"), org=lista("organograma"), raci=lista("raci"), info=objeto("raci_matriz_info"),
     rp=lista("raci_pessoas"), rm=lista("raci_matriz"), dia=lista("diario"), ent=lista("entrevistas"), gem=lista("gemba"),
     mat=lista("matriz"), jor=objeto("jornadas"), resp=objeto("respostas"), ia=typeof D.resumo_ia==="string"?D.resumo_ia:"";
-  const L=["# Diagnóstico N2 — Relatório Consolidado\n", `**Projeto:** ${info.projeto||"Diagnóstico N2"}  `, `**Data de referência:** ${info.data||"—"}\n`];
+  const L=[`# Diagnóstico — ${DEP_INFO?DEP_INFO.nome:""} — Relatório Consolidado\n`, `**Departamento:** ${DEP_INFO?DEP_INFO.nome:"—"}  `, `**Projeto:** ${info.projeto||"Diagnóstico"}  `, `**Data de referência:** ${info.data||"—"}\n`];
   L.push("## 1. Andamento da metodologia\n");
   L.push(`_${ETAPAS_CHECKLIST.filter(([id])=>ck[id]).length} de ${ETAPAS_CHECKLIST.length} etapas concluídas._\n`);
   ETAPAS_CHECKLIST.forEach(([id,t,d])=>L.push(`- ${ck[id]?"✅":"⬜"} ${t} (\`${d}\`)`)); L.push("");
@@ -1239,7 +1381,7 @@ function gerarRelatorio(){
   if(mv.length) mv.forEach(m=>L.push(`- **${m.atividade}** — ${m.quemfaz||"—"} | ${m.frequencia||"—"} | ${m.tempo||"—"} | ${m.percentual||"—"} do tempo total`));
   else L.push("_Matriz de Atividades ainda não consolidada._");
   L.push(""); L.push("## 10. Mapas de Jornada por atividade\n");
-  const jk=Object.entries(jor);
+  const jk=Object.entries(jor).filter(([k])=>!k.startsWith("_"));
   if(jk.length) jk.forEach(([k,j])=>L.push(`- **${j.atividade||k}** — mapa de jornada preenchido`)); else L.push("_Nenhum mapa de jornada criado ainda._");
   L.push(""); L.push("## 11. Respostas às 6 perguntas-chave\n");
   PERGUNTAS.forEach(([id,t])=>L.push(`**${t}**\n\n${texto(resp[id])||"_(em aberto)_"}\n`));
@@ -1269,17 +1411,16 @@ function renderRelatorio(c){
     document.documentElement.dataset.theme=n; try{ localStorage.setItem("diag_tema",n); }catch(_){} };
 })();
 async function iniciar(){
-  montarMenu();
-  try{
-    const r=await fetch(API,{cache:"no-store"});
-    if(!r.ok) throw new Error(`HTTP ${r.status} — ${(await r.text()).slice(0,200)}`);
-    D=(await r.json())||{}; setStatus("ok");
-  }catch(e){
+  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; PERM=a.permissoes||{}; } }catch(_){}
+  try{ await carregarDepartamentos(); setStatus("ok"); }
+  catch(e){
     setStatus("erro", e.message);
-    $("#conteudo").innerHTML=`<div class="erro-box"><b>Não consegui carregar os dados do diagnóstico.</b><br>${esc(e.message)}<br><br>Se o servidor estava dormindo, espere uns segundos e tente de novo.<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
+    $("#conteudo").innerHTML=`<div class="erro-box"><b>Não consegui carregar os departamentos do diagnóstico.</b><br>${esc(e.message)}<br><br>Se o servidor estava dormindo, espere uns segundos e tente de novo.<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
     return;
   }
-  abrirAba(abaAtiva);
+  let alvo=new URLSearchParams(location.search).get("dep");
+  if(!alvo){ try{ alvo=sessionStorage.getItem("diag_dep"); }catch(_){} }
+  if(alvo&&DEPS.some(d=>d.id===alvo)) abrirDep(alvo); else renderInicio();
 }
 iniciar();
 </script>
