@@ -88,7 +88,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
                   "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
-ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js"}
+ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
 _CACHE_SEG = 30
@@ -966,6 +966,29 @@ def diag_dep_organograma(dep: str, request: Request):
                          "gestor": nome.get(p.get("gestor_id"), ""),
                          "tambem": [nome[x] for x in (p.get("extras") or []) if x in nome]} for p in pessoas],
             "atualizado_em": d.get("atualizado_em"), "atualizado_por": d.get("atualizado_por")}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.4] CADASTRO MESTRE — o Organograma é a fonte única de SETORES e
+# PESSOAS. Mapa, Diário e Diagnóstico leem daqui para montar as listas de
+# área e "quem faz" (somente leitura; respeita os departamentos liberados).
+# ──────────────────────────────────────────────────────────────────────────
+@app.get("/api/base/cadastros")
+def base_cadastros(request: Request):
+    u = usuario_atual(request)
+    setores = []
+    for d in _setores_do(u):
+        dados = d.get("dados") or {}
+        pessoas = [{"id": p.get("id"), "nome": (p.get("nome") or "").strip(), "cargo": (p.get("cargo") or "").strip(),
+                    "subsetor": (p.get("subsetor") or "").strip()}
+                   for p in (dados.get("pessoas") or []) if (p.get("nome") or "").strip() and not p.get("vaga")]
+        setores.append({"id": d["id"], "nome": (dados.get("nome") or "").strip(), "cor": dados.get("cor"),
+                        "responsavel": (dados.get("responsavel") or "").strip(),
+                        "subsetores": [s if isinstance(s, str) else (s or {}).get("nome", "") for s in (dados.get("subsetores") or [])],
+                        "pessoas": pessoas})
+    setores = [s for s in setores if s["nome"]]
+    setores.sort(key=lambda s: s["nome"].lower())
+    return {"setores": setores}
 
 
 @app.post("/api/diagnostico/dep/{dep}/importar-legado")
