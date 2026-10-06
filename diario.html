@@ -1552,6 +1552,38 @@ document.getElementById('formAtividade').addEventListener('submit', async (e)=>{
 });
 
 carregarTudo();
+
+/* [NOVO v3.4] CADASTRO MESTRE — "Responsável" e "Área impactada" passam a
+   listar as pessoas e os setores do Organograma. As opções antigas continuam
+   num grupo à parte (nada some); se o Organograma não responder, fica tudo
+   como era. O valor gravado continua sendo o nome (texto), como antes. */
+(async function integrarCadastroMestre(){
+  let base;
+  try{ const r=await fetch("/api/base/cadastros",{cache:"no-store"}); if(!r.ok) return; base=await r.json(); }catch(_){ return; }
+  if(!base||!Array.isArray(base.setores)||!base.setores.length) return;
+  const n=s=>String(s||"").trim().toLowerCase();
+  const esc2=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const opt=(v,rot)=>`<option value="${esc2(v)}">${esc2(rot||v)}</option>`;
+
+  const selArea=document.getElementById("f-area");
+  if(selArea){
+    const antigas=[...selArea.options].map(o=>o.value), setores=base.setores.map(s=>s.nome);
+    const sobra=antigas.filter(a=>!setores.some(x=>n(x)===n(a)));
+    const atual=selArea.value;
+    selArea.innerHTML=`<optgroup label="Setores do Organograma">${setores.map(x=>opt(x)).join("")}</optgroup>`
+      +(sobra.length?`<optgroup label="Outras áreas (fora do Organograma)">${sobra.map(x=>opt(x)).join("")}</optgroup>`:"");
+    if([...selArea.options].some(o=>o.value===atual)) selArea.value=atual;
+  }
+  const selResp=document.getElementById("f-resp");
+  if(selResp){
+    const equipe=[...selResp.options].map(o=>o.value), atual=selResp.value, ja=new Set(equipe.map(n));
+    let html=`<optgroup label="Equipe PQI">${equipe.map(x=>opt(x)).join("")}</optgroup>`;
+    base.setores.forEach(s=>{ const ps=s.pessoas.filter(p=>!ja.has(n(p.nome))); ps.forEach(p=>ja.add(n(p.nome)));
+      if(ps.length) html+=`<optgroup label="${esc2(s.nome)}">${ps.map(p=>opt(p.nome,p.nome+(p.cargo?" — "+p.cargo:""))).join("")}</optgroup>`; });
+    selResp.innerHTML=html;
+    if([...selResp.options].some(o=>o.value===atual)) selResp.value=atual;
+  }
+})();
 </script>
 </body>
 </html>
