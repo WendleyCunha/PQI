@@ -830,14 +830,16 @@ function renderOrganograma(c){
   };
   // Organograma OFICIAL (módulo Organogramas) × funcional real (esta tabela)
   const oficialDe=nome=>(OFICIAL||[]).find(p=>norm(p.nome)===norm(nome));
+  // [v3.4] liga pela identidade (oficial_id) quando existe; o nome fica só como reserva — renomear no Organograma não quebra mais o vínculo
+  const oficialDaLinha=o=>(o.oficial_id&&(OFICIAL||[]).find(p=>p.id===o.oficial_id))||oficialDe(o.pessoa);
   const chefesOficiais=p=>[p.gestor,...(p.tambem||[])].filter(Boolean).map(norm).sort().join("|");
   const chefesReais=r=>String(r.responde_para||"").split(",").map(x=>norm(x)).filter(Boolean).sort().join("|");
   const box=$("#orgOficial",c);
   if(OFICIAL===null) box.innerHTML='<p class="cap" style="margin:0">Carregando o organograma oficial do departamento…</p>';
   else {
-    const comNome=OFICIAL.filter(p=>texto(p.nome)), faltam=comNome.filter(p=>!org.some(o=>norm(o.pessoa)===norm(p.nome)));
-    const difs=org.filter(o=>{ const p=oficialDe(o.pessoa); return p&&texto(o.responde_para)&&chefesOficiais(p)!==chefesReais(o); }).length;
-    const fora=org.filter(o=>texto(o.pessoa)&&!oficialDe(o.pessoa)).length;
+    const comNome=OFICIAL.filter(p=>texto(p.nome)), faltam=comNome.filter(p=>!org.some(o=>(o.oficial_id&&o.oficial_id===p.id)||norm(o.pessoa)===norm(p.nome)));
+    const difs=org.filter(o=>{ const p=oficialDaLinha(o); return p&&texto(o.responde_para)&&chefesOficiais(p)!==chefesReais(o); }).length;
+    const fora=org.filter(o=>texto(o.pessoa)&&!oficialDaLinha(o)).length;
     box.innerHTML=`<div class="oficial"><div><div class="num">${comNome.length}</div><div class="cap" style="margin:0">pessoa(s) no organograma oficial${OFICIAL.length>comNome.length?` + ${OFICIAL.length-comNome.length} vaga(s)`:""}</div></div>
       <div><div class="num" style="color:${faltam.length?"var(--amber)":"var(--ok)"}">${faltam.length}</div><div class="cap" style="margin:0">ainda não estão nesta tabela</div></div>
       <div><div class="num" style="color:${difs?"var(--bad)":"var(--ok)"}">${difs}</div><div class="cap" style="margin:0">respondem a alguém diferente do oficial</div></div>
@@ -853,7 +855,7 @@ function renderOrganograma(c){
     aoMudar:()=>{ desenhar(); atualizarListas(); },
     colunas:[
       {campo:"pessoa",label:"Pessoa",largura:150},
-      {campo:"_oficial",label:"No organograma oficial",tipo:"calc",calc:r=>{ if(!texto(r.pessoa)||OFICIAL===null) return ""; const p=oficialDe(r.pessoa);
+      {campo:"_oficial",label:"No organograma oficial",tipo:"calc",calc:r=>{ if(!texto(r.pessoa)||OFICIAL===null) return ""; const p=oficialDaLinha(r);
         if(!p) return "— não está no oficial"; const chefes=[p.gestor,...(p.tambem||[])].filter(Boolean).join(", ");
         return `${p.cargo||"—"} · ${chefes?"responde a "+chefes:"topo do setor"}${texto(r.responde_para)&&chefesOficiais(p)!==chefesReais(r)?"  ⚠ difere do real":""}`; }},
       {campo:"papel",label:"Papel real (não o cargo)",largura:170},
