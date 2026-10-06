@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="organograma"></script>
 <style id="css">
 /* ═══ Mesmo padrão visual do RG do Pedido e do Mapa Digital ═══ */
 :root{
@@ -385,6 +386,11 @@ async function enviar(s,forcar){
   try{
     const {r,j}=await api(`${API}/${s.id}`,{method:"PUT",body:JSON.stringify({dados:s.dados,versao:forcar?null:s.versao})});
     if(r.status===409){ s._conflito=j.atual; setStatus("erro","conflito de versão"); render(); return; }
+    if(r.status===403){   // [v3.3] perfil não permite esta alteração: volta ao que está gravado
+      setStatus("erro", j.detail||"sem permissão para esta alteração");
+      try{ const x=await api(API); const at=(x.j||[]).find(z=>z.id===s.id); if(at) Object.assign(s,{dados:normalizar(at.dados),versao:at.versao}); }catch(_){}
+      render(); return;
+    }
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
     Object.assign(s,{versao:j.versao,atualizado_por:j.atualizado_por,atualizado_em:j.atualizado_em,_conflito:null});
     if(!Object.keys(pend).length) setStatus("ok");
@@ -521,6 +527,7 @@ function renderGeral(c){
     return `<button type="button" class="item-card" data-id="${s.id}" style="--cor:${esc(d.cor)}"><div class="ic-nome">${esc(d.nome||"(sem nome)")}</div><div class="ic-desc">${esc(d.descricao||"")}</div>
       <div class="ic-num"><b>${d.pessoas.length}</b><span>posições · ${subsetoresDe(d).length} subsetor(es)${d.pessoas.some(p=>p.vaga)?` · ${d.pessoas.filter(p=>p.vaga).length} vaga(s)`:""}</span></div>
       ${barraNiveis(d)}<div class="ic-lider">${topo.length?"Liderança: "+esc(topo.join(", ")):'<span class="muted">Sem pessoas cadastradas</span>'}</div>
+      <div class="ic-lider">${(()=>{ const pg=progDiag(s.id); return pg.iniciado?`🗺️ Diagnóstico: <b>${pg.pct}%</b> (${pg.f}/${ETAPAS_DIAG.length} etapas)`:'<span class="muted">🗺️ Diagnóstico não iniciado</span>'; })()}</div>
       <div class="ic-rod"><span>v${s.versao}</span><span>${esc(dataBR(s.atualizado_em))}</span></div></button>`; }).join("");
   g.querySelectorAll(".item-card").forEach(b=>b.onclick=()=>ir("setor",b.dataset.id,"arvore"));
 }
@@ -562,7 +569,8 @@ function renderSetor(c){
       <header class="doc-head" style="--cor:${esc(d.cor)}"><div><h1>${esc(d.nome)}</h1><p class="obj">${esc(d.descricao||"Estrutura do setor.")}</p>
         <div class="legenda">${legendaNiveis(d)}</div></div>
         <div class="stamp"><dl><dt>Posições</dt><dd>${d.pessoas.length}</dd><dt>Vagas em aberto</dt><dd>${vagas}</dd><dt>Subsetores</dt><dd>${subsetoresDe(d).length}</dd>
-          ${d.responsavel?`<dt>Responsável</dt><dd>${esc(d.responsavel)}</dd>`:""}<dt>Atualizado</dt><dd>${esc(dataBR(s.atualizado_em))}<br><span class="muted" style="font-weight:400">${esc(s.atualizado_por||"")}</span></dd></dl></div></header>
+          ${d.responsavel?`<dt>Responsável</dt><dd>${esc(d.responsavel)}</dd>`:""}
+          <dt>Diagnóstico</dt><dd>${(()=>{ const pg=progDiag(s.id); return `${pg.iniciado?pg.pct+"%":"não iniciado"}${podeDiag()?`<br><a href="/diagnostico?dep=${encodeURIComponent(s.id)}" style="font-weight:500">Abrir diagnóstico →</a>`:""}`; })()}</dd><dt>Atualizado</dt><dd>${esc(dataBR(s.atualizado_em))}<br><span class="muted" style="font-weight:400">${esc(s.atualizado_por||"")}</span></dd></dl></div></header>
       <div id="vis"></div></div></div>`;
   c.querySelectorAll(".setores-pills [data-s]").forEach(b=>b.onclick=()=>ir("setor",b.dataset.s));
   $("#pNovo",c).onclick=abrirNovoSetor;
@@ -1149,12 +1157,23 @@ async function exportarExcel(lista){
 // ═══════════════════════════════════════════════════════════════════
 // Início
 // ═══════════════════════════════════════════════════════════════════
+// ─── [v3.3] ligação com o Diagnóstico ───
+let DIAG_PROG={};
+const ETAPAS_DIAG=["inv","org","dia","ent","gem","mat","jou","val"];
+function progDiag(id){ const ck=DIAG_PROG[id]||{}, f=ETAPAS_DIAG.filter(k=>ck[k]).length; return {f,pct:Math.round(f/ETAPAS_DIAG.length*100),iniciado:id in DIAG_PROG}; }
+function podeDiag(){ return !!(window.PQI_ACESSO&&PQI_ACESSO.permissoes&&PQI_ACESSO.permissoes.diagnostico>=1); }
 async function iniciar(){
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO_NOME=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
   try{ const {r,j}=await api(API); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
     const todos=j||[];
     NIV_CFG=todos.find(x=>x.dados&&x.dados._tipo==="niveis")||null; aplicarNiveis();
-    SETORES=todos.filter(x=>!(x.dados&&x.dados._tipo==="niveis")).map(s=>({...s,dados:normalizar(s.dados)})); setStatus("ok"); render();
+    SETORES=todos.filter(x=>!(x.dados&&x.dados._tipo==="niveis")).map(s=>({...s,dados:normalizar(s.dados)}));
+    // [v3.3] andamento do Diagnóstico de cada setor (setor = departamento do Diagnóstico)
+    try{ const r2=await fetch("/api/organograma/resumo-diagnostico",{cache:"no-store"}); if(r2.ok) DIAG_PROG=await r2.json(); }catch(_){}
+    // vindo do Diagnóstico ou da Segurança: /organograma?setor=<id> abre direto no setor
+    const q=new URLSearchParams(location.search).get("setor");
+    if(q&&SETORES.some(x=>x.id===q)){ vista="setor"; atual=q; visao="arvore"; guardarNav(); try{ history.replaceState(null,"",location.pathname); }catch(_){} }
+    setStatus("ok"); render();
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar os organogramas.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
 }
