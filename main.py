@@ -17,6 +17,7 @@ from typing import Optional, List, Any
 import db_diario as db
 import seguranca as seg
 import modulos as mods
+import permissoes as perm
 
 
 def _garantir_admin():
@@ -49,6 +50,12 @@ def _init_em_segundo_plano():
         _garantir_admin()
     except Exception as e:
         print(f"[AVISO] não consegui verificar o admin inicial: {e!r}")
+    try:
+        n = db.perfis_semear(mods.PERFIS_PADRAO)
+        if n:
+            print(f"[OK] {n} perfis de acesso padrão criados.")
+    except Exception as e:
+        print(f"[AVISO] não consegui verificar os perfis de acesso: {e!r}")
     if seg.SEGREDO_TEMPORARIO:
         print("[AVISO] SESSION_SECRET não configurado — todos serão deslogados a cada reinício do servidor.")
 
@@ -81,7 +88,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
                   "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
-ROTAS_QUALQUER_LOGADO = {"/api/auth/senha"}
+ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js"}
 
 _cache_usuarios: dict = {}
 _CACHE_SEG = 30
@@ -99,6 +106,51 @@ def _usuario_cacheado(email: str) -> Optional[dict]:
 
 def _esquecer_cache(email: str) -> None:
     _cache_usuarios.pop(email, None)
+
+
+# [NOVO v3.3] PERFIS DE ACESSO — guardados em cache por 30 s, como os usuários
+_cache_perfis: dict = {"t": 0.0, "dados": {}}
+
+
+def _perfis() -> dict:
+    if time.time() - _cache_perfis["t"] < _CACHE_SEG:
+        return _cache_perfis["dados"]
+    dados = {p["id"]: p for p in db.perfis_listar()}
+    _cache_perfis.update(t=time.time(), dados=dados)
+    return dados
+
+
+def _esquecer_perfis() -> None:
+    _cache_perfis["t"] = 0.0
+
+
+def _perfil_do(u: dict) -> Optional[dict]:
+    pid = u.get("perfil")
+    return _perfis().get(pid) if pid else None
+
+
+def _niveis(u: dict) -> dict:
+    """Nível (0–3) da pessoa em cada sistema — ver permissoes.py."""
+    return mods.niveis_do_usuario(u, _perfil_do(u))
+
+
+def _nome_perfil(u: dict) -> str:
+    if u.get("papel") == "admin":
+        return "Administrador"
+    p = _perfil_do(u)
+    return p.get("nome") if p else "Personalizado (módulos marcados)"
+
+
+def _deps_permitidos(u: dict):
+    """None = todos os departamentos; senão, o conjunto de ids liberados."""
+    if u.get("papel") == "admin" or not u.get("departamentos"):
+        return None
+    return set(u.get("departamentos") or [])
+
+
+def _dep_ok(u: dict, dep: str) -> bool:
+    s = _deps_permitidos(u)
+    return s is None or dep in s
 
 
 def _usuario_da_requisicao(request: Request) -> Optional[dict]:
@@ -152,8 +204,22 @@ async def porteiro(request: Request, call_next):
     modulo = mods.modulo_da_rota(caminho)
     if modulo is None:
         return _negar(eh_api, 404, "Endereço não encontrado.")
-    if not mods.tem_acesso(usuario, modulo["id"]):
+    # [v3.3] nível do perfil: ler = Visualizar · gravar = Adicionar (o resto
+    # da regra do Adicionar é conferido na rota) · excluir = Editar
+    try:
+        niveis = await run_in_threadpool(_niveis, usuario)
+    except Exception as e:
+        return _negar(eh_api, 503, f"Não consegui verificar suas permissões agora ({e.__class__.__name__}).")
+    nivel = niveis.get(modulo["id"], 0)
+    if nivel < perm.VISUALIZAR:
         return _negar(eh_api, 403, f"Você não tem acesso ao módulo “{modulo['nome']}”. Peça liberação ao administrador.")
+    metodo = request.method.upper()
+    precisa = perm.VISUALIZAR if metodo in ("GET", "HEAD", "OPTIONS") else (perm.EDITAR if metodo == "DELETE" else perm.ADICIONAR)
+    if nivel < precisa:
+        if nivel == perm.VISUALIZAR:
+            return _negar(eh_api, 403, f"Seu perfil em “{modulo['nome']}” é “Visualizar”: você pode consultar, mas não gravar.")
+        return _negar(eh_api, 403, "Excluir é só para quem tem perfil “Editar” neste sistema.")
+    request.state.niveis = niveis
     return await call_next(request)
 
 
@@ -166,7 +232,41 @@ def usuario_atual(request: Request) -> dict:
 
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
-                                   "criado_em", "criado_por", "ultimo_login")}
+                                   "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos")}
+
+
+def _sessao_publica(u: dict) -> dict:
+    niveis = _niveis(u)
+    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, niveis), "permissoes": niveis,
+            "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO)}
+
+
+def _email(request: Request) -> str:
+    return usuario_atual(request)["email"]
+
+
+def _exigir_editar_ou_dono(request: Request, modulo_id: str, dono_email: Optional[str]) -> None:
+    """Alterar um registro: perfil Editar, ou perfil Adicionar sendo o autor dele."""
+    u = usuario_atual(request)
+    n = _niveis(u).get(modulo_id, 0)
+    if n >= perm.EDITAR or (n == perm.ADICIONAR and dono_email and dono_email == u["email"]):
+        return
+    raise HTTPException(status_code=403, detail=perm.MENSAGEM_ADICIONAR)
+
+
+def _conferir_acrescimo(request: Request, modulo_id: str, colecao: str, doc_id: str, dados):
+    """Perfil Adicionar gravando um documento inteiro (Mapa, Organograma): só passa
+    se não mexeu no que outra pessoa registrou (ou se o documento é dele)."""
+    u = usuario_atual(request)
+    if _niveis(u).get(modulo_id, 0) >= perm.EDITAR:
+        return dados
+    atual = db.docs_ler(colecao, doc_id)
+    if not atual or atual.get("criado_por_email") == u["email"]:
+        return dados
+    try:
+        return perm.so_acrescimos(atual.get("dados"), dados, u["email"])
+    except perm.Recusado as e:
+        raise HTTPException(status_code=403, detail=f"{perm.MENSAGEM_ADICIONAR} ({e})")
 
 
 def _ip(request: Request) -> str:
@@ -218,7 +318,7 @@ def auth_login(payload: LoginEntrada, request: Request, response: Response):
     db.usuario_atualizar(email, {"ultimo_login": datetime.now().isoformat()})
     _esquecer_cache(email)
     _gravar_cookie(response, u)
-    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u)}
+    return _sessao_publica(u)
 
 
 @app.post("/api/auth/logout")
@@ -232,7 +332,7 @@ def auth_me(request: Request):
     u = _usuario_da_requisicao(request)
     if not u:
         return JSONResponse({"detail": "não logado"}, status_code=401)
-    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u)}
+    return _sessao_publica(u)
 
 
 @app.post("/api/auth/senha")
@@ -263,6 +363,8 @@ class UsuarioNovo(BaseModel):
     papel: str = "usuario"
     modulos: List[str] = []
     ativo: bool = True
+    perfil: Optional[str] = ""
+    departamentos: List[str] = []
 
 
 class UsuarioEdicao(BaseModel):
@@ -271,6 +373,28 @@ class UsuarioEdicao(BaseModel):
     modulos: Optional[List[str]] = None
     ativo: Optional[bool] = None
     nova_senha: Optional[str] = None
+    perfil: Optional[str] = None
+    departamentos: Optional[List[str]] = None
+
+
+def _validar_perfil_deps(perfil: Optional[str], deps: Optional[List[str]]):
+    if perfil:
+        p = _perfis().get(perfil)
+        if not p or p.get("arquivado"):
+            raise HTTPException(status_code=400, detail="Perfil inválido ou arquivado.")
+    if deps:
+        ids = {d["id"] for d in _todos_setores()}
+        invalidos = [d for d in deps if d not in ids]
+        if invalidos:
+            raise HTTPException(status_code=400, detail="Departamento(s) inexistente(s).")
+
+
+def _log(request: Request, tipo: str, alvo: str, descricao: str, antes=None, depois=None) -> None:
+    try:
+        db.log_permissao({"por": _email(request), "por_nome": _nome_de(request), "tipo": tipo, "alvo": alvo,
+                          "descricao": descricao, "antes": antes, "depois": depois})
+    except Exception as e:
+        print(f"[AVISO] não consegui gravar o histórico de permissões: {e!r}")
 
 
 def _validar_papel_modulos(papel: Optional[str], modulos_: Optional[List[str]]):
@@ -284,8 +408,10 @@ def _validar_papel_modulos(papel: Optional[str], modulos_: Optional[List[str]]):
 
 @app.get("/api/admin/usuarios")
 def admin_listar():
-    return {"usuarios": [_usuario_publico(u) for u in db.usuarios_listar()],
-            "modulos": mods.catalogo_publico(), "papeis": mods.PAPEIS}
+    return {"usuarios": [{**_usuario_publico(u), "niveis": _niveis(u), "perfil_nome": _nome_perfil(u)} for u in db.usuarios_listar()],
+            "modulos": mods.catalogo_publico(), "papeis": mods.PAPEIS, "niveis": perm.NIVEIS,
+            "perfis": list(_perfis().values()),
+            "departamentos": [{"id": d["id"], "nome": (d.get("dados") or {}).get("nome", "")} for d in _todos_setores()]}
 
 
 @app.post("/api/admin/usuarios")
@@ -300,14 +426,17 @@ def admin_criar(payload: UsuarioNovo, request: Request):
     if erro:
         raise HTTPException(status_code=400, detail=erro)
     _validar_papel_modulos(payload.papel, payload.modulos)
+    _validar_perfil_deps(payload.perfil, payload.departamentos)
     criado = db.usuario_criar(email, {
         "email": email, "nome": payload.nome.strip(), "papel": payload.papel,
         "modulos": sorted(set(payload.modulos)), "ativo": payload.ativo,
+        "perfil": payload.perfil or "", "departamentos": sorted(set(payload.departamentos)),
         "senha_hash": seg.gerar_hash(payload.senha), "versao_sessao": 1, "trocar_senha": True,
         "criado_em": datetime.now().isoformat(), "criado_por": admin["email"],
     })
     if not criado:
         raise HTTPException(status_code=409, detail="Já existe um usuário com esse e-mail.")
+    _log(request, "usuario", email, f"Usuário criado com papel “{payload.papel}” e perfil “{(_perfis().get(payload.perfil) or {}).get('nome', 'sem perfil')}”.")
     return {"sucesso": True}
 
 
@@ -319,6 +448,7 @@ def admin_editar(email: str, payload: UsuarioEdicao, request: Request):
     if not alvo:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     _validar_papel_modulos(payload.papel, payload.modulos)
+    _validar_perfil_deps(payload.perfil, payload.departamentos)
     if email == admin["email"] and (payload.ativo is False or (payload.papel and payload.papel != "admin")):
         raise HTTPException(status_code=400, detail="Você não pode desativar nem tirar o admin de você mesmo.")
 
@@ -333,6 +463,10 @@ def admin_editar(email: str, payload: UsuarioEdicao, request: Request):
         campos["modulos"] = sorted(set(payload.modulos))
     if payload.ativo is not None:
         campos["ativo"] = payload.ativo
+    if payload.perfil is not None:
+        campos["perfil"] = payload.perfil
+    if payload.departamentos is not None:
+        campos["departamentos"] = sorted(set(payload.departamentos))
     derrubar_sessoes = False
     if payload.nova_senha:
         erro = seg.senha_aceitavel(payload.nova_senha)
@@ -350,12 +484,142 @@ def admin_editar(email: str, payload: UsuarioEdicao, request: Request):
         campos["alterado_por"] = admin["email"]
         db.usuario_atualizar(email, campos)
         _esquecer_cache(email)
+        nomes_p = lambda pid: (_perfis().get(pid) or {}).get("nome", "sem perfil") if pid else "sem perfil"
+        nomes_d = lambda ids: ", ".join(sorted((d.get("dados") or {}).get("nome", "?") for d in _todos_setores() if d["id"] in (ids or []))) or "todos"
+        for chave, rotulo, fmt in (("papel", "Papel", str), ("perfil", "Perfil", nomes_p), ("departamentos", "Departamentos", nomes_d), ("ativo", "Ativo", lambda v: "sim" if v else "não")):
+            if chave in campos and campos[chave] != alvo.get(chave):
+                _log(request, "usuario", email, f"{rotulo} alterado", fmt(alvo.get(chave)), fmt(campos[chave]))
+        if payload.nova_senha:
+            _log(request, "usuario", email, "Senha redefinida pelo administrador")
     return {"sucesso": True}
 
 
 @app.get("/api/admin/senha-aleatoria")
 def admin_senha_aleatoria():
     return {"senha": seg.senha_aleatoria()}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.3] PERFIS DE ACESSO (aba Permissões) + HISTÓRICO + DEPARTAMENTOS
+# ──────────────────────────────────────────────────────────────────────────
+class PerfilNovo(BaseModel):
+    nome: str
+    descricao: str = ""
+
+
+class PerfilEdicao(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    niveis: Optional[dict] = None
+
+
+class PerfilArquivar(BaseModel):
+    arquivado: bool
+
+
+def _uso_perfis() -> dict:
+    uso: dict = {}
+    for u in db.usuarios_listar():
+        if u.get("perfil"):
+            uso[u["perfil"]] = uso.get(u["perfil"], 0) + 1
+    return uso
+
+
+@app.get("/api/admin/perfis")
+def admin_perfis():
+    return {"perfis": list(_perfis().values()), "modulos": mods.catalogo_publico(), "niveis": perm.NIVEIS, "uso": _uso_perfis()}
+
+
+@app.post("/api/admin/perfis")
+def admin_perfil_criar(payload: PerfilNovo, request: Request):
+    nome = payload.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome do perfil.")
+    if any((p.get("nome") or "").strip().lower() == nome.lower() for p in _perfis().values()):
+        raise HTTPException(status_code=409, detail="Já existe um perfil com esse nome.")
+    base = re.sub(r"[^a-z0-9]+", "-", nome.lower()).strip("-")[:40] or "perfil"
+    pid, i = base, 2
+    while pid in _perfis():
+        pid, i = f"{base}-{i}", i + 1
+    # nasce SEM nenhuma permissão: o administrador marca o que ele pode
+    db.perfil_gravar(pid, {"nome": nome, "descricao": payload.descricao.strip(), "niveis": {}, "arquivado": False,
+                           "ordem": 50, "criado_em": datetime.now().isoformat(), "criado_por": _email(request)})
+    _esquecer_perfis()
+    _log(request, "perfil", nome, "Perfil criado (sem nenhuma permissão)")
+    return {"sucesso": True, "id": pid}
+
+
+@app.put("/api/admin/perfis/{perfil_id}")
+def admin_perfil_editar(perfil_id: str, payload: PerfilEdicao, request: Request):
+    atual = _perfis().get(perfil_id)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    campos: dict = {}
+    if payload.nome is not None:
+        nome = payload.nome.strip()
+        if not nome:
+            raise HTTPException(status_code=400, detail="O nome não pode ficar vazio.")
+        if any(pid != perfil_id and (p.get("nome") or "").strip().lower() == nome.lower() for pid, p in _perfis().items()):
+            raise HTTPException(status_code=409, detail="Já existe um perfil com esse nome.")
+        if nome != atual.get("nome"):
+            campos["nome"] = nome
+            _log(request, "perfil", atual.get("nome"), "Perfil renomeado", atual.get("nome"), nome)
+    if payload.descricao is not None:
+        campos["descricao"] = payload.descricao.strip()
+    if payload.niveis is not None:
+        cat = {m["id"]: m for m in mods.MODULOS}
+        niveis = dict(atual.get("niveis") or {})
+        for mid, n in payload.niveis.items():
+            if mid not in cat:
+                raise HTTPException(status_code=400, detail=f"Sistema inexistente: {mid}")
+            try:
+                n = max(0, min(3, int(n)))
+            except Exception:
+                raise HTTPException(status_code=400, detail="Nível inválido.")
+            if mods.so_acesso(cat[mid]):
+                n = min(n, 1)
+            antes = int(niveis.get(mid, 0) or 0)
+            if antes != n:
+                niveis[mid] = n
+                _log(request, "perfil", atual.get("nome"), f"{cat[mid]['nome']}", perm.NIVEIS[antes], perm.NIVEIS[n])
+        campos["niveis"] = niveis
+    if campos:
+        campos["alterado_em"] = datetime.now().isoformat()
+        campos["alterado_por"] = _email(request)
+        db.perfil_gravar(perfil_id, campos)
+        _esquecer_perfis()
+    return {"sucesso": True}
+
+
+@app.post("/api/admin/perfis/{perfil_id}/arquivar")
+def admin_perfil_arquivar(perfil_id: str, payload: PerfilArquivar, request: Request):
+    atual = _perfis().get(perfil_id)
+    if not atual:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    if payload.arquivado and _uso_perfis().get(perfil_id):
+        raise HTTPException(status_code=400, detail="Não dá para arquivar um perfil em uso — as pessoas ficariam sem regra. Troque o perfil delas antes.")
+    db.perfil_gravar(perfil_id, {"arquivado": payload.arquivado})
+    _esquecer_perfis()
+    _log(request, "perfil", atual.get("nome"), "Perfil arquivado" if payload.arquivado else "Perfil reativado")
+    return {"sucesso": True}
+
+
+@app.get("/api/admin/permissoes-log")
+def admin_permissoes_log():
+    return {"historico": db.log_permissoes_listar()}
+
+
+@app.get("/api/admin/departamentos")
+def admin_departamentos():
+    usuarios = db.usuarios_listar()
+    cks = db.diagdep_checklists()
+    saida = []
+    for d in _todos_setores():
+        dados = d.get("dados") or {}
+        saida.append({"id": d["id"], "nome": dados.get("nome", ""), "descricao": dados.get("descricao", ""), "cor": dados.get("cor"),
+                      "pessoas": len(dados.get("pessoas") or []), "checklist": cks.get(d["id"]) or {},
+                      "restritos": [u.get("nome") or u["email"] for u in usuarios if d["id"] in (u.get("departamentos") or [])]})
+    return {"departamentos": saida}
 
 
 # Rota de "estou vivo" (health check do Render).
@@ -482,7 +746,7 @@ def get_atividades(excluido: Optional[bool] = False):
 
 
 @app.post("/api/atividades")
-def create_atividade(payload: AtividadeCreate):
+def create_atividade(payload: AtividadeCreate, request: Request):
     mes_val = payload.prazo_previsto.split("-")[1] if "-" in payload.prazo_previsto else "10"
     bloqueio_val = payload.bloqueio if payload.bloqueio else "—"
 
@@ -507,12 +771,14 @@ def create_atividade(payload: AtividadeCreate):
         "problema_causa": payload.problema_causa,
         "demanda": payload.demanda,
         "data_cadastro": payload.data,
+        "criado_por_email": _email(request),   # [v3.3] base do perfil "Adicionar"
     })
     return {"sucesso": True, "mensagem": "Atividade salva com sucesso no Firestore!", "id": novo_id}
 
 
 @app.put("/api/atividades/{atividade_id}/status")
-def atualizar_status(atividade_id: str, payload: StatusUpdate):
+def atualizar_status(atividade_id: str, payload: StatusUpdate, request: Request):
+    _exigir_editar_ou_dono(request, "diario", db.atividade_dono(atividade_id))
     ok = db.atividades_status_atualizar(atividade_id, payload.status)
     if not ok:
         raise HTTPException(status_code=404, detail="Atividade não encontrada (ou já excluída).")
@@ -536,10 +802,10 @@ def listar_acoes(atividade_id: str):
 
 
 @app.post("/api/atividades/{atividade_id}/acoes")
-def criar_acao(atividade_id: str, payload: AcaoCreate):
+def criar_acao(atividade_id: str, payload: AcaoCreate, request: Request):
     if not db.atividade_existe(atividade_id):
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
-    novo_id = db.acoes_inserir(atividade_id, payload.descricao, payload.lembrete)
+    novo_id = db.acoes_inserir(atividade_id, payload.descricao, payload.lembrete, _email(request))
     return {"sucesso": True, "id": novo_id}
 
 
@@ -551,7 +817,8 @@ def excluir_acao(acao_id: str):
 
 
 @app.put("/api/acoes/{acao_id}/encerrar-lembrete")
-def encerrar_lembrete(acao_id: str):
+def encerrar_lembrete(acao_id: str, request: Request):
+    _exigir_editar_ou_dono(request, "diario", db.acao_dono(acao_id))
     if not db.acoes_encerrar_lembrete(acao_id):
         raise HTTPException(status_code=404, detail="Ação não encontrada.")
     return {"sucesso": True}
@@ -612,45 +879,146 @@ def _validar_secao(secao: str) -> str:
     return secao
 
 
-@app.get("/api/diagnostico")
-def diagnostico_tudo():
-    """Todas as seções de uma vez — o HTML carrega isso ao abrir."""
-    return db.diag_ler_todos()
+# [v3.3] Cada diagnóstico pertence a um DEPARTAMENTO, que é o mesmo SETOR do
+# Organograma (mesmo id) — assim os dois sistemas falam do mesmo lugar.
+COLECAO_ORGANOGRAMA = "organograma_setores"
 
 
-@app.get("/api/diagnostico/{secao}")
-def diagnostico_ler(secao: str):
-    return {"secao": secao, "dados": db.diag_ler(_validar_secao(secao))}
+def _todos_setores() -> list:
+    return [d for d in db.docs_listar(COLECAO_ORGANOGRAMA) if (d.get("dados") or {}).get("_tipo") != "niveis"]
 
 
-@app.put("/api/diagnostico/{secao}")
-def diagnostico_salvar(secao: str, payload: SecaoDiagnostico):
+def _setores_do(u: dict) -> list:
+    return [d for d in _todos_setores() if _dep_ok(u, d["id"])]
+
+
+def _setor_ou_erro(u: dict, dep: str) -> dict:
+    if not _dep_ok(u, dep):
+        raise HTTPException(status_code=403, detail="Você não tem acesso a este departamento. Peça liberação ao administrador.")
+    d = db.docs_ler(COLECAO_ORGANOGRAMA, dep)
+    if not d or (d.get("dados") or {}).get("_tipo") == "niveis":
+        raise HTTPException(status_code=404, detail="Departamento não encontrado (pode ter sido excluído no Organograma).")
+    return d
+
+
+class DepartamentoNovo(BaseModel):
+    nome: str
+    descricao: str = ""
+    cor: str = "#2E4A7A"
+
+
+def _criar_departamento(payload: DepartamentoNovo, request: Request) -> dict:
+    u = usuario_atual(request)
+    if _deps_permitidos(u) is not None:
+        raise HTTPException(status_code=403, detail="Seu acesso é restrito a alguns departamentos — peça ao administrador para criar este.")
+    nome = payload.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome do departamento.")
+    if any(((d.get("dados") or {}).get("nome") or "").strip().lower() == nome.lower() for d in _todos_setores()):
+        raise HTTPException(status_code=409, detail="Já existe um departamento (setor do Organograma) com esse nome.")
+    dados = {"_tipo": "setor", "nome": nome, "descricao": payload.descricao.strip(), "cor": payload.cor or "#2E4A7A",
+             "responsavel": "", "subsetores": [], "pessoas": []}
+    return db.docs_criar(COLECAO_ORGANOGRAMA, dados, _nome_de(request), u["email"])
+
+
+@app.post("/api/admin/departamentos")
+def admin_departamento_criar(payload: DepartamentoNovo, request: Request):
+    reg = _criar_departamento(payload, request)
+    _log(request, "departamento", payload.nome.strip(), "Departamento criado (também aparece no Organograma)")
+    return reg
+
+
+@app.get("/api/diagnostico/departamentos")
+def diag_departamentos(request: Request):
+    u = usuario_atual(request)
+    cks = db.diagdep_checklists()
+    deps = []
+    for d in _setores_do(u):
+        dados = d.get("dados") or {}
+        deps.append({"id": d["id"], "nome": dados.get("nome", ""), "descricao": dados.get("descricao", ""), "cor": dados.get("cor"),
+                     "pessoas": len(dados.get("pessoas") or []), "checklist": cks.get(d["id"]) or {}})
+    deps.sort(key=lambda x: (x["nome"] or "").lower())
+    legado = db.diag_legado_resumo() if _niveis(u).get("diagnostico", 0) >= perm.EDITAR else {"secoes": 0}
+    return {"departamentos": deps, "legado": legado}
+
+
+@app.post("/api/diagnostico/departamentos")
+def diag_departamento_criar(payload: DepartamentoNovo, request: Request):
+    return _criar_departamento(payload, request)
+
+
+@app.get("/api/diagnostico/dep/{dep}")
+def diag_dep_tudo(dep: str, request: Request):
+    d = _setor_ou_erro(usuario_atual(request), dep)
+    dados = d.get("dados") or {}
+    return {"departamento": {"id": dep, "nome": dados.get("nome", ""), "descricao": dados.get("descricao", ""), "cor": dados.get("cor")},
+            "secoes": db.diagdep_ler_todos(dep)}
+
+
+@app.get("/api/diagnostico/dep/{dep}/organograma-oficial")
+def diag_dep_organograma(dep: str, request: Request):
+    """As pessoas do setor no módulo Organogramas (somente leitura aqui)."""
+    d = _setor_ou_erro(usuario_atual(request), dep)
+    pessoas = (d.get("dados") or {}).get("pessoas") or []
+    nome = {p.get("id"): (p.get("nome") or "").strip() or "(vaga)" for p in pessoas}
+    return {"pessoas": [{"id": p.get("id"), "nome": (p.get("nome") or "").strip(), "cargo": p.get("cargo", ""),
+                         "subsetor": p.get("subsetor", ""), "nivel": p.get("nivel", ""), "vaga": bool(p.get("vaga")),
+                         "gestor": nome.get(p.get("gestor_id"), ""),
+                         "tambem": [nome[x] for x in (p.get("extras") or []) if x in nome]} for p in pessoas],
+            "atualizado_em": d.get("atualizado_em"), "atualizado_por": d.get("atualizado_por")}
+
+
+@app.post("/api/diagnostico/dep/{dep}/importar-legado")
+def diag_dep_importar(dep: str, request: Request):
+    u = usuario_atual(request)
+    if _niveis(u).get("diagnostico", 0) < perm.EDITAR:
+        raise HTTPException(status_code=403, detail="Trazer o diagnóstico antigo é só para quem tem perfil “Editar” no Diagnóstico.")
+    _setor_ou_erro(u, dep)
+    return {"sucesso": True, "secoes": db.diagdep_importar_legado(dep, _nome_de(request))}
+
+
+@app.get("/api/diagnostico/dep/{dep}/{secao}")
+def diag_dep_ler(dep: str, secao: str, request: Request):
+    _setor_ou_erro(usuario_atual(request), dep)
+    return {"secao": secao, "dados": db.diagdep_ler(dep, _validar_secao(secao))}
+
+
+@app.put("/api/diagnostico/dep/{dep}/{secao}")
+def diag_dep_salvar(dep: str, secao: str, payload: SecaoDiagnostico, request: Request):
+    u = usuario_atual(request)
+    _setor_ou_erro(u, dep)
     _validar_secao(secao)
     tamanho = len(json.dumps(payload.dados, ensure_ascii=False, default=str).encode("utf-8"))
     if tamanho > _LIMITE_SECAO_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"A seção '{secao}' ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB por documento).",
-        )
-    db.diag_salvar(secao, payload.dados)
+        raise HTTPException(status_code=413, detail=f"A seção '{secao}' ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB por documento).")
+    dados = payload.dados
+    if _niveis(u).get("diagnostico", 0) < perm.EDITAR:
+        try:
+            dados = perm.so_acrescimos(db.diagdep_ler(dep, secao), dados, u["email"])
+        except perm.Recusado as e:
+            raise HTTPException(status_code=403, detail=f"{perm.MENSAGEM_ADICIONAR} ({e})")
+    db.diagdep_salvar(dep, secao, dados, _nome_de(request))
     return {"sucesso": True}
 
 
 @app.post("/api/diagnostico-ia")
-def diagnostico_resumo_ia():
+def diagnostico_resumo_ia(request: Request, dep: str = ""):
     """Resumo executivo com a API da Anthropic. A chave fica SÓ no servidor
     (variável de ambiente ANTHROPIC_API_KEY no Render), nunca no HTML."""
     chave = os.environ.get("ANTHROPIC_API_KEY", "")
     if not chave:
         return {"erro": "Configure a variável ANTHROPIC_API_KEY no Render (Environment) para usar esta função."}
 
-    todos = db.diag_ler_todos()
+    if not dep:
+        return {"erro": "Abra o diagnóstico de um departamento antes de gerar o resumo."}
+    setor = _setor_ou_erro(usuario_atual(request), dep)
+    todos = db.diagdep_ler_todos(dep)
     secoes = ["inventario", "organograma", "raci", "raci_pessoas", "raci_matriz", "diario",
               "entrevistas", "gemba", "matriz", "jornadas", "respostas"]
     dados = {s: todos.get(s) for s in secoes}
     prompt = (
-        "Você está ajudando a consolidar um mapeamento de atividades (estilo Lean/Gemba) de uma "
-        "equipe de backoffice N2. Abaixo estão os dados brutos coletados, em JSON. Escreva um RESUMO "
+        "Você está ajudando a consolidar um mapeamento de atividades (estilo Lean/Gemba) do departamento "
+        f"“{(setor.get('dados') or {}).get('nome', '')}”. Abaixo estão os dados brutos coletados, em JSON. Escreva um RESUMO "
         "EXECUTIVO em português, objetivo e assertivo, cobrindo nesta ordem: 1) o que a equipe faz de "
         "fato; 2) como o trabalho é dividido; 3) de onde vêm as demandas; 4) onde o tempo é mais "
         "consumido; 5) principais dependências externas; 6) trabalho invisível identificado; e termine "
@@ -714,7 +1082,7 @@ def mapa_criar(payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
     _checar_tamanho(payload.dados)
-    return db.mapa_criar(payload.dados, _nome_de(request))
+    return db.mapa_criar(payload.dados, _nome_de(request), _email(request))
 
 
 @app.put("/api/mapa/processos/{processo_id}")
@@ -722,7 +1090,8 @@ def mapa_salvar(processo_id: str, payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
     _checar_tamanho(payload.dados)
-    resultado, registro = db.mapa_salvar(processo_id, payload.dados, payload.versao, _nome_de(request))
+    dados = _conferir_acrescimo(request, "mapa", db.COLECAO_MAPA, processo_id, payload.dados)
+    resultado, registro = db.mapa_salvar(processo_id, dados, payload.versao, _nome_de(request))
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Processo não encontrado (pode ter sido excluído).")
     if resultado == "conflito":
@@ -739,14 +1108,23 @@ def mapa_excluir(processo_id: str, request: Request):
 
 # ──────────────────────────────────────────────────────────────────────────
 # [NOVO v3.2] ORGANOGRAMAS — um documento por setor (coleção própria).
-# Rotas genéricas: campos novos se resolvem só no organograma.html.
+# [v3.3] Cada setor é também um DEPARTAMENTO do Diagnóstico (mesmo id).
 # ──────────────────────────────────────────────────────────────────────────
-COLECAO_ORGANOGRAMA = "organograma_setores"
+def _eh_config_niveis(dados) -> bool:
+    return isinstance(dados, dict) and dados.get("_tipo") == "niveis"
 
 
 @app.get("/api/organograma/setores")
-def org_listar():
-    return db.docs_listar(COLECAO_ORGANOGRAMA)
+def org_listar(request: Request):
+    u = usuario_atual(request)
+    return [d for d in db.docs_listar(COLECAO_ORGANOGRAMA) if _eh_config_niveis(d.get("dados")) or _dep_ok(u, d["id"])]
+
+
+@app.get("/api/organograma/resumo-diagnostico")
+def org_resumo_diagnostico(request: Request):
+    """Andamento do diagnóstico de cada setor (só o checklist) — o Organograma mostra no card."""
+    u = usuario_atual(request)
+    return {dep: ck for dep, ck in db.diagdep_checklists().items() if dep and _dep_ok(u, dep)}
 
 
 @app.post("/api/organograma/setores")
@@ -754,7 +1132,13 @@ def org_criar(payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Dados do setor inválidos.")
     _checar_tamanho(payload.dados)
-    return db.docs_criar(COLECAO_ORGANOGRAMA, payload.dados, _nome_de(request))
+    u = usuario_atual(request)
+    if _eh_config_niveis(payload.dados):
+        if _niveis(u).get("organograma", 0) < perm.EDITAR:
+            raise HTTPException(status_code=403, detail="Os níveis hierárquicos valem para todos os setores: só quem tem perfil “Editar” no Organograma altera.")
+    elif _deps_permitidos(u) is not None:
+        raise HTTPException(status_code=403, detail="Seu acesso é restrito a alguns departamentos — peça ao administrador para criar este setor.")
+    return db.docs_criar(COLECAO_ORGANOGRAMA, payload.dados, _nome_de(request), u["email"])
 
 
 @app.put("/api/organograma/setores/{setor_id}")
@@ -762,7 +1146,16 @@ def org_salvar(setor_id: str, payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Dados do setor inválidos.")
     _checar_tamanho(payload.dados)
-    resultado, registro = db.docs_salvar(COLECAO_ORGANOGRAMA, setor_id, payload.dados, payload.versao, _nome_de(request))
+    u = usuario_atual(request)
+    if _eh_config_niveis(payload.dados):
+        if _niveis(u).get("organograma", 0) < perm.EDITAR:
+            raise HTTPException(status_code=403, detail="Os níveis hierárquicos valem para todos os setores: só quem tem perfil “Editar” no Organograma altera.")
+        dados = payload.dados
+    else:
+        if not _dep_ok(u, setor_id):
+            raise HTTPException(status_code=403, detail="Você não tem acesso a este departamento.")
+        dados = _conferir_acrescimo(request, "organograma", COLECAO_ORGANOGRAMA, setor_id, payload.dados)
+    resultado, registro = db.docs_salvar(COLECAO_ORGANOGRAMA, setor_id, dados, payload.versao, _nome_de(request))
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Setor não encontrado (pode ter sido excluído).")
     if resultado == "conflito":
@@ -772,6 +1165,8 @@ def org_salvar(setor_id: str, payload: ProcessoEntrada, request: Request):
 
 @app.delete("/api/organograma/setores/{setor_id}")
 def org_excluir(setor_id: str, request: Request):
+    if not _dep_ok(usuario_atual(request), setor_id):
+        raise HTTPException(status_code=403, detail="Você não tem acesso a este departamento.")
     if not db.docs_excluir(COLECAO_ORGANOGRAMA, setor_id, _nome_de(request)):
         raise HTTPException(status_code=404, detail="Setor não encontrado.")
     return {"sucesso": True}
@@ -812,6 +1207,11 @@ def _criar_rota_pagina(nome_arquivo: str):
         # no-cache: depois de um commit novo, o navegador já pega a versão nova
         return FileResponse(caminho, media_type="text/html", headers={"Cache-Control": "no-cache"})
     return servir
+
+
+@app.get("/pqi-acesso.js", include_in_schema=False)
+def acesso_js():
+    return FileResponse(os.path.join(BASE_DIR, "pqi-acesso.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 for _rota, _arquivo in PAGINAS.items():
