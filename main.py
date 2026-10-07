@@ -1000,6 +1000,43 @@ def diag_dep_importar(dep: str, request: Request):
     return {"sucesso": True, "secoes": db.diagdep_importar_legado(dep, _nome_de(request))}
 
 
+# [NOVO v3.5] PONTE DIAGNÓSTICO → MAPA: quais atividades deste departamento já
+# viraram processo no Mapa Digital, e em que situação o processo está.
+def _status_processo(dados: dict) -> str:
+    f = dados.get("fases") or {}
+    if (f.get("f7") or {}).get("concluido"):
+        return "Concluído"
+    if str((dados.get("validacao_tobe") or {}).get("parecer", "")).startswith("Aprovado"):
+        return "TO BE aprovado"
+    if (f.get("f5") or {}).get("concluido"):
+        return "TO BE em validação"
+    if (f.get("f4") or {}).get("concluido"):
+        return "Desenhando o TO BE"
+    if str((dados.get("validacao") or {}).get("parecer", "")).startswith("Validado"):
+        return "Em diagnóstico"
+    if any((x or {}).get("descricao") for x in (dados.get("passos_real") or [])):
+        return "Em levantamento"
+    return "Cadastrado"
+
+
+@app.get("/api/diagnostico/dep/{dep}/processos-mapa")
+def diag_dep_processos_mapa(dep: str, request: Request):
+    setor = _setor_ou_erro(usuario_atual(request), dep)
+    nome_dep = ((setor.get("dados") or {}).get("nome") or "").strip().lower()
+    saida = []
+    for p in db.mapa_listar():
+        dados = p.get("dados") or {}
+        if dados.get("_tipo"):
+            continue
+        origem = dados.get("origem") or {}
+        if origem.get("dep") != dep and (dados.get("area") or "").strip().lower() != nome_dep:
+            continue
+        saida.append({"id": p["id"], "codigo": dados.get("codigo", ""), "nome": dados.get("nome", ""),
+                      "atividade": origem.get("atividade") or "", "macroprocesso": dados.get("macroprocesso", ""),
+                      "status": _status_processo(dados)})
+    return {"processos": saida}
+
+
 @app.get("/api/diagnostico/dep/{dep}/{secao}")
 def diag_dep_ler(dep: str, secao: str, request: Request):
     _setor_ou_erro(usuario_atual(request), dep)
@@ -1120,6 +1157,22 @@ def mapa_salvar(processo_id: str, payload: ProcessoEntrada, request: Request):
     if resultado == "conflito":
         return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
     return registro
+
+
+# [NOVO v3.5] PONTE MAPA ← DIAGNÓSTICO: as atividades levantadas no inventário de
+# cada departamento aparecem no Mapa para virar processo (com o subsetor responsável).
+@app.get("/api/mapa/atividades-diagnostico")
+def mapa_atividades_diagnostico(request: Request):
+    u = usuario_atual(request)
+    saida = []
+    for d in _setores_do(u):
+        inv = db.diagdep_ler(d["id"], "inventario") or []
+        ativs = [{"atividade": (i.get("atividade") or "").strip(), "subsetor": (i.get("subsetor") or "").strip(),
+                  "categoria": i.get("categoria") or "", "descricao": i.get("descricao") or ""}
+                 for i in inv if isinstance(i, dict) and (i.get("atividade") or "").strip()]
+        if ativs:
+            saida.append({"id": d["id"], "nome": ((d.get("dados") or {}).get("nome") or "").strip(), "atividades": ativs})
+    return {"departamentos": saida}
 
 
 @app.delete("/api/mapa/processos/{processo_id}")
