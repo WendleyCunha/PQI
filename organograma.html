@@ -180,7 +180,6 @@ svg.linhas path.temp{fill:none;stroke:var(--steel);stroke-width:2.5;stroke-dasha
 .pcard.vaga{border-style:dashed;border-top-style:solid;background:repeating-linear-gradient(135deg,var(--sheet),var(--sheet) 8px,var(--rule-2) 8px,var(--rule-2) 9px)}
 .pcard.achado{box-shadow:0 0 0 3px var(--amber)}
 .pcard.alvo{box-shadow:0 0 0 3px var(--steel);transform:scale(1.03)}
-.pcard.arrastando{opacity:.45}
 .av{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--ns);color:var(--n);font:700 15px "IBM Plex Sans Condensed",sans-serif;overflow:hidden;border:2px solid var(--sheet);box-shadow:0 0 0 2px var(--ns)}
 .av img{width:100%;height:100%;object-fit:cover}
 .pi{min-width:0;flex:1}
@@ -200,8 +199,11 @@ svg.linhas path.temp{fill:none;stroke:var(--steel);stroke-width:2.5;stroke-dasha
 .equipe .pcard{width:226px}
 .equipe.duas{display:grid;grid-template-columns:repeat(2,226px)}
 .equipe.duas .eq-t{grid-column:1/-1}
-.topo-drop{border:2px dashed var(--rule);border-radius:10px;padding:10px;text-align:center;color:var(--ink-3);font-size:13px;margin:0 0 14px;display:none}
-.org-area.arrastando-ativo .topo-drop{display:block}
+.topo-drop{display:none;align-items:center;border:2px dashed var(--steel);border-radius:8px;padding:6px 12px;color:var(--steel);font-size:13px;background:var(--steel-soft)}
+body.org-arrastando .topo-drop{display:inline-flex}
+.arrastando,.arrastando *{pointer-events:none!important}
+.pcard.arrastando,.equipe.arrastando{opacity:.85;box-shadow:0 14px 30px rgba(20,30,50,.25);z-index:20;cursor:grabbing}
+.equipe .eq-t{cursor:grab}
 .topo-drop.alvo{border-color:var(--steel);color:var(--steel);background:var(--steel-soft)}
 
 /* por nível */
@@ -402,7 +404,7 @@ window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvar
 
 function normalizar(d){
   d=d||{};
-  const base={_tipo:"setor",nome:"",descricao:"",cor:CORES[0],responsavel:"",subsetores:[],pessoas:[]};
+  const base={_tipo:"setor",nome:"",descricao:"",cor:CORES[0],responsavel:"",subsetores:[],pessoas:[],pos_caixas:{}};
   for(const k in base) if(d[k]==null) d[k]=base[k];
   if(!Array.isArray(d.pessoas)) d.pessoas=[];
   if(!Array.isArray(d.subsetores)) d.subsetores=[];
@@ -466,7 +468,8 @@ function cardHTML(p, opt={}){
       const out=[]; if(p.abaixo_de&&p.gestor_id&&p.abaixo_de!==p.gestor_id) out.push(`<span class="chip rep" title="Responde a">↑ responde a ${esc(nomeP(dd,p.gestor_id))}</span>`);
       const ex=(p.extras||[]).filter(x=>x!==p.gestor_id&&dd.pessoas.some(z=>z.id===x)); if(ex.length) out.push(`<span class="chip dup" title="Também responde a">↑ também: ${esc(ex.map(x=>nomeP(dd,x)).join(", "))}</span>`);
       return out; })()].join("");
-  return `<div style="${estNivel(p.nivel)}" class="pcard${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="true" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
+  const mov=!opt.emCaixa&&(p.ox||p.oy)?`;transform:translate(${p.ox||0}px,${p.oy||0}px)`:"";
+  return `<div style="${estNivel(p.nivel)}${mov}" class="pcard${p.vaga?" vaga":""}${achou?" achado":""}${opt.sugerido?" sugerido":""}" draggable="false" data-id="${p.id}" tabindex="0" role="button" aria-label="${esc(nome)} — ${esc(p.cargo||"")}">
     <div class="av">${p.foto?`<img src="${esc(p.foto)}" alt="">`:p.vaga&&!tx(p.nome)?"?":esc(iniciais(p.nome))}</div>
     <div class="pi"><div class="pn">${esc(nome)}</div><div class="pc">${esc(p.cargo||"")}</div>${chips?`<div class="pt">${chips}</div>`:""}</div>
     ${opt.semAcoes?"":`<div class="pa"><button type="button" data-ac="sub" title="Adicionar alguém que responde a ${esc(nome)}">＋</button><button type="button" data-ac="ed" title="Editar">✏️</button></div>`}
@@ -477,7 +480,7 @@ function cardHTML(p, opt={}){
 function ligarCards(c, s){
   c.querySelectorAll(".pcard").forEach(card=>{
     const id=card.dataset.id;
-    card.onclick=e=>{ if(e.target.closest(".hnd")) return;
+    card.onclick=e=>{ if(e.target.closest(".hnd")||Date.now()-ARRASTOU<350) return;
       if(ESCOLHA){ e.stopPropagation(); if(id!==ESCOLHA.antigo) aplicarEscolha(id); return; }
       const ac=e.target.closest("[data-ac]"), tg=e.target.closest("[data-tg]");
       if(tg){ e.stopPropagation(); recolhidos.has(id)?recolhidos.delete(id):recolhidos.add(id); render(); return; }
@@ -603,9 +606,10 @@ function arvoreHTML(d, filtro){
   const nomeDe=p=>tx(p.nome)||"vaga";
   // cada SUBSETOR vira a sua própria caixa, com os seus colaboradores, embaixo do líder
   const caixa=(lst,titulo,sug,pai)=>{ lst.forEach(f=>visto.add(f.id));
-    return `<li><div class="equipe${sug?" sug":""}${lst.length>=8?" duas":""}" data-caixa="${lst.map(f=>f.id).join(",")}" data-pai="${pai.id}">
+    const chave=`${pai.id}|${titulo}`, pc=(d.pos_caixas||{})[chave], mov=pc&&(pc.x||pc.y)?` style="transform:translate(${pc.x||0}px,${pc.y||0}px)"`:"";
+    return `<li><div class="equipe${sug?" sug":""}${lst.length>=8?" duas":""}" data-caixa="${lst.map(f=>f.id).join(",")}" data-pai="${pai.id}" data-chave="${esc(chave)}"${mov}>
       <div class="eq-t"><span>${esc(titulo)}</span><small>${lst.length}</small>${sug?`<button type="button" class="ligar" data-ligar="${lst.map(f=>f.id).join(",")}" data-g="${pai.id}">🔗 Confirmar com ${esc(nomeDe(pai))}</button>`:""}</div>
-      ${lst.map(f=>cardHTML(f,{semSub:true,sugerido:sug})).join("")}</div></li>`; };
+      ${lst.map(f=>cardHTML(f,{semSub:true,sugerido:sug,emCaixa:true})).join("")}</div></li>`; };
   const grupo=(lst,sug,pai)=>{
     if(!lst.length) return "";
     const folhas=lst.filter(f=>!temFilhos(f)&&(sug||f.gestor_id===pai.id));
@@ -631,6 +635,67 @@ function arvoreHTML(d, filtro){
   return {html, n:H.lista.length, nSug, sugPai};
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ROTEADOR DE LINHAS (ângulos retos) — a linha passa pelos espaços em
+// branco e nunca por trás de um cartão/símbolo. A* numa grade esparsa
+// formada pelas bordas dos obstáculos; cada curva custa mais, então ele
+// prefere caminhos limpos, com poucas dobras.
+//   a, b       : pontos {x,y} já fora dos obstáculos (pontas da linha)
+//   obst       : [{x1,y1,x2,y2}] retângulos a evitar (já com folga)
+//   lim        : {x1,y1,x2,y2} área permitida (opcional)
+// devolve [{x,y},...] ou null se não achar caminho
+// ═══════════════════════════════════════════════════════════════════
+function rotearLinha(a, b, obst, lim){
+  const M=260;
+  const bx1=Math.min(a.x,b.x)-M, bx2=Math.max(a.x,b.x)+M, by1=Math.min(a.y,b.y)-M, by2=Math.max(a.y,b.y)+M;
+  const rel=obst.filter(o=>o.x2>bx1&&o.x1<bx2&&o.y2>by1&&o.y1<by2);
+  const dentro=(x,y)=>rel.some(o=>x>o.x1&&x<o.x2&&y>o.y1&&y<o.y2);
+  if(dentro(a.x,a.y)||dentro(b.x,b.y)) return null;
+  const xs=new Set([a.x,b.x]), ys=new Set([a.y,b.y]);
+  rel.forEach(o=>{ xs.add(o.x1); xs.add(o.x2); ys.add(o.y1); ys.add(o.y2); });
+  const meio=arr=>{ const v=[...arr].sort((p,q)=>p-q), out=new Set(v); for(let i=0;i<v.length-1;i++) if(v[i+1]-v[i]>24) out.add((v[i]+v[i+1])/2); return [...out].sort((p,q)=>p-q); };
+  let X=meio(xs), Y=meio(ys);
+  if(lim){ X=X.filter(x=>x>=lim.x1&&x<=lim.x2); Y=Y.filter(y=>y>=lim.y1&&y<=lim.y2); }
+  const nx=X.length, ny=Y.length, ia=X.indexOf(a.x), ja=Y.indexOf(a.y), ib=X.indexOf(b.x), jb=Y.indexOf(b.y);
+  if(ia<0||ja<0||ib<0||jb<0) return null;
+  const bloq=(x1,y1,x2,y2)=>{ if(y1===y2){ const lo=Math.min(x1,x2), hi=Math.max(x1,x2); return rel.some(o=>y1>o.y1&&y1<o.y2&&hi>o.x1&&lo<o.x2); }
+    const lo=Math.min(y1,y2), hi=Math.max(y1,y2); return rel.some(o=>x1>o.x1&&x1<o.x2&&hi>o.y1&&lo<o.y2); };
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1]], CURVA=36;
+  const chave=(i,j,d)=>(i*ny+j)*5+d;
+  const custo=new Map(), veio=new Map(), heap=[];
+  const push=(f,k)=>{ heap.push([f,k]); let n=heap.length-1; while(n>0){ const p=(n-1)>>1; if(heap[p][0]<=heap[n][0]) break; [heap[p],heap[n]]=[heap[n],heap[p]]; n=p; } };
+  const pop=()=>{ const top=heap[0], last=heap.pop(); if(heap.length){ heap[0]=last; let n=0; for(;;){ const l=2*n+1, r=l+1; let m=n;
+    if(l<heap.length&&heap[l][0]<heap[m][0]) m=l; if(r<heap.length&&heap[r][0]<heap[m][0]) m=r; if(m===n) break; [heap[m],heap[n]]=[heap[n],heap[m]]; n=m; } } return top; };
+  const h=(i,j)=>Math.abs(X[i]-b.x)+Math.abs(Y[j]-b.y);
+  const k0=chave(ia,ja,4); custo.set(k0,0); push(h(ia,ja),k0);
+  let fim=null, passos=0;
+  while(heap.length&&passos<60000){ passos++;
+    const [,k]=pop(), d=k%5, ij=(k-d)/5, i=Math.floor(ij/ny), j=ij%ny, g=custo.get(k);
+    if(i===ib&&j===jb){ fim=k; break; }
+    DIRS.forEach(([di,dj],nd)=>{ const ni=i+di, nj=j+dj; if(ni<0||nj<0||ni>=nx||nj>=ny) return;
+      if(d!==4&&(nd^1)===d&&(nd>>1)===(d>>1)) return;          // não volta pelo mesmo caminho
+      if(dentro(X[ni],Y[nj])||bloq(X[i],Y[j],X[ni],Y[nj])) return;
+      const nk=chave(ni,nj,nd), ng=g+Math.abs(X[ni]-X[i])+Math.abs(Y[nj]-Y[j])+(d!==4&&d!==nd?CURVA:0);
+      if(ng<(custo.has(nk)?custo.get(nk):Infinity)){ custo.set(nk,ng); veio.set(nk,k); push(ng+h(ni,nj),nk); } });
+  }
+  if(fim==null) return null;
+  const pts=[]; for(let k=fim;k!=null;k=veio.get(k)){ const d=k%5, ij=(k-d)/5; pts.push({x:X[Math.floor(ij/ny)],y:Y[ij%ny]}); }
+  pts.reverse();
+  return simplificarPontos(pts);
+}
+function simplificarPontos(pts){
+  const out=[];
+  pts.forEach(p=>{ if(out.length&&out[out.length-1].x===p.x&&out[out.length-1].y===p.y) return;
+    if(out.length>=2){ const a=out[out.length-2], b=out[out.length-1];
+      if((a.x===b.x&&b.x===p.x)||(a.y===b.y&&b.y===p.y)){ out[out.length-1]=p; return; } }
+    out.push(p); });
+  return out;
+}
+function caminhoSVG(pts){ return pts.map((p,i)=>(i?"L":"M")+Math.round(p.x)+" "+Math.round(p.y)).join(""); }
+function segmentoCruza(p1,p2,obst){ return obst.some(o=>{
+  if(p1.y===p2.y){ const lo=Math.min(p1.x,p2.x), hi=Math.max(p1.x,p2.x); return p1.y>o.y1&&p1.y<o.y2&&hi>o.x1&&lo<o.x2; }
+  const lo=Math.min(p1.y,p2.y), hi=Math.max(p1.y,p2.y); return p1.x>o.x1&&p1.x<o.x2&&hi>o.y1&&lo<o.y2; }); }
+
 // ─── linhas de conexão (SVG por cima do desenho) ───
 const GAP_V=44;   // espaço vertical entre faixas (padding do <ul>)
 let LINKS=[], redesenhar=null;
@@ -653,16 +718,19 @@ function desenharLinhas(s, tree, sugPai){
     (p.extras||[]).forEach(g=>{ if(g!==p.gestor_id&&ids.has(g)&&card(g)) add("extra",g,p); });
   });
   svg.setAttribute("width",tree.offsetWidth); svg.setAttribute("height",tree.offsetHeight);
-  const blocos=[...tree.querySelectorAll(".pcard,.equipe")].filter(e=>!e.closest(".equipe")||e.classList.contains("equipe")).map(e=>({e,r:R(e)}));
-  const bloqueio=(x,yA,yB,excl)=>blocos.find(({e,r})=>!excl.includes(e)&&x>r.x-4&&x<r.x+r.w+4&&r.y<yB-2&&r.y+r.h>yA+2);
+  const blocos=[...tree.querySelectorAll(".pcard,.equipe")].filter(e=>!e.closest(".equipe")||e.classList.contains("equipe")).map(e=>{ const r=R(e); return {e,o:{x1:r.x-9,y1:r.y-9,x2:r.x+r.w+9,y2:r.y+r.h+9}}; });
   svg.innerHTML=LINKS.map((L,i)=>{
     const ca=card(L.de), a=R(ca), b=R(L.el), x1=a.x+a.w/2, y1=a.y+a.h, x2=b.x+b.w/2, y2=b.y;
     let ym = L.tipo==="extra" ? y2-GAP_V/2+9 : (L.posPai===L.de ? y2-GAP_V/2 : y1+14);   // pula faixa: corre logo abaixo de quem responde
-    let dd=`M${x1} ${y1}V${ym}H${x2}V${y2}`;
-    const bl=bloqueio(x2,ym,y2,[ca,L.el,ca.closest(".equipe"),L.el.closest&&L.el.closest(".equipe")].filter(Boolean));
-    if(bl){ // desvia: desce pela lateral do cartão que está no caminho e entra por cima do destino
-      const lane = x2<=bl.r.x+bl.r.w/2 ? bl.r.x-14 : bl.r.x+bl.r.w+14, yb=y2-GAP_V/2+(L.tipo==="extra"?9:0);
-      dd=`M${x1} ${y1}V${ym}H${lane}V${yb}H${x2}V${y2}`; }
+    let pts=[{x:x1,y:y1},{x:x1,y:ym},{x:x2,y:ym},{x:x2,y:y2}];
+    // [v3.5] se o caminho simples passa por trás de algum cartão/caixa, o roteador acha um caminho pelos espaços em branco
+    const excl=[ca,L.el,ca.closest(".equipe"),L.el.closest&&L.el.closest(".equipe")].filter(Boolean);
+    const obst=blocos.filter(b=>!excl.includes(b.e)).map(b=>b.o);
+    if(pts.slice(1).some((q,k)=>segmentoCruza(pts[k],q,obst))){
+      const r=rotearLinha({x:x1,y:y1+14},{x:x2,y:y2-14},obst);
+      if(r) pts=simplificarPontos([{x:x1,y:y1},...r,{x:x2,y:y2}]);
+    }
+    const dd=caminhoSVG(simplificarPontos(pts));
     L.d=dd; L.x2=x2; L.y2=y2;
     return `<path class="l ${L.tipo}" data-i="${i}" d="${L.d}"/><path class="hit" data-i="${i}" d="${L.d}"><title>${esc(rotuloLink(d,L))}</title></path>`;
   }).join("")+`<path class="temp" id="tempLinha" d=""/>`;
@@ -743,10 +811,12 @@ function visaoArvore(c,s){
       <select id="aSub" aria-label="Subsetor"><option value="">Todos os subsetores</option>${subs.map(x=>`<option${x===filtroSub?" selected":""}>${esc(x)}</option>`).join("")}</select>
       <input id="aBusca" placeholder="Destacar pessoa..." value="${esc(busca)}" style="width:200px" aria-label="Destacar pessoa">
       <span class="grupo"><button type="button" id="zMenos" title="Diminuir">−</button><span id="zVal">100%</span><button type="button" id="zMais" title="Aumentar">+</button></span>
-      <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button></div>
-    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover · arraste um <b>cartão</b> sobre outro para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar.</p>
+      <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
+      <button type="button" id="aReorg" title="Desfaz as posições ajustadas à mão" ${d.pessoas.some(p=>p.ox||p.oy)||Object.keys(d.pos_caixas||{}).length?"":"hidden"}>↺ Reorganizar</button>
+      <span class="topo-drop" id="topoDrop">⤒ Solte aqui: topo do setor (sem gestor)</span></div>
+    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover a tela · arraste um <b>cartão</b> (ou o título de uma caixa) para reposicionar — solte sobre outra pessoa para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar.</p>
     <div id="aSug"></div>
-    <div class="org-area" id="orgArea"><div class="topo-drop" id="topoDrop">Solte aqui para colocar no topo do setor (sem gestor)</div>
+    <div class="org-area" id="orgArea">
       <div class="tree-sizer" id="sizer"><div class="org-tree" id="tree"></div></div></div>`;
   const T=arvoreHTML(d,filtroSub), tree=$("#tree",c), area=$("#orgArea",c), sizer=$("#sizer",c);
   tree.innerHTML = T.n ? `<svg class="linhas" aria-hidden="true"></svg><ul>${T.html}</ul>` : `<div class="aviso" style="text-align:center;margin:20px">Nenhuma pessoa ${filtroSub?"neste subsetor":"neste setor"} ainda. <button type="button" class="primary" id="aPrim">${ICO.pessoa} Adicionar a primeira pessoa</button></div>`;
@@ -770,6 +840,7 @@ function visaoArvore(c,s){
     card.classList.toggle("achado",!!busca&&[p.nome,p.cargo,p.subsetor].some(x=>nrm(x).includes(nrm(busca)))); }); };
   bq.onkeydown=e=>{ if(e.key==="Enter"){ const a=tree.querySelector(".achado"); if(a){ a.scrollIntoView({behavior:"smooth",block:"center",inline:"center"}); a.focus(); } } };
   $("#aExp",c).onclick=()=>{ recolhidos.clear(); render(); };
+  const ro=$("#aReorg",c); if(ro) ro.onclick=()=>{ d.pessoas.forEach(p=>{ delete p.ox; delete p.oy; }); d.pos_caixas={}; salvar(s); render(); $("#banner").textContent="✓ Organograma reorganizado no desenho automático."; };
   $("#aRec",c).onclick=()=>{ const H=mapaHierarquia(d,filtroSub); H.raizes.forEach(r=>(H.filhos[r.id]||[]).forEach(f=>{ if((H.filhos[f.id]||[]).length) recolhidos.add(f.id); })); render(); };
   ligarCards(tree,s); ligarArrastar(c,s); ligarPan(area); ligarLinhas(s,tree,area);
 }
@@ -823,20 +894,44 @@ function ligarLinhas(s,tree,area){
   }
 }
 
-// arrastar o CARTÃO sobre outro: pergunta o tipo de vínculo
+// [v3.5] ARRASTAR o cartão (ou a caixa do subsetor, pelo título):
+//   soltar sobre outra pessoa → pergunta o tipo de vínculo
+//   soltar na faixa "topo"     → fica sem gestor
+//   soltar no espaço vazio     → o cartão fica nessa posição (as linhas acompanham)
+let ARRASTOU=0;
 function ligarArrastar(c,s){
-  const area=$("#orgArea",c), topo=$("#topoDrop",c); let arrastado=null;
-  area.addEventListener("dragstart",e=>{ if(LIGANDO){ e.preventDefault(); return; } const card=e.target.closest(".pcard"); if(!card) return; arrastado=card.dataset.id; card.classList.add("arrastando");
-    e.dataTransfer.setData("text/plain",arrastado); e.dataTransfer.effectAllowed="move"; area.classList.add("arrastando-ativo"); });
-  area.addEventListener("dragend",()=>{ area.classList.remove("arrastando-ativo"); area.querySelectorAll(".arrastando,.alvo").forEach(x=>x.classList.remove("arrastando","alvo")); arrastado=null; });
-  area.addEventListener("dragover",e=>{ if(!arrastado) return; const alvo=e.target.closest(".pcard")||(e.target.closest("#topoDrop")?topo:null);
-    area.querySelectorAll(".alvo").forEach(x=>{ if(x!==alvo) x.classList.remove("alvo"); });
-    if(alvo&&alvo.dataset.id!==arrastado){ e.preventDefault(); alvo.classList.add("alvo"); } });
-  area.addEventListener("drop",e=>{ e.preventDefault(); if(!arrastado) return; const d=s.dados, p=d.pessoas.find(x=>x.id===arrastado), id=arrastado;
-    const alvoCard=e.target.closest(".pcard");
-    if(!alvoCard&&e.target.closest("#topoDrop")){ if(p){ p.gestor_id=""; p.abaixo_de=""; feito(s,`✓ ${tx(p.nome)||"A vaga"} agora está no topo do setor.`); } return; }
-    if(!alvoCard||alvoCard.dataset.id===id||!p) return;
-    escolherVinculo(s,alvoCard.dataset.id,id,e.clientX,e.clientY); });
+  const area=$("#orgArea",c), topo=$("#topoDrop",c), tree=$("#tree",c), d=s.dados;
+  const desloc=el=>{ if(el.classList.contains("equipe")){ const pc=(d.pos_caixas||{})[el.dataset.chave]||{}; return {x:pc.x||0,y:pc.y||0}; }
+    const p=d.pessoas.find(x=>x.id===el.dataset.id)||{}; return {x:p.ox||0,y:p.oy||0}; };
+  const gravar=(el,v)=>{ v={x:Math.round(v.x),y:Math.round(v.y)};
+    if(el.classList.contains("equipe")){ d.pos_caixas=d.pos_caixas||{}; if(!v.x&&!v.y) delete d.pos_caixas[el.dataset.chave]; else d.pos_caixas[el.dataset.chave]=v; }
+    else { const p=d.pessoas.find(x=>x.id===el.dataset.id); if(p){ p.ox=v.x||undefined; p.oy=v.y||undefined; if(!p.ox) delete p.ox; if(!p.oy) delete p.oy; } } };
+  tree.addEventListener("pointerdown",e=>{
+    if(e.button!==0||e.pointerType==="touch") return;
+    if(e.target.closest("button,.hnd,a,input,select,path.hit")) return;
+    const card=e.target.closest(".pcard"), cab=!card&&e.target.closest(".equipe .eq-t");
+    const movel=card?(card.closest(".equipe")||card):(cab?cab.closest(".equipe"):null);
+    if(!movel) return;
+    e.preventDefault();
+    const sc=zoom[s.id]||1, ini={x:e.clientX,y:e.clientY}, base=desloc(movel); let mov=false, dx=0, dy=0;
+    const marcar=alvo=>{ area.querySelectorAll(".alvo").forEach(x=>{ if(x!==alvo) x.classList.remove("alvo"); }); if(alvo) alvo.classList.add("alvo"); };
+    const sob=ev=>{ const t=document.elementFromPoint(ev.clientX,ev.clientY); if(!t) return null;
+      const pc=t.closest(".pcard"); if(pc&&!movel.contains(pc)) return pc; return t.closest("#topoDrop"); };
+    const m=ev=>{ dx=(ev.clientX-ini.x)/sc; dy=(ev.clientY-ini.y)/sc; if(!mov&&Math.hypot(dx,dy)<5) return;
+      if(!mov){ mov=true; movel.classList.add("arrastando"); movel.style.pointerEvents="none"; if(card) document.body.classList.add("org-arrastando"); }
+      movel.style.transform=`translate(${base.x+dx}px,${base.y+dy}px)`; marcar(card?sob(ev):null); };
+    const f=ev=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f);
+      if(!mov) return; ARRASTOU=Date.now();
+      const alvo=card?sob(ev):null;   // olha o que está embaixo ANTES de devolver o toque ao que foi arrastado
+      movel.classList.remove("arrastando"); movel.style.pointerEvents=""; document.body.classList.remove("org-arrastando"); marcar(null);
+      if(alvo&&alvo.id==="topoDrop"){ movel.style.transform=base.x||base.y?`translate(${base.x}px,${base.y}px)`:"";
+        const p=d.pessoas.find(x=>x.id===card.dataset.id); if(p){ p.gestor_id=""; p.abaixo_de=""; feito(s,`✓ ${tx(p.nome)||"A vaga"} agora está no topo do setor.`); } return; }
+      if(alvo){ movel.style.transform=base.x||base.y?`translate(${base.x}px,${base.y}px)`:""; escolherVinculo(s,alvo.dataset.id,card.dataset.id,ev.clientX,ev.clientY); return; }
+      gravar(movel,{x:base.x+dx,y:base.y+dy}); salvar(s); redesenhar&&redesenhar();
+      const ro=$("#aReorg"); if(ro) ro.hidden=false;
+      $("#banner").textContent="✓ Posição ajustada. Para voltar ao desenho automático, use “Reorganizar”."; };
+    window.addEventListener("pointermove",m); window.addEventListener("pointerup",f);
+  });
 }
 
 // ─── Por nível (blocos por subsetor, linhas A–D) ───
