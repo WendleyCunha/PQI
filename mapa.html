@@ -245,6 +245,33 @@ table.matriz td,table.matriz th{text-align:center} table.matriz td:first-child,t
 table.matriz td.zero{color:var(--rule)}
 .conteudo-item{flex:1;min-width:0}
 
+/* [v3.5] fluxograma em raias */
+.fx-barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}
+.fx-seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.fx-seg button{border:0;border-radius:0;padding:7px 11px}
+.fx-seg button+button,.fx-seg span{border-left:1px solid var(--rule)}
+.fx-seg span{padding:7px 10px;font-size:13px;color:var(--ink-2);min-width:52px;text-align:center}
+.fx-seg button.ativo{background:var(--steel);color:var(--sheet)}
+.fx-grid{display:grid;grid-template-columns:150px minmax(0,1fr) 250px;gap:10px;align-items:start}
+.fx-paleta,.fx-props{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:8px;max-height:72vh;overflow:auto}
+.fx-pt{font:600 12px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin:2px 2px 6px}
+.fx-simb{display:flex;align-items:center;gap:6px;width:100%;padding:5px 6px;margin-bottom:4px;font-size:11.5px;line-height:1.2;text-align:left;cursor:grab;touch-action:none}
+.fx-simb svg{flex:none} .fx-simb svg *{vector-effect:non-scaling-stroke;stroke-width:1.6px}
+.fx-area{position:relative;overflow:auto;max-height:72vh;min-height:420px;border:1px solid var(--rule);border-radius:10px;background:#fff}
+.fx-area svg{display:block;user-select:none;touch-action:none}
+.fx-port{fill:#2B63B0;stroke:#fff;stroke-width:2;opacity:0;cursor:crosshair;transition:opacity .12s}
+.fx-no:hover .fx-port{opacity:1}
+.fx-edit{position:absolute;z-index:5;font:13px "IBM Plex Sans",sans-serif;border:2px solid var(--amber);border-radius:6px;padding:6px;background:#fff;color:#1B2436;resize:none}
+.fx-fantasma{position:fixed;z-index:70;pointer-events:none;background:var(--steel);color:#fff;font-size:12px;padding:4px 8px;border-radius:6px}
+.fx-raias{display:flex;flex-direction:column;gap:4px}
+.fx-raia{display:flex;gap:2px;align-items:center} .fx-raia input{padding:5px 7px;font-size:13px}
+.fx-raia.sel input{border-color:var(--steel)}
+.fx-props label.f{margin-bottom:8px}
+.origem-box{background:var(--steel-soft);border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:14px}
+.ativ-diag{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.ativ-diag .chip-at{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--steel);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;background:var(--sheet)}
+.ativ-diag .chip-at small{color:var(--ink-3)}
+@media (max-width:1100px){ .fx-grid{grid-template-columns:1fr} .fx-paleta{display:flex;flex-wrap:wrap;gap:4px;max-height:none} .fx-simb{width:auto} }
 dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
@@ -282,6 +309,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 
 <dialog id="dlgNovo">
   <h3>Novo processo</h3>
+  <p class="origem-box" id="npOrigem" hidden></p>
   <p class="muted" style="margin:0;font-size:13px">Comece só com o nome. O resto você completa ao longo do levantamento.</p>
   <label class="f">Nome do processo *<input id="npNome" placeholder="Ex.: Devolução de produto em loja"></label>
   <label class="f">Área<input id="npArea" list="dl-areas"></label>
@@ -397,7 +425,8 @@ function normalizar(d){
     validacao:{por:"",data:"",parecer:"",obs:""},anotacoes:[],
     macroprocesso:"",recebe_de:"",entrega_para:"",
     fases:{},validacao_tobe:{por:"",data:"",parecer:"",obs:""},
-    tobe:{codigo:"",versao:"",objetivo:"",regras:"",fluxo:"",passos:[],pendencias:[]},implantacao:{acoes:[]}};
+    tobe:{codigo:"",versao:"",objetivo:"",regras:"",fluxo:"",passos:[],pendencias:[]},implantacao:{acoes:[]},
+    fluxo:{}, origem:null};   // [v3.5] fluxograma (AS IS / TO BE) e a atividade do Diagnóstico que originou o processo
   for(const k in base) if(d[k]==null) d[k]=base[k];
   ETAPAS_LEV.forEach(([id])=>{ if(!d.etapas[id]) d.etapas[id]={feito:false,data:""}; });
   ["f2","f4","f5","f7"].forEach(f=>{ if(!d.fases[f]) d.fases[f]={concluido:false,por:"",em:""}; });
@@ -406,6 +435,7 @@ function normalizar(d){
   // migração: processos validados na versão anterior já contam como Fase 3 (validação do AS IS) concluída
   if(d.status==="Validado" && !d.validacao.parecer) d.validacao.parecer="Validado";
   ["passos_it","passos_real","oportunidades","anotacoes"].forEach(k=>{ if(!Array.isArray(d[k])) d[k]=[]; d[k].forEach(x=>{ if(!x.id) x.id=uid(); }); });
+  fxNormalizar(d);
   return d;
 }
 
@@ -749,7 +779,9 @@ function campo(rot, id, valor, extra=""){ return `<label class="f">${esc(rot)}<i
 function ligar(c, id, obj, chave, sv, evento="input", depois){ const e=$("#"+id,c); if(!e) return; e.addEventListener(evento,()=>{ obj[chave]=e.value; sv(); depois&&depois(); }); }
 
 function abaIdent(c,p,d,sv){
-  c.innerHTML=`<div class="grade">
+  const og=d.origem, depOg=og&&(ATIV_DIAG.find(x=>x.id===og.dep)||(BASE&&BASE.setores.find(x=>x.id===og.dep)));
+  c.innerHTML=`${og?`<p class="origem-box">🗺️ Este processo detalha a atividade <b>${esc(og.atividade)}</b> do Diagnóstico de <b>${esc(depOg?depOg.nome:d.area||"—")}</b>${og.subsetor?` · subsetor responsável: <b>${esc(og.subsetor)}</b>`:""}.
+      <a href="/diagnostico?dep=${encodeURIComponent(og.dep)}" style="margin-left:6px">Abrir o diagnóstico →</a></p>`:""}<div class="grade">
       ${campo("Código","fCod",d.codigo)}${campo("Nome do processo *","fNome",d.nome)}
       ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável (dono do processo)","fDono",d.dono)}
       <label class="f">Criticidade<select id="fCrit">${opts(CRITICIDADE,d.criticidade,false)}</select></label>
@@ -907,6 +939,8 @@ function relatorioHTML(p){
     <h2>❌ Na IT e não é feito</h2>${lista(R.naoFeito,x=>`<tr><td>IT ${x.it._n}</td><td>${esc(x.it.descricao)}</td><td>${esc(x.it.obs||"")}</td></tr>`)}
     <h2>✅ Feito conforme a IT</h2>${lista(R.conforme,x=>`<tr><td>${x.real._n} ↔ IT ${x.it._n}</td><td>${esc(x.real.descricao)}</td><td></td></tr>`)}
     <h2>💡 Oportunidades</h2>${d.oportunidades.length?`<table><tr><th>Tipo</th><th>Descrição</th><th>Prioridade</th><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Status</th></tr>${d.oportunidades.map(o=>`<tr><td>${esc(o.tipo)}</td><td>${esc(o.descricao)}</td><td>${score(o)||"—"}</td><td>${esc(o.acao)}</td><td>${esc(o.responsavel)}</td><td>${esc(o.prazo)}</td><td>${esc(o.status)}</td></tr>`).join("")}</table>`:"<p>Nenhuma.</p>"}
+    ${d.fluxo.asis.nos.length?`<h2>Fluxograma AS IS (como é hoje)</h2>${svgFluxo(d.fluxo.asis).replace(/width="\d+(\.\d+)?" height="\d+(\.\d+)?"/,'width="100%"')}`:""}
+    ${d.fluxo.tobe.nos.length?`<h2>Fluxograma TO BE (como será)</h2>${svgFluxo(d.fluxo.tobe).replace(/width="\d+(\.\d+)?" height="\d+(\.\d+)?"/,'width="100%"')}`:""}
     <h2>Validação do AS IS</h2><p>${esc(d.validacao.parecer||"Não validado")} ${d.validacao.por?`por ${esc(d.validacao.por)}`:""} ${d.validacao.data?`em ${esc(d.validacao.data)}`:""}</p>
     ${d.tobe.pendencias.length||d.tobe.passos.length?`<h2>TO BE — pendências</h2>${d.tobe.pendencias.length?`<table><tr><th>Tipo</th><th>Pendência</th><th>Status</th><th>Decisão</th></tr>${d.tobe.pendencias.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.descricao)}</td><td>${esc(x.status)}</td><td>${esc(x.decisao)}</td></tr>`).join("")}</table>`:"<p>Nenhuma.</p>"}${novaITHTML(p).replace(/<h1>/,"<h2>").replace(/<\/h1>/,"</h2>")}`:""}
     <h2>Validação do TO BE</h2><p>${esc(d.validacao_tobe.parecer||"Não validado")} ${d.validacao_tobe.por?`por ${esc(d.validacao_tobe.por)}`:""} ${d.validacao_tobe.data?`em ${esc(d.validacao_tobe.data)}`:""}</p>
@@ -1087,14 +1121,16 @@ async function criarProcessos(area, macro, crit, nomes){
 }
 function renderArquitetura(c){
   const porArea={}; PROCS.forEach(p=>{ const a=tx(p.dados.area)||"(sem área)"; (porArea[a]=porArea[a]||[]).push(p); });
-  const nomes=ordenar([...new Set([...Object.keys(porArea),...areasCfg().map(a=>a.nome)])]);
+  const nomes=ordenar([...new Set([...Object.keys(porArea),...areasCfg().map(a=>a.nome),...ATIV_DIAG.filter(x=>pendentesDoDiag(x.nome).lista.length).map(x=>x.nome)])]);
   const reais=nomes.filter(n=>n!=="(sem área)"), feitas=reais.filter(n=>areaCfg(n)&&areaCfg(n).mapeado).length;
+  const totPend=ATIV_DIAG.reduce((a,x)=>a+pendentesDoDiag(x.nome).lista.length,0);
   const vazias=AREAS_PADRAO.filter(a=>!nomes.some(n=>nrm(n)===nrm(a)));
   const foraOrg=BASE?reais.filter(n=>!setorOficial(n)):[];   // [v3.4] áreas digitadas que não são setor do Organograma
   c.innerHTML=`<p class="cap">Fase 1 — cadastre os processos de cada área (pode ser só o nome, o resto vem no levantamento). Quando a área tiver <b>todos</b> os processos cadastrados, quem fez o mapeamento marca <b>✓ 100% mapeado</b>.</p>
     <div class="kpis"><div class="kpi"><span>Áreas com processos</span><b>${reais.length}</b><small>de ${new Set([...reais,...AREAS_PADRAO]).size} áreas conhecidas</small></div>
       <div class="kpi"><span>Áreas 100% mapeadas</span><b>${feitas}</b><div class="barra"><i style="width:${reais.length?Math.round(feitas/reais.length*100):0}%"></i></div><small>Fase 1 concluída</small></div>
       <div class="kpi"><span>Processos cadastrados</span><b>${PROCS.length}</b><small>${PROCS.filter(p=>p.dados.criticidade==="Alta").length} com criticidade Alta</small></div></div>
+    ${totPend?`<p class="aviso">🗺️ <b>${totPend} atividade(s) levantadas no Diagnóstico</b> ainda não viraram processo. Elas aparecem em cada área abaixo — clique numa para criar o processo e mapear o passo a passo e o fluxograma.</p>`:""}
     <div class="acoes"><input id="arNova" list="dl-areas" placeholder="Nome de uma nova área" style="max-width:320px"><button type="button" id="arAdd">+ Adicionar área</button><span class="msg" id="arMsg"></span></div>
     ${foraOrg.length?`<div class="conflito" style="margin:10px 0"><b>${foraOrg.length} área(s) com processos não existem no Organograma:</b> ${foraOrg.map(esc).join(", ")}.<br><span style="font-size:12px">Para ligar ao cadastro oficial, renomeie a área nos processos para o nome do setor do Organograma (ou cadastre o setor lá).</span></div>`:""}
     <div id="arLista"></div>
@@ -1114,6 +1150,11 @@ function renderArquitetura(c){
         <span class="muted" style="font-size:12.5px"> · ${procs.length} processo(s) ${FASES.slice(1).map(([id],i)=>porFase[id]?` · F${i+2}: ${porFase[id]}`:"").join("")}${porFase.fim?` · concluídos: ${porFase.fim}`:""}</span></summary>
       ${semArea?"":`<div class="acoes"><label class="f" style="flex-direction:row;align-items:center;gap:8px;margin:0">Responsável pelo mapeamento da área <input data-resp style="width:240px" value="${esc(a?a.responsavel:"")}"></label>
         <button type="button" data-cem class="${a&&a.mapeado?"":"primary"}">${a&&a.mapeado?"Desfazer 100% mapeado":"✓ 100% mapeado"}</button></div>`}
+      ${(()=>{ const pd=pendentesDoDiag(nome); if(!pd.lista.length) return "";
+        return `<div class="box" style="background:var(--paper);border-style:dashed"><b>🗺️ Atividades do Diagnóstico ainda sem processo (${pd.lista.length})</b>
+          <p class="cap" style="margin:4px 0 6px">Levantadas no inventário do Diagnóstico de ${esc(pd.dep.nome)}. Cada uma pode virar um processo para detalhar o passo a passo e o fluxograma.</p>
+          <div class="ativ-diag">${pd.lista.map((a,i)=>`<span class="chip-at">${esc(a.atividade)}${a.subsetor?` <small>· ${esc(a.subsetor)}</small>`:""}<button type="button" class="peq" data-novo-at="${i}">Criar processo</button></span>`).join("")}</div>
+          ${pd.lista.length>1?`<button type="button" class="peq" data-todas-at>Criar as ${pd.lista.length} de uma vez</button>`:""}</div>`; })()}
       ${procs.length?`<div class="scroll"><table class="lista"><thead><tr><th>Código</th><th>Processo</th><th>Macroprocesso</th><th>Criticidade</th><th>Fase atual</th></tr></thead><tbody>${
         procs.map(p=>`<tr class="clic" data-id="${p.id}"><td class="id">${esc(p.dados.codigo)}</td><td>${esc(p.dados.nome)}</td><td>${esc(p.dados.macroprocesso||"—")}</td><td>${pillCrit(p.dados.criticidade)}</td><td>${pillFase(p)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nenhum processo cadastrado nesta área ainda.</p>'}
       ${semArea?"":`<div class="box" style="background:var(--paper)"><b>Cadastrar processos nesta área</b><p class="cap" style="margin:4px 0 10px">Um processo por linha. Dá para colar uma lista inteira de uma vez.</p>
@@ -1122,6 +1163,13 @@ function renderArquitetura(c){
         <label class="f" style="margin-top:10px">Processos<textarea data-nomes rows="4" placeholder="Troca de produto&#10;Devolução com reembolso&#10;Assistência técnica"></textarea></label>
         <div class="acoes"><button type="button" class="primary" data-criar>Cadastrar processos</button><span class="msg" data-msg></span></div></div>`}`;
     box.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>ir("processo",tr.dataset.id,"linha"));
+    const pd=pendentesDoDiag(nome);
+    box.querySelectorAll("[data-novo-at]").forEach(b=>b.onclick=()=>novoDaAtividade(pd.dep,pd.lista[+b.dataset.novoAt]));
+    const todas=box.querySelector("[data-todas-at]");
+    if(todas) todas.onclick=async()=>{ if(!confirm(`Criar ${pd.lista.length} processo(s) a partir das atividades do Diagnóstico de ${pd.dep.nome}?`)) return; todas.disabled=true;
+      try{ for(const a of pd.lista){ const dados=normalizar({codigo:proximoCodigo(),nome:a.atividade,area:pd.dep.nome,macroprocesso:a.subsetor||"",origem:{dep:pd.dep.id,atividade:a.atividade,subsetor:a.subsetor||""}});
+          const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`); j.dados=normalizar(j.dados); PROCS.push(j); }
+        estArq.aberta=nome; render(); }catch(e){ alert(e.message); todas.disabled=false; } };
     const cem=box.querySelector("[data-cem]"); if(cem) cem.onclick=()=>marcarArea(nome,!(a&&a.mapeado));
     const resp=box.querySelector("[data-resp]"); if(resp) resp.onchange=async()=>{ const ar=await areaGarantida(nome); ar.responsavel=tx(resp.value); await gravarCfg(); };
     const criar=box.querySelector("[data-criar]");
@@ -1252,6 +1300,360 @@ function abaImplantacao(c,p,d,sv){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// ROTEADOR DE LINHAS (ângulos retos) — a linha passa pelos espaços em
+// branco e nunca por trás de um cartão/símbolo. A* numa grade esparsa
+// formada pelas bordas dos obstáculos; cada curva custa mais, então ele
+// prefere caminhos limpos, com poucas dobras.
+//   a, b       : pontos {x,y} já fora dos obstáculos (pontas da linha)
+//   obst       : [{x1,y1,x2,y2}] retângulos a evitar (já com folga)
+//   lim        : {x1,y1,x2,y2} área permitida (opcional)
+// devolve [{x,y},...] ou null se não achar caminho
+// ═══════════════════════════════════════════════════════════════════
+function rotearLinha(a, b, obst, lim){
+  const M=260;
+  const bx1=Math.min(a.x,b.x)-M, bx2=Math.max(a.x,b.x)+M, by1=Math.min(a.y,b.y)-M, by2=Math.max(a.y,b.y)+M;
+  const rel=obst.filter(o=>o.x2>bx1&&o.x1<bx2&&o.y2>by1&&o.y1<by2);
+  const dentro=(x,y)=>rel.some(o=>x>o.x1&&x<o.x2&&y>o.y1&&y<o.y2);
+  if(dentro(a.x,a.y)||dentro(b.x,b.y)) return null;
+  const xs=new Set([a.x,b.x]), ys=new Set([a.y,b.y]);
+  rel.forEach(o=>{ xs.add(o.x1); xs.add(o.x2); ys.add(o.y1); ys.add(o.y2); });
+  const meio=arr=>{ const v=[...arr].sort((p,q)=>p-q), out=new Set(v); for(let i=0;i<v.length-1;i++) if(v[i+1]-v[i]>24) out.add((v[i]+v[i+1])/2); return [...out].sort((p,q)=>p-q); };
+  let X=meio(xs), Y=meio(ys);
+  if(lim){ X=X.filter(x=>x>=lim.x1&&x<=lim.x2); Y=Y.filter(y=>y>=lim.y1&&y<=lim.y2); }
+  const nx=X.length, ny=Y.length, ia=X.indexOf(a.x), ja=Y.indexOf(a.y), ib=X.indexOf(b.x), jb=Y.indexOf(b.y);
+  if(ia<0||ja<0||ib<0||jb<0) return null;
+  const bloq=(x1,y1,x2,y2)=>{ if(y1===y2){ const lo=Math.min(x1,x2), hi=Math.max(x1,x2); return rel.some(o=>y1>o.y1&&y1<o.y2&&hi>o.x1&&lo<o.x2); }
+    const lo=Math.min(y1,y2), hi=Math.max(y1,y2); return rel.some(o=>x1>o.x1&&x1<o.x2&&hi>o.y1&&lo<o.y2); };
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1]], CURVA=36;
+  const chave=(i,j,d)=>(i*ny+j)*5+d;
+  const custo=new Map(), veio=new Map(), heap=[];
+  const push=(f,k)=>{ heap.push([f,k]); let n=heap.length-1; while(n>0){ const p=(n-1)>>1; if(heap[p][0]<=heap[n][0]) break; [heap[p],heap[n]]=[heap[n],heap[p]]; n=p; } };
+  const pop=()=>{ const top=heap[0], last=heap.pop(); if(heap.length){ heap[0]=last; let n=0; for(;;){ const l=2*n+1, r=l+1; let m=n;
+    if(l<heap.length&&heap[l][0]<heap[m][0]) m=l; if(r<heap.length&&heap[r][0]<heap[m][0]) m=r; if(m===n) break; [heap[m],heap[n]]=[heap[n],heap[m]]; n=m; } } return top; };
+  const h=(i,j)=>Math.abs(X[i]-b.x)+Math.abs(Y[j]-b.y);
+  const k0=chave(ia,ja,4); custo.set(k0,0); push(h(ia,ja),k0);
+  let fim=null, passos=0;
+  while(heap.length&&passos<60000){ passos++;
+    const [,k]=pop(), d=k%5, ij=(k-d)/5, i=Math.floor(ij/ny), j=ij%ny, g=custo.get(k);
+    if(i===ib&&j===jb){ fim=k; break; }
+    DIRS.forEach(([di,dj],nd)=>{ const ni=i+di, nj=j+dj; if(ni<0||nj<0||ni>=nx||nj>=ny) return;
+      if(d!==4&&(nd^1)===d&&(nd>>1)===(d>>1)) return;          // não volta pelo mesmo caminho
+      if(dentro(X[ni],Y[nj])||bloq(X[i],Y[j],X[ni],Y[nj])) return;
+      const nk=chave(ni,nj,nd), ng=g+Math.abs(X[ni]-X[i])+Math.abs(Y[nj]-Y[j])+(d!==4&&d!==nd?CURVA:0);
+      if(ng<(custo.has(nk)?custo.get(nk):Infinity)){ custo.set(nk,ng); veio.set(nk,k); push(ng+h(ni,nj),nk); } });
+  }
+  if(fim==null) return null;
+  const pts=[]; for(let k=fim;k!=null;k=veio.get(k)){ const d=k%5, ij=(k-d)/5; pts.push({x:X[Math.floor(ij/ny)],y:Y[ij%ny]}); }
+  pts.reverse();
+  return simplificarPontos(pts);
+}
+function simplificarPontos(pts){
+  const out=[];
+  pts.forEach(p=>{ if(out.length&&out[out.length-1].x===p.x&&out[out.length-1].y===p.y) return;
+    if(out.length>=2){ const a=out[out.length-2], b=out[out.length-1];
+      if((a.x===b.x&&b.x===p.x)||(a.y===b.y&&b.y===p.y)){ out[out.length-1]=p; return; } }
+    out.push(p); });
+  return out;
+}
+function caminhoSVG(pts){ return pts.map((p,i)=>(i?"L":"M")+Math.round(p.x)+" "+Math.round(p.y)).join(""); }
+function segmentoCruza(p1,p2,obst){ return obst.some(o=>{
+  if(p1.y===p2.y){ const lo=Math.min(p1.x,p2.x), hi=Math.max(p1.x,p2.x); return p1.y>o.y1&&p1.y<o.y2&&hi>o.x1&&lo<o.x2; }
+  const lo=Math.min(p1.y,p2.y), hi=Math.max(p1.y,p2.y); return p1.x>o.x1&&p1.x<o.x2&&hi>o.y1&&lo<o.y2; }); }
+
+// ═══════════════════════════════════════════════════════════════════
+// [NOVO v3.5] FLUXOGRAMA EM RAIAS (swimlane) — AS IS e TO BE
+// Cada raia é quem executa (pessoa, função ou subsetor). Símbolos na
+// notação usual de fluxograma. Arraste os símbolos; puxe uma ligação
+// pelos pontos ● da borda; arraste o ponto do meio de uma ligação para
+// desviá-la; clique duas vezes para editar textos.
+// Dados: d.fluxo = {asis:{raias,nos,ligacoes}, tobe:{...}}
+//   raia    {id,nome}
+//   nó      {id,tipo,texto,raia,x,ry}   (ry = altura dentro da raia)
+//   ligação {id,de,para,ds,ps,rotulo,via:{x,y}|null}  (ds/ps = lado)
+// ═══════════════════════════════════════════════════════════════════
+const RAIA_W=150, RAIA_MIN=150, FX_FOLGA=10;
+const SIMB={
+  inicio:{nome:"Início",w:120,h:46,fill:"#E1F2E7",stroke:"#2F7D4F"},
+  fim:{nome:"Fim",w:120,h:46,fill:"#F9E2E2",stroke:"#B83232"},
+  processo:{nome:"Processo / atividade",w:160,h:66,fill:"#FFFFFF",stroke:"#2E4A7A"},
+  decisao:{nome:"Decisão",w:150,h:100,fill:"#FBF1D9",stroke:"#C98A0B"},
+  entrada:{nome:"Entrada / saída (dados)",w:160,h:62,fill:"#E1EBF8",stroke:"#2B63B0"},
+  documento:{nome:"Documento",w:150,h:70,fill:"#FFFFFF",stroke:"#4A5568"},
+  subprocesso:{nome:"Subprocesso",w:160,h:66,fill:"#E3EAF5",stroke:"#2E4A7A"},
+  espera:{nome:"Espera / atraso",w:130,h:60,fill:"#EEE7F8",stroke:"#6B46A8"},
+  sistema:{nome:"Sistema / banco de dados",w:130,h:76,fill:"#EEF0F3",stroke:"#4A5568"},
+  manual:{nome:"Operação manual",w:150,h:60,fill:"#FFFFFF",stroke:"#4A5568"},
+  conector:{nome:"Conector",w:46,h:46,fill:"#FFFFFF",stroke:"#2E4A7A"},
+  nota:{nome:"Anotação",w:160,h:60,fill:"none",stroke:"#7A8599"},
+};
+const fxNormalizar=d=>{ if(!d.fluxo||typeof d.fluxo!=="object") d.fluxo={};
+  ["asis","tobe"].forEach(v=>{ const F=d.fluxo[v]=d.fluxo[v]||{}; ["raias","nos","ligacoes"].forEach(k=>{ if(!Array.isArray(F[k])) F[k]=[]; }); }); };
+
+function fxGeom(F){
+  const nos={}; F.nos.forEach(n=>{ const S=SIMB[n.tipo]||SIMB.processo; nos[n.id]={n,w:S.w,h:S.h}; });
+  let y=0; const raias=F.raias.map(r=>{ const dentro=F.nos.filter(n=>n.raia===r.id);
+    const h=Math.max(RAIA_MIN,...dentro.map(n=>(n.ry||0)+(SIMB[n.tipo]||SIMB.processo).h+30)); const o={...r,y,h}; y+=h; return o; });
+  const topo={}; raias.forEach(r=>topo[r.id]=r.y);
+  Object.values(nos).forEach(o=>{ o.x=o.n.x; o.y=(topo[o.n.raia]??0)+(o.n.ry||0); });
+  const W=Math.max(1100,...Object.values(nos).map(o=>o.x+o.w+180)), H=Math.max(y,RAIA_MIN);
+  return {raias,nos,W,H};
+}
+function fxPorta(o,lado){ return lado==="top"?{x:o.x+o.w/2,y:o.y}:lado==="bottom"?{x:o.x+o.w/2,y:o.y+o.h}:lado==="left"?{x:o.x,y:o.y+o.h/2}:{x:o.x+o.w,y:o.y+o.h/2}; }
+function fxFora(p,lado,dist){ return lado==="top"?{x:p.x,y:p.y-dist}:lado==="bottom"?{x:p.x,y:p.y+dist}:lado==="left"?{x:p.x-dist,y:p.y}:{x:p.x+dist,y:p.y}; }
+function fxLadoAuto(a,b){ const ax=a.x+a.w/2, ay=a.y+a.h/2, bx=b.x+b.w/2, by=b.y+b.h/2, dx=bx-ax, dy=by-ay;
+  if(Math.abs(dx)>=Math.abs(dy)*0.8) return dx>=0?["right","left"]:["left","right"];
+  return dy>=0?["bottom","top"]:["top","bottom"]; }
+function fxLadoProximo(o,p){ const c=[["top",Math.abs(p.y-o.y)],["bottom",Math.abs(p.y-(o.y+o.h))],["left",Math.abs(p.x-o.x)],["right",Math.abs(p.x-(o.x+o.w))]]; return c.sort((a,b)=>a[1]-b[1])[0][0]; }
+function fxRotas(F,G){
+  const obst=Object.values(G.nos).map(o=>({x1:o.x-FX_FOLGA,y1:o.y-FX_FOLGA,x2:o.x+o.w+FX_FOLGA,y2:o.y+o.h+FX_FOLGA}));
+  obst.push({x1:-1e5,y1:-1e5,x2:RAIA_W+4,y2:1e5});
+  const lim={x1:RAIA_W+6,y1:-60,x2:G.W+200,y2:G.H+80};
+  const out={};
+  F.ligacoes.forEach(l=>{ const A=G.nos[l.de], B=G.nos[l.para]; if(!A||!B) return;
+    const auto=fxLadoAuto(A,B), ds=l.ds||auto[0], ps=l.ps||auto[1];
+    const pa=fxPorta(A,ds), pb=fxPorta(B,ps), a2=fxFora(pa,ds,FX_FOLGA+8), b2=fxFora(pb,ps,FX_FOLGA+8);
+    let meio=null;
+    if(l.via){ const r1=rotearLinha(a2,l.via,obst,lim), r2=rotearLinha(l.via,b2,obst,lim); if(r1&&r2) meio=[...r1,...r2.slice(1)]; }
+    if(!meio) meio=rotearLinha(a2,b2,obst,lim);
+    if(!meio) meio=[a2,{x:b2.x,y:a2.y},b2];
+    out[l.id]=simplificarPontos([pa,...meio,pb]);
+  });
+  return out;
+}
+function fxQuebrar(t,w,h,fs){
+  const max=Math.max(4,Math.floor((w-14)/(fs*0.56))), maxL=Math.max(1,Math.floor((h-8)/(fs*1.25)));
+  const pal=String(t||"").replace(/\s+/g," ").trim().split(" "), L=[]; let cur="";
+  pal.forEach(p=>{ if((cur+" "+p).trim().length<=max) cur=(cur+" "+p).trim(); else { if(cur) L.push(cur); cur=p.length>max?p.slice(0,max-1)+"…":p; } });
+  if(cur) L.push(cur);
+  if(L.length>maxL){ L.length=maxL; L[maxL-1]=L[maxL-1].replace(/.{0,2}$/,"")+"…"; }
+  return L;
+}
+function fxForma(tipo,w,h){
+  const S=SIMB[tipo]||SIMB.processo, st=`fill="${S.fill}" stroke="${S.stroke}" stroke-width="1.6"`;
+  switch(tipo){
+    case "inicio": case "fim": return `<rect width="${w}" height="${h}" rx="${h/2}" ${st}/>`;
+    case "decisao": return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" ${st}/>`;
+    case "entrada": return `<polygon points="18,0 ${w},0 ${w-18},${h} 0,${h}" ${st}/>`;
+    case "manual": return `<polygon points="0,0 ${w},0 ${w-16},${h} 16,${h}" ${st}/>`;
+    case "documento": return `<path d="M0 0H${w}V${h-10}Q${w*0.75} ${h-24} ${w/2} ${h-10}T0 ${h-10}Z" ${st}/>`;
+    case "subprocesso": return `<rect width="${w}" height="${h}" rx="3" ${st}/><line x1="10" y1="0" x2="10" y2="${h}" stroke="${S.stroke}" stroke-width="1.4"/><line x1="${w-10}" y1="0" x2="${w-10}" y2="${h}" stroke="${S.stroke}" stroke-width="1.4"/>`;
+    case "espera": return `<path d="M0 0H${w-h/2}A${h/2} ${h/2} 0 0 1 ${w-h/2} ${h}H0Z" ${st}/>`;
+    case "sistema": return `<path d="M0 9V${h-9}A${w/2} 9 0 0 0 ${w} ${h-9}V9" ${st}/><ellipse cx="${w/2}" cy="9" rx="${w/2}" ry="9" ${st}/>`;
+    case "conector": return `<circle cx="${w/2}" cy="${h/2}" r="${w/2}" ${st}/>`;
+    case "nota": return `<rect width="${w}" height="${h}" fill="#FFFFFF" fill-opacity=".6" stroke="none"/><path d="M14 0H0V${h}H14" fill="none" stroke="${S.stroke}" stroke-width="1.6"/>`;
+    default: return `<rect width="${w}" height="${h}" rx="6" ${st}/>`;
+  }
+}
+function fxTexto(n,w,h){
+  const fs=n.tipo==="conector"?13:12.5, area={decisao:[w*0.68,h*0.62],entrada:[w-34,h],manual:[w-30,h],documento:[w,h-14],sistema:[w,h-16],subprocesso:[w-22,h]}[n.tipo]||[w,h];
+  const L=fxQuebrar(n.texto||SIMB[n.tipo].nome,area[0],area[1],fs), cy=(n.tipo==="documento"?(h-12)/2:n.tipo==="sistema"?h/2+5:h/2)-(L.length-1)*fs*0.62;
+  const ax=n.tipo==="nota"?{x:12,a:"start"}:{x:w/2,a:"middle"};
+  return `<text x="${ax.x}" y="${cy}" text-anchor="${ax.a}" dominant-baseline="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="${fs}" fill="#1B2436" font-weight="${["inicio","fim","conector"].includes(n.tipo)?600:400}">${L.map((l,i)=>`<tspan x="${ax.x}" dy="${i?fs*1.25:0}">${esc(l)}</tspan>`).join("")}</text>`;
+}
+// desenha o fluxograma inteiro (também usado no PDF e na exportação)
+function svgFluxo(F, op={}){
+  const G=fxGeom(F), R=fxRotas(F,G), sel=op.sel||{};
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" ${op.id?`id="${op.id}"`:""} viewBox="0 0 ${G.W} ${G.H}" width="${G.W*(op.zoom||1)}" height="${G.H*(op.zoom||1)}" font-family="IBM Plex Sans, Arial, sans-serif">
+    <defs><marker id="fxSeta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4A5568"/></marker>
+    <marker id="fxSetaSel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B63B0"/></marker></defs>
+    <rect width="${G.W}" height="${G.H}" fill="#FFFFFF"/>`;
+  G.raias.forEach((r,i)=>{ const ativa=sel.tipo==="raia"&&sel.id===r.id;
+    s+=`<rect x="0" y="${r.y}" width="${G.W}" height="${r.h}" fill="${i%2?"#FFFFFF":"#F7F9FC"}" stroke="#D9DEE7"/>
+      <g class="fx-raia-cab" data-r="${r.id}"><rect x="0" y="${r.y}" width="${RAIA_W}" height="${r.h}" fill="${ativa?"#CFDDF2":"#E3EAF5"}" stroke="#B8C4D8"/>
+      ${fxQuebrar(r.nome,RAIA_W-10,r.h,13).map((l,k,arr)=>`<text x="${RAIA_W/2}" y="${r.y+r.h/2-(arr.length-1)*8+k*16}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600" fill="#1B2436">${esc(l)}</text>`).join("")}</g>`; });
+  if(!G.raias.length) s+=`<text x="${G.W/2}" y="70" text-anchor="middle" font-size="14" fill="#7A8599">Crie uma raia (quem executa) e adicione os símbolos.</text>`;
+  F.ligacoes.forEach(l=>{ const pts=R[l.id]; if(!pts) return; const ativo=sel.tipo==="lig"&&sel.id===l.id, d=caminhoSVG(pts);
+    s+=`<path d="${d}" fill="none" stroke="${ativo?"#2B63B0":"#4A5568"}" stroke-width="${ativo?2.4:1.6}" stroke-linejoin="round" marker-end="url(#${ativo?"fxSetaSel":"fxSeta"})"/>`;
+    if(op.edicao) s+=`<path class="fx-hit" data-l="${l.id}" d="${d}" fill="none" stroke="transparent" stroke-width="14" style="cursor:pointer"/>`;
+    if(l.rotulo){ let best=[pts[0],pts[1]],bl=0; for(let i=0;i<pts.length-1;i++){ const len=Math.abs(pts[i+1].x-pts[i].x)+Math.abs(pts[i+1].y-pts[i].y); if(len>bl){ bl=len; best=[pts[i],pts[i+1]]; } }
+      const mx=(best[0].x+best[1].x)/2, my=(best[0].y+best[1].y)/2, tw=Math.max(26,l.rotulo.length*7+10);
+      s+=`<g class="fx-rot" data-l="${l.id}"><rect x="${mx-tw/2}" y="${my-10}" width="${tw}" height="20" rx="4" fill="#FFFFFF" stroke="#D9DEE7"/><text x="${mx}" y="${my+1}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="#1B2436">${esc(l.rotulo)}</text></g>`; }
+    if(op.edicao&&ativo){ const mid=l.via||(()=>{ const i=Math.floor((pts.length-1)/2); return {x:(pts[i].x+pts[i+1].x)/2,y:(pts[i].y+pts[i+1].y)/2}; })();
+      s+=`<circle class="fx-mid" data-l="${l.id}" cx="${mid.x}" cy="${mid.y}" r="7" fill="#2B63B0" stroke="#FFFFFF" stroke-width="2" style="cursor:move"><title>Arraste para desviar a ligação</title></circle>
+        <rect class="fx-ponta" data-l="${l.id}" data-p="de" x="${pts[0].x-6}" y="${pts[0].y-6}" width="12" height="12" fill="#FFFFFF" stroke="#2B63B0" stroke-width="2" style="cursor:crosshair"><title>Arraste para ligar a outro símbolo</title></rect>
+        <rect class="fx-ponta" data-l="${l.id}" data-p="para" x="${pts[pts.length-1].x-6}" y="${pts[pts.length-1].y-6}" width="12" height="12" fill="#FFFFFF" stroke="#2B63B0" stroke-width="2" style="cursor:crosshair"><title>Arraste para ligar a outro símbolo</title></rect>`; }
+  });
+  Object.values(G.nos).forEach(o=>{ const n=o.n, ativo=sel.tipo==="no"&&sel.id===n.id;
+    s+=`<g class="fx-no" data-n="${n.id}" transform="translate(${o.x},${o.y})" style="${op.edicao?"cursor:move":""}">${fxForma(n.tipo,o.w,o.h)}${fxTexto(n,o.w,o.h)}
+      ${ativo?`<rect x="-5" y="-5" width="${o.w+10}" height="${o.h+10}" rx="8" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4"/>`:""}
+      ${op.edicao?["top","right","bottom","left"].map(ld=>{ const p=fxPorta({x:0,y:0,w:o.w,h:o.h},ld); return `<circle class="fx-port" data-n="${n.id}" data-lado="${ld}" cx="${p.x}" cy="${p.y}" r="6"><title>Puxe para ligar a outro símbolo</title></circle>`; }).join(""):""}</g>`; });
+  s+=`<path id="fxTemp" d="" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4" pointer-events="none"/></svg>`;
+  return s;
+}
+function fxGerar(d,ver){
+  const fonte=(ver==="asis"?d.passos_real:d.tobe.passos).filter(x=>tx(x.descricao));
+  const nomes=[]; fonte.forEach(x=>{ const q=tx(x.quem)||"Executante"; if(!nomes.some(n=>nrm(n)===nrm(q))) nomes.push(q); });
+  if(!nomes.length) nomes.push("Executante");
+  const raias=nomes.map(n=>({id:uid(),nome:n})), rid=q=>raias.find(r=>nrm(r.nome)===nrm(tx(q)||"Executante")).id;
+  const nos=[], ligacoes=[]; let x=RAIA_W+40;
+  const add=(tipo,texto,raia)=>{ const S=SIMB[tipo]; const n={id:uid(),tipo,texto,raia,x,ry:Math.round((RAIA_MIN-S.h)/2)}; nos.push(n); x+=S.w+56; return n; };
+  let ant=add("inicio","Início",fonte.length?rid(fonte[0].quem):raias[0].id);
+  fonte.forEach(p=>{ const t=tx(p.descricao), tipo=/\?\s*$/.test(t)?"decisao":"processo"; const n=add(tipo,t,rid(p.quem)); ligacoes.push({id:uid(),de:ant.id,para:n.id,rotulo:""}); ant=n; });
+  const f=add("fim","Fim",ant.raia); ligacoes.push({id:uid(),de:ant.id,para:f.id,rotulo:""});
+  return {raias,nos,ligacoes};
+}
+
+// ─── o editor ───
+const FX={ver:"asis",sel:{},zoom:1};
+function abaFluxo(c,p,d,sv){
+  fxNormalizar(d);
+  const F=d.fluxo[FX.ver], temPassos=(FX.ver==="asis"?d.passos_real:d.tobe.passos).some(x=>tx(x.descricao));
+  const setor=BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(d.area));
+  c.innerHTML=`<p class="cap">Fluxograma em raias (swimlane): cada <b>raia</b> é quem executa — pessoa, função ou subsetor. Assim fica visível quem faz cada passo e onde o trabalho passa de mão em mão. Desenhe o <b>AS IS</b> (como é hoje) e o <b>TO BE</b> (como será).</p>
+    <div class="fx-barra">
+      <span class="fx-seg" role="tablist"><button type="button" data-ver="asis" class="${FX.ver==="asis"?"ativo":""}">AS IS · como é hoje</button><button type="button" data-ver="tobe" class="${FX.ver==="tobe"?"ativo":""}">TO BE · como será</button></span>
+      <span class="fx-seg"><button type="button" id="fxMenos" title="Diminuir">−</button><span id="fxZ">${Math.round(FX.zoom*100)}%</span><button type="button" id="fxMais" title="Aumentar">+</button></span>
+      <button type="button" id="fxAjustar">Ajustar à tela</button>
+      <span style="flex:1"></span>
+      <button type="button" id="fxSvgB">⬇️ SVG</button><button type="button" id="fxPngB">⬇️ PNG</button><button type="button" id="fxPdf">${ICO.imprimir} PDF</button>
+    </div>
+    <div class="fx-grid">
+      <div class="fx-paleta"><div class="fx-pt">Símbolos</div>${Object.entries(SIMB).map(([k,S])=>`<button type="button" class="fx-simb" data-simb="${k}" title="Clique para adicionar ou arraste para o desenho">
+        <svg viewBox="-4 -4 ${S.w+8} ${S.h+8}" width="40" height="26">${fxForma(k,S.w,S.h)}</svg><span>${esc(S.nome)}</span></button>`).join("")}</div>
+      <div class="fx-area" id="fxArea">${svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom})}</div>
+      <div class="fx-props" id="fxProps"></div>
+    </div>
+    <p class="cap" style="margin-top:8px">Arraste os símbolos · puxe pelos pontos <b>●</b> da borda para ligar · clique numa ligação e arraste o ponto do meio para desviar (ou as pontas para religar) · duplo clique edita o texto · <code>Delete</code> exclui o selecionado.</p>`;
+  const svg=$("#fxSvg",c), area=$("#fxArea",c), props=$("#fxProps",c);
+  const salvarFx=()=>{ sv(); };
+  const redesenhar=()=>{ const sl=area.scrollLeft, st=area.scrollTop; area.innerHTML=svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom}); area.scrollLeft=sl; area.scrollTop=st; ligarSvg(); desenharProps(); };
+  const pt=e=>{ const s=$("#fxSvg"), q=s.createSVGPoint(); q.x=e.clientX; q.y=e.clientY; return q.matrixTransform(s.getScreenCTM().inverse()); };
+  const raiaEm=y=>{ const G=fxGeom(F); return G.raias.find(r=>y>=r.y&&y<r.y+r.h)||(y<0?G.raias[0]:G.raias[G.raias.length-1]); };
+  const garantirRaia=()=>{ if(!F.raias.length) F.raias.push({id:uid(),nome:"Executante"}); };
+  const novoNo=(tipo,x,y)=>{ garantirRaia(); const S=SIMB[tipo]; let raia, ry;
+    if(x==null){ const ref=FX.sel.tipo==="no"&&F.nos.find(n=>n.id===FX.sel.id); raia=ref?ref.raia:F.raias[0].id;
+      const lst=F.nos.filter(n=>n.raia===raia); x=lst.length?Math.max(...lst.map(n=>n.x+(SIMB[n.tipo]||SIMB.processo).w))+56:RAIA_W+40; ry=Math.round((RAIA_MIN-S.h)/2); }
+    else { const r=raiaEm(y); raia=r.id; ry=Math.max(10,Math.round(y-r.y-S.h/2)); x=Math.max(RAIA_W+16,Math.round((x-S.w/2)/10)*10); }
+    const n={id:uid(),tipo,texto:["inicio","fim"].includes(tipo)?S.nome:"",raia,x,ry}; F.nos.push(n);
+    const ant=FX.sel.tipo==="no"&&F.nos.find(m=>m.id===FX.sel.id&&m!==n);   // adicionando depois do selecionado: já liga
+    if(ant&&x!=null&&FX.liga) F.ligacoes.push({id:uid(),de:ant.id,para:n.id,rotulo:""});
+    FX.sel={tipo:"no",id:n.id}; salvarFx(); redesenhar(); return n; };
+  // barra
+  c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ FX.ver=b.dataset.ver; FX.sel={}; render(); });
+  const setZ=z=>{ FX.zoom=Math.max(.3,Math.min(2,Math.round(z*100)/100)); $("#fxZ").textContent=Math.round(FX.zoom*100)+"%"; redesenhar(); };
+  $("#fxMenos",c).onclick=()=>setZ(FX.zoom-.1); $("#fxMais",c).onclick=()=>setZ(FX.zoom+.1);
+  $("#fxAjustar",c).onclick=()=>{ const G=fxGeom(F); setZ(Math.min(1.2,(area.clientWidth-20)/G.W)); };
+  const nomeArq=()=>`fluxograma_${(d.codigo||"processo").replace(/\W+/g,"_")}_${FX.ver}`;
+  $("#fxSvgB",c).onclick=()=>baixarBlob(new Blob([svgFluxo(F)],{type:"image/svg+xml"}),nomeArq()+".svg");
+  $("#fxPngB",c).onclick=()=>{ const G=fxGeom(F), img=new Image(); img.onload=()=>{ const cv=document.createElement("canvas"); cv.width=G.W*2; cv.height=G.H*2; const x=cv.getContext("2d"); x.scale(2,2); x.drawImage(img,0,0); cv.toBlob(b=>baixarBlob(b,nomeArq()+".png"),"image/png"); };
+    img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svgFluxo(F)); };
+  $("#fxPdf",c).onclick=()=>imprimir(`Fluxograma ${FX.ver==="asis"?"AS IS":"TO BE"} — ${d.nome}`,`<h1>${esc(d.codigo)} — ${esc(d.nome)}</h1><p>Fluxograma ${FX.ver==="asis"?"AS IS (como é hoje)":"TO BE (como será)"} · Área: ${esc(d.area||"—")}</p>${svgFluxo(F).replace(/width="\d+(\.\d+)?" height="\d+(\.\d+)?"/,'width="100%"')}`);
+  // paleta: clique adiciona; arrastar solta no ponto
+  c.querySelectorAll(".fx-simb").forEach(b=>b.onpointerdown=e=>{ e.preventDefault(); const tipo=b.dataset.simb, ini={x:e.clientX,y:e.clientY}; let arr=false, fant=null;
+    const mov=ev=>{ if(!arr&&Math.hypot(ev.clientX-ini.x,ev.clientY-ini.y)<6) return; arr=true;
+      if(!fant){ fant=el("div","fx-fantasma"); fant.textContent=SIMB[tipo].nome; document.body.appendChild(fant); } fant.style.left=ev.clientX+8+"px"; fant.style.top=ev.clientY+8+"px"; };
+    const fim=ev=>{ window.removeEventListener("pointermove",mov); window.removeEventListener("pointerup",fim); if(fant) fant.remove();
+      if(!arr){ FX.liga=true; novoNo(tipo); FX.liga=false; return; }
+      const sob=document.elementFromPoint(ev.clientX,ev.clientY); if(sob&&sob.closest("#fxSvg")){ const q=pt(ev); novoNo(tipo,q.x,q.y); } };
+    window.addEventListener("pointermove",mov); window.addEventListener("pointerup",fim); });
+  function ligarSvg(){
+    const s=$("#fxSvg"); if(!s) return;
+    s.onpointerdown=e=>{
+      if(e.button!==0) return;
+      const porta=e.target.closest(".fx-port"), mid=e.target.closest(".fx-mid"), ponta=e.target.closest(".fx-ponta"), hit=e.target.closest(".fx-hit,.fx-rot"), no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab");
+      const temp=$("#fxTemp"); e.preventDefault();
+      const acompanhar=(mov,fim)=>{ const m=ev=>mov(ev), f=ev=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f); fim(ev); };
+        window.addEventListener("pointermove",m); window.addEventListener("pointerup",f); };
+      const noSob=ev=>{ const t=document.elementFromPoint(ev.clientX,ev.clientY); return t&&t.closest(".fx-no"); };
+      if(porta){ const G=fxGeom(F), o=G.nos[porta.dataset.n], p0=fxPorta(o,porta.dataset.lado);
+        acompanhar(ev=>{ const q=pt(ev); temp.setAttribute("d",`M${p0.x} ${p0.y}L${q.x} ${q.y}`); },
+          ev=>{ temp.setAttribute("d",""); const alvo=noSob(ev); if(!alvo||alvo.dataset.n===porta.dataset.n) return;
+            const G2=fxGeom(F), ob=G2.nos[alvo.dataset.n];
+            F.ligacoes.push({id:uid(),de:porta.dataset.n,ds:porta.dataset.lado,para:alvo.dataset.n,ps:fxLadoProximo(ob,pt(ev)),rotulo:""});
+            FX.sel={tipo:"lig",id:F.ligacoes[F.ligacoes.length-1].id}; salvarFx(); redesenhar(); }); return; }
+      if(mid){ const l=F.ligacoes.find(x=>x.id===mid.dataset.l); mid.style.pointerEvents="none";
+        acompanhar(ev=>{ const q=pt(ev); mid.setAttribute("cx",q.x); mid.setAttribute("cy",q.y); },
+          ev=>{ const q=pt(ev); l.via={x:Math.round(q.x/10)*10,y:Math.round(q.y/10)*10}; salvarFx(); redesenhar(); }); return; }
+      if(ponta){ const l=F.ligacoes.find(x=>x.id===ponta.dataset.l), qual=ponta.dataset.p; ponta.style.pointerEvents="none";
+        acompanhar(ev=>{ const q=pt(ev); ponta.setAttribute("x",q.x-6); ponta.setAttribute("y",q.y-6); },
+          ev=>{ const alvo=noSob(ev); if(alvo){ const outro=qual==="de"?l.para:l.de; if(alvo.dataset.n!==outro){ const ob=fxGeom(F).nos[alvo.dataset.n];
+              if(qual==="de"){ l.de=alvo.dataset.n; l.ds=fxLadoProximo(ob,pt(ev)); } else { l.para=alvo.dataset.n; l.ps=fxLadoProximo(ob,pt(ev)); } l.via=null; salvarFx(); } }
+            redesenhar(); }); return; }
+      if(hit){ FX.sel={tipo:"lig",id:hit.dataset.l}; redesenhar(); return; }
+      if(no){ const n=F.nos.find(x=>x.id===no.dataset.n), G=fxGeom(F), o=G.nos[n.id], q0=pt(e); let arr=false;
+        if(!(FX.sel.tipo==="no"&&FX.sel.id===n.id)){ FX.sel={tipo:"no",id:n.id}; desenharProps(); s.querySelectorAll(".fx-no").forEach(g=>{}); }
+        acompanhar(ev=>{ const q=pt(ev); if(!arr&&Math.hypot(q.x-q0.x,q.y-q0.y)<4) return; arr=true; no.setAttribute("transform",`translate(${o.x+q.x-q0.x},${o.y+q.y-q0.y})`); },
+          ev=>{ if(!arr){ redesenhar(); return; } const q=pt(ev), nx=o.x+q.x-q0.x, ny=o.y+q.y-q0.y, r=raiaEm(ny+o.h/2);
+            n.x=Math.max(RAIA_W+16,Math.round(nx/10)*10); n.raia=r.id; n.ry=Math.max(10,Math.round((ny-r.y)/10)*10);
+            F.ligacoes.forEach(l=>{ if(l.de===n.id||l.para===n.id) l.via=null; }); salvarFx(); redesenhar(); }); return; }
+      if(cab){ FX.sel={tipo:"raia",id:cab.dataset.r}; redesenhar(); return; }
+      if(FX.sel.tipo){ FX.sel={}; redesenhar(); }
+    };
+    s.ondblclick=e=>{ const no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab"), lig=e.target.closest(".fx-hit,.fx-rot");
+      if(no) editarTexto(F.nos.find(x=>x.id===no.dataset.n),no);
+      else if(cab){ const r=F.raias.find(x=>x.id===cab.dataset.r), nv=prompt("Nome da raia (quem executa):",r.nome); if(nv!=null&&tx(nv)){ r.nome=tx(nv); salvarFx(); redesenhar(); } }
+      else if(lig){ const l=F.ligacoes.find(x=>x.id===lig.dataset.l), nv=prompt("Texto da ligação (ex.: Sim, Não):",l.rotulo||""); if(nv!=null){ l.rotulo=tx(nv); salvarFx(); redesenhar(); } } };
+  }
+  function editarTexto(n,g){
+    const r=g.getBoundingClientRect(), ar=area.getBoundingClientRect(), t=el("textarea","fx-edit");
+    Object.assign(t.style,{left:(r.left-ar.left+area.scrollLeft)+"px",top:(r.top-ar.top+area.scrollTop)+"px",width:Math.max(150,r.width)+"px",height:Math.max(60,r.height)+"px"});
+    t.value=n.texto||""; area.appendChild(t); t.focus(); t.select();
+    const ok=()=>{ if(!t.isConnected) return; n.texto=t.value.trim(); t.remove(); salvarFx(); redesenhar(); };
+    t.onblur=ok; t.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); ok(); } if(e.key==="Escape"){ t.remove(); } };
+  }
+  function excluirSel(){
+    if(FX.sel.tipo==="no"){ F.nos=F.nos.filter(n=>n.id!==FX.sel.id); F.ligacoes=F.ligacoes.filter(l=>l.de!==FX.sel.id&&l.para!==FX.sel.id); }
+    else if(FX.sel.tipo==="lig") F.ligacoes=F.ligacoes.filter(l=>l.id!==FX.sel.id);
+    else if(FX.sel.tipo==="raia"){ const r=F.raias.find(x=>x.id===FX.sel.id), n=F.nos.filter(x=>x.raia===r.id).length;
+      if(n&&!confirm(`A raia "${r.nome}" tem ${n} símbolo(s). Excluir a raia e esses símbolos?`)) return;
+      F.nos.filter(x=>x.raia===r.id).forEach(x=>{ F.ligacoes=F.ligacoes.filter(l=>l.de!==x.id&&l.para!==x.id); }); F.nos=F.nos.filter(x=>x.raia!==r.id); F.raias=F.raias.filter(x=>x!==r); }
+    else return;
+    // o array foi trocado: grava de volta no processo
+    d.fluxo[FX.ver]=F; FX.sel={}; salvarFx(); render();
+  }
+  FX.excluir=excluirSel;
+  function desenharProps(){
+    const S=FX.sel;
+    if(S.tipo==="no"){ const n=F.nos.find(x=>x.id===S.id); if(!n){ FX.sel={}; return desenharProps(); }
+      props.innerHTML=`<div class="fx-pt">Símbolo</div>
+        <label class="f">Tipo<select id="pTipo">${Object.entries(SIMB).map(([k,v])=>`<option value="${k}"${k===n.tipo?" selected":""}>${esc(v.nome)}</option>`).join("")}</select></label>
+        <label class="f">Texto<textarea id="pTxt" rows="4">${esc(n.texto)}</textarea></label>
+        <label class="f">Raia (quem executa)<select id="pRaia">${F.raias.map(r=>`<option value="${r.id}"${r.id===n.raia?" selected":""}>${esc(r.nome)}</option>`).join("")}</select></label>
+        <div class="acoes"><button type="button" class="peq" id="pDup">Duplicar</button><button type="button" class="peq warn" id="pDel">Excluir</button></div>
+        <p class="cap">Para ligar: puxe um dos pontos ● da borda até outro símbolo.</p>`;
+      $("#pTipo",props).onchange=e=>{ n.tipo=e.target.value; salvarFx(); redesenhar(); };
+      $("#pTxt",props).oninput=e=>{ n.texto=e.target.value; salvarFx(); }; $("#pTxt",props).onchange=()=>redesenhar();
+      $("#pRaia",props).onchange=e=>{ n.raia=e.target.value; salvarFx(); redesenhar(); };
+      $("#pDup",props).onclick=()=>{ const m={...n,id:uid(),x:n.x+(SIMB[n.tipo]||SIMB.processo).w+40}; F.nos.push(m); FX.sel={tipo:"no",id:m.id}; salvarFx(); redesenhar(); };
+      $("#pDel",props).onclick=excluirSel; return; }
+    if(S.tipo==="lig"){ const l=F.ligacoes.find(x=>x.id===S.id); if(!l){ FX.sel={}; return desenharProps(); }
+      const nm=id=>{ const n=F.nos.find(x=>x.id===id); return n?(tx(n.texto)||SIMB[n.tipo].nome):"?"; };
+      props.innerHTML=`<div class="fx-pt">Ligação</div><p class="cap" style="margin:0 0 8px">${esc(nm(l.de))} → ${esc(nm(l.para))}</p>
+        <label class="f">Texto (ex.: Sim / Não)<input id="pRot" value="${esc(l.rotulo||"")}"></label>
+        <div class="acoes"><button type="button" class="peq" data-r="Sim">Sim</button><button type="button" class="peq" data-r="Não">Não</button></div>
+        <div class="acoes"><button type="button" class="peq" id="pInv">Inverter sentido</button>${l.via?'<button type="button" class="peq" id="pVia">Tirar desvio</button>':""}<button type="button" class="peq warn" id="pDel">Excluir</button></div>
+        <p class="cap">Arraste o ponto azul do meio para desviar; arraste uma ponta para ligar a outro símbolo.</p>`;
+      $("#pRot",props).oninput=e=>{ l.rotulo=e.target.value; salvarFx(); }; $("#pRot",props).onchange=()=>redesenhar();
+      props.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ l.rotulo=b.dataset.r; salvarFx(); redesenhar(); });
+      $("#pInv",props).onclick=()=>{ [l.de,l.para]=[l.para,l.de]; [l.ds,l.ps]=[l.ps,l.ds]; salvarFx(); redesenhar(); };
+      const pv=$("#pVia",props); if(pv) pv.onclick=()=>{ l.via=null; salvarFx(); redesenhar(); };
+      $("#pDel",props).onclick=excluirSel; return; }
+    // nada selecionado: raias + geração automática
+    props.innerHTML=`<div class="fx-pt">Raias (quem executa)</div>
+      <div class="fx-raias">${F.raias.map((r,i)=>`<div class="fx-raia${S.tipo==="raia"&&S.id===r.id?" sel":""}"><input data-rn="${r.id}" value="${esc(r.nome)}" aria-label="Nome da raia">
+        <button type="button" class="ib" data-up="${i}" ${i?"":"disabled"} title="Subir">▲</button><button type="button" class="ib" data-dn="${i}" ${i<F.raias.length-1?"":"disabled"} title="Descer">▼</button><button type="button" class="ib" data-rd="${r.id}" title="Excluir raia">🗑</button></div>`).join("")||'<p class="cap">Nenhuma raia ainda.</p>'}</div>
+      <div class="acoes"><button type="button" class="peq" id="pRaiaAdd">＋ Raia</button>${setor&&(setor.subsetores||[]).length?'<button type="button" class="peq" id="pRaiaSub">Raias pelos subsetores</button>':""}</div>
+      <div class="fx-pt" style="margin-top:14px">Começar rápido</div>
+      <button type="button" class="peq" id="pGerar" ${temPassos?"":"disabled"} style="width:100%">${FX.ver==="asis"?"Gerar a partir de “Como é feito hoje”":"Gerar a partir dos passos do TO BE"}</button>
+      <p class="cap">${temPassos?"Cria uma raia por “quem faz” e um símbolo por passo, já ligados em sequência. Depois é só ajustar (decisões, documentos, desvios).":"Cadastre os passos primeiro para gerar o desenho automaticamente."}</p>
+      ${FX.ver==="tobe"&&!F.nos.length&&d.fluxo.asis.nos.length?'<button type="button" class="peq" id="pCopiar" style="width:100%">Copiar o desenho do AS IS para começar</button>':""}
+      <p class="cap" style="margin-top:12px">${F.nos.length} símbolo(s) · ${F.ligacoes.length} ligação(ões)</p>`;
+    props.querySelectorAll("[data-rn]").forEach(i=>{ i.onchange=()=>{ const r=F.raias.find(x=>x.id===i.dataset.rn); r.nome=tx(i.value)||r.nome; salvarFx(); redesenhar(); }; });
+    props.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.up; [F.raias[i-1],F.raias[i]]=[F.raias[i],F.raias[i-1]]; salvarFx(); redesenhar(); });
+    props.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.dn; [F.raias[i+1],F.raias[i]]=[F.raias[i],F.raias[i+1]]; salvarFx(); redesenhar(); });
+    props.querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>{ FX.sel={tipo:"raia",id:b.dataset.rd}; excluirSel(); });
+    $("#pRaiaAdd",props).onclick=()=>{ const nv=prompt("Nome da raia (pessoa, função ou subsetor):"); if(nv&&tx(nv)){ F.raias.push({id:uid(),nome:tx(nv)}); salvarFx(); redesenhar(); } };
+    const rs=$("#pRaiaSub",props); if(rs) rs.onclick=()=>{ let n=0; setor.subsetores.forEach(x=>{ if(tx(x)&&!F.raias.some(r=>nrm(r.nome)===nrm(x))){ F.raias.push({id:uid(),nome:tx(x)}); n++; } }); salvarFx(); redesenhar(); };
+    const pg=$("#pGerar",props); if(pg) pg.onclick=()=>{ if(F.nos.length&&!confirm("Substituir o desenho atual pelo gerado a partir dos passos?")) return; d.fluxo[FX.ver]=fxGerar(d,FX.ver); FX.sel={}; salvarFx(); render(); };
+    const pc=$("#pCopiar",props); if(pc) pc.onclick=()=>{ d.fluxo.tobe=JSON.parse(JSON.stringify(d.fluxo.asis)); FX.sel={}; salvarFx(); render(); };
+  }
+  ligarSvg(); desenharProps();
+}
+document.addEventListener("keydown",e=>{ if(!document.getElementById("fxSvg")) return; if(e.target.closest&&e.target.closest("input,textarea,select")) return;
+  if((e.key==="Delete"||e.key==="Backspace")&&FX.sel.tipo&&FX.excluir){ e.preventDefault(); FX.excluir(); }
+  if(e.key==="Escape"&&FX.sel.tipo){ FX.sel={}; render(); } });
+
+// ═══════════════════════════════════════════════════════════════════
 // VISUAL NO PADRÃO DO RG DO PEDIDO
 // Tela inicial = lista de processos (como "Itens em teste").
 // Processo aberto = menu vertical de ícones + conteúdo (como no RG).
@@ -1265,6 +1667,7 @@ const ICO = {
   gaps:      SV+'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>',
   oport:     SV+'<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
   notas:     SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+  fluxo:     SV+'<rect x="2" y="3" width="8" height="5" rx="1"/><path d="M14 3h8v5h-8z"/><path d="M6 8v4h12V8M12 12v4"/><path d="M12 16l3 3-3 3-3-3z"/></svg>',
   tobe:      SV+'<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg>',
   implantacao:SV+'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg>',
   arq:       SV+'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
@@ -1279,7 +1682,7 @@ const ICO = {
 const SECOES_PROC = [
   ["linha","linha","Linha de vida"], ["registrar","registrar","Registrar"], "sep",
   ["identificacao","info","Identifi­cação","F1"], "sep",
-  ["real","real","Como é feito hoje","F2"], ["it","it","IT atual","F2"], ["anotacoes","notas","Anotações","F2"],
+  ["real","real","Como é feito hoje","F2"], ["fluxo","fluxo","Fluxo­grama","F2"], ["it","it","IT atual","F2"], ["anotacoes","notas","Anotações","F2"],
   ["validacao","aprovacao","Validação AS IS","F3"],
   ["confronto","gaps","Confronto e GAPs","F4"], ["oportunidades","oport","Oportuni­dades","F4"],
   ["tobe","tobe","TO BE · nova IT","F5"], ["validacao_tobe","aprovacao","Validação TO BE","F6"], ["implantacao","implantacao","Implanta­ção","F7"], "sep",
@@ -1287,6 +1690,7 @@ const SECOES_PROC = [
 ];
 const TITULOS_PROC = {
   registrar:["Registrar",""], real:["Como é feito hoje (AS IS)",""], it:["Instrução de Trabalho atual",""],
+  fluxo:["Fluxograma em raias (swimlane)","AS IS e TO BE, com a simbologia padrão."],
   confronto:["Diagnóstico — confronto e registro de GAPs","O que é feito conforme, diferente, sem IT — e o que está na IT e não é feito."],
   oportunidades:["Diagnóstico — oportunidades",""], anotacoes:["Anotações do levantamento",""],
   identificacao:["Identificação e arquitetura","Dados do processo, ligação com outras áreas e andamento do levantamento."],
@@ -1345,6 +1749,25 @@ async function carregarBase(){
     BASE=j; AREAS_PADRAO=j.setores.map(s=>s.nome); }catch(_){}
 }
 const setorOficial=nome=>BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(nome));
+// [NOVO v3.5] atividades levantadas no Diagnóstico de cada departamento (para virarem processo aqui)
+let ATIV_DIAG=[];   // [{id, nome, atividades:[{atividade, subsetor, categoria}]}]
+async function carregarAtividadesDiag(){
+  try{ const r=await fetch("/api/mapa/atividades-diagnostico",{cache:"no-store"}); if(r.ok) ATIV_DIAG=(await r.json()).departamentos||[]; }catch(_){}
+}
+function processoDaAtividade(depId, atividade, depNome){
+  return PROCS.find(p=>{ const o=p.dados.origem; if(o&&o.dep===depId&&nrm(o.atividade)===nrm(atividade)) return true;
+    return !o && nrm(p.dados.area)===nrm(depNome) && nrm(p.dados.nome)===nrm(atividade); });
+}
+function pendentesDoDiag(depNome){
+  const dep=ATIV_DIAG.find(x=>nrm(x.nome)===nrm(depNome)); if(!dep) return {dep:null,lista:[]};
+  return {dep, lista:dep.atividades.filter(a=>!processoDaAtividade(dep.id,a.atividade,dep.nome))};
+}
+let NOVO_ORIGEM=null;   // preenchido quando o processo nasce de uma atividade do Diagnóstico
+function novoDaAtividade(dep, a){
+  NOVO_ORIGEM={dep:dep.id, dep_nome:dep.nome, atividade:a.atividade, subsetor:a.subsetor||""};
+  abrirNovoProcesso(); $("#npNome").value=a.atividade; $("#npArea").value=dep.nome;
+  $("#npOrigem").innerHTML=`🗺️ Do Diagnóstico de <b>${esc(dep.nome)}</b>${a.subsetor?` · subsetor responsável: <b>${esc(a.subsetor)}</b>`:""}`; $("#npOrigem").hidden=false;
+}
 function atualizarListas(){
   const areas=new Set(AREAS_PADRAO), sist=new Set(), quem=new Set();
   PROCS.forEach(p=>{ const d=p.dados; if(tx(d.area)) areas.add(tx(d.area));
@@ -1388,17 +1811,19 @@ function proximoCodigo(){
 }
 function abrirNovoProcesso(){
   const dl=$("#dlgNovo"); ["npNome","npArea","npDono","npIT"].forEach(i=>$("#"+i).value=""); $("#npCrit").value="Média"; $("#npMsg").textContent="";
+  if(!NOVO_ORIGEM) $("#npOrigem").hidden=true;
   dl.showModal(); setTimeout(()=>$("#npNome").focus(),30);
 }
-$("#npNao").onclick=()=>$("#dlgNovo").close();
+$("#npNao").onclick=()=>{ NOVO_ORIGEM=null; $("#dlgNovo").close(); };
 $("#npSim").onclick=async()=>{
   const nome=tx($("#npNome").value), m=$("#npMsg");
   if(!nome){ m.textContent="Informe o nome do processo."; $("#npNome").focus(); return; }
   const dados=normalizar({codigo:proximoCodigo(),nome,area:tx($("#npArea").value),dono:tx($("#npDono").value),criticidade:$("#npCrit").value});
   dados.it.codigo=tx($("#npIT").value);
+  if(NOVO_ORIGEM){ dados.origem={dep:NOVO_ORIGEM.dep,atividade:NOVO_ORIGEM.atividade,subsetor:NOVO_ORIGEM.subsetor}; dados.macroprocesso=NOVO_ORIGEM.subsetor||""; }
   $("#npSim").disabled=true;
   try{ const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
-    j.dados=normalizar(j.dados); PROCS.push(j); $("#dlgNovo").close(); reg.tipo="real"; reg.editando=null; ir("processo",j.id,"registrar");
+    j.dados=normalizar(j.dados); PROCS.push(j); NOVO_ORIGEM=null; $("#dlgNovo").close(); reg.tipo="real"; reg.editando=null; ir("processo",j.id,"registrar");
   }catch(e){ m.textContent=e.message; } finally{ $("#npSim").disabled=false; }
 };
 function renderLista(c){
@@ -1477,7 +1902,7 @@ function renderProcessoShell(c){
   if(caixa) body.appendChild(caixa);
   const sub=el("div"); body.appendChild(sub);
   ({registrar:renderRegistrarProc,real:abaReal,it:abaIT,confronto:abaConfronto,oportunidades:abaOport,anotacoes:abaNotas,
-    identificacao:abaIdent,validacao:abaValid,tobe:abaToBe,validacao_tobe:abaValidToBe,implantacao:abaImplantacao,
+    identificacao:abaIdent,validacao:abaValid,tobe:abaToBe,validacao_tobe:abaValidToBe,implantacao:abaImplantacao,fluxo:abaFluxo,
     historico:(b,p)=>desenharHistorico(b,p,0)})[secProc](sub,p,d,sv);
 }
 
@@ -1641,7 +2066,18 @@ async function iniciar(){
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
     const todos=j||[];
     CFG=todos.find(p=>p.dados&&p.dados._tipo==="arquitetura")||null; if(CFG&&!Array.isArray(CFG.dados.areas)) CFG.dados.areas=[];
-    PROCS=todos.filter(p=>!(p.dados&&p.dados._tipo)).map(p=>({...p,dados:normalizar(p.dados)})); setStatus("ok"); render();
+    PROCS=todos.filter(p=>!(p.dados&&p.dados._tipo)).map(p=>({...p,dados:normalizar(p.dados)}));
+    await carregarAtividadesDiag();
+    const q=new URLSearchParams(location.search), qp=q.get("processo"), qd=q.get("de_dep"), qa=q.get("atividade");
+    if(qp||qd){ try{ history.replaceState(null,"",location.pathname); }catch(_){} }
+    if(qp&&procPorId(qp)){ vista="processo"; atual=qp; secProc="linha"; guardarNav(); }
+    setStatus("ok"); render();
+    if(qd&&qa){   // vindo do Diagnóstico: abre o processo da atividade, ou oferece criar
+      const dep=ATIV_DIAG.find(x=>x.id===qd)||(BASE&&BASE.setores.find(x=>x.id===qd));
+      const ja=dep&&processoDaAtividade(qd,qa,dep.nome);
+      if(ja) ir("processo",ja.id,"linha");
+      else if(dep){ const a=(dep.atividades||[]).find(x=>nrm(x.atividade)===nrm(qa))||{atividade:qa,subsetor:q.get("subsetor")||""}; novoDaAtividade(dep,a); }
+    }
   }catch(e){
     if(e.message==="sessão expirada") return;
     setStatus("erro",e.message);
