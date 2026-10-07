@@ -176,6 +176,16 @@ td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
 a.btn{text-decoration:none}
 [hidden]{display:none!important}
 td .ro.trava{color:var(--ink-2)}
+/* [v3.5] subsetor × atividade e ponte com o Mapa */
+.sub-tab td,.sub-tab th{text-align:center;white-space:nowrap} .sub-tab td:first-child,.sub-tab th:first-child{text-align:left;white-space:normal;min-width:200px}
+.sub-tab td.resp{background:var(--ok-soft);font-weight:600} .sub-tab td.fora{background:var(--amber-soft);color:var(--amber);font-weight:600}
+.sub-tab td.zero{color:var(--rule)}
+.mapa-lista{display:flex;flex-direction:column;gap:6px}
+.mapa-item{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;font-size:14px}
+.mapa-item .st{margin-left:auto;display:flex;gap:8px;align-items:center}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-amb{background:var(--amber-soft);color:var(--amber)}
+.alerta-sub{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px;border-left:4px solid var(--amber)}
 @media (max-width:860px){
   .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px} .bar-tit span{display:none}
   .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
@@ -338,6 +348,30 @@ const pendentes = {};
 // [v3.3] departamento aberto (= setor do Organograma) e permissão da pessoa
 let DEP=null, DEP_INFO=null, DEPS=[], LEGADO={secoes:0}, OFICIAL=null;
 let NIVEL=3, EMAIL="", PERM={};
+// [v3.5] subsetores do departamento (Organograma) e processos já criados no Mapa
+let BASE_CAD=null, PROC_MAPA=null;
+async function carregarBaseCad(){ try{ const r=await fetch("/api/base/cadastros",{cache:"no-store"}); if(r.ok) BASE_CAD=await r.json(); }catch(_){} }
+async function carregarProcMapa(){ PROC_MAPA=null;
+  try{ const r=await fetch(`${API}/dep/${encodeURIComponent(DEP)}/processos-mapa`,{cache:"no-store"}); if(r.ok) PROC_MAPA=(await r.json()).processos||[]; }catch(_){}
+  if(["inventario","matriz"].includes(abaAtiva)&&!document.activeElement?.closest?.("#conteudo input,#conteudo textarea")) renderAba(); }
+function setorCad(){ return BASE_CAD&&(BASE_CAD.setores||[]).find(x=>x.id===DEP); }
+function subsetoresDep(){
+  const s=new Set(), st=setorCad();
+  if(st){ (st.subsetores||[]).forEach(x=>texto(x)&&s.add(texto(x))); (st.pessoas||[]).forEach(p=>texto(p.subsetor)&&s.add(texto(p.subsetor))); }
+  (OFICIAL||[]).forEach(p=>texto(p.subsetor)&&s.add(texto(p.subsetor)));
+  lista("inventario").forEach(i=>texto(i.subsetor)&&s.add(texto(i.subsetor)));
+  return ordenar([...s]);
+}
+function subsetorDaPessoa(nome){
+  const n=norm(nome); if(!n) return "";
+  const p=(OFICIAL||[]).find(x=>norm(x.nome)===n)||((setorCad()||{}).pessoas||[]).find(x=>norm(x.nome)===n);
+  return p?texto(p.subsetor):"";
+}
+function subsetorDaAtividade(at){ const i=lista("inventario").find(x=>norm(x.atividade)===norm(at)); return i?texto(i.subsetor):""; }
+function processoDaAtividade(at){ return (PROC_MAPA||[]).find(p=>norm(p.atividade||p.nome)===norm(at)); }
+function linkMapa(i){ const pr=processoDaAtividade(i.atividade);
+  if(pr) return `/mapa?processo=${encodeURIComponent(pr.id)}`;
+  return `/mapa?de_dep=${encodeURIComponent(DEP)}&atividade=${encodeURIComponent(i.atividade)}&subsetor=${encodeURIComponent(i.subsetor||"")}`; }
 const NOMES_NIVEL={0:"Sem acesso",1:"Visualizar",2:"Adicionar",3:"Editar"};
 function urlSecao(sec){ return `${API}/dep/${encodeURIComponent(DEP)}/${encodeURIComponent(sec)}`; }
 function meu(o){ if(o&&typeof o==="object") o._por=EMAIL; return o; }   // autor do registro (base do perfil "Adicionar")
@@ -671,7 +705,7 @@ async function abrirDep(id){
   try{ sessionStorage.setItem("diag_dep",id); }catch(_){}
   try{ history.replaceState(null,"",`${location.pathname}?dep=${encodeURIComponent(id)}`); }catch(_){}
   $("#menu").style.display=""; montarMenu(); $("#btnDeps").hidden=false; $("#barDep").textContent=DEP_INFO.nome;
-  abrirAba(abaAtiva); carregarOficial();
+  abrirAba(abaAtiva); carregarOficial(); carregarProcMapa();
 }
 async function carregarOficial(){
   try{ const r=await fetch(`${API}/dep/${encodeURIComponent(DEP)}/organograma-oficial`,{cache:"no-store"});
@@ -722,10 +756,13 @@ function renderChecklist(c){
 // ═══════════════════════════════════════════════════════════════════
 // 02 · Inventário
 // ═══════════════════════════════════════════════════════════════════
+const estInv={mapaAberto:false};
 function renderInventario(c){
   const inv=lista("inventario");
   c.innerHTML=`<h2>📋 Inventário de atividades</h2>
     <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
+    <p class="cap">Defina o <b>subsetor responsável</b> de cada atividade (ex.: abastecimento de estoque → Recebimento). O Diário de Bordo e a Matriz passam a mostrar quando outro subsetor está fazendo o trabalho.</p>
+    <datalist id="dl-subs">${subsetoresDep().map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
     <div id="invTbl"></div>
     <div class="box" ${NIVEL<2?'style="display:none"':""}><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
       <div class="grade">
@@ -733,6 +770,7 @@ function renderInventario(c){
         <label class="f">Categoria<select id="invCat">${opts(CATEGORIAS_INVENTARIO)}</select></label>
         <label class="f">Descrição / exemplo<input id="invDesc"></label>
         <label class="f">Já registrada oficialmente?<select id="invReg">${opts(STATUS_REGISTRADA)}</select></label>
+        <label class="f">Subsetor responsável<input id="invSub" list="dl-subs" placeholder="Quem deveria fazer"></label>
       </div>
       <div class="acoes"><button class="btn primary" id="invAdd" type="button">💾 Adicionar</button><span class="msg" id="invMsg"></span></div>
     </div>`;
@@ -740,20 +778,35 @@ function renderInventario(c){
     aoMudar:(r,col)=>{ if(col.campo==="atividade") atualizarListas(); },
     colunas:[
       {campo:"atividade",label:"Atividade",largura:240},
+      {campo:"subsetor",label:"Subsetor responsável",lista:"dl-subs",largura:170,placeholder:"quem deveria fazer"},
       {campo:"categoria",label:"Categoria",tipo:"select",opcoes:CATEGORIAS_INVENTARIO},
       {campo:"descricao",label:"Descrição / exemplo",largura:260},
       {campo:"registrada",label:"Já registrada oficialmente?",tipo:"select",opcoes:STATUS_REGISTRADA},
+      {campo:"_mapa",label:"No Mapa Digital",tipo:"calc",calc:r=>{ if(!texto(r.atividade)) return ""; if(PROC_MAPA===null) return "…"; const pr=processoDaAtividade(r.atividade); return pr?`${pr.codigo} · ${pr.status}`:"— ainda não mapeada"; }},
     ]}));
+  // ponte com o Mapa: cada atividade pode virar um processo (passo a passo, IT e fluxograma em raias)
+  const ativs=inv.filter(i=>texto(i.atividade));
+  if(ativs.length&&PERM.mapa>=1){
+    const box=el("details","box"); box.open=!!estInv.mapaAberto; box.ontoggle=()=>{ estInv.mapaAberto=box.open; };
+    const feitas=ativs.filter(i=>processoDaAtividade(i.atividade)).length;
+    box.innerHTML=`<summary>🧩 Levar ao Mapa Digital — ${feitas} de ${ativs.length} atividade(s) já viraram processo</summary>
+      <p class="cap">O Diagnóstico mostra <b>o que</b> é feito e quanto pesa; o Mapa detalha <b>como</b> cada atividade é feita (passo a passo, Instrução de Trabalho e fluxograma em raias). Leve primeiro as que mais consomem tempo ou dão mais problema.</p>
+      <div class="mapa-lista">${ativs.map(i=>{ const pr=processoDaAtividade(i.atividade);
+        return `<div class="mapa-item"><b>${esc(i.atividade)}</b>${texto(i.subsetor)?`<span class="pill p-cinza">${esc(i.subsetor)}</span>`:'<span class="pill p-amb">sem subsetor responsável</span>'}
+          <span class="st">${pr?`<span class="pill p-ok">${esc(pr.codigo)} · ${esc(pr.status)}</span><a class="btn" href="${linkMapa(i)}">Abrir processo →</a>`
+            :(PERM.mapa>=2?`<a class="btn" href="${linkMapa(i)}" data-livre>＋ Mapear no Mapa Digital</a>`:'<span class="pill p-cinza">ainda não mapeada</span>')}</span></div>`; }).join("")}</div>`;
+    c.appendChild(box);
+  }
   $("#invAdd",c).onclick=()=>{
     const nome=texto($("#invNova").value), msg=$("#invMsg");
     if(!nome){ msg.className="msg erro"; msg.textContent="Informe o nome da atividade."; return; }
     if(inv.some(i=>norm(i.atividade)===norm(nome))){ msg.className="msg erro"; msg.textContent=`'${nome}' já existe no Inventário.`; return; }
-    inv.push(meu({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value}));
+    inv.push(meu({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value, subsetor:texto($("#invSub").value)}));
     inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
     salvar("inventario"); renderAba();
     const m2=$("#invMsg"); m2.className="msg ok"; m2.textContent=`Atividade '${nome}' adicionada!`;
   };
-  botoesExport(c,[["⬇️ Baixar Inventário (Excel)",()=>baixarExcel("inventario_atividades","Inventario",inv,["atividade","categoria","descricao","registrada"])]]);
+  botoesExport(c,[["⬇️ Baixar Inventário (Excel)",()=>baixarExcel("inventario_atividades","Inventario",inv,["atividade","subsetor","categoria","descricao","registrada"])]]);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1026,8 +1079,10 @@ function renderDiario(c){
     <div class="grade"><label class="f">Analista (do Organograma)<select id="dAnal"><option value="">— selecione —</option>${pessoas.map(p=>`<option${p===est.analistaSel?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
     <label class="f">Ou nome novo<input id="dAnalNovo" placeholder="se não estiver na lista" value="${esc(est.analistaNovo)}"></label></div>
     ${!pessoas.length?'<p class="cap">💡 O Organograma ainda não tem ninguém cadastrado. Digite o nome no campo <b>"Ou nome novo"</b> para continuar.</p>':""}`;
-  if(aberto) h+=`<div class="rodando"><div class="t1">⏱️ EM ANDAMENTO DESDE ${esc(aberto.hora_inicio)}</div><div class="t2">${esc(aberto.atividade)}</div>
+  if(aberto){ const resp=subsetorDaAtividade(aberto.atividade), dele=subsetorDaPessoa(analista);
+    h+=`<div class="rodando"><div class="t1">⏱️ EM ANDAMENTO DESDE ${esc(aberto.hora_inicio)}</div><div class="t2">${esc(aberto.atividade)}</div>
       <div class="t3"><span data-desde="${esc(aberto.hora_inicio)}">${minutosDesde(aberto.hora_inicio)} min até agora</span> — escolha outra atividade abaixo para trocar</div></div>`;
+    if(resp&&dele&&norm(resp)!==norm(dele)) h+=`<div class="alerta-sub">⚠ <b>${esc(aberto.atividade)}</b> é do subsetor <b>${esc(resp)}</b>, mas quem está fazendo é do <b>${esc(dele)}</b>. Fica registrado na análise “Quem faz o quê × subsetor” (Matriz).</div>`; }
   else if(analista) h+='<div class="aviso">Nenhuma atividade em andamento para essa pessoa hoje — escolha uma atividade abaixo para começar a cronometrar.</div>';
   else h+='<div class="aviso">Selecione ou digite quem está sendo observado para liberar os toques rápidos.</div>';
   if(aberto) h+=`<details class="box" id="dDet" ${est.detAberto?"open":""}><summary>📝 Detalhes desta atividade (opcional, pode preencher enquanto roda)</summary>
@@ -1169,6 +1224,19 @@ function calcularPercentual(matriz){
   Object.entries(esf).forEach(([k,v])=>out[k]= total>0?`${Math.round(v/total*1000)/10}%`:"0%");
   return out;
 }
+// cruza o Diário (quem executou, quanto tempo) com o subsetor de cada pessoa e o responsável de cada atividade
+function quemFazPorSubsetor(){
+  const por={}, cols=new Set();
+  lista("diario").forEach(r=>{ const a=texto(r.atividade), m=/^\d+$/.test(String(r.duracao||""))?Number(r.duracao):0; if(!a||!m||norm(a)===norm("Pausa / Interrupção")) return;
+    const sub=subsetorDaPessoa(r.analista)||"(sem subsetor)"; cols.add(sub);
+    const L=por[norm(a)]=por[norm(a)]||{atividade:a,resp:subsetorDaAtividade(a),min:{},quem:{},total:0};
+    L.min[sub]=(L.min[sub]||0)+m; L.total+=m; (L.quem[sub]=L.quem[sub]||new Set()).add(texto(r.analista)); });
+  const linhas=Object.values(por).sort((a,b)=>b.total-a.total);
+  linhas.forEach(l=>{ if(l.resp) cols.add(l.resp); });
+  const fora=linhas.filter(l=>l.resp&&Object.keys(l.min).some(x=>x!==l.resp)).map(l=>{ const outros=Object.keys(l.min).filter(x=>x!==l.resp), mf=outros.reduce((a,x)=>a+l.min[x],0);
+    return {atividade:l.atividade,resp:l.resp,outros:outros.map(x=>`${x} (${[...l.quem[x]].join(", ")})`),pct:Math.round(mf/l.total*100)}; });
+  return {linhas,cols:ordenar([...cols]),fora,semResp:linhas.filter(l=>!l.resp).length};
+}
 function renderMatriz(c){
   const matriz=lista("matriz");
   c.innerHTML=`<h2>📐 Matriz de Atividades x Responsabilidades x Tempo</h2>
@@ -1184,6 +1252,7 @@ function renderMatriz(c){
     matriz.forEach(l=>{ const k=norm(l.atividade); if(k in p) l.percentual=p[k]; }); salvar("matriz"); renderAba(); aviso("Percentuais recalculados.",true); };
   $("#mxTbl",c).appendChild(tabela({secao:"matriz", linhas:matriz, aoEstrutura:renderAba, colunas:[
     {campo:"atividade",label:"Atividade",lista:"dl-atividades",largura:200},
+    {campo:"_sub",label:"Subsetor responsável",tipo:"calc",calc:r=>subsetorDaAtividade(r.atividade)||"—"},
     {campo:"quemfaz",label:"Quem executa",lista:"dl-pessoas",largura:130},
     {campo:"frequencia",label:"Frequência",tipo:"select",opcoes:FREQUENCIAS},
     {campo:"tempo",label:"Tempo médio",placeholder:"ex: 25 min",largura:150},
@@ -1193,7 +1262,18 @@ function renderMatriz(c){
     {campo:"visibilidade",label:"Visibilidade",tipo:"select",opcoes:VISIBILIDADES},
     {campo:"percentual",label:"% do tempo total",tipo:"ro"},
   ]}));
-  botoesExport(c,[["⬇️ Baixar Matriz de Atividades (Excel)",()=>baixarExcel("matriz_atividades_tempo","Matriz",matriz,COLS_MATRIZ)]]);
+  const q=quemFazPorSubsetor(), sec=el("div");
+  sec.innerHTML=`<h3>🔀 Quem faz o quê × subsetor</h3>
+    <p class="cap">Tempo registrado no Diário de Bordo, por atividade e pelo subsetor de quem executou (o subsetor de cada pessoa vem do Organograma). <span class="pill p-ok">verde</span> = subsetor responsável · <span class="pill p-amb">âmbar</span> = feito por outro subsetor.</p>
+    ${!q.linhas.length?'<div class="aviso">Ainda não há registros no Diário de Bordo com duração para cruzar.</div>':`
+    ${q.fora.length?`<div class="alerta-sub"><b>⚠ ${q.fora.length} atividade(s) feitas por um subsetor que não é o responsável:</b><ul style="margin:6px 0 0 18px;padding:0">${q.fora.map(f=>`<li><b>${esc(f.atividade)}</b> — responsável: ${esc(f.resp)}; ${f.pct}% do tempo feito por ${esc(f.outros.join(", "))}</li>`).join("")}</ul></div>`:""}
+    ${q.semResp?`<p class="cap">💡 ${q.semResp} atividade(s) sem subsetor responsável definido — defina no Inventário para a análise ficar completa.</p>`:""}
+    <div class="tbl-wrap"><table class="tbl sub-tab"><thead><tr><th>Atividade</th><th>Responsável</th>${q.cols.map(x=>`<th>${esc(x)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${
+      q.linhas.map(l=>`<tr><td><span class="ro" style="color:var(--ink)">${esc(l.atividade)}</span></td><td>${esc(l.resp||"—")}</td>${q.cols.map(x=>{ const v=l.min[x]||0;
+        return `<td class="${!v?"zero":l.resp&&x===l.resp?"resp":l.resp&&x!==l.resp?"fora":""}">${v?v+" min":"·"}</td>`; }).join("")}<td><b>${l.total} min</b></td></tr>`).join("")}</tbody></table></div>`}`;
+  c.appendChild(sec);
+  botoesExport(c,[["⬇️ Baixar Matriz de Atividades (Excel)",()=>baixarExcel("matriz_atividades_tempo","Matriz",matriz.map(m=>({...m,subsetor_responsavel:subsetorDaAtividade(m.atividade)})),["atividade","subsetor_responsavel",...COLS_MATRIZ.slice(1)])],
+    ["⬇️ Quem faz o quê × subsetor (Excel)",()=>baixarExcel("quem_faz_o_que_subsetor","Subsetores",q.linhas.map(l=>({atividade:l.atividade,responsavel:l.resp,...Object.fromEntries(q.cols.map(x=>[x,l.min[x]||0])),total_min:l.total})),["atividade","responsavel",...q.cols,"total_min"])]]);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1353,7 +1433,7 @@ function gerarRelatorio(){
   ETAPAS_CHECKLIST.forEach(([id,t,d])=>L.push(`- ${ck[id]?"✅":"⬜"} ${t} (\`${d}\`)`)); L.push("");
   L.push("## 2. Inventário de atividades\n");
   const itens=inv.filter(i=>texto(i.atividade));
-  if(itens.length) itens.forEach(i=>L.push(`- **${i.atividade}** (${i.categoria||"—"}) — registrada oficialmente: ${i.registrada||"—"}`)); else L.push("_Nenhuma atividade cadastrada ainda._");
+  if(itens.length) itens.forEach(i=>{ const pr=processoDaAtividade(i.atividade); L.push(`- **${i.atividade}** (${i.categoria||"—"}) — subsetor responsável: ${i.subsetor||"—"} · registrada oficialmente: ${i.registrada||"—"}${pr?` · Mapa: ${pr.codigo} (${pr.status})`:""}`); }); else L.push("_Nenhuma atividade cadastrada ainda._");
   L.push(""); L.push("## 3. Organograma funcional real\n");
   const po=org.filter(o=>texto(o.pessoa));
   if(po.length) po.forEach(o=>{ let l=`- **${o.pessoa}** — ${o.papel||"—"}`; if(o.responde_para) l+=`; responde para ${o.responde_para}`; if(o.especialista) l+=`; especialista em ${o.especialista}`; if(o.cobre) l+=`; cobre/é coberto por ${o.cobre}`; L.push(l); });
@@ -1382,6 +1462,10 @@ function gerarRelatorio(){
   const mv=mat.filter(m=>texto(m.atividade));
   if(mv.length) mv.forEach(m=>L.push(`- **${m.atividade}** — ${m.quemfaz||"—"} | ${m.frequencia||"—"} | ${m.tempo||"—"} | ${m.percentual||"—"} do tempo total`));
   else L.push("_Matriz de Atividades ainda não consolidada._");
+  const qs=quemFazPorSubsetor();
+  L.push(""); L.push("## 9.1 Quem faz o quê × subsetor\n");
+  if(qs.fora.length) qs.fora.forEach(f=>L.push(`- ⚠ **${f.atividade}** — responsável: ${f.resp}; ${f.pct}% do tempo feito por ${f.outros.join(", ")}`));
+  else L.push(qs.linhas.length?"_Nenhuma atividade feita fora do subsetor responsável._":"_Sem registros do Diário com duração para cruzar._");
   L.push(""); L.push("## 10. Mapas de Jornada por atividade\n");
   const jk=Object.entries(jor).filter(([k])=>!k.startsWith("_"));
   if(jk.length) jk.forEach(([k,j])=>L.push(`- **${j.atividade||k}** — mapa de jornada preenchido`)); else L.push("_Nenhum mapa de jornada criado ainda._");
@@ -1414,7 +1498,7 @@ function renderRelatorio(c){
 })();
 async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; PERM=a.permissoes||{}; } }catch(_){}
-  try{ await carregarDepartamentos(); setStatus("ok"); }
+  try{ await Promise.all([carregarDepartamentos(), carregarBaseCad()]); setStatus("ok"); }
   catch(e){
     setStatus("erro", e.message);
     $("#conteudo").innerHTML=`<div class="erro-box"><b>Não consegui carregar os departamentos do diagnóstico.</b><br>${esc(e.message)}<br><br>Se o servidor estava dormindo, espere uns segundos e tente de novo.<div class="acoes"><button class="btn" type="button" onclick="location.reload()">Tentar de novo</button></div></div>`;
