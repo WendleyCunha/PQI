@@ -860,7 +860,7 @@ def baixar_arquivo(arquivo_id: str):
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# [NOVO v2.4] DIAGNÓSTICO N2 — API GENÉRICA
+# [NOVO v2.4] DIAGNÓSTICO — API GENÉRICA
 # 3 rotas que guardam/devolvem QUALQUER JSON por seção. Não tem nenhum
 # nome de campo aqui de propósito: campos e seções novas se resolvem só
 # no diagnostico.html, sem precisar mexer neste arquivo.
@@ -1265,7 +1265,7 @@ PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
     "/diario": "diario.html",                                            # Diário de Bordo
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
-    "/diagnostico": "diagnostico.html",                                  # Diagnóstico N2
+    "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
