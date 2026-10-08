@@ -272,6 +272,28 @@ table.matriz td.zero{color:var(--rule)}
 .ativ-diag .chip-at{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--steel);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;background:var(--sheet)}
 .ativ-diag .chip-at small{color:var(--ink-3)}
 @media (max-width:1100px){ .fx-grid{grid-template-columns:1fr} .fx-paleta{display:flex;flex-wrap:wrap;gap:4px;max-height:none} .fx-simb{width:auto} }
+/* [v3.6] seletor de pessoas (várias) */
+.pick{position:fixed;z-index:80;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:0 12px 32px rgba(10,15,25,.22);display:flex;flex-direction:column;max-height:360px;width:340px}
+.pick .pk-busca{padding:8px;border-bottom:1px solid var(--rule-2)}
+.pick .pk-lista{overflow:auto;padding:4px 8px}
+.pick .pk-g{font:600 11.5px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin:8px 2px 4px}
+.pick label{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.pick label:hover{background:var(--rule-2)}
+.pick label input{width:16px;height:16px;margin-top:1px;accent-color:var(--steel);flex:none}
+.pick label small{display:block;color:var(--ink-3);font-size:12px}
+.pick .pk-rod{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;border-top:1px solid var(--rule-2);font-size:12.5px;color:var(--ink-3)}
+.campo-pick{position:relative} .campo-pick input{padding-right:30px;cursor:pointer} .campo-pick::after{content:"▾";position:absolute;right:10px;bottom:8px;color:var(--ink-3);pointer-events:none}
+/* contexto do processo em todas as seções */
+.ctx-proc{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;color:var(--ink-3);margin:0 0 6px}
+.ctx-proc b{font:700 14px "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.ctx-proc .nm{color:var(--ink);font-weight:600}
+/* fluxograma vazio: como começar */
+.fx-inicio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;padding:18px}
+.fx-op{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+.fx-op h4{margin:0;font:700 16px "IBM Plex Sans Condensed",sans-serif}
+.fx-op p{margin:0;font-size:13px;color:var(--ink-3)}
+.fx-op .acoes{margin:auto 0 0}
+.fx-op.dest{border-color:var(--steel);box-shadow:inset 4px 0 0 var(--steel)}
 dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:520px;width:calc(100% - 32px)}
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
@@ -313,7 +335,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   <p class="muted" style="margin:0;font-size:13px">Comece só com o nome. O resto você completa ao longo do levantamento.</p>
   <label class="f">Nome do processo *<input id="npNome" placeholder="Ex.: Devolução de produto em loja"></label>
   <label class="f">Área<input id="npArea" list="dl-areas"></label>
-  <label class="f">Responsável (dono do processo)<input id="npDono"></label>
+  <label class="f">Responsável(is) — dono do processo<input id="npDono" placeholder="Clique para escolher uma ou mais pessoas"></label>
   <label class="f">Criticidade<select id="npCrit"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></label>
   <label class="f">Código da IT (se tiver)<input id="npIT" placeholder="Ex.: IT-LOG-012"></label>
   <p class="msg erro" id="npMsg" style="margin:8px 0 0"></p>
@@ -783,7 +805,7 @@ function abaIdent(c,p,d,sv){
   c.innerHTML=`${og?`<p class="origem-box">🗺️ Este processo detalha a atividade <b>${esc(og.atividade)}</b> do Diagnóstico de <b>${esc(depOg?depOg.nome:d.area||"—")}</b>${og.subsetor?` · subsetor responsável: <b>${esc(og.subsetor)}</b>`:""}.
       <a href="/diagnostico?dep=${encodeURIComponent(og.dep)}" style="margin-left:6px">Abrir o diagnóstico →</a></p>`:""}<div class="grade">
       ${campo("Código","fCod",d.codigo)}${campo("Nome do processo *","fNome",d.nome)}
-      ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável (dono do processo)","fDono",d.dono)}
+      ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável(is) — dono do processo","fDono",d.dono,'placeholder="Clique para escolher uma ou mais pessoas"')}
       <label class="f">Criticidade<select id="fCrit">${opts(CRITICIDADE,d.criticidade,false)}</select></label>
       ${campo("Macroprocesso","fMacro",d.macroprocesso,'list="dl-macro" placeholder="Ex.: Pós-venda"')}
       ${campo("Recebe de (área / processo anterior)","fRec",d.recebe_de,'list="dl-areas"')}
@@ -807,6 +829,7 @@ function abaIdent(c,p,d,sv){
   const cab=()=>{ const h=document.querySelector(".cab h1"); if(h) h.textContent=d.nome||"(sem nome)"; };
   [["fCod","codigo"],["fNome","nome"],["fArea","area"],["fDono","dono"],["fObj","objetivo"],["fGat","gatilho"],["fEnt","entradas"],["fSai","saidas"],["fSis","sistemas"],["fEntr","entrevistados"],["fCham","chamados"]]
     .forEach(([id,k])=>ligar(c,id,d,k,sv,"input",k==="nome"?cab:null));
+  ligarPick($("#fDono",c),()=>d);
   ligar(c,"fCrit",d,"criticidade",sv,"change",render); ligar(c,"fMacro",d,"macroprocesso",sv); ligar(c,"fRec",d,"recebe_de",sv); ligar(c,"fEnt2",d,"entrega_para",sv);
   ligar(c,"fArea",d,"area",sv,"change",render);
   c.querySelectorAll("[data-et]").forEach(i=>i.onchange=()=>{ const e=d.etapas[i.dataset.et]; e.feito=i.checked; if(i.checked&&!e.data) e.data=hojeISO(); sv(); render(); });
@@ -1480,17 +1503,49 @@ function svgFluxo(F, op={}){
   s+=`<path id="fxTemp" d="" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4" pointer-events="none"/></svg>`;
   return s;
 }
-function fxGerar(d,ver){
+// modo "pessoa": uma raia por "quem faz" · modo "subsetor": a pessoa vira o subsetor dela (Organograma)
+function subsetorDe(nome){ if(!BASE||!tx(nome)) return ""; for(const st of BASE.setores){ const p=st.pessoas.find(x=>nrm(x.nome)===nrm(nome)); if(p) return tx(p.subsetor)||st.nome; } return ""; }
+function fxGerar(d,ver,modo){
   const fonte=(ver==="asis"?d.passos_real:d.tobe.passos).filter(x=>tx(x.descricao));
-  const nomes=[]; fonte.forEach(x=>{ const q=tx(x.quem)||"Executante"; if(!nomes.some(n=>nrm(n)===nrm(q))) nomes.push(q); });
+  const raiaDe=q=>{ q=tx(q)||"Executante"; return modo==="subsetor"?(subsetorDe(q)||q):q; };
+  const nomes=[]; fonte.forEach(x=>{ const q=raiaDe(x.quem); if(!nomes.some(n=>nrm(n)===nrm(q))) nomes.push(q); });
   if(!nomes.length) nomes.push("Executante");
-  const raias=nomes.map(n=>({id:uid(),nome:n})), rid=q=>raias.find(r=>nrm(r.nome)===nrm(tx(q)||"Executante")).id;
+  const raias=nomes.map(n=>({id:uid(),nome:n})), rid=q=>raias.find(r=>nrm(r.nome)===nrm(raiaDe(q))).id;
   const nos=[], ligacoes=[]; let x=RAIA_W+40;
   const add=(tipo,texto,raia)=>{ const S=SIMB[tipo]; const n={id:uid(),tipo,texto,raia,x,ry:Math.round((RAIA_MIN-S.h)/2)}; nos.push(n); x+=S.w+56; return n; };
   let ant=add("inicio","Início",fonte.length?rid(fonte[0].quem):raias[0].id);
   fonte.forEach(p=>{ const t=tx(p.descricao), tipo=/\?\s*$/.test(t)?"decisao":"processo"; const n=add(tipo,t,rid(p.quem)); ligacoes.push({id:uid(),de:ant.id,para:n.id,rotulo:""}); ant=n; });
   const f=add("fim","Fim",ant.raia); ligacoes.push({id:uid(),de:ant.id,para:f.id,rotulo:""});
   return {raias,nos,ligacoes};
+}
+
+// ─── fluxograma vazio: como começar ───
+function telaInicioFluxo(d,temPassos,setor){
+  const asis=FX.ver==="asis", outros=PROCS.filter(p=>p.dados!==d&&(p.dados.fluxo&&((p.dados.fluxo.asis||{}).nos||[]).length||p.dados.passos_real.some(x=>tx(x.descricao))));
+  const subs=setor?(setor.subsetores||[]).filter(Boolean):[];
+  return `<div class="fx-inicio">
+    <div class="fx-op dest"><h4>⤵ Puxar do Mapa</h4><p>Gera o fluxograma a partir dos passos ${asis?"de <b>Como é feito hoje</b>":"do <b>TO BE</b>"} deste processo: um símbolo por passo, já ligados em sequência.</p>
+      ${temPassos?`<label class="f">Raias por<select id="fiModo"><option value="pessoa">Pessoa (quem faz cada passo)</option><option value="subsetor"${FX.modoRaia==="subsetor"?" selected":""}>Subsetor de quem faz (do Organograma)</option></select></label>
+        <div class="acoes"><button type="button" class="primary" id="fiGerar">Gerar o fluxograma</button></div>`
+      :`<p class="msg erro">Ainda não há passos ${asis?"em “Como é feito hoje”":"no TO BE"}.</p><div class="acoes"><button type="button" id="fiIrPassos">Cadastrar os passos</button></div>`}</div>
+    ${!asis&&(d.fluxo.asis.nos||[]).length?`<div class="fx-op"><h4>⧉ Copiar o AS IS</h4><p>Começa o TO BE com o desenho de hoje e você altera o que muda.</p><div class="acoes"><button type="button" id="fiCopiar">Copiar o AS IS</button></div></div>`:""}
+    ${outros.length?`<div class="fx-op"><h4>📋 Partir de outro processo</h4><p>Usa o fluxograma (ou os passos) de outro processo do Mapa como base.</p>
+      <label class="f">Processo<select id="fiOutro">${outros.map(p=>`<option value="${p.id}">${esc(p.dados.codigo)} · ${esc(p.dados.nome)}</option>`).join("")}</select></label>
+      <div class="acoes"><button type="button" id="fiOutroOk">Usar como base</button></div></div>`:""}
+    <div class="fx-op"><h4>✏️ Começar do zero</h4><p>Cria as raias e você monta o desenho arrastando os símbolos da paleta para dentro de cada raia.</p>
+      <label class="f">Raias iniciais<select id="fiZero">${subs.length?`<option value="sub">Subsetores de ${esc(setor.nome)} (${subs.length})</option>`:""}<option value="uma">Uma raia (eu crio as outras)</option></select></label>
+      <div class="acoes"><button type="button" id="fiZeroOk">Começar</button></div></div>
+  </div>`;
+}
+function ligarInicioFluxo(c,d,sv,setor){
+  const ok=F=>{ d.fluxo[FX.ver]=F; FX.sel={}; sv(); render(); };
+  const g=$("#fiGerar",c); if(g) g.onclick=()=>{ FX.modoRaia=$("#fiModo",c).value; ok(fxGerar(d,FX.ver,FX.modoRaia)); };
+  const ip=$("#fiIrPassos",c); if(ip) ip.onclick=()=>ir("processo",atual,FX.ver==="asis"?"real":"tobe");
+  const cp=$("#fiCopiar",c); if(cp) cp.onclick=()=>ok(JSON.parse(JSON.stringify(d.fluxo.asis)));
+  const oo=$("#fiOutroOk",c); if(oo) oo.onclick=()=>{ const o=procPorId($("#fiOutro",c).value); if(!o) return; const fo=o.dados.fluxo&&o.dados.fluxo.asis;
+    ok(fo&&fo.nos.length?JSON.parse(JSON.stringify(fo)):fxGerar(o.dados,"asis",FX.modoRaia||"pessoa")); };
+  $("#fiZeroOk",c).onclick=()=>{ const v=$("#fiZero",c).value, nomes=v==="sub"?setor.subsetores.filter(Boolean):["Executante"];
+    ok({raias:nomes.map(n=>({id:uid(),nome:tx(n)})),nos:[],ligacoes:[]}); };
 }
 
 // ─── o editor ───
@@ -1510,11 +1565,16 @@ function abaFluxo(c,p,d,sv){
     <div class="fx-grid">
       <div class="fx-paleta"><div class="fx-pt">Símbolos</div>${Object.entries(SIMB).map(([k,S])=>`<button type="button" class="fx-simb" data-simb="${k}" title="Clique para adicionar ou arraste para o desenho">
         <svg viewBox="-4 -4 ${S.w+8} ${S.h+8}" width="40" height="26">${fxForma(k,S.w,S.h)}</svg><span>${esc(S.nome)}</span></button>`).join("")}</div>
-      <div class="fx-area" id="fxArea">${svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom})}</div>
+      <div class="fx-area" id="fxArea">${!F.nos.length&&!F.raias.length?telaInicioFluxo(d,temPassos,setor):svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom})}</div>
       <div class="fx-props" id="fxProps"></div>
     </div>
     <p class="cap" style="margin-top:8px">Arraste os símbolos · puxe pelos pontos <b>●</b> da borda para ligar · clique numa ligação e arraste o ponto do meio para desviar (ou as pontas para religar) · duplo clique edita o texto · <code>Delete</code> exclui o selecionado.</p>`;
   const svg=$("#fxSvg",c), area=$("#fxArea",c), props=$("#fxProps",c);
+  if(!svg){ ligarInicioFluxo(c,d,sv,setor);
+    c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ FX.ver=b.dataset.ver; FX.sel={}; render(); });
+    c.querySelectorAll(".fx-simb").forEach(b=>b.onclick=()=>{ const S=SIMB[b.dataset.simb], r={id:uid(),nome:"Executante"}, n={id:uid(),tipo:b.dataset.simb,texto:["inicio","fim"].includes(b.dataset.simb)?S.nome:"",raia:r.id,x:RAIA_W+40,ry:Math.round((RAIA_MIN-S.h)/2)};
+      F.raias.push(r); F.nos.push(n); FX.sel={tipo:"no",id:n.id}; sv(); render(); });
+    props.innerHTML='<div class="fx-pt">Fluxograma</div><p class="cap">Escolha ao lado como começar. Depois você ajusta à vontade: arrastar símbolos entre as raias, ligar, desviar linhas, trocar tipos.</p>'; return; }
   const salvarFx=()=>{ sv(); };
   const redesenhar=()=>{ const sl=area.scrollLeft, st=area.scrollTop; area.innerHTML=svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom}); area.scrollLeft=sl; area.scrollTop=st; ligarSvg(); desenharProps(); };
   const pt=e=>{ const s=$("#fxSvg"), q=s.createSVGPoint(); q.x=e.clientX; q.y=e.clientY; return q.matrixTransform(s.getScreenCTM().inverse()); };
@@ -1644,7 +1704,7 @@ function abaFluxo(c,p,d,sv){
     props.querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>{ FX.sel={tipo:"raia",id:b.dataset.rd}; excluirSel(); });
     $("#pRaiaAdd",props).onclick=()=>{ const nv=prompt("Nome da raia (pessoa, função ou subsetor):"); if(nv&&tx(nv)){ F.raias.push({id:uid(),nome:tx(nv)}); salvarFx(); redesenhar(); } };
     const rs=$("#pRaiaSub",props); if(rs) rs.onclick=()=>{ let n=0; setor.subsetores.forEach(x=>{ if(tx(x)&&!F.raias.some(r=>nrm(r.nome)===nrm(x))){ F.raias.push({id:uid(),nome:tx(x)}); n++; } }); salvarFx(); redesenhar(); };
-    const pg=$("#pGerar",props); if(pg) pg.onclick=()=>{ if(F.nos.length&&!confirm("Substituir o desenho atual pelo gerado a partir dos passos?")) return; d.fluxo[FX.ver]=fxGerar(d,FX.ver); FX.sel={}; salvarFx(); render(); };
+    const pg=$("#pGerar",props); if(pg) pg.onclick=()=>{ if(F.nos.length&&!confirm("Substituir o desenho atual pelo gerado a partir dos passos?")) return; d.fluxo[FX.ver]=fxGerar(d,FX.ver,FX.modoRaia||"pessoa"); FX.sel={}; salvarFx(); render(); };
     const pc=$("#pCopiar",props); if(pc) pc.onclick=()=>{ d.fluxo.tobe=JSON.parse(JSON.stringify(d.fluxo.asis)); FX.sel={}; salvarFx(); render(); };
   }
   ligarSvg(); desenharProps();
@@ -1749,6 +1809,49 @@ async function carregarBase(){
     BASE=j; AREAS_PADRAO=j.setores.map(s=>s.nome); }catch(_){}
 }
 const setorOficial=nome=>BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(nome));
+// [NOVO v3.6] SELETOR DE PESSOAS — marca uma ou várias; o campo guarda "Nome A, Nome B"
+function pessoasSugeridas(d){
+  const grupos=[], visto=new Set(), add=(tit,lst)=>{ const it=lst.filter(x=>tx(x.nome)&&!visto.has(nrm(x.nome))); it.forEach(x=>visto.add(nrm(x.nome))); if(it.length) grupos.push([tit,it]); };
+  const fx=d.fluxo||{}; add("Raias do fluxograma",[...((fx.asis||{}).raias||[]),...((fx.tobe||{}).raias||[])].map(r=>({nome:tx(r.nome),dica:"raia"})));
+  add("Quem faz os passos",[...(d.passos_real||[]),...(d.passos_it||[]),...((d.tobe||{}).passos||[])].map(x=>({nome:tx(x.quem),dica:""})));
+  if(BASE){ const st=setorOficial(d.area);
+    if(st) add(`Pessoas de ${st.nome}`,st.pessoas.map(p=>({nome:p.nome,dica:[p.cargo,p.subsetor].filter(Boolean).join(" · ")})));
+    add(st?"Outros setores":"Pessoas do Organograma",BASE.setores.filter(x=>x!==st).flatMap(x=>x.pessoas.map(p=>({nome:p.nome,dica:[p.cargo,x.nome].filter(Boolean).join(" · ")})))); }
+  return grupos;
+}
+let PICK=null;
+function fecharPick(){ if(PICK){ PICK.el.remove(); document.removeEventListener("pointerdown",PICK.fora,true); PICK=null; } }
+function abrirPick(input, dadosFn){
+  if(PICK&&PICK.input===input) return; fecharPick();
+  const sel=()=>input.value.split(/\s*[,;]\s*/).map(tx).filter(Boolean);
+  const caixa=el("div","pick"); caixa.innerHTML=`<div class="pk-busca"><input placeholder="Buscar pessoa..." aria-label="Buscar pessoa"></div><div class="pk-lista"></div>
+    <div class="pk-rod"><span class="pk-n"></span><button type="button" class="peq primary">Pronto</button></div>`;
+  (input.closest("dialog")||document.body).appendChild(caixa);
+  const r=input.getBoundingClientRect(); caixa.style.left=Math.max(8,Math.min(r.left,innerWidth-350))+"px";
+  const cabe=innerHeight-r.bottom>370; caixa.style.top=(cabe?r.bottom+4:Math.max(8,r.top-364))+"px";
+  const lista=caixa.querySelector(".pk-lista"), busca=caixa.querySelector(".pk-busca input");
+  const desenhar=()=>{ const t=nrm(busca.value), atual=sel(), grupos=pessoasSugeridas(dadosFn());
+    const conhecidos=new Set(grupos.flatMap(g=>g[1].map(x=>nrm(x.nome)))), extras=atual.filter(n=>!conhecidos.has(nrm(n)));
+    if(extras.length) grupos.unshift(["Já informados",extras.map(n=>({nome:n,dica:""}))]);
+    lista.innerHTML=grupos.map(([tit,it])=>{ const f=it.filter(x=>!t||nrm(x.nome).includes(t)||nrm(x.dica).includes(t)); if(!f.length) return "";
+      return `<div class="pk-g">${esc(tit)}</div>`+f.map(x=>`<label><input type="checkbox" value="${esc(x.nome)}" ${atual.some(n=>nrm(n)===nrm(x.nome))?"checked":""}><span>${esc(x.nome)}${x.dica?`<small>${esc(x.dica)}</small>`:""}</span></label>`).join(""); }).join("")
+      ||'<p class="cap" style="margin:10px 4px">Ninguém encontrado. Digite o nome direto no campo.</p>';
+    caixa.querySelector(".pk-n").textContent=`${atual.length} selecionado(s)`;
+    lista.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.onchange=()=>{ let v=sel().filter(n=>nrm(n)!==nrm(cb.value)); if(cb.checked) v.push(cb.value);
+      input.value=v.join(", "); input.dispatchEvent(new Event("input",{bubbles:true})); input.dispatchEvent(new Event("change",{bubbles:true})); caixa.querySelector(".pk-n").textContent=`${v.length} selecionado(s)`; }); };
+  busca.oninput=desenhar; caixa.querySelector(".pk-rod button").onclick=fecharPick;
+  caixa.onkeydown=e=>{ if(e.key==="Escape"){ e.stopPropagation(); fecharPick(); input.focus(); } };
+  const fora=e=>{ if(!caixa.contains(e.target)&&e.target!==input) fecharPick(); };
+  setTimeout(()=>document.addEventListener("pointerdown",fora,true),0);
+  PICK={el:caixa,input,fora}; desenhar(); busca.focus();
+}
+function ligarPick(input, dadosFn){
+  if(!input) return; input.parentElement.classList.add("campo-pick"); input.setAttribute("autocomplete","off");
+  input.title="Clique para escolher uma ou mais pessoas (ou digite, separando por vírgula)";
+  input.addEventListener("click",()=>abrirPick(input,dadosFn));
+  input.addEventListener("keydown",e=>{ if(e.key==="ArrowDown"){ e.preventDefault(); abrirPick(input,dadosFn); } });
+}
+
 // [NOVO v3.5] atividades levantadas no Diagnóstico de cada departamento (para virarem processo aqui)
 let ATIV_DIAG=[];   // [{id, nome, atividades:[{atividade, subsetor, categoria}]}]
 async function carregarAtividadesDiag(){
@@ -1814,7 +1917,8 @@ function abrirNovoProcesso(){
   if(!NOVO_ORIGEM) $("#npOrigem").hidden=true;
   dl.showModal(); setTimeout(()=>$("#npNome").focus(),30);
 }
-$("#npNao").onclick=()=>{ NOVO_ORIGEM=null; $("#dlgNovo").close(); };
+$("#npNao").onclick=()=>{ NOVO_ORIGEM=null; fecharPick(); $("#dlgNovo").close(); };
+ligarPick($("#npDono"),()=>({area:$("#npArea").value,fluxo:{},passos_real:[],passos_it:[],tobe:{passos:[]}}));
 $("#npSim").onclick=async()=>{
   const nome=tx($("#npNome").value), m=$("#npMsg");
   if(!nome){ m.textContent="Informe o nome do processo."; $("#npNome").focus(); return; }
@@ -1888,8 +1992,11 @@ function renderProcessoShell(c){
   }
   const corpo=$("#secCorpo",c);
   if(secProc==="linha") return renderLinha(corpo,p);
-  const [tit,desc]=TITULOS_PROC[secProc]||["",""];
-  corpo.innerHTML=`<section><header><h2>${esc(tit)}</h2>${desc?`<p>${esc(desc)}</p>`:""}</header><div id="secBody"></div></section>`;
+  let [tit,desc]=TITULOS_PROC[secProc]||["",""];
+  const og=d.origem, ativ=og&&tx(og.atividade)&&nrm(og.atividade)!==nrm(d.nome)?og.atividade:"";
+  if(secProc==="registrar") tit=`Registrando: ${d.nome||"(sem nome)"}`;
+  const ctx=`<div class="ctx-proc"><b>${esc(d.codigo)}</b><span class="nm">${esc(d.nome||"(sem nome)")}</span>${ativ?`<span>· atividade: ${esc(ativ)}</span>`:""}<span>· ${esc(d.area||"sem área")}${d.macroprocesso?" · "+esc(d.macroprocesso):""}</span>${d.dono?`<span>· responsável: ${esc(d.dono)}</span>`:""}</div>`;
+  corpo.innerHTML=`<section>${ctx}<header><h2>${esc(tit)}</h2>${desc?`<p>${esc(desc)}</p>`:""}</header><div id="secBody"></div></section>`;
   const body=$("#secBody",corpo);
   const etapasAbertas=ETAPAS_LEV.filter(([id])=>!d.etapas[id].feito).map(e=>e[1]);
   const pendAbertas=d.tobe.pendencias.filter(x=>!["Definida","Descartada"].includes(x.status)).length;
