@@ -629,3 +629,33 @@ def atividade_dono(atividade_id: str) -> Optional[str]:
 def acao_dono(acao_id: str) -> Optional[str]:
     doc = _col_acoes().document(acao_id).get(timeout=TIMEOUT_FS)
     return (doc.to_dict() or {}).get("criado_por_email") if doc.exists else None
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.7] DIÁRIO DE GESTÃO — diário PESSOAL: log, cobranças, feedbacks,
+# ATAs e o plano de cada dia. Um documento por registro (dados._tipo diz o
+# que é). Cada pessoa só enxerga e altera o que ela mesma criou.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_DIARIO_GESTAO = "diario_gestao"
+
+
+def _col_dg():
+    return get_db().collection(COLECAO_DIARIO_GESTAO)
+
+
+def dg_listar(email: str) -> list[dict]:
+    saida = []
+    for doc in _col_dg().where(filter=FieldFilter("criado_por_email", "==", email)).stream(timeout=TIMEOUT_FS):
+        d = doc.to_dict() or {}
+        if not d.get("excluido"):
+            saida.append(_mapa_publico(doc.id, d))
+    return saida
+
+
+def dg_dono(doc_id: str) -> Optional[str]:
+    """E-mail de quem criou o registro (None se não existir ou estiver excluído)."""
+    snap = _col_dg().document(doc_id).get(timeout=TIMEOUT_FS)
+    if not snap.exists:
+        return None
+    d = snap.to_dict() or {}
+    return None if d.get("excluido") else d.get("criado_por_email")
