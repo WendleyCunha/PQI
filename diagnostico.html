@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Diagnóstico N2 — Mapeamento de Atividades</title>
+<title>Diagnóstico — Mapeamento de Atividades</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="/pqi-acesso.js" data-modulo="diagnostico"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════════
-   Diagnóstico N2 — mesmo padrão visual do RG do Pedido, do Mapa Digital
+   Diagnóstico — mesmo padrão visual do RG do Pedido, do Mapa Digital
    e dos Organogramas (IBM Plex, papel, azul-aço, menu vertical).
    ═══════════════════════════════════════════════════════════════════ */
 :root{
@@ -176,6 +176,11 @@ td.vazio{color:var(--ink-3);text-align:center;padding:18px!important}
 a.btn{text-decoration:none}
 [hidden]{display:none!important}
 td .ro.trava{color:var(--ink-2)}
+/* [v3.6] ordenar colunas A–Z / Z–A */
+table.tbl th.ord{cursor:pointer;user-select:none}
+table.tbl th.ord:hover{color:var(--ink)}
+table.tbl th.ord .seta{display:inline-block;margin-left:6px;font-size:11px;color:var(--ink-3);min-width:24px}
+table.tbl th.ord.ativo{color:var(--steel)} table.tbl th.ord.ativo .seta{color:var(--steel)}
 /* [v3.5] subsetor × atividade e ponte com o Mapa */
 .sub-tab td,.sub-tab th{text-align:center;white-space:nowrap} .sub-tab td:first-child,.sub-tab th:first-child{text-align:left;white-space:normal;min-width:200px}
 .sub-tab td.resp{background:var(--ok-soft);font-weight:600} .sub-tab td.fora{background:var(--amber-soft);color:var(--amber);font-weight:600}
@@ -273,7 +278,7 @@ const ETAPAS_CHECKLIST = [
   ["val","Validar com a equipe e a liderança","03–04/08"],
 ];
 const PERGUNTAS = [
-  ["p1",'O que a equipe N2 faz (todos os tipos de atividade, não só os "chamados oficiais")?'],
+  ["p1",'O que a equipe faz (todos os tipos de atividade, não só os "chamados oficiais")?'],
   ["p2","Quem faz o quê (responsabilidades individuais x coletivas, especialistas x generalistas)?"],
   ["p3","Como o trabalho chega até eles (N1, direto do cliente, outras áreas, e-mail, sistema)?"],
   ["p4","Quanto tempo cada atividade consome, na jornada real (não na teórica de 8h)?"],
@@ -447,14 +452,27 @@ function sugerirDoInventario(jaExistentes){
 //           opcoes, lista (datalist), placeholder, largura, calc(row), padrao}
 // ═══════════════════════════════════════════════════════════════════
 let focarUltima = null;
+// [v3.6] ordenação por coluna (só muda a EXIBIÇÃO; a ordem gravada não muda)
+const ORDEM_TBL={};
+function valorOrdem(row,c){ const v=c.tipo==="calc"?c.calc(row):row[c.campo]; return texto(v); }
 function tabela(o){
-  const {secao, linhas, colunas, aoMudar, aoEstrutura, novaLinha, semAdd, semDel, altura} = o;
+  const {secao, linhas, colunas, aoMudar, aoEstrutura, novaLinha, semAdd, semDel, altura, ordenar:podeOrdenar} = o;
   const wrap=el("div"), tw=el("div","tbl-wrap"), t=el("table","tbl");
   if(altura) tw.style.maxHeight=altura+"px";
-  t.innerHTML="<thead><tr>"+colunas.map(c=>`<th style="${c.largura?`min-width:${c.largura}px`:""}">${esc(c.label)}</th>`).join("")+(semDel?"":"<th></th>")+"</tr></thead>";
+  const ord=podeOrdenar?ORDEM_TBL[secao]:null;
+  t.innerHTML="<thead><tr>"+colunas.map(c=>{ const at=ord&&ord.campo===c.campo;
+    return podeOrdenar?`<th class="ord${at?" ativo":""}" data-ord="${esc(c.campo)}" title="Clique para ordenar A–Z / Z–A" style="${c.largura?`min-width:${c.largura}px`:""}">${esc(c.label)}<span class="seta">${at?(ord.dir>0?"A→Z ▲":"Z→A ▼"):"⇅"}</span></th>`
+      :`<th style="${c.largura?`min-width:${c.largura}px`:""}">${esc(c.label)}</th>`; }).join("")+(semDel?"":"<th></th>")+"</tr></thead>";
+  if(podeOrdenar) t.querySelectorAll("th[data-ord]").forEach(th=>th.onclick=()=>{ const cmp=th.dataset.ord, at=ORDEM_TBL[secao];
+    ORDEM_TBL[secao] = !at||at.campo!==cmp ? {campo:cmp,dir:1} : at.dir>0 ? {campo:cmp,dir:-1} : null; aoEstrutura&&aoEstrutura(); });
+  let vis=linhas;
+  if(ord){ const c=colunas.find(x=>x.campo===ord.campo);
+    if(c) vis=linhas.slice().sort((a,b)=>{ const va=valorOrdem(a,c), vb=valorOrdem(b,c);
+      if(!va&&!vb) return 0; if(!va) return 1; if(!vb) return -1;   // vazios sempre no fim
+      return va.localeCompare(vb,"pt-BR",{numeric:true,sensitivity:"base"})*ord.dir; }); }
   const tb=el("tbody");
   if(!linhas.length) tb.innerHTML=`<tr><td colspan="${colunas.length+1}" class="vazio">Nenhuma linha ainda.</td></tr>`;
-  linhas.forEach((row,i)=>{
+  vis.forEach(row=>{ const i=linhas.indexOf(row);
     const tr=el("tr"), livre = NIVEL>=3 || (NIVEL===2 && row._por===EMAIL);
     colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(livre?campoCelula(row,c,tr,colunas,secao,aoMudar):celulaTravada(row,c)); tr.appendChild(td); });
     if(!semDel){
@@ -762,6 +780,7 @@ function renderInventario(c){
   c.innerHTML=`<h2>📋 Inventário de atividades</h2>
     <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
     <p class="cap">Defina o <b>subsetor responsável</b> de cada atividade (ex.: abastecimento de estoque → Recebimento). O Diário de Bordo e a Matriz passam a mostrar quando outro subsetor está fazendo o trabalho.</p>
+    <p class="cap">💡 Clique no título de uma coluna para ordenar de A a Z (de novo: Z a A; mais uma vez: volta à ordem original).</p>
     <datalist id="dl-subs">${subsetoresDep().map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
     <div id="invTbl"></div>
     <div class="box" ${NIVEL<2?'style="display:none"':""}><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
@@ -774,7 +793,7 @@ function renderInventario(c){
       </div>
       <div class="acoes"><button class="btn primary" id="invAdd" type="button">💾 Adicionar</button><span class="msg" id="invMsg"></span></div>
     </div>`;
-  $("#invTbl",c).appendChild(tabela({secao:"inventario", linhas:inv, semAdd:true, aoEstrutura:renderAba,
+  $("#invTbl",c).appendChild(tabela({secao:"inventario", linhas:inv, semAdd:true, aoEstrutura:renderAba, ordenar:true,
     aoMudar:(r,col)=>{ if(col.campo==="atividade") atualizarListas(); },
     colunas:[
       {campo:"atividade",label:"Atividade",largura:240},
@@ -962,7 +981,7 @@ async function exportarRaciXlsx(projeto, dataStr, pessoas, nomes, matriz){
   const p=(coord,valor,fill,font,alinhar=true)=>{ const c=ws.getCell(coord); c.value=valor;
     if(fill) c.fill={type:"pattern",pattern:"solid",fgColor:{argb:fill}}; if(font) c.font=font; if(alinhar) c.alignment=centro; c.border=borda; };
   mesclar("A1","B1"); p("A1",`Data: ${dataStr||"—"}`,CINCL,preto);
-  mesclar("C1",`${ult}1`); p("C1",`Nome do Projeto:  ${projeto||"Diagnóstico N2"}`,null,{bold:true,size:13},false);
+  mesclar("C1",`${ult}1`); p("C1",`Nome do Projeto:  ${projeto||"Diagnóstico"}`,null,{bold:true,size:13},false);
   ws.getCell("C1").alignment={horizontal:"left",vertical:"middle"};
   p("A2","R\n(Responsável)",VERM,branco); p("B2","A\n(Aprovador)",AZUL,branco);
   p("A3","C\n(Consultado)",AMAR,preto); p("B3","I\n(Informado)",VERDE,branco);
@@ -982,20 +1001,20 @@ async function exportarRaciXlsx(projeto, dataStr, pessoas, nomes, matriz){
   ws.getColumn(1).width=18; ws.getColumn(2).width=18; ord.forEach((n,i)=>ws.getColumn(3+i).width=12);
   ws.getRow(2).height=30; ws.getRow(3).height=30; ws.getRow(4).height=22;
   ws.views=[{state:"frozen",xSplit:2,ySplit:pri-1}];
-  baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:MIME_XLSX}),"matriz_raci_diagnostico_n2.xlsx");
+  baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:MIME_XLSX}),"matriz_raci_diagnostico.xlsx");
 }
 function renderRaciMatriz(c){
   const info=objeto("raci_matriz_info"), pessoas=lista("raci_pessoas"), matriz=lista("raci_matriz");
   c.innerHTML=`<h2>🧩 Matriz RACI — Fases/Atividades x Funções</h2>
     <p class="cap">Reproduz o modelo da planilha de referência: cabeçalho com projeto e data, colunas dinâmicas para "Time Avaliado" e "Stakeholders", e uma célula por cruzamento com as mesmas opções (-, R/C, A/C, I/A, R/A, I, C, A, R).</p>
     <div class="grade" style="max-width:720px">
-      <label class="f">Nome do projeto<input id="rmProj" value="${esc(info.projeto||"Diagnóstico N2")}"></label>
+      <label class="f">Nome do projeto<input id="rmProj" value="${esc(info.projeto||"Diagnóstico")}"></label>
       <label class="f">Data<input id="rmData" type="date" value="${esc(info.data||hojeISO())}"></label>
     </div>
     <div class="legenda">${RACI_LEGENDA.map(([l,d,cor])=>`<div style="background:${cor}">${l}<small>${d}</small></div>`).join("")}</div>
     <p class="cap">Combinações como <b>R/C</b>, <b>A/C</b>, <b>I/A</b>, <b>R/A</b> também são aceitas, para casos em que o papel varia por sub-etapa.</p>
     <h3>👥 Funções / Nomes (colunas da matriz)</h3>
-    <p class="cap">Separe em "Time Avaliado" (a própria célula N2) e "Stakeholders" (áreas/pessoas fora da célula).</p>
+    <p class="cap">Separe em "Time Avaliado" (a própria equipe do departamento) e "Stakeholders" (áreas/pessoas fora da célula).</p>
     <div id="rmPes"></div><div id="rmMatriz"></div>`;
   const salvarInfo=()=>{ info.projeto=$("#rmProj").value; info.data=$("#rmData").value; salvar("raci_matriz_info"); };
   $("#rmProj",c).oninput=salvarInfo; $("#rmData",c).onchange=salvarInfo;
@@ -1029,7 +1048,7 @@ function renderRaciMatriz(c){
       ["⬇️ Baixar Matriz RACI (modelo da planilha)",()=>exportarRaciXlsx($("#rmProj").value,$("#rmData").value,pessoas,nomes,matriz)],
       ["⬇️ Baixar Matriz RACI (simples)",()=>baixarExcel("matriz_raci_simples","MatrizRACI",matriz,cols)],
       ["⬇️ Baixar Matriz RACI (CSV)",()=>{ const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-        baixarTexto("matriz_raci_diagnostico_n2.csv","\ufeff"+[cols.map(q).join(","),...matriz.map(r=>cols.map(k=>q(r[k]??(k==="atividade"?"":"-"))).join(","))].join("\r\n"),"text/csv"); }],
+        baixarTexto("matriz_raci_diagnostico.csv","\ufeff"+[cols.map(q).join(","),...matriz.map(r=>cols.map(k=>q(r[k]??(k==="atividade"?"":"-"))).join(","))].join("\r\n"),"text/csv"); }],
     ]);
   }
   parteMatriz();
@@ -1480,9 +1499,9 @@ function renderRelatorio(c){
     <p class="cap">Reúne, na mesma ordem lógica da metodologia, tudo o que foi coletado em todas as seções — pronto para a validação com a equipe/liderança (Etapa 8) e para a entrega final.</p>
     <div id="relExp"></div><div class="relatorio">${mdToHtml(md)}</div>`;
   botoesExport($("#relExp",c),[
-    ["⬇️ Relatório (Markdown)",()=>baixarTexto("relatorio_consolidado_diagnostico_n2.md",md,"text/markdown")],
-    ["⬇️ Relatório (PDF)",()=>imprimir("Relatório Consolidado — Diagnóstico N2",mdToHtml(md))],
-    ["⬇️ Relatório (Excel)",()=>baixarExcel("relatorio_consolidado_diagnostico_n2","Relatorio",md.split("\n").map(l=>({linha:l})).filter(r=>r.linha.trim()))],
+    ["⬇️ Relatório (Markdown)",()=>baixarTexto("relatorio_consolidado_diagnostico.md",md,"text/markdown")],
+    ["⬇️ Relatório (PDF)",()=>imprimir(`Relatório Consolidado — Diagnóstico ${DEP_INFO?DEP_INFO.nome:""}`,mdToHtml(md))],
+    ["⬇️ Relatório (Excel)",()=>baixarExcel("relatorio_consolidado_diagnostico","Relatorio",md.split("\n").map(l=>({linha:l})).filter(r=>r.linha.trim()))],
   ]);
 }
 
