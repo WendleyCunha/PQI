@@ -168,6 +168,20 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .cob .bt{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
 .cob .bt button{padding:5px 9px;font-size:12.5px}
 .hist{font-size:12px;color:var(--ink-3);margin-top:6px;border-top:1px dashed var(--rule);padding-top:5px}
+.cob-acoes{margin-top:8px;display:flex;flex-direction:column;gap:3px}
+.cob-acao{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35}
+.cob-acao input[type=checkbox]{width:15px;height:15px;margin-top:2px;accent-color:var(--ok);flex:none}
+.cob-acao.feita span{text-decoration:line-through;color:var(--ink-3)}
+.cob-acao .pz{margin-left:auto;font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.cob-acao .pz.venc{color:var(--bad);font-weight:600}
+.cob-acao .ib{padding:0 4px;font-size:12px}
+.cob-nova{display:grid;grid-template-columns:1fr 132px auto;gap:4px;margin-top:4px}
+.cob-nova input{padding:4px 7px;font-size:12.5px}
+.cob-nova button{padding:4px 9px;font-size:12.5px}
+.cob .sep-bt{width:1px;align-self:stretch;background:var(--rule);margin:0 2px}
+.andamento{margin-top:6px} .andamento summary{cursor:pointer;font-size:12px;color:var(--ink-3)}
+.andamento ul{margin:4px 0 0;padding-left:16px;font-size:12.5px} .andamento li{margin:2px 0}
+.adiar-rap{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
 
 /* pessoas */
 .pess-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
@@ -389,7 +403,10 @@ function blocoAgora(){
 }
 
 // ─── cobranças: status calculado ───
-function statusCob(c){ const d=c.dados; if(d.status==="entregue") return "entregue"; const n=diasAte(d.prazo); return n!=null&&n<0?"atrasada":"aguardando"; }
+function acoesAbertas(c){ return (c.dados.acoes||[]).filter(a=>tx(a.texto)&&!a.feito); }
+function statusCob(c){ const d=c.dados; if(d.status==="entregue") return "entregue"; const n=diasAte(d.prazo);
+  if(n!=null&&n<0) return "atrasada";
+  return acoesAbertas(c).some(a=>a.prazo&&diasAte(a.prazo)<0)?"atrasada":"aguardando"; }
 const ROT_COB={atrasada:["🔴","Atrasado / cobrar","p-bad"],aguardando:["🟡","Aguardando resposta","p-warn"],entregue:["🟢","Entregue / concluído","p-ok"]};
 function cobrancasPendentes(){ return doTipo("cobranca").filter(c=>statusCob(c)!=="entregue"); }
 function cobrarHoje(){ const h=hojeISO(); return cobrancasPendentes().filter(c=>statusCob(c)==="atrasada"||(c.dados.prazo&&c.dados.prazo<=h)||(c.dados.lembrete&&c.dados.lembrete.slice(0,10)<=h)); }
@@ -445,7 +462,6 @@ const ICO={
   pessoas:SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>',
   atas:SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
   indicadores:SV+'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
-  antigo:SV+'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>',
 };
 const SECOES=[["hoje","Hoje"],["log","Registro"],["cobrancas","Cobranças"],["pessoas","Pessoas"],["atas","ATAs"],["indicadores","Indica­dores"]];
 let secao="hoje";
@@ -454,8 +470,7 @@ function ir(s){ secao=s; try{ sessionStorage.setItem("diario_secao",s); }catch(_
 function atualizarMenu(){
   const cont={cobrancas:cobrarHoje().length, atas:doTipo("ata").filter(a=>a.dados.status!=="finalizada").length,
     pessoas:doTipo("feedback").filter(f=>f.dados.reavaliar_em&&!f.dados.reavaliado&&f.dados.reavaliar_em<=hojeISO()).length};
-  $("#menu").innerHTML=SECOES.map(([id,nome])=>`<button type="button" class="side-btn${id===secao?" ativo":""}" data-s="${id}" title="${nome.replace(/\u00ad/g,"")}">${ICO[id]}<span>${nome}</span>${cont[id]?`<span class="n ${id==="atas"?"":"alerta-n"}">${cont[id]}</span>`:""}</button>`).join("")
-    +`<div class="side-sep"></div><a class="side-btn" href="/diario-atividades" title="Diário de Bordo anterior (atividades e ações)">${ICO.antigo}<span>Atividades (anterior)</span></a>`;
+  $("#menu").innerHTML=SECOES.map(([id,nome])=>`<button type="button" class="side-btn${id===secao?" ativo":""}" data-s="${id}" title="${nome.replace(/\u00ad/g,"")}">${ICO[id]}<span>${nome}</span>${cont[id]?`<span class="n ${id==="atas"?"":"alerta-n"}">${cont[id]}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 }
 function render(){
@@ -689,11 +704,13 @@ function dlgCobranca(item, pre){
       <label class="f">Prioridade<select name="prioridade">${PRIORIDADES.map(p=>`<option value="${p.id}"${p.id===d.prioridade?" selected":""}>${p.id} · ${esc(p.nome)}</option>`).join("")}</select></label>
       ${item?`<label class="f">Status<select name="status"><option value="aguardando"${d.status!=="entregue"?" selected":""}>Em aberto (🟡 aguardando / 🔴 atrasado pelo prazo)</option><option value="entregue"${d.status==="entregue"?" selected":""}>🟢 Entregue / concluído</option></select></label>`:""}</div>
     <label class="f" style="margin-top:10px">Observação<textarea name="obs" rows="2">${esc(d.obs||"")}</textarea></label>
+    ${item?"":`<label class="f" style="margin-top:10px">Próximas ações (opcional, uma por linha — “até 15/10” vira o prazo da ação)<textarea name="acoes_txt" rows="3" placeholder="Enviar a planilha corrigida até 15/10&#10;Validar com o fiscal até 17/10"></textarea></label>`}
     <p class="cap" style="margin:8px 0 0">O lembrete aparece na tela (e como notificação, se ativada) enquanto o Painel estiver aberto. O padrão é o horário do <b>meio do dia</b>, o momento das cobranças.</p>`,
     async fd=>{ const v={}; ["oque","quem","contato","prazo","lembrete","prioridade","obs"].forEach(k=>v[k]=tx(fd.get(k))); v.pilar=Number(fd.get("pilar"))||1;
       if(!v.oque||!v.quem) throw new Error("Informe o que está pendente e quem deve entregar.");
       if(item){ const st=fd.get("status"); if(st==="entregue"&&d.status!=="entregue") v.entregue_em=new Date().toISOString(); if(st!=="entregue") v.entregue_em=""; v.status=st; Object.assign(item.dados,v); await salvarAgora(item); }
-      else await criar({_tipo:"cobranca",status:"aguardando",historico:[],criado:new Date().toISOString(),...(pre&&pre.origem?{origem:pre.origem}:{}),...v});
+      else { const acoes=String(fd.get("acoes_txt")||"").split(/\r?\n/).map(tx).filter(Boolean).map(l=>{ const p=prazoDe(l.replace(/^[-•*]\s*/,""),hojeISO()); return {id:uid(),texto:p.resto,prazo:p.prazo,feito:false}; });
+        await criar({_tipo:"cobranca",status:"aguardando",historico:[],andamento:[],acoes,criado:new Date().toISOString(),...(pre&&pre.origem?{origem:pre.origem}:{}),...v}); }
       render(); });
   f.querySelectorAll("[data-pick]").forEach(i=>ligarPick(i,false));
   setTimeout(()=>f.querySelector('[name="oque"]').focus(),30);
@@ -705,23 +722,76 @@ async function registrarCobranca(c){
   c.dados.lembrete=`${proxDiaUtil(hojeISO())}T${cfg().meio}`;
   await salvarAgora(c); toast(`✓ Cobrança registrada (${c.dados.historico.length}ª). Próximo lembrete: ${dataHoraBR(c.dados.lembrete)}.`); render();
 }
+function dlgAdiar(c){
+  const d=c.dados, h=cfg(), base=d.lembrete||lembretePadrao(d.prazo), hora=(String(base).split("T")[1]||h.meio).slice(0,5);
+  const proxSeg=(()=>{ let x=somaDias(hojeISO(),1); while(new Date(x+"T12:00:00").getDay()!==1) x=somaDias(x,1); return x; })();
+  const op=[["Amanhã",proxDiaUtil(hojeISO())],["Em 3 dias",somaDias(hojeISO(),3)],["Próxima semana",proxSeg]];
+  const f=abrirDlg("Adiar cobrança",`<p class="cap" style="margin:0 0 6px"><b>${esc(d.oque)}</b>${d.quem?` — ${esc(d.quem)}`:""}</p>
+    <div class="adiar-rap">${op.map(([r,v])=>`<button type="button" class="chip-op" data-dt="${v}">${r} <span class="muted">${dataBR(v).slice(0,5)}</span></button>`).join("")}</div>
+    <div class="grade"><label class="f">Novo lembrete<input type="datetime-local" name="lembrete" value="${esc(`${proxDiaUtil(hojeISO())}T${hora}`)}"></label>
+      <label class="f">Prazo final${d.prazo?` (hoje: ${dataBR(d.prazo)})`:""}<input type="date" name="prazo" value="${esc(d.prazo||"")}"></label></div>
+    <label class="f" style="margin-top:10px">Motivo (opcional — fica no andamento)<input name="motivo" placeholder="Ex.: fornecedor pediu mais 2 dias"></label>`,
+    async fd=>{ const l=tx(fd.get("lembrete")), pz=tx(fd.get("prazo")), m=tx(fd.get("motivo"));
+      if(!l) throw new Error("Escolha a nova data do lembrete.");
+      const mudouPrazo=pz!==tx(d.prazo); d.lembrete=l; d.prazo=pz;
+      d.andamento=d.andamento||[]; d.andamento.push({em:new Date().toISOString(),texto:`Adiado para ${dataHoraBR(l)}${mudouPrazo?` · prazo ${pz?dataBR(pz):"retirado"}`:""}${m?` — ${m}`:""}`});
+      await salvarAgora(c); toast(`⏰ Adiado — lembrete em ${dataHoraBR(l)}.`); render(); }, "Adiar");
+  f.querySelectorAll("[data-dt]").forEach(b=>b.onclick=()=>{ f.querySelector('[name="lembrete"]').value=`${b.dataset.dt}T${hora}`;
+    f.querySelectorAll("[data-dt]").forEach(x=>x.classList.toggle("ativo",x===b)); });
+}
+async function finalizarCob(c){
+  const d=c.dados, abertas=acoesAbertas(c);
+  if(abertas.length&&!confirm(`Ainda há ${abertas.length} próxima(s) ação(ões) em aberto.\nFinalizar a cobrança mesmo assim? (as ações abertas serão marcadas como concluídas)`)) return;
+  abertas.forEach(a=>{ a.feito=true; a.feito_em=new Date().toISOString(); });
+  d.status="entregue"; d.entregue_em=new Date().toISOString();
+  await salvarAgora(c); toast(`🟢 ${esc(d.oque)} — finalizada.`); render();
+}
+function dlgAndamento(c){
+  const d=c.dados;
+  abrirDlg("Registrar andamento",`<p class="cap" style="margin:0 0 6px"><b>${esc(d.oque)}</b>${d.quem?` — ${esc(d.quem)}`:""}</p>
+    <label class="f">O que aconteceu? (retorno recebido, novo combinado, avanço…)<textarea name="texto" rows="3" placeholder="Ex.: Antony respondeu que a regra entra na versão de sexta."></textarea></label>
+    ${(d.andamento||[]).length?`<p class="cap" style="margin:10px 0 0">Último: ${dataHoraBR(d.andamento[d.andamento.length-1].em)} — ${esc(d.andamento[d.andamento.length-1].texto)}</p>`:""}`,
+    async fd=>{ const t=tx(fd.get("texto")); if(!t) throw new Error("Escreva o andamento.");
+      d.andamento=d.andamento||[]; d.andamento.push({em:new Date().toISOString(),texto:t}); await salvarAgora(c); render(); }, "Registrar");
+}
 async function copiar(txt){ try{ await navigator.clipboard.writeText(txt); return true; }catch(_){ const t=el("textarea"); t.value=txt; document.body.appendChild(t); t.select(); try{ document.execCommand("copy"); }catch(__){} t.remove(); return true; } }
 function cardCobranca(c, compacto){
-  const d=c.dados, st=statusCob(c), [ico,rot,cls]=ROT_COB[st], n=diasAte(d.prazo), e=el("div",`cob ${st}`), h=d.historico||[];
+  const d=c.dados, st=statusCob(c), [ico,rot,cls]=ROT_COB[st], n=diasAte(d.prazo), e=el("div",`cob ${st}`), h=d.historico||[], an=d.andamento||[];
+  d.acoes=d.acoes||[];
   const prazoTxt=d.prazo?(st==="entregue"?`prazo ${dataBR(d.prazo)}`:n<0?`venceu há ${-n} dia(s)`:n===0?"vence hoje":`vence em ${n} dia(s)`):"sem prazo";
+  const ac=d.acoes.filter(a=>tx(a.texto)), feitas=ac.filter(a=>a.feito).length, aberta=st!=="entregue";
   e.innerHTML=`<div class="t">${esc(d.oque)}</div>
-    <div class="m"><span class="pill ${cls}">${ico} ${rot}</span><b>${esc(d.quem||"—")}</b><span>· ${prazoTxt}</span>${prioTag(d.prioridade)}${pilPill(d.pilar)}${d.origem&&d.origem.ata_id?`<span class="pill p-cinza" title="Ação de ATA">📄 ATA</span>`:""}</div>
+    <div class="m"><span class="pill ${cls}">${ico} ${rot}</span><b>${esc(d.quem||"—")}</b><span>· ${prazoTxt}</span>${prioTag(d.prioridade)}${pilPill(d.pilar)}${d.origem&&d.origem.ata_id?`<span class="pill p-cinza" title="Ação de ATA">📄 ATA</span>`:""}${ac.length?`<span class="pill p-cinza" title="Próximas ações">☑ ${feitas}/${ac.length}</span>`:""}</div>
+    ${ac.length||aberta?`<div class="cob-acoes">${ac.map(a=>{ const dn=a.prazo?diasAte(a.prazo):null;
+      return `<div class="cob-acao${a.feito?" feita":""}"><input type="checkbox" data-ac="${a.id}" ${a.feito?"checked":""} ${aberta?"":"disabled"} aria-label="Ação concluída"><span>${esc(a.texto)}</span>
+        ${a.prazo?`<span class="pz${!a.feito&&dn<0?" venc":""}">${dataBR(a.prazo).slice(0,5)}</span>`:""}${aberta?`<button type="button" class="ib del" data-acx="${a.id}" title="Remover ação">✕</button>`:""}</div>`; }).join("")}
+      ${aberta&&!compacto?`<form class="cob-nova"><input name="t" placeholder="＋ Próxima ação" aria-label="Próxima ação"><input type="date" name="p" aria-label="Prazo da ação"><button type="submit">Adicionar</button></form>`:""}</div>`:""}
+    ${an.length?`<details class="andamento"><summary>📝 Andamento (${an.length}) · último: ${esc(an[an.length-1].texto.slice(0,70))}${an[an.length-1].texto.length>70?"…":""}</summary><ul>${an.slice().reverse().map(x=>`<li><b>${dataHoraBR(x.em)}</b> — ${esc(x.texto)}</li>`).join("")}</ul></details>`:""}
     ${h.length?`<div class="hist">📣 cobrado ${h.length}x · último em ${dataHoraBR(h[h.length-1].em)}${h[h.length-1].nota?` — ${esc(h[h.length-1].nota)}`:""}</div>`:""}
-    ${st!=="entregue"&&d.lembrete?`<div class="hist">🔔 lembrete: ${dataHoraBR(d.lembrete)}</div>`:""}
-    <div class="bt">${st!=="entregue"?`<button type="button" data-a="cobrei" class="primary">📣 Cobrei agora</button><button type="button" data-a="msg">📋 Mensagem</button><button type="button" data-a="ok">✓ Entregue</button>`:`<button type="button" data-a="reabrir">↺ Reabrir</button>`}
-      ${compacto?"":`<button type="button" data-a="ed" title="Editar">✏️</button><button type="button" data-a="del" title="Excluir">🗑</button>`}</div>`;
+    ${aberta&&d.lembrete?`<div class="hist">🔔 lembrete: ${dataHoraBR(d.lembrete)}</div>`:""}
+    <div class="bt">${aberta?`<button type="button" data-a="cobrei" class="primary">📣 Cobrei agora</button><button type="button" data-a="msg">📋 Mensagem</button>${compacto?"":`<button type="button" data-a="and">📝 Andamento</button>`}
+        <span class="sep-bt"></span><button type="button" data-a="adiar" title="Adiar o lembrete (e o prazo, se quiser)">⏰ Adiar</button><button type="button" data-a="fim" title="Finalizar: entregue / concluído">✓ Finalizar</button>`
+      :`<button type="button" data-a="reabrir">↺ Reabrir</button>`}
+      <button type="button" data-a="ed" title="Editar">✏️</button><button type="button" data-a="del" title="Excluir">🗑</button></div>`;
   e.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{ const a=b.dataset.a;
     if(a==="cobrei") return registrarCobranca(c);
     if(a==="msg"){ await copiar(msgCobranca(c)); toast("📋 Mensagem de cobrança copiada — cole no Teams, WhatsApp ou e-mail."+(d.contato&&d.contato.includes("@")?` <a href="mailto:${esc(d.contato)}?subject=${encodeURIComponent("Acompanhamento: "+d.oque)}&body=${encodeURIComponent(msgCobranca(c))}" style="color:inherit">Abrir no e-mail</a>`:"")); return; }
-    if(a==="ok"){ d.status="entregue"; d.entregue_em=new Date().toISOString(); await salvarAgora(c); toast(`🟢 ${esc(d.oque)} — entregue.`); render(); return; }
+    if(a==="and") return dlgAndamento(c);
+    if(a==="adiar") return dlgAdiar(c);
+    if(a==="fim") return finalizarCob(c);
     if(a==="reabrir"){ d.status="aguardando"; d.entregue_em=""; await salvarAgora(c); render(); return; }
     if(a==="ed") return dlgCobranca(c);
     if(a==="del"&&await excluir(c,"Excluir esta cobrança?")) render(); });
+  // próximas ações: marcar, remover, adicionar
+  e.querySelectorAll("[data-ac]").forEach(cb=>cb.onchange=async()=>{ const x=d.acoes.find(a=>a.id===cb.dataset.ac); x.feito=cb.checked; x.feito_em=cb.checked?new Date().toISOString():"";
+    d.andamento=d.andamento||[]; if(cb.checked) d.andamento.push({em:new Date().toISOString(),texto:`Ação concluída: ${x.texto}`});
+    await salvarAgora(c);
+    if(cb.checked&&!acoesAbertas(c).length&&confirm("Todas as próximas ações foram concluídas.\nFinalizar a cobrança (🟢 entregue)?")) return finalizarCob(c);
+    render(); });
+  e.querySelectorAll("[data-acx]").forEach(b=>b.onclick=async()=>{ d.acoes=d.acoes.filter(a=>a.id!==b.dataset.acx); await salvarAgora(c); render(); });
+  const fm=e.querySelector(".cob-nova"); if(fm) fm.onsubmit=async ev=>{ ev.preventDefault(); const t=tx(fm.t.value); if(!t){ fm.t.focus(); return; }
+    const p=fm.p.value?{resto:t,prazo:fm.p.value}:prazoDe(t,hojeISO());
+    d.acoes.push({id:uid(),texto:p.resto,prazo:p.prazo,feito:false}); await salvarAgora(c); render(); };
   return e;
 }
 function renderCobrancas(c){
@@ -1039,7 +1109,7 @@ async function exportarExcel(){
       ws.views=[{state:"frozen",ySplit:1}]; if(linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}}; };
     aba("Registro (log)",[["Data",l=>l.dados.data],["Hora",l=>l.dados.hora],["Tipo",l=>tipoLog(l.dados.tipo).nome],["Pilar",l=>(pilar(l.dados.pilar)||{}).nome||""],["Prioridade",l=>l.dados.prioridade],["Registro",l=>l.dados.texto],["Por quê",l=>l.dados.porque],["Resultado",l=>l.dados.resultado],["Pessoas",l=>l.dados.pessoas],["Evidência",l=>l.dados.evidencia]],
       doTipo("log").sort((a,b)=>(a.dados.data+a.dados.hora).localeCompare(b.dados.data+b.dados.hora)));
-    aba("Cobranças",[["O quê",x=>x.dados.oque],["Quem",x=>x.dados.quem],["Contato",x=>x.dados.contato],["Prazo",x=>x.dados.prazo],["Status",x=>ROT_COB[statusCob(x)][1]],["Prioridade",x=>x.dados.prioridade],["Pilar",x=>(pilar(x.dados.pilar)||{}).nome||""],["Vezes cobrado",x=>(x.dados.historico||[]).length],["Última cobrança",x=>{ const h=x.dados.historico||[]; return h.length?dataHoraBR(h[h.length-1].em):""; }],["Entregue em",x=>x.dados.entregue_em?dataBR(String(x.dados.entregue_em).slice(0,10)):""],["Observação",x=>x.dados.obs]],doTipo("cobranca"));
+    aba("Cobranças",[["O quê",x=>x.dados.oque],["Quem",x=>x.dados.quem],["Contato",x=>x.dados.contato],["Prazo",x=>x.dados.prazo],["Status",x=>ROT_COB[statusCob(x)][1]],["Prioridade",x=>x.dados.prioridade],["Pilar",x=>(pilar(x.dados.pilar)||{}).nome||""],["Vezes cobrado",x=>(x.dados.historico||[]).length],["Última cobrança",x=>{ const h=x.dados.historico||[]; return h.length?dataHoraBR(h[h.length-1].em):""; }],["Entregue em",x=>x.dados.entregue_em?dataBR(String(x.dados.entregue_em).slice(0,10)):""],["Próximas ações",x=>(x.dados.acoes||[]).filter(a=>tx(a.texto)).map(a=>`${a.feito?"[x]":"[ ]"} ${a.texto}${a.prazo?" ("+dataBR(a.prazo)+")":""}`).join("; ")],["Andamento",x=>(x.dados.andamento||[]).map(a=>`${dataHoraBR(a.em)} — ${a.texto}`).join("; ")],["Observação",x=>x.dados.obs]],doTipo("cobranca"));
     aba("Pessoas",[["Pessoa",f=>f.dados.pessoa],["Data",f=>f.dados.data],["Tipo",f=>f.dados.tipo],["Contexto",f=>f.dados.contexto],["Pontos fortes",f=>f.dados.fortes],["Pontos de melhoria",f=>f.dados.melhorias],["Acordos",f=>f.dados.acordos],["Reavaliar em",f=>f.dados.reavaliar_em],["Reavaliado",f=>f.dados.reavaliado?"Sim":"Não"],["Nota da reavaliação",f=>f.dados.reavaliacao_nota]],doTipo("feedback"));
     aba("ATAs",[["Data",a=>a.dados.data],["Tema",a=>a.dados.titulo],["Participantes",a=>a.dados.participantes],["Deliberações",a=>(a.dados.deliberacoes||[]).filter(tx).join("; ")],["Ações",a=>(a.dados.acoes||[]).filter(x=>tx(x.acao)).map(x=>`${x.resp}: ${x.acao}${x.prazo?" ("+dataBR(x.prazo)+")":""}`).join("; ")],["Pendências",a=>(a.dados.pendencias||[]).filter(tx).join("; ")],["Status",a=>a.dados.status]],doTipo("ata"));
     baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`diario_de_bordo_${hojeISO()}.xlsx`);
