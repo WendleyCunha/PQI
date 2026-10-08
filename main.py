@@ -1313,7 +1313,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
     "/diario": "diario.html",                                            # Diário de gestão [v3.7]
-    "/diario-atividades": "diario-atividades.html",                      # Diário de Bordo anterior (atividades e ações)
     "/ata": "ata.html",                                                  # Gerador de ATA King Star
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
