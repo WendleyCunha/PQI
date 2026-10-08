@@ -33,8 +33,8 @@ MODULOS = [
     },
     {
         "id": "diagnostico",
-        "nome": "Diagnóstico N2",
-        "descricao": "Mapeamento de atividades do Backoffice: inventário, organograma, RACI, diário de bordo, Gemba, matriz, jornada e relatório.",
+        "nome": "Diagnóstico",
+        "descricao": "Mapeamento de atividades por departamento: inventário, organograma real, RACI, Diário de Bordo, Gemba, matriz, jornada e relatório.",
         "url": "/diagnostico", "icone": "🗺️", "tipo": "nuvem",
         "paginas": ["/diagnostico"],
         "apis": ["/api/diagnostico", "/api/diagnostico-ia"],
