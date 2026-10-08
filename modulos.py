@@ -20,7 +20,7 @@ MODULOS = [
         "nome": "Diário de Bordo",
         "descricao": "Diário de gestão: registro do dia, cobranças, feedbacks, ATAs e prioridades P1–P4 por pilar.",
         "url": "/diario", "icone": "📔", "tipo": "nuvem",
-        "paginas": ["/diario", "/diario-atividades", "/ata"],   # [v3.7] + Diário antigo e Gerador de ATA
+        "paginas": ["/diario", "/ata"],   # [v3.7] + Gerador de ATA
         "apis": ["/api/atividades", "/api/acoes", "/api/kpis", "/api/upload", "/api/arquivos", "/api/diario"],
     },
     {
