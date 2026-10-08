@@ -1132,6 +1132,55 @@ def _checar_tamanho(dados):
         raise HTTPException(status_code=413, detail=f"Este processo ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB).")
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.7] DIÁRIO DE GESTÃO — registros pessoais (log, cobranças,
+# feedbacks, ATAs, plano do dia). O servidor não conhece os campos: campo
+# novo = só mexer no diario.html. Cada pessoa só lê/altera o que é dela.
+# ──────────────────────────────────────────────────────────────────────────
+def _dg_meu(request: Request, item_id: str) -> None:
+    dono = db.dg_dono(item_id)
+    if dono is None:
+        raise HTTPException(status_code=404, detail="Registro não encontrado (pode ter sido excluído).")
+    if dono != _email(request):
+        raise HTTPException(status_code=403, detail="Este registro é do diário de outra pessoa.")
+
+
+@app.get("/api/diario/itens")
+def dg_listar(request: Request):
+    return db.dg_listar(_email(request))
+
+
+@app.post("/api/diario/itens")
+def dg_criar(payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict) or not payload.dados.get("_tipo"):
+        raise HTTPException(status_code=400, detail="Registro do diário inválido.")
+    _checar_tamanho(payload.dados)
+    return db.docs_criar(db.COLECAO_DIARIO_GESTAO, payload.dados, _nome_de(request), _email(request))
+
+
+@app.put("/api/diario/itens/{item_id}")
+def dg_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Registro do diário inválido.")
+    _checar_tamanho(payload.dados)
+    _dg_meu(request, item_id)
+    resultado, registro = db.docs_salvar(db.COLECAO_DIARIO_GESTAO, item_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Registro não encontrado (pode ter sido excluído).")
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    return registro
+
+
+@app.post("/api/diario/itens/{item_id}/excluir")
+def dg_excluir(item_id: str, request: Request):
+    # POST (e não DELETE) de propósito: no diário pessoal, quem tem perfil
+    # "Adicionar" também pode apagar o que é seu.
+    _dg_meu(request, item_id)
+    db.docs_excluir(db.COLECAO_DIARIO_GESTAO, item_id, _nome_de(request))
+    return {"sucesso": True}
+
+
 @app.get("/api/mapa/processos")
 def mapa_listar():
     return db.mapa_listar()
@@ -1263,7 +1312,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
-    "/diario": "diario.html",                                            # Diário de Bordo
+    "/diario": "diario.html",                                            # Diário de gestão [v3.7]
+    "/diario-atividades": "diario-atividades.html",                      # Diário de Bordo anterior (atividades e ações)
+    "/ata": "ata.html",                                                  # Gerador de ATA King Star
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
