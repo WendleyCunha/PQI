@@ -1,0 +1,258 @@
+Manual do Painel PQI — King Star
+8 de out. de 2026 · @Wendley
+1. Visão geral
+O Painel PQI reúne, num só endereço e com um só login, os sistemas usados para conhecer, organizar e melhorar os processos da King Star. Ele está no ar em pqi-c2tu.onrender.com.
+Quatro sistemas formam o núcleo do método. Três deles trabalham em sequência, e cada um alimenta o seguinte:
+1. Organogramas — quem é quem em cada setor, a quem responde e em qual subsetor trabalha. É o cadastro oficial de setores e pessoas: os outros sistemas buscam os nomes aqui.
+2. Diagnóstico — o que cada departamento faz, quem faz, quanto tempo consome e de onde vem a demanda. Revela o peso de cada atividade e o trabalho invisível.
+3. Mapa Digital King Star — como cada atividade relevante é feita, passo a passo, confrontada com a Instrução de Trabalho (IT), até chegar ao processo novo (TO BE) aprovado e implantado. Inclui o fluxograma em raias.
+O quarto sistema funciona ao lado dos outros:
+• Diário de Bordo — o diário pessoal de gestão: o registro do dia, as cobranças a terceiros, os feedbacks, as ATAs de reunião e as prioridades P1 a P4.
+O Painel ainda tem o RG do Pedido e a área de Segurança (usuários e permissões, só para administradores).
+Como entrar: abra o endereço do Painel, faça login com e-mail e senha e clique no card do sistema. No primeiro acesso o sistema pede uma senha nova. Cada sistema abre numa aba dentro do Painel; você pode ter vários abertos ao mesmo tempo.
+Gravação: tudo é salvo sozinho enquanto você digita. No alto de cada tela aparece "Salvando…" e depois "Tudo salvo". Se duas pessoas alterarem o mesmo registro ao mesmo tempo, o sistema avisa e pergunta qual versão manter.
+2. Conceitos e glossário
+A mesma coisa aparece em vários sistemas, em níveis diferentes de detalhe. Esta tabela mostra cada nível, um exemplo e onde ele é cadastrado.
+Nível
+Exemplo
+Onde fica
+Departamento (setor)
+Logística
+Organogramas; no Diagnóstico, o departamento é o mesmo setor
+Subsetor
+PCL, Recebimento, Expedição, Frota
+Organogramas; no Mapa vira o macroprocesso
+Atividade (o quê)
+Retirada de pedido da carga
+Diagnóstico: Inventário, Diário de Bordo e Matriz
+Processo (o mesmo trabalho, de ponta a ponta)
+Retirada de pedido da carga
+Mapa Digital: um processo
+Passo (o como)
+Abrir o ticket, localizar o pedido, solicitar a retirada
+Mapa: "Como é feito hoje" e fluxograma
+Teste rápido: se tem gatilho (o que dispara), entrega (o resultado para alguém) e passos, é um processo para o Mapa. Se é um item da lista "o que fazemos e quanto tempo gasta", é uma atividade do Diagnóstico. A mesma atividade pode, e deve, existir nos dois.
+Termo
+Significado
+AS IS
+Como o processo é feito hoje, na prática
+TO BE
+Como o processo passa a ser feito depois da melhoria
+IT
+Instrução de Trabalho: o documento oficial de como fazer
+Gap
+Diferença entre a IT e a prática: feito diferente, feito sem IT ou na IT e não feito
+RACI
+Papéis em cada atividade: Responsável, Aprovador, Consultado, Informado
+Gemba
+Observar o trabalho no lugar onde ele acontece, sem interferir
+Subsetor responsável
+Quem deveria fazer a atividade; o sistema avisa quando outro subsetor faz
+Swimlane (raias)
+Fluxograma em que cada faixa horizontal é quem executa
+Pilares
+As 4 frentes de trabalho do Diário: Melhoria Contínua, Suporte Operacional, Projetos e Sistemas, Pessoas e Liderança
+P1 a P4
+Prioridade: P1 incêndio ou validação bloqueante; P2 melhoria e estruturação; P3 cobranças e acompanhamentos; P4 pessoas e desenvolvimento
+3. Organogramas
+O Organogramas mostra a estrutura real de cada setor: quem é quem, a quem responde, nível, subsetor, escala e horário. É a fonte oficial de setores e pessoas para todo o Painel.
+Para que serve
+• Ter um organograma por setor, sempre atualizado e imprimível.
+• Alimentar os outros sistemas: os departamentos do Diagnóstico, as áreas do Mapa e as listas de pessoas vêm daqui.
+• Comparar a estrutura oficial com a estrutura real levantada no Diagnóstico.
+Recursos
+• Tela inicial: um card por setor, com número de posições, vagas em aberto, liderança e andamento do Diagnóstico daquele setor. A busca encontra uma pessoa em todos os setores.
+• Organograma (árvore): cartões com foto, nome, cargo, nível e subsetor. Cada subsetor vira uma caixa própria com seus colaboradores. As linhas contornam os cartões e nunca passam por trás deles.
+• Tipos de linha: contínua = responde a; tracejada âmbar = também responde a (dupla subordinação); tracejada cinza = sugerida pelo nível, ainda não confirmada.
+• Por nível: cada subsetor num bloco, com as pessoas organizadas por nível hierárquico.
+• Lista e edição: tabela para editar o setor inteiro de uma vez.
+• Importar: colar linhas do Excel. Reconhece as colunas pelo cabeçalho, inclusive "Também responde a" e "Posicionar abaixo de".
+• Níveis hierárquicos: cadastráveis (sigla, nome, cor, ordem) e válidos para todos os setores. A ordem define a hierarquia.
+• Exportar: PDF do desenho como está na tela e Excel de um setor ou de todos.
+Como usar o desenho
+• Mover a tela: segure e arraste o fundo.
+• Reposicionar um cartão: arraste o cartão (ou uma caixa de subsetor, pelo título) e solte no espaço vazio. As linhas acompanham. O botão "Reorganizar" volta ao desenho automático.
+• Ligar pessoas: arraste um cartão e solte sobre outra pessoa. O menu pergunta o tipo: passa a responder a, também responde a, ou só posicionar abaixo.
+• Criar uma linha: puxe o ponto azul na base de um cartão até outra pessoa.
+• Alterar uma linha: clique nela para remover, trocar o gestor ou confirmar uma sugestão. Arraste a linha para religar a outra pessoa.
+• Tirar o gestor de alguém: durante o arraste aparece na barra a faixa "Solte aqui: topo do setor".
+• Editar uma pessoa: clique no cartão. O botão + do cartão adiciona alguém que responde àquela pessoa.
+4. Diagnóstico
+O Diagnóstico levanta o que cada departamento faz, quem faz, quanto tempo leva e de onde vem a demanda. O objetivo é compreender o processo, não avaliar o desempenho de cada pessoa.
+Para que serve
+• Listar todas as atividades do departamento, inclusive o trabalho que não aparece no sistema de chamados.
+• Medir o tempo real gasto em cada atividade.
+• Mostrar quando um subsetor faz o trabalho de outro.
+• Escolher quais atividades merecem virar processo no Mapa.
+Como começar: a tela inicial lista os departamentos, que são os mesmos setores do Organogramas. Escolha um ou crie um novo; tudo o que for registrado fica separado por departamento.
+As 12 seções (menu à esquerda)
+Seção
+O que faz
+Checklist
+As 8 etapas da metodologia e o percentual concluído
+Inventário
+Lista das atividades, com o subsetor responsável, a categoria e se já é registrada oficialmente. Clique no título de uma coluna para ordenar de A a Z
+Organograma
+Estrutura funcional real, comparada com o organograma oficial. O botão "Trazer pessoas do oficial" importa com um clique
+Matriz RACI
+Atividades × pessoas, com os papéis R, A, C e I, no modelo da planilha de referência
+Diário de Bordo
+Cronômetro por toque: escolha a pessoa e a atividade e toque em Iniciar; a troca de atividade fecha o tempo da anterior
+Entrevistas
+Roteiro de entrevista individual e as anotações por pessoa
+Gemba
+Registro da observação direta do trabalho
+Matriz
+Atividades × quem executa × frequência × tempo, sugerida a partir do Diário de Bordo
+Mapa de Jornada
+As 6 etapas de cada atividade, com dores e oportunidades
+6 Perguntas
+As perguntas que a entrega precisa responder, com rascunho automático
+Resumo IA
+Resumo executivo gerado por IA (opcional)
+Relatório Final
+Tudo consolidado, em Markdown, PDF ou Excel
+Subsetor responsável: no Inventário, defina quem deveria fazer cada atividade (por exemplo, abastecimento de estoque → Recebimento). A partir daí:
+• o Diário de Bordo avisa na hora quando a pessoa observada é de outro subsetor;
+• a Matriz mostra a análise "Quem faz o quê × subsetor", com o tempo feito pelo responsável e por outros subsetores.
+Ponte com o Mapa: a coluna "No Mapa Digital" mostra se a atividade já virou processo e em que situação ele está. O bloco "Levar ao Mapa Digital" tem o botão "Mapear", que abre o Mapa com o processo já preenchido (atividade, departamento e subsetor).
+5. Mapa Digital King Star
+O Mapa detalha como cada atividade relevante é feita, confronta a prática com a Instrução de Trabalho e conduz o processo até a melhoria implantada. O lema: conhecer a empresa antes de automatizar a empresa.
+As 7 fases de cada processo
+1. Visão macro e arquitetura — cadastrar todos os processos da área e marcar a área como "100% mapeada".
+2. Levantamento AS IS — registrar como o processo é feito hoje, passo a passo.
+3. Validação do AS IS — a área confirma que o levantamento retrata a realidade.
+4. Diagnóstico — confronto com a IT e levantamento das oportunidades.
+5. Desenho TO BE — decidir as pendências e construir a nova IT.
+6. Validação do TO BE — a nova IT é aprovada e passa a ser regra (fica travada).
+7. Planejar a implantação — ações com responsável, prazo e indicador.
+Telas principais
+• Processos mapeados: um card por processo, com a conformidade com a IT e a fase atual.
+• Áreas (Fase 1): processos por área e as atividades vindas do Diagnóstico que ainda não viraram processo, com o botão "Criar processo" (ou "Criar todas").
+• Visão geral: painel com metas, áreas × fases, confronto geral, ranking de oportunidades e exportação em Excel.
+Dentro de um processo (menu à esquerda)
+• Linha de vida: as 7 fases e a situação de cada passo da IT.
+• Registrar: a tela do dia a dia do levantamento. O título mostra a atividade ("Registrando: …"). Tipos de registro: como é feito hoje, passo da IT, anotação, dor ou oportunidade.
+• Identificação: dados do processo, origem no Diagnóstico e responsáveis (um ou vários, escolhidos numa lista com as pessoas do Organograma e das raias).
+• Como é feito hoje, IT atual e Anotações: os passos reais, os passos oficiais e o que foi ouvido.
+• Confronto e GAPs: classifica cada passo (conforme, diferente, sem IT, não feito) e gera oportunidades a partir dos gaps.
+• Oportunidades: prioridade = Volume × Tempo × Custo × Risco (notas de 1 a 5).
+• TO BE, Validação do TO BE e Implantação: fases 5 a 7.
+• Histórico: tudo o que foi registrado, com data e autor.
+Fluxograma em raias (swimlane)
+Cada processo tem dois fluxogramas: AS IS (como é hoje) e TO BE (como será). Cada raia é quem executa: pessoa, função ou subsetor.
+• Como começar: com o fluxograma vazio, escolha "Puxar do Mapa" (gera a partir dos passos, com as raias por pessoa ou por subsetor), "Copiar o AS IS" (no TO BE), "Partir de outro processo" ou "Começar do zero".
+• Símbolos: Início, Fim, Processo, Decisão (losango), Entrada/saída de dados, Documento, Subprocesso, Espera, Sistema/banco de dados, Operação manual, Conector e Anotação.
+• Montar: arraste o símbolo da paleta para dentro da raia. Arraste um símbolo para outra raia para mudar quem executa.
+• Ligar: passe o mouse sobre um símbolo e puxe um dos pontos azuis da borda até o próximo. As ligações contornam os símbolos sozinhas.
+• Ajustar uma ligação: clique nela e arraste o ponto do meio para desviar, ou uma ponta para religar. Use os botões Sim e Não para as saídas de uma decisão.
+• Editar: duplo clique no símbolo ou na raia edita o texto. A tecla Delete exclui o que estiver selecionado.
+• Exportar: SVG, PNG e PDF. Os fluxogramas também entram no PDF do processo.
+6. Diário de Bordo
+O Diário de Bordo é o diário pessoal de gestão: organiza o dia, registra decisões, cobra terceiros, acompanha pessoas e produz as ATAs. Os registros são pessoais: só quem criou consegue ver e alterar, inclusive em relação aos administradores.
+Para que serve
+• Não se perder na rotina multitarefa: tudo é classificado por pilar e prioridade.
+• Guardar o histórico do porquê das decisões.
+• Criar evidências do impacto gerencial para as avaliações de desempenho.
+• Cobrar terceiros sem precisar lembrar de tudo de cabeça.
+As seções (menu à esquerda)
+Seção
+O que faz
+Hoje
+A cadência do dia em 5 blocos, com o bloco atual destacado pelo relógio e o checklist de cada um; as 3 prioridades P1/P2 do dia; as cobranças para hoje; o diário do dia; as prioridades de amanhã
+Registro
+O log: reuniões, decisões (com o porquê), testes de sistema, problemas resolvidos, incêndios, alinhamentos e entregas. Cada registro tem pilar, prioridade, pessoas, resultado e evidência
+Cobranças
+Quadro com 3 colunas: atrasado/cobrar, aguardando resposta, entregue. Cada cobrança tem o quê, quem, prazo e lembrete
+Pessoas
+Histórico por colaborador ou par: contexto, pontos fortes, pontos de melhoria, acordos e data de reavaliação
+ATAs
+Captação rápida durante a reunião, separação automática e geração no modelo King Star
+Indicadores
+Esforço por pilar, P1 a P4, incêndios por semana, cobranças no prazo, relatório de impacto e Excel
+Atividades (anterior)
+O Diário antigo, mantido só para consultar o histórico já cadastrado
+A cadência do dia (horários ajustáveis no botão "Ajustar horários")
+1. Início do dia (15 min): revisar o diário de ontem, definir as 3 prioridades e checar as cobranças.
+2. Bloco manhã: tempo focado em sistemas e melhoria contínua, sem interrupções.
+3. Meio do dia (30 min): disparar as cobranças, validar as respostas e atualizar o diário.
+4. Bloco tarde: operação, suporte e pessoas.
+5. Fim do dia (15 min): registrar o diário, finalizar as ATAs e organizar amanhã.
+Ao marcar uma prioridade do dia como concluída, ela vira um registro no diário automaticamente.
+Como registrar: o botão "Registro rápido", no alto de qualquer tela, abre o formulário. Escolha o tipo: o pilar e a prioridade são sugeridos e podem ser trocados. Em decisões, preencha o "Por quê". Ctrl + Enter grava.
+Como cobrar
+• Crie a cobrança pelo botão "Cobrança". O lembrete padrão é o horário do meio do dia.
+• O status muda sozinho: passou do prazo, vai para "Atrasado / cobrar".
+• "Cobrei agora" guarda a cobrança no histórico e agenda o próximo lembrete para o dia útil seguinte.
+• "Mensagem" copia um texto de cobrança pronto para o Teams, WhatsApp ou e-mail.
+• Para receber os lembretes também como notificação, clique em "Ativar notificações". Os lembretes funcionam enquanto o Painel estiver aberto em alguma aba.
+Como fazer uma ATA
+1. Em ATAs, clique em "Nova ATA" no começo da reunião e preencha o tema, o local, a duração e os participantes.
+2. Na captação rápida, anote uma ideia por linha:
+    ◦ # Tópico — assunto;
+    ◦ - texto — ponto discutido; > texto — desdobramento;
+    ◦ D: texto — deliberação (frases com "decidido", "aprovado" ou "ficou definido" também viram deliberação);
+    ◦ A: Nome: ação até 15/10 ou @Nome ação 15/10 — ação com responsável e prazo;
+    ◦ P: texto — pendência.
+3. Clique em "Separar automaticamente" e revise os blocos: assuntos, deliberações, ações e pendências.
+4. "Abrir no Gerador" abre o Gerador de ATA com tudo preenchido; lá, "Gerar PDF" produz o documento no modelo oficial.
+5. "Baixar ATA em HTML" gera um arquivo que abre em qualquer navegador, já no modelo, para distribuir e arquivar.
+6. "Criar cobranças das ações" transforma cada ação em cobrança. "Registrar no diário" grava a reunião no log.
+7. "Finalizar ATA" trava a edição; "Reabrir" destrava.
+Relatório de impacto: em Indicadores ou no Registro, gera um PDF do período com o resumo por pilar, as decisões e seus motivos, os incêndios e problemas resolvidos, os testes de sistema, as entregas, as reuniões e as pendências de terceiros resolvidas. O conteúdo dos feedbacks não entra no relatório; aparece só a quantidade de conversas.
+7. Acesso, perfis e segurança
+Cada pessoa tem um perfil, e o perfil define o nível de acesso em cada sistema. O administrador ajusta tudo na área Segurança.
+Níveis de acesso por sistema
+Nível
+O que a pessoa pode fazer
+Sem acesso
+O card do sistema não aparece no Painel
+Visualizar
+Consultar e baixar relatórios, sem gravar; aparece o aviso "Somente visualização"
+Adicionar
+Incluir registros novos e completar campos vazios; não altera o que outra pessoa registrou
+Editar
+Tudo, inclusive alterar e excluir
+Perfis padrão
+Perfil
+Acesso
+Gestor
+Edita tudo
+Analista
+Edita o Diário; adiciona no Diagnóstico e no Mapa; visualiza o Organograma
+Colaborador
+Adiciona no Diário e no Diagnóstico; visualiza o Mapa e o Organograma
+Leitura
+Somente leitura em tudo
+Área Segurança (só administradores)
+• Usuários: criar usuário (botão "Novo usuário"), definir o perfil e os departamentos que a pessoa enxerga, gerar senha inicial, desativar.
+• Permissões: matriz de perfis × sistemas; clicar numa célula troca o nível.
+• Departamentos: os setores do Organograma, com o andamento do Diagnóstico e atalhos.
+• Histórico: quem alterou o quê e quando.
+Regras de segurança
+• A sessão dura 12 horas.
+• Após 5 senhas erradas, o e-mail fica bloqueado por 5 minutos.
+• No primeiro acesso, a troca de senha é obrigatória.
+• Os registros do Diário de Bordo são pessoais, mesmo para administradores.
+• Para recuperar a senha do administrador: criar um administrador temporário pelas variáveis do Render, entrar, redefinir a senha original e desativar o temporário.
+8. Roteiro e dúvidas frequentes
+Para mapear um departamento do zero, siga esta ordem. Cada etapa usa o que a anterior produziu.
+1. Organogramas: crie o setor, cadastre ou importe as pessoas com o subsetor de cada uma e confira a quem cada pessoa responde.
+2. Diagnóstico → Inventário: liste as atividades do departamento e defina o subsetor responsável de cada uma.
+3. Diagnóstico → Organograma e RACI: registre a estrutura real e os papéis em cada atividade.
+4. Diagnóstico → Diário de Bordo: cronometre a rotina da equipe por 1 a 2 semanas.
+5. Diagnóstico → Entrevistas e Gemba: complete com conversas individuais e observação no local.
+6. Diagnóstico → Matriz: consolide os dados e veja o que mais consome tempo e quem faz o quê por subsetor.
+7. Levar ao Mapa: escolha as atividades que mais pesam ou dão mais problema e clique em "Mapear".
+8. Mapa → fases 2 a 4: registre como é feito hoje, cadastre a IT, puxe o fluxograma AS IS e faça o confronto.
+9. Mapa → fases 5 a 7: desenhe o TO BE e o fluxograma TO BE, aprove e planeje a implantação.
+10. Diagnóstico → Validação e Relatório Final: apresente à equipe e à liderança.
+Durante todo o trabalho, use o Diário de Bordo para registrar as decisões, cobrar as pendências e gerar as ATAs das reuniões de validação.
+Dúvidas frequentes
+• Atividade ou processo? Atividade é o item da lista "o que fazemos e quanto pesa" (Diagnóstico). Processo é a mesma atividade detalhada passo a passo (Mapa).
+• Toda atividade precisa virar processo? Não. Leve ao Mapa as que mais consomem tempo, dão mais problema ou estão sendo feitas pelo subsetor errado.
+• "Aguardar os itens no palete" é o quê? É uma espera, não uma atividade-fim. No Diagnóstico, registre no Diário de Bordo como "Espera / Interrupção"; no fluxograma, use o símbolo Espera.
+• O fluxograma é gerado sozinho? O rascunho é. A partir dos passos, o sistema cria as raias e os símbolos em sequência. As decisões, documentos, esperas e caminhos alternativos você completa.
+• Onde ficou o histórico do Diário antigo? No menu do Diário, em "Atividades (anterior)".
+• Por que um botão não aparece para mim? O seu perfil naquele sistema é Visualizar ou Adicionar. Peça ao administrador para revisar o perfil em Segurança.
+• Depois de publicar uma versão nova, a tela continua igual. Confira se o deploy no Render terminou como "Deploy live" e use Ctrl + F5.
