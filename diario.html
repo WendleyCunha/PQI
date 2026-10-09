@@ -135,6 +135,24 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .prio-slot .num{font:700 20px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);width:22px;text-align:center}
 .prio-slot.feito{background:var(--ok-soft)} .prio-slot.feito input[type=text]{text-decoration:line-through;color:var(--ink-3)}
 .prio-slot input[type=checkbox]{width:18px;height:18px;accent-color:var(--ok)}
+/* [v3.8] ritmo montado pelo usuário + diário de hoje recolhível */
+.cadencia{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.ck .tag-at{display:inline-block;margin-left:4px;font-size:10.5px;font-weight:600;color:var(--prog);background:var(--prog-soft);border-radius:999px;padding:0 6px;text-decoration:none}
+.rt-setores{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+.rt-setores label{display:flex;gap:6px;align-items:center;font-size:13.5px;border:1px solid var(--rule);border-radius:999px;padding:4px 10px;cursor:pointer}
+.rt-setores input{width:15px;height:15px;accent-color:var(--steel)}
+.rt-bloco{border:1px solid var(--rule);border-left:4px solid var(--steel);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--paper)}
+.rt-cab{display:grid;grid-template-columns:1fr 96px 96px auto;gap:6px;align-items:end}
+.rt-cab label{font-size:12px}
+.rt-foco{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:6px}
+.rt-foco label.ck2{display:flex;gap:6px;align-items:center;font-size:12.5px;white-space:nowrap;color:var(--ink-2)}
+.rt-itens{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.rt-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;background:var(--sheet);border:1px solid var(--rule-2);border-radius:6px;padding:4px 4px 4px 10px;font-size:13.5px}
+.rt-item .tags{display:flex;gap:4px;align-items:center}
+.rt-novo{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px}
+.rt-novo input{padding:6px 8px;font-size:13px}
+.hj-oculto{opacity:.55}
+.sec-recolhe{border:0;background:none;padding:4px 8px;font-size:13px;color:var(--ink-2)}
 .hoje-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
 
 /* log (linha do tempo) */
@@ -221,7 +239,8 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .ind-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
 
 /* diálogo, toast e seletor */
-dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:640px;width:calc(100% - 32px)}
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:640px;width:calc(100% - 32px);max-height:calc(100vh - 32px);overflow:auto}
+dialog .acts{position:sticky;bottom:-22px;background:var(--sheet);padding:12px 0 4px;margin-bottom:-4px;border-top:1px solid var(--rule-2)}
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
 dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
@@ -390,6 +409,18 @@ window.addEventListener("beforeunload",e=>{ if(Object.keys(pend).length){ salvar
 
 // ─── configuração e plano do dia ───
 function cfg(){ const c=doTipo("config")[0]; return {...HORARIOS_PADRAO,...((c&&c.dados.horarios)||{})}; }
+// [v3.8] RITMO DO DIA — 100% da pessoa: blocos, horários e itens. Começa pelo modelo padrão.
+function ritmoPadrao(){ const h=cfg();
+  return {setores:null,blocos:BLOCOS.map(b=>({id:b.id,nome:b.nome,inicio:h[b.id],fim:h[b.ate],foco:b.foco,cobrancas:b.id==="meio",
+    itens:b.itens.map(([k,t])=>({id:k,texto:t,padrao:true}))}))}; }
+function ritmo(){ const c=doTipo("config")[0]; const r=c&&c.dados.ritmo; return r&&Array.isArray(r.blocos)?r:ritmoPadrao(); }
+function horaCobranca(){ const b=ritmo().blocos.find(x=>x.cobrancas)||ritmo().blocos.find(x=>x.id==="meio"); return (b&&b.inicio)||"12:00"; }
+// atividades do Inventário do Diagnóstico dos setores da pessoa
+let ATIV_SETOR=[];
+async function carregarAtividadesSetor(){ try{ const r=await fetch("/api/diario/atividades-setor",{cache:"no-store"}); if(r.ok) ATIV_SETOR=(await r.json()).departamentos||[]; }catch(_){} }
+function setoresDoRitmo(r){ const ids=(r&&Array.isArray(r.setores)&&r.setores.length)?r.setores:ATIV_SETOR.filter(d=>d.meu).map(d=>d.id);
+  return ATIV_SETOR.filter(d=>ids.includes(d.id)); }
+function acharAtividade(texto, setores){ const k=nrm(texto); for(const d of setores){ const a=d.atividades.find(x=>nrm(x.atividade)===k); if(a) return {dep:d,ativ:a}; } return null; }
 async function garantirDia(dataISO){
   let d=doTipo("dia").find(x=>x.dados.data===dataISO);
   if(!d) d=await criar({_tipo:"dia",data:dataISO,prioridades:[{texto:"",nivel:"P1",feito:false},{texto:"",nivel:"P2",feito:false},{texto:"",nivel:"P2",feito:false}],checks:{},notas:""});
@@ -397,9 +428,9 @@ async function garantirDia(dataISO){
 }
 function diaDe(dataISO){ return doTipo("dia").find(x=>x.dados.data===dataISO)||null; }
 function blocoAgora(){
-  const h=cfg(), m=minutos(agoraHM());
-  for(const b of BLOCOS){ const ini=minutos(h[b.id]), fim=minutos(h[b.ate]); if(ini!=null&&fim!=null&&m>=ini&&m<fim) return b.id; }
-  return m<minutos(h.inicio)?"antes":"depois";
+  const B=ritmo().blocos, m=minutos(agoraHM());
+  for(const b of B){ const ini=minutos(b.inicio), fim=minutos(b.fim); if(ini!=null&&fim!=null&&m>=ini&&m<fim) return b.id; }
+  const prim=B.length?minutos(B[0].inicio):null; return prim!=null&&m<prim?"antes":"depois";
 }
 
 // ─── cobranças: status calculado ───
@@ -432,17 +463,16 @@ function jaAvisado(chave){ try{ const s=JSON.parse(localStorage.getItem("diario_
 function marcarAvisado(chave){ try{ const s=JSON.parse(localStorage.getItem("diario_avisos")||"{}"); s[chave]=Date.now();
   Object.keys(s).forEach(k=>{ if(Date.now()-s[k]>10*864e5) delete s[k]; }); localStorage.setItem("diario_avisos",JSON.stringify(s)); }catch(_){} }
 function verificarLembretes(){
-  const agora=new Date(), hoje=hojeISO(), hm=agoraHM(), h=cfg();
+  const agora=new Date(), hoje=hojeISO(), hm=agoraHM();
   // 1) lembretes das cobranças
   cobrancasPendentes().forEach(c=>{ const l=c.dados.lembrete; if(!l) return; if(new Date(l)>agora) return; const k=`cob:${c.id}:${l}`; if(jaAvisado(k)) return; marcarAvisado(k);
     const txt=`🔔 Hora de cobrar: <b>${esc(c.dados.oque)}</b>${c.dados.quem?` — ${esc(c.dados.quem)}`:""}`;
     toast(txt,[["Abrir cobranças",()=>ir("cobrancas")],["Cobrei agora",()=>registrarCobranca(c)]]); notificar("Hora de cobrar",`${c.dados.oque}${c.dados.quem?" — "+c.dados.quem:""}`); });
-  // 2) momentos estratégicos da cadência
-  [["inicio","☀️ Início do dia: revise o diário de ontem, defina as 3 prioridades e cheque as cobranças."],
-   ["meio",()=>`📣 Meio do dia: hora de disparar as cobranças (${cobrarHoje().length} para hoje).`],
-   ["fim",()=>`🌙 Fim do dia: registre o diário, finalize as ATAs (${doTipo("ata").filter(a=>a.dados.status!=="finalizada").length} em rascunho) e organize amanhã.`]]
-   .forEach(([id,msg])=>{ const ini=minutos(h[id]); if(ini==null) return; const m=minutos(hm); if(m<ini||m>ini+60) return; const k=`bloco:${hoje}:${id}`; if(jaAvisado(k)) return; marcarAvisado(k);
-     const t=typeof msg==="function"?msg():msg; toast(t,[["Abrir o dia",()=>ir("hoje")]]); notificar("Diário de Bordo",t.replace(/<[^>]+>/g,"")); });
+  // 2) começo de cada bloco do seu ritmo do dia
+  ritmo().blocos.forEach(b=>{ const ini=minutos(b.inicio), m=minutos(hm); if(ini==null||m<ini||m>ini+60) return; const k=`bloco:${hoje}:${b.id}`; if(jaAvisado(k)) return; marcarAvisado(k);
+    const extra=b.cobrancas?` (${cobrarHoje().length} cobrança(s) para hoje)`:"", itens=(b.itens||[]).filter(x=>tx(x.texto)).length;
+    const t=`⏱ <b>${esc(b.nome)}</b>${b.foco?` — ${esc(b.foco)}`:""}${extra}${itens?` · ${itens} item(ns) no checklist`:""}`;
+    toast(t,[["Abrir o dia",()=>ir("hoje")]]); notificar("Diário de Bordo",t.replace(/<[^>]+>/g,"")); });
   // 3) reavaliações de feedback que vencem hoje
   doTipo("feedback").forEach(f=>{ const d=f.dados; if(!d.reavaliar_em||d.reavaliado||d.reavaliar_em>hoje) return; const k=`fb:${f.id}:${hoje}`; if(jaAvisado(k)) return; marcarAvisado(k);
     toast(`👥 Reavaliar o acordo com <b>${esc(d.pessoa)}</b> (combinado para ${dataBR(d.reavaliar_em)}).`,[["Abrir",()=>{ estP.sel=d.pessoa; ir("pessoas"); }]]); });
@@ -526,7 +556,7 @@ function ligarPick(input,varios){ if(!input) return; input.setAttribute("autocom
 // HOJE — a cadência do dia e as 3 prioridades
 // ═══════════════════════════════════════════════════════════════════
 function renderHoje(c){
-  const hoje=hojeISO(), dia=diaDe(hoje), ag=blocoAgora(), h=cfg();
+  const hoje=hojeISO(), dia=diaDe(hoje), ag=blocoAgora(), R=ritmo(), B=R.blocos;
   const logsHoje=doTipo("log").filter(l=>l.dados.data===hoje), ontem=(()=>{ let d=somaDias(hoje,-1); for(let i=0;i<7;i++){ if(doTipo("log").some(l=>l.dados.data===d)) return d; d=somaDias(d,-1); } return somaDias(hoje,-1); })();
   const logsOntem=doTipo("log").filter(l=>l.dados.data===ontem), cob=cobrarHoje(), atrasadas=cobrancasPendentes().filter(x=>statusCob(x)==="atrasada");
   const rasc=doTipo("ata").filter(a=>a.dados.status!=="finalizada"), reav=doTipo("feedback").filter(f=>f.dados.reavaliar_em&&!f.dados.reavaliado&&f.dados.reavaliar_em<=hoje);
@@ -535,34 +565,45 @@ function renderHoje(c){
   c.innerHTML=`<header class="doc-head"><div><h1>${saud}${primeiro?", "+esc(primeiro):""}</h1>
       <p class="obj">${esc(diaSemana(hoje))}</p>
       <p class="cap" style="margin:8px 0 0">Primeiro o filtro de prioridade, depois a execução. Comece pelo plano do dia, cobre no meio do dia e consolide no fim.</p></div>
-    <div class="stamp"><div class="code">Agora · ${esc(ag==="antes"?"antes do expediente":ag==="depois"?"fora do expediente":BLOCOS.find(b=>b.id===ag).nome)}</div><dl>
+    <div class="stamp"><div class="code">Agora · ${esc(ag==="antes"?"antes do expediente":ag==="depois"?"fora do expediente":(B.find(b=>b.id===ag)||{}).nome||"")}</div><dl>
       <dt>Registros hoje</dt><dd>${logsHoje.length}</dd><dt>Cobranças para hoje</dt><dd>${cob.length}${atrasadas.length?` <span class="pill p-bad">${atrasadas.length} atrasada(s)</span>`:""}</dd>
       <dt>ATAs em rascunho</dt><dd>${rasc.length}</dd><dt>Reavaliações</dt><dd>${reav.length}</dd></dl></div></header>
-    <section><header><h2>Ritmo do dia</h2><p>Cadência de rotina — o bloco de agora fica destacado.</p><span class="direita"><button type="button" class="peq" id="hjAjustar">⚙️ Ajustar horários</button></span></header>
-      <div class="cadencia">${BLOCOS.map((b,i)=>{ const idx=BLOCOS.findIndex(x=>x.id===ag), passou=ag==="depois"||(idx>=0&&i<idx);
+    <section><header><h2>Ritmo do dia</h2><p>${R.setores||doTipo("config")[0]&&doTipo("config")[0].dados.ritmo?"O seu ritmo — o bloco de agora fica destacado.":"Modelo padrão — monte o seu com as atividades do seu setor."}</p><span class="direita"><button type="button" class="peq primary" id="hjAjustar">✏️ Montar meu ritmo</button></span></header>
+      <div class="cadencia">${B.map((b,i)=>{ const idx=B.findIndex(x=>x.id===ag), passou=ag==="depois"||(idx>=0&&i<idx);
         return `<div class="bloco${b.id===ag?" agora":""}${passou?" passou":""}">${b.id===ag?'<span class="pill p-aco agora-tag">agora</span>':""}
-          <div class="hr">${esc(h[b.id])} – ${esc(h[b.ate])}${b.dur?` · ${b.dur}`:""}</div><h4>${esc(b.nome)}</h4><div class="foco">${esc(b.foco)}</div>
-          ${b.itens.map(([k,t])=>{ const extra=k==="revisar"?`<small>${logsOntem.length} registro(s) em ${dataBR(ontem)} · <a href="#" data-ontem>ver</a></small>`:k==="checar_cob"||k==="disparar"?`<small>${cob.length} para hoje${atrasadas.length?`, ${atrasadas.length} atrasada(s)`:""}</small>`:k==="atas"?`<small>${rasc.length} em rascunho</small>`:k==="registrar"?`<small>${logsHoje.length} registro(s) hoje</small>`:k==="tarde_pessoas"&&reav.length?`<small>${reav.length} reavaliação(ões) pendente(s)</small>`:"";
-            return `<label class="ck${ck[k]?" feito":""}"><input type="checkbox" data-ck="${k}" ${ck[k]?"checked":""}><span>${esc(t)}${extra}</span></label>`; }).join("")}</div>`; }).join("")}</div></section>
+          <div class="hr">${esc(b.inicio)} – ${esc(b.fim)}</div><h4>${esc(b.nome)}</h4>${b.foco?`<div class="foco">${esc(b.foco)}</div>`:""}
+          ${(b.itens||[]).filter(x=>tx(x.texto)).map(x=>[x.id,x.texto,x]).map(([k,t,x])=>{ const extra=k==="revisar"?`<small>${logsOntem.length} registro(s) em ${dataBR(ontem)} · <a href="#" data-ontem>ver</a></small>`:k==="checar_cob"||k==="disparar"?`<small>${cob.length} para hoje${atrasadas.length?`, ${atrasadas.length} atrasada(s)`:""}</small>`:k==="atas"?`<small>${rasc.length} em rascunho</small>`:k==="registrar"?`<small>${logsHoje.length} registro(s) hoje</small>`:k==="tarde_pessoas"&&reav.length?`<small>${reav.length} reavaliação(ões) pendente(s)</small>`:"";
+            return `<label class="ck${ck[k]?" feito":""}"><input type="checkbox" data-ck="${k}" ${ck[k]?"checked":""}><span>${esc(t)}${x.atividade?`<span class="tag-at" title="Atividade do setor ${esc(x.dep_nome||"")}">atividade</span>`:""}${extra}</span></label>`; }).join("")||'<p class="cap" style="margin:0">Sem itens — monte em ✏️.</p>'}</div>`; }).join("")||'<p class="vazio">Nenhum bloco no seu ritmo. Clique em ✏️ Montar meu ritmo.</p>'}</div></section>
     <div class="hoje-grid">
       <section><header><h2>As 3 prioridades de hoje</h2><p>Filtro P1/P2 antes de executar.</p></header>
         <div class="prio3" id="hjPrio"></div>
         <p class="cap" style="margin-top:8px">Ao concluir uma prioridade, ela vira um registro no diário automaticamente — vira evidência do seu dia.</p>
         <h3>📣 Cobranças para hoje</h3><div id="hjCob"></div></section>
-      <section><header><h2>Diário de hoje</h2><span class="direita"><button type="button" class="peq primary" id="hjReg">＋ Registrar</button></span></header>
+      <section><header><h2>Diário de hoje</h2><span class="direita"><button type="button" class="sec-recolhe" id="hjTog" aria-expanded="${estHoje.aberto}">${estHoje.aberto?"▾ Ocultar":"▸ Expandir"}</button><button type="button" class="peq primary" id="hjReg">＋ Registrar</button></span></header>
         <div id="hjLog"></div>
         <h3>🌙 Amanhã</h3><p class="cap">Deixe as prioridades de amanhã encaminhadas no fim do dia.</p><div class="prio3" id="hjAmanha"></div></section>
     </div>`;
-  $("#hjAjustar",c).onclick=dlgHorarios;
+  $("#hjAjustar",c).onclick=dlgRitmo;
   const ver=c.querySelector("[data-ontem]"); if(ver) ver.onclick=e=>{ e.preventDefault(); estLog.periodo="data"; estLog.data=ontem; ir("log"); };
   c.querySelectorAll("[data-ck]").forEach(i=>i.onchange=async()=>{ const d=await garantirDia(hoje); d.dados.checks=d.dados.checks||{}; d.dados.checks[i.dataset.ck]=i.checked; salvar(d); i.closest(".ck").classList.toggle("feito",i.checked); });
   $("#hjReg",c).onclick=()=>dlgLog();
   desenharPrioridades($("#hjPrio",c),hoje,true); desenharPrioridades($("#hjAmanha",c),proxDiaUtil(hoje),false);
   const hc=$("#hjCob",c); hc.innerHTML=cob.length?"":'<p class="vazio">Nenhuma cobrança para hoje. 👌</p>'; cob.slice(0,6).forEach(x=>hc.appendChild(cardCobranca(x,true)));
   if(cob.length>6) hc.insertAdjacentHTML("beforeend",`<button type="button" class="peq" id="hjMaisCob">Ver todas (${cob.length})</button>`), $("#hjMaisCob",c).onclick=()=>ir("cobrancas");
-  const hl=$("#hjLog",c); if(!logsHoje.length) hl.innerHTML='<p class="vazio">Nada registrado hoje ainda. Use <b>＋ Registro rápido</b> a qualquer momento.</p>';
-  logsHoje.sort((a,b)=>String(b.dados.hora).localeCompare(String(a.dados.hora))).forEach(l=>hl.appendChild(cardLog(l)));
+  $("#hjTog",c).onclick=()=>{ estHoje.aberto=!estHoje.aberto; try{ localStorage.setItem("diario_hoje_aberto",estHoje.aberto?"1":"0"); }catch(_){} render(); };
+  const hl=$("#hjLog",c), visiveis=logsHoje.filter(l=>!l.dados.oculto_hoje), ocultos=logsHoje.filter(l=>l.dados.oculto_hoje);
+  if(!estHoje.aberto){ hl.innerHTML=`<p class="cap" style="margin:0">${logsHoje.length} registro(s) hoje${ocultos.length?` · ${ocultos.length} conferido(s)`:""} — <a href="#" id="hjAbrir">expandir</a></p>`; $("#hjAbrir",c).onclick=e=>{ e.preventDefault(); $("#hjTog").click(); }; }
+  else {
+    if(!logsHoje.length) hl.innerHTML='<p class="vazio">Nada registrado hoje ainda. Use <b>＋ Registro rápido</b> a qualquer momento.</p>';
+    else if(!visiveis.length&&!estHoje.verOcultos) hl.innerHTML='<p class="vazio">Tudo conferido por hoje. ✓</p>';
+    const ord=(a,b)=>String(b.dados.hora).localeCompare(String(a.dados.hora));
+    visiveis.sort(ord).forEach(l=>hl.appendChild(cardLog(l,{hoje:true})));
+    if(ocultos.length){ hl.insertAdjacentHTML("beforeend",`<button type="button" class="peq" id="hjVerOc" style="margin-top:4px">${estHoje.verOcultos?"Esconder":"Mostrar"} ${ocultos.length} conferido(s)</button>`);
+      $("#hjVerOc",c).onclick=()=>{ estHoje.verOcultos=!estHoje.verOcultos; render(); };
+      if(estHoje.verOcultos) ocultos.sort(ord).forEach(l=>{ const e=cardLog(l,{hoje:true}); e.classList.add("hj-oculto"); hl.appendChild(e); }); }
+  }
 }
+const estHoje={aberto:(()=>{ try{ return localStorage.getItem("diario_hoje_aberto")!=="0"; }catch(_){ return true; } })(), verOcultos:false};
 function desenharPrioridades(box,dataISO,ehHoje){
   const dia=diaDe(dataISO), P=(dia&&dia.dados.prioridades)||[{texto:"",nivel:"P1"},{texto:"",nivel:"P2"},{texto:"",nivel:"P2"}];
   box.innerHTML=P.map((p,i)=>`<div class="prio-slot${p.feito?" feito":""}"><span class="num">${i+1}</span>
@@ -578,23 +619,73 @@ function desenharPrioridades(box,dataISO,ehHoje){
     if(i.checked&&tx(p.texto)&&!p.log_id){ const l=await criar({_tipo:"log",data:hojeISO(),hora:agoraHM(),tipo:"entrega",texto:`Prioridade do dia concluída: ${tx(p.texto)}`,pilar:p.nivel==="P1"?2:1,prioridade:p.nivel,porque:"",pessoas:"",evidencia:"",resultado:""});
       p.log_id=l.id; salvar(d); toast("✓ Prioridade concluída e registrada no diário."); if(secao==="hoje") render(); } });
 }
-function dlgHorarios(){
-  const h=cfg();
-  abrirDlg("Horários da cadência",`<p class="cap">Ajuste ao seu expediente. Os avisos de início, meio e fim do dia saem nesses horários.</p>
-    <div class="grade">${[["inicio","Início do dia"],["manha","Bloco manhã"],["meio","Meio do dia"],["tarde","Bloco tarde"],["fim","Fim do dia"],["encerra","Encerramento"]].map(([k,r])=>`<label class="f">${r}<input type="time" name="${k}" value="${esc(h[k])}"></label>`).join("")}</div>`,
-    async f=>{ const novo={}; Object.keys(HORARIOS_PADRAO).forEach(k=>novo[k]=f.get(k)||HORARIOS_PADRAO[k]);
-      let c=doTipo("config")[0]; if(!c) c=await criar({_tipo:"config",horarios:novo}); else { c.dados.horarios=novo; await salvarAgora(c); } render(); });
+function dlgRitmo(){
+  const R=JSON.parse(JSON.stringify(ritmo()));
+  if(!Array.isArray(R.setores)||!R.setores.length) R.setores=ATIV_SETOR.filter(d=>d.meu).map(d=>d.id);
+  if(!R.setores.length&&ATIV_SETOR.length===1) R.setores=[ATIV_SETOR[0].id];
+  const f=abrirDlg("Montar meu ritmo do dia",`<p class="cap" style="margin:0 0 6px">Monte os blocos do seu dia com as <b>atividades do seu setor</b> (Inventário do Diagnóstico). Um item que não existe na lista vira <b>atividade nova</b> do setor ao salvar.</p><div id="rtEd"></div>`,
+    async()=>{
+      R.blocos.forEach(b=>{ if(!tx(b.nome)) throw new Error("Todo bloco precisa de nome."); if(minutos(b.inicio)==null||minutos(b.fim)==null) throw new Error(`Informe início e fim do bloco “${b.nome}”.`);
+        if(minutos(b.fim)<=minutos(b.inicio)) throw new Error(`No bloco “${b.nome}”, o fim precisa ser depois do início.`); });
+      R.blocos.sort((a,b)=>minutos(a.inicio)-minutos(b.inicio));
+      // itens que não estão no Inventário viram atividade nova do setor
+      const sets=ATIV_SETOR.filter(d=>R.setores.includes(d.id)), destino=sets[0]; let novas=0, semSetor=0;
+      for(const b of R.blocos) for(const it of b.itens){ if(it.padrao||!tx(it.texto)) continue;
+        const ach=acharAtividade(it.texto,sets);
+        if(ach){ Object.assign(it,{atividade:true,dep:ach.dep.id,dep_nome:ach.dep.nome}); continue; }
+        if(!destino){ semSetor++; continue; }
+        const r=await fetch("/api/diario/atividades-setor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dep:destino.id,atividade:tx(it.texto)})});
+        const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||`Não consegui criar a atividade “${it.texto}” (HTTP ${r.status}).`);
+        if(j.criada){ novas++; destino.atividades.push({atividade:tx(it.texto),subsetor:"",categoria:""}); }
+        Object.assign(it,{atividade:true,dep:destino.id,dep_nome:destino.nome}); }
+      let cf=doTipo("config")[0]; if(!cf) cf=await criar({_tipo:"config",horarios:cfg(),ritmo:R}); else { cf.dados.ritmo=R; await salvarAgora(cf); }
+      render();
+      toast(`✓ Ritmo do dia salvo.${novas?` ${novas} atividade(s) nova(s) incluída(s) no Inventário de ${esc(destino.nome)}.`:""}${semSetor?` ${semSetor} item(ns) ficaram só no seu ritmo (você não tem setor ligado).`:""}`);
+    }, "Salvar meu ritmo", '<button type="button" id="rtPadrao" style="margin-right:auto">↺ Voltar ao modelo padrão</button>', true);
+  const ed=$("#rtEd",f);
+  const desenhar=()=>{
+    const sets=ATIV_SETOR.filter(d=>R.setores.includes(d.id));
+    const lista=sets.flatMap(d=>d.atividades.map(a=>({a,d})));
+    ed.innerHTML=`${ATIV_SETOR.length?`<div class="rt-setores"><b style="font-size:13px;align-self:center">Meu setor:</b>${ATIV_SETOR.map(d=>`<label><input type="checkbox" data-set="${d.id}" ${R.setores.includes(d.id)?"checked":""}>${esc(d.nome)} <span class="muted">(${d.atividades.length})</span>${d.meu?' <span class="pill p-aco">você</span>':""}</label>`).join("")}</div>`
+        :'<p class="alerta">Você ainda não tem acesso a nenhum setor do Diagnóstico — os itens ficam só no seu ritmo. Peça ao administrador para ligar o seu departamento em Segurança.</p>'}
+      <datalist id="dl-ativ">${lista.map(({a,d})=>`<option value="${esc(a.atividade)}" label="${esc([a.subsetor,d.nome].filter(Boolean).join(" · "))}">`).join("")}</datalist>
+      ${R.blocos.map((b,i)=>`<div class="rt-bloco" data-b="${i}">
+        <div class="rt-cab"><label class="f">Bloco<input data-bc="nome" value="${esc(b.nome)}" placeholder="Ex.: Abertura da operação"></label>
+          <label class="f">Início<input type="time" data-bc="inicio" value="${esc(b.inicio||"")}"></label><label class="f">Fim<input type="time" data-bc="fim" value="${esc(b.fim||"")}"></label>
+          <span style="display:flex;gap:2px"><button type="button" class="ib" data-bmv="-1" title="Subir" ${i?"":"disabled"}>▲</button><button type="button" class="ib" data-bmv="1" title="Descer" ${i<R.blocos.length-1?"":"disabled"}>▼</button><button type="button" class="ib del" data-bdel title="Excluir bloco">🗑</button></span></div>
+        <div class="rt-foco"><input data-bc="foco" value="${esc(b.foco||"")}" placeholder="Foco do bloco (opcional)"><label class="ck2" title="O horário de início deste bloco vira o horário padrão dos lembretes de cobrança"><input type="checkbox" data-bcob ${b.cobrancas?"checked":""}> momento das cobranças</label></div>
+        <div class="rt-itens">${(b.itens||[]).map((it,k)=>{ const ach=!it.padrao&&acharAtividade(it.texto,sets);
+          return `<div class="rt-item"><span>${esc(it.texto)}</span><span class="tags">${it.padrao?'<span class="pill p-cinza">rotina</span>':ach?`<span class="pill p-azul" title="${esc(ach.dep.nome)}">atividade${ach.ativ.subsetor?" · "+esc(ach.ativ.subsetor):""}</span>`:'<span class="pill p-warn" title="Não está no Inventário do setor — será incluída ao salvar">nova atividade</span>'}
+            <button type="button" class="ib" data-imv="${k}:-1" title="Subir" ${k?"":"disabled"}>▲</button><button type="button" class="ib" data-imv="${k}:1" title="Descer" ${k<b.itens.length-1?"":"disabled"}>▼</button><button type="button" class="ib del" data-idel="${k}" title="Remover">✕</button></span></div>`; }).join("")||'<span class="cap" style="margin:0">Nenhum item.</span>'}</div>
+        <div class="rt-novo"><input data-inovo list="dl-ativ" placeholder="＋ Atividade do setor ou nova (escreva e tecle Enter)"><button type="button" class="peq" data-iadd>Incluir</button></div></div>`).join("")}
+      <button type="button" class="peq" id="rtBloco">＋ Novo bloco</button>`;
+    ed.querySelectorAll("[data-set]").forEach(cb=>cb.onchange=()=>{ R.setores=cb.checked?[...new Set([...R.setores,cb.dataset.set])]:R.setores.filter(x=>x!==cb.dataset.set); desenhar(); });
+    ed.querySelectorAll(".rt-bloco").forEach(box=>{ const b=R.blocos[+box.dataset.b];
+      box.querySelectorAll("[data-bc]").forEach(i=>i.oninput=()=>{ b[i.dataset.bc]=i.value; });
+      box.querySelector("[data-bcob]").onchange=e=>{ R.blocos.forEach(x=>x.cobrancas=false); b.cobrancas=e.target.checked; desenhar(); };
+      box.querySelectorAll("[data-bmv]").forEach(x=>x.onclick=()=>{ const i=+box.dataset.b, j=i+Number(x.dataset.bmv); [R.blocos[i],R.blocos[j]]=[R.blocos[j],R.blocos[i]]; desenhar(); });
+      box.querySelector("[data-bdel]").onclick=()=>{ if(b.itens.length&&!confirm(`Excluir o bloco “${b.nome}” e os ${b.itens.length} item(ns)?`)) return; R.blocos.splice(+box.dataset.b,1); desenhar(); };
+      box.querySelectorAll("[data-imv]").forEach(x=>x.onclick=()=>{ const [k,dlt]=x.dataset.imv.split(":").map(Number); [b.itens[k],b.itens[k+dlt]]=[b.itens[k+dlt],b.itens[k]]; desenhar(); });
+      box.querySelectorAll("[data-idel]").forEach(x=>x.onclick=()=>{ b.itens.splice(+x.dataset.idel,1); desenhar(); });
+      const inp=box.querySelector("[data-inovo]"), add=()=>{ const t=tx(inp.value); if(!t) return; if(b.itens.some(x=>nrm(x.texto)===nrm(t))){ inp.value=""; return; }
+        b.itens.push({id:uid(),texto:t}); desenhar(); const n=ed.querySelector(`.rt-bloco[data-b="${box.dataset.b}"] [data-inovo]`); n&&n.focus(); };
+      box.querySelector("[data-iadd]").onclick=add; inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); add(); } }; });
+    $("#rtBloco",ed).onclick=()=>{ const ult=R.blocos[R.blocos.length-1]; R.blocos.push({id:uid(),nome:"Novo bloco",inicio:ult?ult.fim:"08:00",fim:"",foco:"",cobrancas:false,itens:[]}); desenhar();
+      const ns=ed.querySelectorAll('[data-bc="nome"]'); ns[ns.length-1].select(); };
+  };
+  $("#rtPadrao",f).onclick=()=>{ if(!confirm("Voltar ao modelo padrão de 5 blocos? (o seu ritmo atual é descartado ao salvar)")) return; const p=ritmoPadrao(); R.blocos=p.blocos; desenhar(); };
+  desenhar();
 }
 
 // ─── diálogo genérico ───
-function abrirDlg(titulo, corpo, aoSalvar, rotulo, extra){
+function abrirDlg(titulo, corpo, aoSalvar, rotulo, extra, largo){
   fecharPick();
-  const dl=$("#dlg"), f=$("#dlgForm");
+  const dl=$("#dlg"), f=$("#dlgForm"); dl.style.maxWidth=largo?"920px":"";
   f.innerHTML=`<h3>${esc(titulo)}</h3>${corpo}<p class="msg erro" id="dlgMsg"></p><div class="acts">${extra||""}<button type="button" value="cancel" id="dlgNao">Cancelar</button><button type="submit" class="primary" id="dlgSim">${esc(rotulo||"Salvar")}</button></div>`;
   $("#dlgNao").onclick=()=>{ fecharPick(); dl.close(); };
   f.onsubmit=async e=>{ e.preventDefault(); const b=$("#dlgSim"); b.disabled=true;
     try{ const r=await aoSalvar(new FormData(f)); if(r!==false){ fecharPick(); dl.close(); } }catch(err){ $("#dlgMsg").textContent=err.message; } finally{ b.disabled=false; } };
-  f.onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); f.requestSubmit(); } };
+  f.onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); f.requestSubmit(); } else if(e.key==="Enter"&&e.target.closest("#rtEd")&&e.target.matches("input")) e.preventDefault(); };
   dl.showModal(); return f;
 }
 
@@ -635,14 +726,16 @@ function dlgLog(item){
     render(); }, item?"Salvar":"Registrar", "<span style='margin-right:auto;font-size:12px;color:var(--ink-3)'>Ctrl + Enter grava</span>");
   ligarFormLog(f); setTimeout(()=>f.querySelector('[name="texto"]').focus(),30);
 }
-function cardLog(l){
+function cardLog(l,op){
+  op=op||{};
   const d=l.dados, t=tipoLog(d.tipo), p=pilar(d.pilar), e=el("div",`reg${p?" pil-"+p.id:""}`);
   e.innerHTML=`<div class="topo"><span>${esc(d.hora||"")}</span><span class="pill p-cinza">${t.ico} ${esc(t.nome)}</span>${pilPill(d.pilar)}${prioTag(d.prioridade)}
-      <span class="acs"><button type="button" class="ib" data-ed title="Editar">✏️</button><button type="button" class="ib del" data-del title="Excluir">🗑</button></span></div>
+      <span class="acs">${op.hoje?(d.oculto_hoje?'<button type="button" class="ib" data-ok title="Voltar para a lista de hoje">↺</button>':'<button type="button" class="ib" data-ok title="Conferido — tirar da lista de hoje (continua no Registro)">✓</button>'):""}<button type="button" class="ib" data-ed title="Editar">✏️</button><button type="button" class="ib del" data-del title="Excluir">🗑</button></span></div>
     <p>${esc(d.texto)}</p>${d.porque?`<div class="det"><b>Por quê:</b> ${esc(d.porque)}</div>`:""}${d.resultado?`<div class="det"><b>Resultado:</b> ${esc(d.resultado)}</div>`:""}
     ${d.pessoas?`<div class="det"><b>Com:</b> ${esc(d.pessoas)}</div>`:""}${d.evidencia?`<div class="det"><b>Evidência:</b> ${/^https?:\/\//.test(d.evidencia)?`<a href="${esc(d.evidencia)}" target="_blank" rel="noopener">${esc(d.evidencia)}</a>`:esc(d.evidencia)}</div>`:""}
     ${d.ata_id&&porId(d.ata_id)?`<div class="det"><a href="#" data-ata>📄 Ver a ATA</a></div>`:""}`;
   e.querySelector("[data-ed]").onclick=()=>dlgLog(l);
+  const okb=e.querySelector("[data-ok]"); if(okb) okb.onclick=async()=>{ d.oculto_hoje=!d.oculto_hoje; await salvarAgora(l); render(); };
   e.querySelector("[data-del]").onclick=async()=>{ if(await excluir(l,"Excluir este registro do diário?")) render(); };
   const a=e.querySelector("[data-ata]"); if(a) a.onclick=ev=>{ ev.preventDefault(); estAta.aberta=d.ata_id; ir("atas"); };
   return e;
@@ -691,7 +784,7 @@ function renderLog(c){
 // COBRANÇAS — pendências de terceiros (follow-up)
 // ═══════════════════════════════════════════════════════════════════
 const estCob={filtro:"",busca:"",todasEntregues:false};
-function lembretePadrao(prazo){ const h=cfg(); const base=prazo&&prazo>hojeISO()?prazo:proxDiaUtil(hojeISO()); return `${base}T${h.meio}`; }
+function lembretePadrao(prazo){ const base=prazo&&prazo>hojeISO()?prazo:proxDiaUtil(hojeISO()); return `${base}T${horaCobranca()}`; }
 function dlgCobranca(item, pre){
   const d=item?item.dados:{prioridade:"P3",pilar:1,...(pre||{})};
   const f=abrirDlg(item?"Editar cobrança":"Nova cobrança",`
@@ -719,11 +812,11 @@ async function registrarCobranca(c){
   const nota=prompt(`Registrar cobrança de “${c.dados.oque}”.\nComo foi? (opcional — ex.: “mandei no Teams”, “prometeu para sexta”)`,"");
   if(nota===null) return;
   c.dados.historico=c.dados.historico||[]; c.dados.historico.push({em:new Date().toISOString(),nota:tx(nota)});
-  c.dados.lembrete=`${proxDiaUtil(hojeISO())}T${cfg().meio}`;
+  c.dados.lembrete=`${proxDiaUtil(hojeISO())}T${horaCobranca()}`;
   await salvarAgora(c); toast(`✓ Cobrança registrada (${c.dados.historico.length}ª). Próximo lembrete: ${dataHoraBR(c.dados.lembrete)}.`); render();
 }
 function dlgAdiar(c){
-  const d=c.dados, h=cfg(), base=d.lembrete||lembretePadrao(d.prazo), hora=(String(base).split("T")[1]||h.meio).slice(0,5);
+  const d=c.dados, base=d.lembrete||lembretePadrao(d.prazo), hora=(String(base).split("T")[1]||horaCobranca()).slice(0,5);
   const proxSeg=(()=>{ let x=somaDias(hojeISO(),1); while(new Date(x+"T12:00:00").getDay()!==1) x=somaDias(x,1); return x; })();
   const op=[["Amanhã",proxDiaUtil(hojeISO())],["Em 3 dias",somaDias(hojeISO(),3)],["Próxima semana",proxSeg]];
   const f=abrirDlg("Adiar cobrança",`<p class="cap" style="margin:0 0 6px"><b>${esc(d.oque)}</b>${d.quem?` — ${esc(d.quem)}`:""}</p>
@@ -1127,6 +1220,7 @@ async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado) NIVEL=a.nivel; }catch(_){}
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(); USUARIO=(j.usuario&&(j.usuario.nome||j.usuario.email))||""; } }catch(_){}
   try{ const r=await fetch("/api/base/cadastros",{cache:"no-store"}); if(r.ok){ const j=await r.json(); if(j&&Array.isArray(j.setores)) BASE=j; } }catch(_){}
+  await carregarAtividadesSetor();
   try{ const {r,j}=await api(API); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`); ITENS=Array.isArray(j)?j:[]; }
   catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar o seu diário.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; return; }
