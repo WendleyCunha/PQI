@@ -1172,6 +1172,60 @@ def dg_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
     return registro
 
 
+# [NOVO v3.8] RITMO DO DIA ↔ INVENTÁRIO DO DIAGNÓSTICO
+# O Ritmo do dia é montado com as atividades do setor da pessoa (o Inventário
+# do Diagnóstico). Atividade nova criada no Ritmo entra no Inventário.
+def _sem_acento(t) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFD", str(t or "")).encode("ascii", "ignore").decode()
+    return " ".join(t.lower().split())
+
+
+@app.get("/api/diario/atividades-setor")
+def dg_atividades_setor(request: Request):
+    u = usuario_atual(request)
+    email, nome = (u.get("email") or "").lower(), _sem_acento(u.get("nome"))
+    saida = []
+    for d in _setores_do(u):
+        dados = d.get("dados") or {}
+        pessoas = dados.get("pessoas") or []
+        meu = any((email and (p.get("email") or "").lower() == email) or (nome and _sem_acento(p.get("nome")) == nome) for p in pessoas)
+        inv = db.diagdep_ler(d["id"], "inventario") or []
+        saida.append({
+            "id": d["id"], "nome": (dados.get("nome") or "").strip(), "meu": meu,
+            "subsetores": sorted({(x or "").strip() for x in (dados.get("subsetores") or [])} | {(p.get("subsetor") or "").strip() for p in pessoas} - {""}),
+            "atividades": [{"atividade": (i.get("atividade") or "").strip(), "subsetor": (i.get("subsetor") or "").strip(), "categoria": i.get("categoria") or ""}
+                           for i in inv if isinstance(i, dict) and (i.get("atividade") or "").strip()],
+        })
+    return {"departamentos": saida}
+
+
+class AtividadeNova(BaseModel):
+    dep: str
+    atividade: str
+    subsetor: str = ""
+
+
+@app.post("/api/diario/atividades-setor")
+def dg_nova_atividade(payload: AtividadeNova, request: Request):
+    u = usuario_atual(request)
+    nome_at = " ".join((payload.atividade or "").split())[:200]
+    if not nome_at:
+        raise HTTPException(status_code=400, detail="Informe o nome da atividade.")
+    if payload.dep not in {d["id"] for d in _setores_do(u)}:
+        raise HTTPException(status_code=403, detail="Você não tem acesso a este departamento.")
+    inv = db.diagdep_ler(payload.dep, "inventario") or []
+    if not isinstance(inv, list):
+        inv = []
+    if any(isinstance(i, dict) and _sem_acento(i.get("atividade")) == _sem_acento(nome_at) for i in inv):
+        return {"criada": False}
+    inv.append({"atividade": nome_at, "subsetor": (payload.subsetor or "").strip()[:120], "categoria": "",
+                "descricao": "Incluída pelo Ritmo do dia (Diário de Bordo)", "registrada": "", "_por": _email(request)})
+    inv.sort(key=lambda i: _sem_acento((i or {}).get("atividade")))
+    db.diagdep_salvar(payload.dep, "inventario", inv, _nome_de(request))
+    return {"criada": True}
+
+
 @app.post("/api/diario/itens/{item_id}/excluir")
 def dg_excluir(item_id: str, request: Request):
     # POST (e não DELETE) de propósito: no diário pessoal, quem tem perfil
