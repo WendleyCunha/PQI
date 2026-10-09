@@ -216,10 +216,23 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .fb .cols b{display:block;font:600 12px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:3px}
 
 /* ATAs */
-.ata-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.ata-card{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
-.ata-card:hover{border-color:var(--steel)}
-.ata-card h4{margin:4px 0;font-size:17px}
+.ata-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.ata-card{display:flex!important;flex-direction:column;align-items:stretch!important;gap:8px!important;background:var(--sheet);border:1px solid var(--rule);border-left:5px solid var(--amber);border-radius:10px;padding:14px 16px!important;cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;line-height:1.4}
+.ata-card.fin{border-left-color:var(--ok)}
+.ata-card:hover{border-color:var(--steel);box-shadow:0 4px 14px rgba(20,30,50,.08)}
+.ata-card .ac-topo{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.ata-card .ac-data{font:700 13px "IBM Plex Sans Condensed",sans-serif;color:var(--steel);background:var(--steel-soft);border-radius:6px;padding:3px 8px}
+.ata-card h4{margin:0;font-size:18px;line-height:1.25;color:var(--ink)}
+.ata-card .ac-meta{font-size:12.5px;color:var(--ink-3);display:flex;gap:6px;flex-wrap:wrap}
+.ata-card .ac-obj{font-size:13px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ata-card .ac-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--rule-2);padding-top:8px}
+.ata-card .ac-nums > span{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:11.5px;line-height:1.25;color:var(--ink-3)}
+.ata-card .ac-nums b{display:block;font:700 20px "IBM Plex Sans Condensed",sans-serif;color:var(--ink);margin-bottom:2px}
+.ata-card .ac-meta span{white-space:nowrap}
+.ata-card .ac-barra{height:5px;background:var(--rule-2);border-radius:3px;overflow:hidden}
+.ata-card .ac-barra i{display:block;height:100%;background:var(--ok)}
+.filtros .sep-f{width:1px;height:26px;background:var(--rule)}
+.filtros .lbl-f{font-size:12.5px;color:var(--ink-3)}
 .lista-ed{display:flex;flex-direction:column;gap:6px}
 .lista-ed .li{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .acao-li{display:grid;grid-template-columns:200px 1fr 150px auto;gap:6px;align-items:start}
@@ -239,7 +252,9 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .ind-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
 
 /* diálogo, toast e seletor */
-dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:640px;width:calc(100% - 32px);max-height:calc(100vh - 32px);overflow:auto}
+dialog{border:1px solid var(--rule);border-radius:12px;background:var(--sheet);color:var(--ink);padding:26px 30px;max-width:min(1320px,96vw);width:96vw;max-height:94vh;overflow:auto}
+dialog h3{font-size:24px}
+dialog textarea{min-height:90px}
 dialog .acts{position:sticky;bottom:-22px;background:var(--sheet);padding:12px 0 4px;margin-bottom:-4px;border-top:1px solid var(--rule-2)}
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
@@ -273,14 +288,14 @@ dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
   <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
   <button type="button" id="btNotif" title="Receber os lembretes como notificação do navegador" hidden>🔔 Ativar notificações</button>
   <button type="button" id="btRapido" class="primary">＋ Registro rápido</button>
-  <button type="button" id="btCobranca">＋ Cobrança</button>
+  <button type="button" id="btCobranca">＋ Tarefa</button>
 </div></div>
 <div class="wrap">
   <div class="shell-item">
     <nav class="side-rg" id="menu" aria-label="Seções do diário"></nav>
     <div class="conteudo-item"><main id="root"><p class="cap">Carregando o seu diário…</p></main></div>
   </div>
-  <footer class="doc-foot">Diário de Bordo · gestão do dia — log de decisões, cobranças, pessoas e ATAs. Os registros deste diário são pessoais: só você os vê.</footer>
+  <footer class="doc-foot">Diário de Bordo · gestão do dia — registros, tarefas, pessoas e ATAs. Os registros deste diário são pessoais: só você os vê.</footer>
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
@@ -326,7 +341,7 @@ const SUGESTAO_TIPO={reuniao:[4,"P2"],decisao:[1,"P2"],teste:[3,"P1"],resolvido:
 const HORARIOS_PADRAO={inicio:"08:00",manha:"08:15",meio:"12:00",tarde:"12:30",fim:"17:15",encerra:"17:45"};
 const BLOCOS=[
   {id:"inicio",ate:"manha",nome:"Início do dia",dur:"15 min",foco:"Planejamento & priorização",
-   itens:[["revisar","Revisar o diário de ontem"],["prioridades","Definir as 3 prioridades P1/P2 do dia"],["checar_cob","Checar a lista de cobranças"]]},
+   itens:[["revisar","Revisar o diário de ontem"],["prioridades","Definir as 3 prioridades P1/P2 do dia"],["checar_cob","Checar a lista de tarefas"]]},
   {id:"manha",ate:"meio",nome:"Bloco manhã",dur:"",foco:"Sistemas & melhoria contínua — tempo focado, sem interrupções",
    itens:[["foco_manha","Bloco focado em projetos, testes de sistemas e mapeamentos"]]},
   {id:"meio",ate:"tarde",nome:"Meio do dia",dur:"30 min",foco:"Acompanhamento & cobranças",
@@ -467,10 +482,10 @@ function verificarLembretes(){
   // 1) lembretes das cobranças
   cobrancasPendentes().forEach(c=>{ const l=c.dados.lembrete; if(!l) return; if(new Date(l)>agora) return; const k=`cob:${c.id}:${l}`; if(jaAvisado(k)) return; marcarAvisado(k);
     const txt=`🔔 Hora de cobrar: <b>${esc(c.dados.oque)}</b>${c.dados.quem?` — ${esc(c.dados.quem)}`:""}`;
-    toast(txt,[["Abrir cobranças",()=>ir("cobrancas")],["Cobrei agora",()=>registrarCobranca(c)]]); notificar("Hora de cobrar",`${c.dados.oque}${c.dados.quem?" — "+c.dados.quem:""}`); });
+    toast(txt,[["Abrir tarefas",()=>ir("cobrancas")],["Cobrei agora",()=>registrarCobranca(c)]]); notificar("Hora de cobrar",`${c.dados.oque}${c.dados.quem?" — "+c.dados.quem:""}`); });
   // 2) começo de cada bloco do seu ritmo do dia
   ritmo().blocos.forEach(b=>{ const ini=minutos(b.inicio), m=minutos(hm); if(ini==null||m<ini||m>ini+60) return; const k=`bloco:${hoje}:${b.id}`; if(jaAvisado(k)) return; marcarAvisado(k);
-    const extra=b.cobrancas?` (${cobrarHoje().length} cobrança(s) para hoje)`:"", itens=(b.itens||[]).filter(x=>tx(x.texto)).length;
+    const extra=b.cobrancas?` (${cobrarHoje().length} tarefa(s) para hoje)`:"", itens=(b.itens||[]).filter(x=>tx(x.texto)).length;
     const t=`⏱ <b>${esc(b.nome)}</b>${b.foco?` — ${esc(b.foco)}`:""}${extra}${itens?` · ${itens} item(ns) no checklist`:""}`;
     toast(t,[["Abrir o dia",()=>ir("hoje")]]); notificar("Diário de Bordo",t.replace(/<[^>]+>/g,"")); });
   // 3) reavaliações de feedback que vencem hoje
@@ -493,10 +508,10 @@ const ICO={
   atas:SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
   indicadores:SV+'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
 };
-const SECOES=[["hoje","Hoje"],["log","Registro"],["cobrancas","Cobranças"],["pessoas","Pessoas"],["atas","ATAs"],["indicadores","Indica­dores"]];
+const SECOES=[["hoje","Hoje"],["log","Registro"],["cobrancas","Tarefas"],["pessoas","Pessoas"],["atas","ATAs"],["indicadores","Indica­dores"]];
 let secao="hoje";
 try{ secao=sessionStorage.getItem("diario_secao")||"hoje"; }catch(_){}
-function ir(s){ secao=s; try{ sessionStorage.setItem("diario_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
+function ir(s){ if(s==="cobrancas"&&secao!=="cobrancas") estCob.periodo="hoje"; secao=s; try{ sessionStorage.setItem("diario_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
   const cont={cobrancas:cobrarHoje().length, atas:doTipo("ata").filter(a=>a.dados.status!=="finalizada").length,
     pessoas:doTipo("feedback").filter(f=>f.dados.reavaliar_em&&!f.dados.reavaliado&&f.dados.reavaliar_em<=hojeISO()).length};
@@ -566,7 +581,7 @@ function renderHoje(c){
       <p class="obj">${esc(diaSemana(hoje))}</p>
       <p class="cap" style="margin:8px 0 0">Primeiro o filtro de prioridade, depois a execução. Comece pelo plano do dia, cobre no meio do dia e consolide no fim.</p></div>
     <div class="stamp"><div class="code">Agora · ${esc(ag==="antes"?"antes do expediente":ag==="depois"?"fora do expediente":(B.find(b=>b.id===ag)||{}).nome||"")}</div><dl>
-      <dt>Registros hoje</dt><dd>${logsHoje.length}</dd><dt>Cobranças para hoje</dt><dd>${cob.length}${atrasadas.length?` <span class="pill p-bad">${atrasadas.length} atrasada(s)</span>`:""}</dd>
+      <dt>Registros hoje</dt><dd>${logsHoje.length}</dd><dt>Tarefas para hoje</dt><dd>${cob.length}${atrasadas.length?` <span class="pill p-bad">${atrasadas.length} atrasada(s)</span>`:""}</dd>
       <dt>ATAs em rascunho</dt><dd>${rasc.length}</dd><dt>Reavaliações</dt><dd>${reav.length}</dd></dl></div></header>
     <section><header><h2>Ritmo do dia</h2><p>${R.setores||doTipo("config")[0]&&doTipo("config")[0].dados.ritmo?"O seu ritmo — o bloco de agora fica destacado.":"Modelo padrão — monte o seu com as atividades do seu setor."}</p><span class="direita"><button type="button" class="peq primary" id="hjAjustar">✏️ Montar meu ritmo</button></span></header>
       <div class="cadencia">${B.map((b,i)=>{ const idx=B.findIndex(x=>x.id===ag), passou=ag==="depois"||(idx>=0&&i<idx);
@@ -578,17 +593,16 @@ function renderHoje(c){
       <section><header><h2>As 3 prioridades de hoje</h2><p>Filtro P1/P2 antes de executar.</p></header>
         <div class="prio3" id="hjPrio"></div>
         <p class="cap" style="margin-top:8px">Ao concluir uma prioridade, ela vira um registro no diário automaticamente — vira evidência do seu dia.</p>
-        <h3>📣 Cobranças para hoje</h3><div id="hjCob"></div></section>
-      <section><header><h2>Diário de hoje</h2><span class="direita"><button type="button" class="sec-recolhe" id="hjTog" aria-expanded="${estHoje.aberto}">${estHoje.aberto?"▾ Ocultar":"▸ Expandir"}</button><button type="button" class="peq primary" id="hjReg">＋ Registrar</button></span></header>
+        <h3>📣 Tarefas para hoje</h3><div id="hjCob"></div></section>
+      <section><header><h2>Diário de hoje</h2><span class="direita"><button type="button" class="sec-recolhe" id="hjTog" aria-expanded="${estHoje.aberto}">${estHoje.aberto?"▾ Ocultar":"▸ Expandir"}</button></span></header>
         <div id="hjLog"></div>
         <h3>🌙 Amanhã</h3><p class="cap">Deixe as prioridades de amanhã encaminhadas no fim do dia.</p><div class="prio3" id="hjAmanha"></div></section>
     </div>`;
   $("#hjAjustar",c).onclick=dlgRitmo;
   const ver=c.querySelector("[data-ontem]"); if(ver) ver.onclick=e=>{ e.preventDefault(); estLog.periodo="data"; estLog.data=ontem; ir("log"); };
   c.querySelectorAll("[data-ck]").forEach(i=>i.onchange=async()=>{ const d=await garantirDia(hoje); d.dados.checks=d.dados.checks||{}; d.dados.checks[i.dataset.ck]=i.checked; salvar(d); i.closest(".ck").classList.toggle("feito",i.checked); });
-  $("#hjReg",c).onclick=()=>dlgLog();
   desenharPrioridades($("#hjPrio",c),hoje,true); desenharPrioridades($("#hjAmanha",c),proxDiaUtil(hoje),false);
-  const hc=$("#hjCob",c); hc.innerHTML=cob.length?"":'<p class="vazio">Nenhuma cobrança para hoje. 👌</p>'; cob.slice(0,6).forEach(x=>hc.appendChild(cardCobranca(x,true)));
+  const hc=$("#hjCob",c); hc.innerHTML=cob.length?"":'<p class="vazio">Nenhuma tarefa para hoje. 👌</p>'; cob.slice(0,6).forEach(x=>hc.appendChild(cardCobranca(x,true)));
   if(cob.length>6) hc.insertAdjacentHTML("beforeend",`<button type="button" class="peq" id="hjMaisCob">Ver todas (${cob.length})</button>`), $("#hjMaisCob",c).onclick=()=>ir("cobrancas");
   $("#hjTog",c).onclick=()=>{ estHoje.aberto=!estHoje.aberto; try{ localStorage.setItem("diario_hoje_aberto",estHoje.aberto?"1":"0"); }catch(_){} render(); };
   const hl=$("#hjLog",c), visiveis=logsHoje.filter(l=>!l.dados.oculto_hoje), ocultos=logsHoje.filter(l=>l.dados.oculto_hoje);
@@ -610,7 +624,7 @@ function desenharPrioridades(box,dataISO,ehHoje){
       <select data-niv="${i}" aria-label="Prioridade ${i+1}">${["P1","P2"].map(x=>`<option${x===p.nivel?" selected":""}>${x}</option>`).join("")}</select>
       <input type="text" data-tx="${i}" value="${esc(p.texto)}" placeholder="${i===0?"O incêndio / validação bloqueante do dia":"Melhoria ou estruturação que precisa avançar"}" list="dl-sug-prio">
       ${ehHoje?`<input type="checkbox" data-ok="${i}" ${p.feito?"checked":""} title="Concluída" aria-label="Prioridade ${i+1} concluída">`:"<span></span>"}</div>`).join("")
-    +`<datalist id="dl-sug-prio">${cobrancasPendentes().map(c=>`<option value="${esc("Cobrar: "+c.dados.oque)}">`).join("")}${doTipo("ata").filter(a=>a.dados.status!=="finalizada").map(a=>`<option value="${esc("Finalizar ATA: "+(a.dados.titulo||""))}">`).join("")}</datalist>`;
+    +`<datalist id="dl-sug-prio">${cobrancasPendentes().map(c=>`<option value="${esc("Tarefa: "+c.dados.oque)}">`).join("")}${doTipo("ata").filter(a=>a.dados.status!=="finalizada").map(a=>`<option value="${esc("Finalizar ATA: "+(a.dados.titulo||""))}">`).join("")}</datalist>`;
   const garantir=async()=>{ const d=await garantirDia(dataISO); if(!Array.isArray(d.dados.prioridades)||d.dados.prioridades.length<3) d.dados.prioridades=P.map(x=>({...x})); return d; };
   box.querySelectorAll("[data-tx]").forEach(i=>i.oninput=async()=>{ const d=await garantir(); d.dados.prioridades[+i.dataset.tx].texto=i.value; salvar(d); });
   box.querySelectorAll("[data-niv]").forEach(i=>i.onchange=async()=>{ const d=await garantir(); d.dados.prioridades[+i.dataset.niv].nivel=i.value; salvar(d); });
@@ -680,7 +694,7 @@ function dlgRitmo(){
 // ─── diálogo genérico ───
 function abrirDlg(titulo, corpo, aoSalvar, rotulo, extra, largo){
   fecharPick();
-  const dl=$("#dlg"), f=$("#dlgForm"); dl.style.maxWidth=largo?"920px":"";
+  const dl=$("#dlg"), f=$("#dlgForm");
   f.innerHTML=`<h3>${esc(titulo)}</h3>${corpo}<p class="msg erro" id="dlgMsg"></p><div class="acts">${extra||""}<button type="button" value="cancel" id="dlgNao">Cancelar</button><button type="submit" class="primary" id="dlgSim">${esc(rotulo||"Salvar")}</button></div>`;
   $("#dlgNao").onclick=()=>{ fecharPick(); dl.close(); };
   f.onsubmit=async e=>{ e.preventDefault(); const b=$("#dlgSim"); b.disabled=true;
@@ -751,7 +765,6 @@ function filtrarLogs(){
 function renderLog(c){
   c.innerHTML=`<section><header><h2>Registro do dia (log)</h2><p>Reuniões, decisões, testes de sistemas e problemas resolvidos — com o porquê.</p>
       <span class="direita"><button type="button" class="peq" id="lgXls">⬇️ Excel</button><button type="button" class="peq" id="lgRel">📄 Relatório de impacto</button></span></header>
-    <form class="captura" id="lgForm">${formLogHTML()}<div class="acoes" style="margin-bottom:0"><button type="submit" class="primary">Registrar</button><span class="cap" style="margin:0">Ctrl + Enter grava</span><span class="msg" id="lgMsg"></span></div></form>
     <div class="filtros">
       <select id="fPer" aria-label="Período">${[["1","Hoje"],["7","Últimos 7 dias"],["30","Últimos 30 dias"],["90","Últimos 90 dias"],["tudo","Tudo"],["data","Um dia específico"]].map(([v,r])=>`<option value="${v}"${v===estLog.periodo?" selected":""}>${r}</option>`).join("")}</select>
       <input type="date" id="fData" value="${esc(estLog.data||hojeISO())}" ${estLog.periodo==="data"?"":"hidden"} aria-label="Dia">
@@ -760,11 +773,6 @@ function renderLog(c){
       <select id="fPrio" aria-label="Prioridade"><option value="">P1–P4</option>${PRIORIDADES.map(p=>`<option value="${p.id}"${p.id===estLog.prio?" selected":""}>${p.id} · ${esc(p.nome)}</option>`).join("")}</select>
       <input id="fBusca" placeholder="Buscar..." value="${esc(estLog.busca)}" aria-label="Buscar"></div>
     <div id="lgLista"></div></section>`;
-  const f=$("#lgForm",c); ligarFormLog(f);
-  f.onsubmit=async e=>{ e.preventDefault(); const v=dadosLog(new FormData(f)); const m=$("#lgMsg");
-    if(!v.texto){ m.className="msg erro"; m.textContent="Escreva o que aconteceu."; return; }
-    try{ await criar({_tipo:"log",...v}); render(); const m2=$("#lgMsg"); m2.className="msg ok"; m2.textContent=`✓ Registrado às ${agoraHM()}`; $("#lgForm textarea").focus(); }catch(err){ m.className="msg erro"; m.textContent=err.message; } };
-  f.onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); f.requestSubmit(); } };
   const re=()=>desenhar();
   $("#fPer",c).onchange=e=>{ estLog.periodo=e.target.value; $("#fData").hidden=estLog.periodo!=="data"; if(estLog.periodo==="data"&&!estLog.data) estLog.data=hojeISO(); re(); };
   $("#fData",c).onchange=e=>{ estLog.data=e.target.value; re(); };
@@ -783,11 +791,13 @@ function renderLog(c){
 // ═══════════════════════════════════════════════════════════════════
 // COBRANÇAS — pendências de terceiros (follow-up)
 // ═══════════════════════════════════════════════════════════════════
-const estCob={filtro:"",busca:"",todasEntregues:false};
+const estCob={periodo:"hoje",filtro:"",busca:"",pilar:"",prio:"",quem:""};   // começa sempre em HOJE
+// data que manda na tarefa: a mais próxima entre prazo, lembrete e prazos das próximas ações abertas
+function dataRefCob(c){ const d=c.dados, ds=[d.prazo,String(d.lembrete||"").slice(0,10),...acoesAbertas(c).map(a=>a.prazo)].filter(Boolean).sort(); return ds[0]||""; }
 function lembretePadrao(prazo){ const base=prazo&&prazo>hojeISO()?prazo:proxDiaUtil(hojeISO()); return `${base}T${horaCobranca()}`; }
 function dlgCobranca(item, pre){
   const d=item?item.dados:{prioridade:"P3",pilar:1,...(pre||{})};
-  const f=abrirDlg(item?"Editar cobrança":"Nova cobrança",`
+  const f=abrirDlg(item?"Editar tarefa":"Nova tarefa",`
     <label class="f">O que está pendente? *<textarea name="oque" rows="2" placeholder="Ex.: Retorno da TI sobre o ajuste do relatório de cargas">${esc(d.oque||"")}</textarea></label>
     <div class="grade" style="margin-top:10px"><label class="f">Quem deve entregar *<input name="quem" value="${esc(d.quem||"")}" data-pick="um" placeholder="Pessoa, área ou fornecedor"></label>
       <label class="f">Contato (opcional)<input name="contato" value="${esc(d.contato||"")}" placeholder="e-mail, telefone, Teams"></label>
@@ -819,7 +829,7 @@ function dlgAdiar(c){
   const d=c.dados, base=d.lembrete||lembretePadrao(d.prazo), hora=(String(base).split("T")[1]||horaCobranca()).slice(0,5);
   const proxSeg=(()=>{ let x=somaDias(hojeISO(),1); while(new Date(x+"T12:00:00").getDay()!==1) x=somaDias(x,1); return x; })();
   const op=[["Amanhã",proxDiaUtil(hojeISO())],["Em 3 dias",somaDias(hojeISO(),3)],["Próxima semana",proxSeg]];
-  const f=abrirDlg("Adiar cobrança",`<p class="cap" style="margin:0 0 6px"><b>${esc(d.oque)}</b>${d.quem?` — ${esc(d.quem)}`:""}</p>
+  const f=abrirDlg("Adiar tarefa",`<p class="cap" style="margin:0 0 6px"><b>${esc(d.oque)}</b>${d.quem?` — ${esc(d.quem)}`:""}</p>
     <div class="adiar-rap">${op.map(([r,v])=>`<button type="button" class="chip-op" data-dt="${v}">${r} <span class="muted">${dataBR(v).slice(0,5)}</span></button>`).join("")}</div>
     <div class="grade"><label class="f">Novo lembrete<input type="datetime-local" name="lembrete" value="${esc(`${proxDiaUtil(hojeISO())}T${hora}`)}"></label>
       <label class="f">Prazo final${d.prazo?` (hoje: ${dataBR(d.prazo)})`:""}<input type="date" name="prazo" value="${esc(d.prazo||"")}"></label></div>
@@ -834,7 +844,7 @@ function dlgAdiar(c){
 }
 async function finalizarCob(c){
   const d=c.dados, abertas=acoesAbertas(c);
-  if(abertas.length&&!confirm(`Ainda há ${abertas.length} próxima(s) ação(ões) em aberto.\nFinalizar a cobrança mesmo assim? (as ações abertas serão marcadas como concluídas)`)) return;
+  if(abertas.length&&!confirm(`Ainda há ${abertas.length} próxima(s) ação(ões) em aberto.\nFinalizar a tarefa mesmo assim? (as ações abertas serão marcadas como concluídas)`)) return;
   abertas.forEach(a=>{ a.feito=true; a.feito_em=new Date().toISOString(); });
   d.status="entregue"; d.entregue_em=new Date().toISOString();
   await salvarAgora(c); toast(`🟢 ${esc(d.oque)} — finalizada.`); render();
@@ -874,12 +884,12 @@ function cardCobranca(c, compacto){
     if(a==="fim") return finalizarCob(c);
     if(a==="reabrir"){ d.status="aguardando"; d.entregue_em=""; await salvarAgora(c); render(); return; }
     if(a==="ed") return dlgCobranca(c);
-    if(a==="del"&&await excluir(c,"Excluir esta cobrança?")) render(); });
+    if(a==="del"&&await excluir(c,"Excluir esta tarefa?")) render(); });
   // próximas ações: marcar, remover, adicionar
   e.querySelectorAll("[data-ac]").forEach(cb=>cb.onchange=async()=>{ const x=d.acoes.find(a=>a.id===cb.dataset.ac); x.feito=cb.checked; x.feito_em=cb.checked?new Date().toISOString():"";
     d.andamento=d.andamento||[]; if(cb.checked) d.andamento.push({em:new Date().toISOString(),texto:`Ação concluída: ${x.texto}`});
     await salvarAgora(c);
-    if(cb.checked&&!acoesAbertas(c).length&&confirm("Todas as próximas ações foram concluídas.\nFinalizar a cobrança (🟢 entregue)?")) return finalizarCob(c);
+    if(cb.checked&&!acoesAbertas(c).length&&confirm("Todas as próximas ações foram concluídas.\nFinalizar a tarefa (🟢 entregue)?")) return finalizarCob(c);
     render(); });
   e.querySelectorAll("[data-acx]").forEach(b=>b.onclick=async()=>{ d.acoes=d.acoes.filter(a=>a.id!==b.dataset.acx); await salvarAgora(c); render(); });
   const fm=e.querySelector(".cob-nova"); if(fm) fm.onsubmit=async ev=>{ ev.preventDefault(); const t=tx(fm.t.value); if(!t){ fm.t.focus(); return; }
@@ -888,37 +898,52 @@ function cardCobranca(c, compacto){
   return e;
 }
 function renderCobrancas(c){
-  const todas=doTipo("cobranca"), atr=todas.filter(x=>statusCob(x)==="atrasada"), ag=todas.filter(x=>statusCob(x)==="aguardando"), hoje=cobrarHoje();
-  const lim30=somaDias(hojeISO(),-30), ent=todas.filter(x=>statusCob(x)==="entregue"&&(estCob.todasEntregues||String(x.dados.entregue_em||"").slice(0,10)>=lim30));
-  const noPrazo=todas.filter(x=>statusCob(x)==="entregue"&&x.dados.prazo).filter(x=>String(x.dados.entregue_em||"").slice(0,10)<=x.dados.prazo).length, entPrazo=todas.filter(x=>statusCob(x)==="entregue"&&x.dados.prazo).length;
-  c.innerHTML=`<section><header><h2>Cobranças (follow-up)</h2><p>Pendências de terceiros — o que, quem e prazo, sem guardar nada na cabeça.</p>
-      <span class="direita"><button type="button" class="primary peq" id="cbNova">＋ Nova cobrança</button></span></header>
+  const hoje=hojeISO(), todas=doTipo("cobranca");
+  const PER={hoje:["Hoje",0],"7":["Próximos 7 dias",7],"30":["Próximos 30 dias",30],todos:["Todos",null]}, dias=PER[estCob.periodo][1];
+  const lim=dias==null?null:somaDias(hoje,dias);
+  const t=nrm(estCob.busca), quemOp=[...new Set(todas.map(x=>tx(x.dados.quem)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const passa=x=>{ const d=x.dados;
+    if(estCob.pilar&&String(d.pilar)!==estCob.pilar) return false; if(estCob.prio&&d.prioridade!==estCob.prio) return false;
+    if(estCob.quem&&nrm(d.quem)!==nrm(estCob.quem)) return false;
+    if(t&&![d.oque,d.quem,d.obs,...(d.acoes||[]).map(a=>a.texto)].some(v=>nrm(v).includes(t))) return false;
+    if(lim==null) return true;
+    if(statusCob(x)==="entregue"){ const e=String(d.entregue_em||"").slice(0,10); return !!e&&e>=somaDias(hoje,-(dias||0)); }   // entregues: hoje / últimos N dias
+    if(statusCob(x)==="atrasada") return true;                                                                        // atrasadas aparecem sempre
+    const r=dataRefCob(x); return !!r&&r<=lim; };
+  const vis=todas.filter(passa), atr=vis.filter(x=>statusCob(x)==="atrasada"), ag=vis.filter(x=>statusCob(x)==="aguardando"), ent=vis.filter(x=>statusCob(x)==="entregue");
+  const semData=lim==null?0:todas.filter(x=>statusCob(x)==="aguardando"&&!dataRefCob(x)).length;
+  const comPz=todas.filter(x=>statusCob(x)==="entregue"&&x.dados.prazo), noPz=comPz.filter(x=>String(x.dados.entregue_em||"").slice(0,10)<=x.dados.prazo).length;
+  c.innerHTML=`<section><header><h2>Tarefas</h2><p>Demandas e pendências — o que, quem, prazo e próximas ações, sem guardar nada na cabeça.</p>
+      <span class="direita"><button type="button" class="primary peq" id="cbNova">＋ Nova tarefa</button></span></header>
     <div class="kpis">
-      <button type="button" class="kpi" data-f="atrasada"><span>🔴 Atrasado / cobrar</span><b style="color:var(--bad)">${atr.length}</b><small>prazo vencido</small></button>
-      <button type="button" class="kpi" data-f="aguardando"><span>🟡 Aguardando resposta</span><b style="color:var(--amber)">${ag.length}</b><small>dentro do prazo</small></button>
-      <button type="button" class="kpi" data-f="hoje"><span>📣 Para cobrar hoje</span><b>${hoje.length}</b><small>lembrete ou prazo até hoje</small></button>
-      <div class="kpi"><span>🟢 Entregues no prazo</span><b style="color:var(--ok)">${entPrazo?Math.round(noPrazo/entPrazo*100)+"%":"—"}</b><small>${noPrazo} de ${entPrazo} com prazo</small></div></div>
-    <div class="filtros"><input id="cbBusca" placeholder="Buscar por assunto ou pessoa..." value="${esc(estCob.busca)}" aria-label="Buscar">
-      ${estCob.filtro?`<span class="pill p-aco">filtro: ${esc({atrasada:"atrasadas",aguardando:"aguardando",hoje:"para hoje"}[estCob.filtro])} <button type="button" class="ib" id="cbLimpar" title="Limpar filtro">✕</button></span>`:""}</div>
+      <div class="kpi"><span>🔴 Atrasado / cobrar</span><b style="color:var(--bad)">${todas.filter(x=>statusCob(x)==="atrasada").length}</b><small>prazo vencido</small></div>
+      <div class="kpi"><span>🟡 Aguardando resposta</span><b style="color:var(--amber)">${todas.filter(x=>statusCob(x)==="aguardando").length}</b><small>em aberto, no prazo</small></div>
+      <div class="kpi"><span>📣 Para hoje</span><b>${cobrarHoje().length}</b><small>lembrete ou prazo até hoje</small></div>
+      <div class="kpi"><span>🟢 Entregues no prazo</span><b style="color:var(--ok)">${comPz.length?Math.round(noPz/comPz.length*100)+"%":"—"}</b><small>${noPz} de ${comPz.length} com prazo</small></div></div>
+    <div class="filtros"><select id="cbPer" aria-label="Período">${Object.entries(PER).map(([k,[r]])=>`<option value="${k}"${k===estCob.periodo?" selected":""}>${r}</option>`).join("")}</select>
+      <select id="cbPil" aria-label="Pilar"><option value="">Todos os pilares</option>${PILARES.map(p=>`<option value="${p.id}"${String(p.id)===estCob.pilar?" selected":""}>${p.ico} ${esc(p.nome)}</option>`).join("")}</select>
+      <select id="cbPrio" aria-label="Prioridade"><option value="">P1–P4</option>${PRIORIDADES.map(p=>`<option value="${p.id}"${p.id===estCob.prio?" selected":""}>${p.id} · ${esc(p.nome)}</option>`).join("")}</select>
+      <select id="cbQuem" aria-label="Quem"><option value="">Todas as pessoas</option>${quemOp.map(q=>`<option${q===estCob.quem?" selected":""}>${esc(q)}</option>`).join("")}</select>
+      <input id="cbBusca" placeholder="Buscar..." value="${esc(estCob.busca)}" aria-label="Buscar"></div>
+    <p class="cap" style="margin:-4px 0 12px">${estCob.periodo==="hoje"?"Hoje: atrasadas + o que tem prazo, lembrete ou próxima ação até hoje + o que foi entregue hoje.":estCob.periodo==="todos"?"Todas as tarefas.":`${PER[estCob.periodo][0]}: atrasadas + o que vence até ${dataBR(lim)} + o que foi entregue nos últimos ${dias} dias.`}${semData?` · ${semData} tarefa(s) sem data aparecem só em <a href="#" id="cbVerTodos">Todos</a>.`:""}</p>
     <div class="quadro">
       <div class="coluna"><h4>🔴 Atrasado / cobrar <span class="pill p-bad">${atr.length}</span></h4><div id="cbA"></div></div>
       <div class="coluna"><h4>🟡 Aguardando resposta <span class="pill p-warn">${ag.length}</span></h4><div id="cbG"></div></div>
-      <div class="coluna"><h4>🟢 Entregue / concluído <span class="pill p-ok">${ent.length}</span></h4><div id="cbE"></div>
-        <button type="button" class="peq" id="cbTodas">${estCob.todasEntregues?"Só os últimos 30 dias":"Ver todas as entregues"}</button></div></div></section>`;
-  const t=nrm(estCob.busca), ok=x=>(!t||[x.dados.oque,x.dados.quem,x.dados.obs].some(v=>nrm(v).includes(t)))&&(!estCob.filtro||(estCob.filtro==="hoje"?hoje.includes(x):statusCob(x)===estCob.filtro));
-  const ord=(a,b)=>String(a.dados.prazo||"9999").localeCompare(String(b.dados.prazo||"9999"));
-  [["cbA",atr],["cbG",ag],["cbE",ent]].forEach(([id,l])=>{ const box=$("#"+id,c), f=l.filter(ok).sort(ord); box.innerHTML=f.length?"":'<p class="cap" style="text-align:center;margin:14px 0">Nada aqui.</p>'; f.forEach(x=>box.appendChild(cardCobranca(x))); });
+      <div class="coluna"><h4>🟢 Entregue / concluído <span class="pill p-ok">${ent.length}</span></h4><div id="cbE"></div></div></div></section>`;
+  const ord=(a,b)=>String(dataRefCob(a)||a.dados.prazo||"9999").localeCompare(String(dataRefCob(b)||b.dados.prazo||"9999"));
+  [["cbA",atr],["cbG",ag],["cbE",ent.sort((a,b)=>String(b.dados.entregue_em).localeCompare(a.dados.entregue_em))]].forEach(([id,l])=>{ const box=$("#"+id,c);
+    box.innerHTML=l.length?"":'<p class="cap" style="text-align:center;margin:14px 0">Nada aqui.</p>'; (id==="cbE"?l:l.sort(ord)).forEach(x=>box.appendChild(cardCobranca(x))); });
   $("#cbNova",c).onclick=()=>dlgCobranca();
+  [["cbPer","periodo"],["cbPil","pilar"],["cbPrio","prio"],["cbQuem","quem"]].forEach(([id,k])=>$("#"+id,c).onchange=e=>{ estCob[k]=e.target.value; render(); });
   $("#cbBusca",c).oninput=e=>{ estCob.busca=e.target.value; const p=e.target.selectionStart; render(); const i=$("#cbBusca"); i.focus(); i.setSelectionRange(p,p); };
-  c.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{ estCob.filtro=estCob.filtro===b.dataset.f?"":b.dataset.f; render(); });
-  const lp=$("#cbLimpar",c); if(lp) lp.onclick=()=>{ estCob.filtro=""; render(); };
-  $("#cbTodas",c).onclick=()=>{ estCob.todasEntregues=!estCob.todasEntregues; render(); };
+  const vt=$("#cbVerTodos",c); if(vt) vt.onclick=e=>{ e.preventDefault(); estCob.periodo="todos"; render(); };
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // PESSOAS — histórico de feedbacks e acordos por colaborador / par
 // ═══════════════════════════════════════════════════════════════════
-const estP={sel:""};
+const estP={sel:"",setor:"",pessoa:"",de:"",ate:""};
+function setorDaPessoa(nome){ if(!BASE) return ""; const k=nrm(nome); for(const st of BASE.setores){ if(st.pessoas.some(p=>nrm(p.nome)===k)) return st.nome; } return ""; }
 function dlgFeedback(item, pessoa){
   const d=item?item.dados:{pessoa:pessoa||"",data:hojeISO(),tipo:TIPOS_FB[0]};
   const f=abrirDlg(item?"Editar registro":"Nova conversa / feedback",`
@@ -937,7 +962,11 @@ function dlgFeedback(item, pessoa){
   f.querySelectorAll("[data-pick]").forEach(i=>ligarPick(i,false));
 }
 function renderPessoas(c){
-  const fbs=doTipo("feedback"), hoje=hojeISO(), porP={};
+  const todosFb=doTipo("feedback"), hoje=hojeISO(), porP={};
+  const setoresOp=[...new Set(todosFb.map(f=>setorDaPessoa(f.dados.pessoa)||"(sem setor)"))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const pessoasOp=[...new Set(todosFb.map(f=>tx(f.dados.pessoa)).filter(Boolean))].filter(n=>!estP.setor||(setorDaPessoa(n)||"(sem setor)")===estP.setor).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const fbs=todosFb.filter(f=>{ const d=f.dados; if(estP.setor&&(setorDaPessoa(d.pessoa)||"(sem setor)")!==estP.setor) return false; if(estP.pessoa&&nrm(d.pessoa)!==nrm(estP.pessoa)) return false;
+    if(estP.de&&String(d.data)<estP.de) return false; if(estP.ate&&String(d.data)>estP.ate) return false; return true; });
   fbs.forEach(f=>{ const n=tx(f.dados.pessoa)||"(sem nome)"; (porP[n]=porP[n]||[]).push(f); });
   const nomes=Object.keys(porP).sort((a,b)=>a.localeCompare(b,"pt-BR"));
   if(estP.sel&&!porP[estP.sel]) estP.sel="";
@@ -947,11 +976,17 @@ function renderPessoas(c){
       <span class="direita"><button type="button" class="primary peq" id="psNovo">＋ Nova conversa</button></span></header>
     <div class="kpis"><div class="kpi"><span>Conversas este mês</span><b>${noMes}</b></div><div class="kpi"><span>Pessoas acompanhadas</span><b>${nomes.length}</b></div>
       <div class="kpi"><span>Reavaliações vencidas</span><b style="color:${vencidas.length?"var(--bad)":"inherit"}">${vencidas.length}</b><small>acordos para revisitar</small></div></div>
+    <div class="filtros"><select id="psSet" aria-label="Setor"><option value="">Todos os setores</option>${setoresOp.map(x=>`<option${x===estP.setor?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <select id="psPes" aria-label="Pessoa"><option value="">Todas as pessoas</option>${pessoasOp.map(x=>`<option${x===estP.pessoa?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <span class="sep-f"></span><span class="lbl-f">De</span><input type="date" id="psDe" value="${esc(estP.de)}" aria-label="De"><span class="lbl-f">até</span><input type="date" id="psAte" value="${esc(estP.ate)}" aria-label="Até">
+      ${estP.setor||estP.pessoa||estP.de||estP.ate?'<button type="button" class="peq" id="psLimpar">✕ Limpar filtros</button>':""}</div>
     <div class="pess-grid"><div class="pess-lista" id="psLista"></div><div id="psCorpo"></div></div></section>`;
+  [["psSet","setor"],["psPes","pessoa"],["psDe","de"],["psAte","ate"]].forEach(([id,k])=>$("#"+id,c).onchange=e=>{ estP[k]=e.target.value; if(k==="setor") estP.pessoa=""; if(k==="pessoa"&&e.target.value) estP.sel=e.target.value; render(); });
+  const psl=$("#psLimpar",c); if(psl) psl.onclick=()=>{ Object.assign(estP,{setor:"",pessoa:"",de:"",ate:""}); render(); };
   const lista=$("#psLista",c);
   lista.innerHTML=nomes.length?nomes.map(n=>{ const l=porP[n].sort((a,b)=>String(b.dados.data).localeCompare(a.dados.data)), pr=l.filter(pendR).length;
-    return `<button type="button" class="pess-it${n===estP.sel?" ativo":""}" data-p="${esc(n)}"><span class="av">${esc(iniciais(n))}</span><span><span class="nm">${esc(n)}</span><small>${l.length} registro(s) · último ${dataBR(l[0].dados.data)}</small></span>${pr?'<span class="pill p-bad" style="margin-left:auto">reavaliar</span>':""}</button>`; }).join("")
-    :'<p class="cap" style="padding:10px">Ninguém ainda. Registre a primeira conversa.</p>';
+    return `<button type="button" class="pess-it${n===estP.sel?" ativo":""}" data-p="${esc(n)}"><span class="av">${esc(iniciais(n))}</span><span><span class="nm">${esc(n)}</span><small>${esc(setorDaPessoa(n)||"sem setor")} · ${l.length} registro(s) · último ${dataBR(l[0].dados.data)}</small></span>${pr?'<span class="pill p-bad" style="margin-left:auto">reavaliar</span>':""}</button>`; }).join("")
+    :`<p class="cap" style="padding:10px">${todosFb.length?"Ninguém com esses filtros.":"Ninguém ainda. Registre a primeira conversa."}</p>`;
   lista.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ estP.sel=b.dataset.p; render(); });
   $("#psNovo",c).onclick=()=>dlgFeedback(null,estP.sel);
   const corpo=$("#psCorpo",c);
@@ -960,7 +995,7 @@ function renderPessoas(c){
       <p class="cap">Escolha uma pessoa ao lado para ver o histórico completo.</p>`; return; }
   const l=porP[estP.sel].sort((a,b)=>String(b.dados.data).localeCompare(a.dados.data));
   corpo.innerHTML=`<div class="acoes" style="margin-top:0"><h3 style="margin:0;font-size:20px">${esc(estP.sel)}</h3><button type="button" class="peq primary" id="psMais">＋ Registrar conversa</button>
-    <button type="button" class="peq" id="psCob">＋ Cobrança para ${esc(estP.sel.split(" ")[0])}</button></div><div id="psFb"></div>`;
+    <button type="button" class="peq" id="psCob">＋ Tarefa para ${esc(estP.sel.split(" ")[0])}</button></div><div id="psFb"></div>`;
   $("#psMais",corpo).onclick=()=>dlgFeedback(null,estP.sel);
   $("#psCob",corpo).onclick=()=>dlgCobranca(null,{quem:estP.sel,pilar:4,prioridade:"P4"});
   const box=$("#psFb",corpo);
@@ -981,7 +1016,7 @@ function renderPessoas(c){
 // ═══════════════════════════════════════════════════════════════════
 // ATAs — captação rápida → deliberações × ações → modelo King Star
 // ═══════════════════════════════════════════════════════════════════
-const estAta={aberta:""};
+const estAta={aberta:"",periodo:"30",status:"",busca:"",participante:""};
 const RX_PRAZO=/(?:at[eé]|prazo:?|p\/)\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i, RX_DATA_FIM=/\s(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\.?$/;
 const RX_DELIB=/\b(decidid[oa]s?|aprovad[oa]s?|ficou (definido|decidido|acordado|combinado)|definimos|deliberad[oa]|decis[aã]o)\b/i;
 function prazoDe(txt, dataBase){
@@ -1044,14 +1079,32 @@ async function novaAta(){ const a=await criar({_tipo:"ata",titulo:"",data:hojeIS
 function renderAtas(c){
   const a=estAta.aberta&&porId(estAta.aberta);
   if(a) return editorAta(c,a);
-  const L=doTipo("ata").sort((x,y)=>String(y.dados.data+y.dados.hora).localeCompare(x.dados.data+x.dados.hora));
-  c.innerHTML=`<section><header><h2>ATAs de reunião</h2><p>Capte durante a reunião; o sistema separa deliberações e ações, gera o PDF no modelo King Star e transforma as ações em cobranças.</p>
+  const hoje=hojeISO(), PER={hoje:["Hoje",0],"7":["Últimos 7 dias",7],"30":["Últimos 30 dias",30],"90":["Últimos 90 dias",90],todos:["Todas",null]};
+  const dias=PER[estAta.periodo][1], ini=dias==null?"":somaDias(hoje,-dias), t=nrm(estAta.busca);
+  const todas=doTipo("ata"), partOp=[...new Set(todas.flatMap(a=>tx(a.dados.participantes).split(/\s*[,\n]\s*/).map(x=>x.replace(/\s*\(.*\)$/,"")).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const L=todas.filter(a=>{ const d=a.dados; if(ini&&String(d.data)<ini) return false;
+      if(estAta.status&&(d.status==="finalizada"?"finalizada":"rascunho")!==estAta.status) return false;
+      if(estAta.participante&&!nrm(d.participantes).includes(nrm(estAta.participante))) return false;
+      if(t&&![d.titulo,d.objetivo,d.participantes,d.assuntos,...(d.deliberacoes||[])].some(v=>nrm(v).includes(t))) return false; return true; })
+    .sort((x,y)=>String(y.dados.data+y.dados.hora).localeCompare(x.dados.data+x.dados.hora));
+  c.innerHTML=`<section><header><h2>ATAs de reunião</h2><p>Capte durante a reunião; o sistema separa deliberações e ações, gera o PDF no modelo King Star e transforma as ações em tarefas.</p>
       <span class="direita"><button type="button" class="primary peq" id="atNova">＋ Nova ATA</button></span></header>
+    <div class="filtros"><select id="atPer" aria-label="Período">${Object.entries(PER).map(([k,[r]])=>`<option value="${k}"${k===estAta.periodo?" selected":""}>${r}</option>`).join("")}</select>
+      <select id="atSt" aria-label="Situação"><option value="">Rascunho e finalizadas</option><option value="rascunho"${estAta.status==="rascunho"?" selected":""}>Só rascunhos</option><option value="finalizada"${estAta.status==="finalizada"?" selected":""}>Só finalizadas</option></select>
+      <select id="atPart" aria-label="Participante"><option value="">Todos os participantes</option>${partOp.map(x=>`<option${x===estAta.participante?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <input id="atBusca" placeholder="Buscar tema, assunto, decisão..." value="${esc(estAta.busca)}" aria-label="Buscar"></div>
     ${L.length?`<div class="ata-grid">${L.map(x=>{ const d=x.dados, ac=(d.acoes||[]).filter(y=>tx(y.acao)), cobs=ac.filter(y=>y.cobranca_id&&porId(y.cobranca_id)), feitas=cobs.filter(y=>statusCob(porId(y.cobranca_id))==="entregue").length;
-      return `<button type="button" class="ata-card" data-id="${x.id}"><span class="pill ${d.status==="finalizada"?"p-ok":"p-warn"}">${d.status==="finalizada"?"✓ finalizada":"rascunho"}</span>
-        <h4>${esc(tx(d.titulo)||"(sem tema)")}</h4><div class="cap" style="margin:0">${dataBR(d.data)}${d.hora?" · "+esc(d.hora):""}${d.local?" · "+esc(d.local):""}</div>
-        <div class="cap" style="margin:6px 0 0">⚖️ ${(d.deliberacoes||[]).filter(tx).length} deliberação(ões) · 🎯 ${ac.length} ação(ões)${cobs.length?` · 🟢 ${feitas}/${cobs.length} entregues`:""}</div></button>`; }).join("")}</div>`
-      :'<p class="vazio">Nenhuma ATA ainda. Clique em <b>＋ Nova ATA</b> no começo da reunião.</p>'}</section>`;
+        const del=(d.deliberacoes||[]).filter(tx).length, np=tx(d.participantes).split(/\s*[,\n]\s*/).filter(Boolean).length, fin=d.status==="finalizada";
+        return `<button type="button" class="ata-card${fin?" fin":""}" data-id="${x.id}">
+          <span class="ac-topo"><span class="ac-data">${dataBR(d.data)}${d.hora?" · "+esc(d.hora):""}</span><span class="pill ${fin?"p-ok":"p-warn"}">${fin?"✓ finalizada":"rascunho"}</span></span>
+          <h4>${esc(tx(d.titulo)||"(sem tema)")}</h4>
+          <span class="ac-meta">${d.local?`<span>📍 ${esc(d.local)}</span>`:""}${d.duracao?`<span>⏱ ${esc(d.duracao)}</span>`:""}<span>👥 ${np} participante(s)</span></span>
+          ${tx(d.objetivo)?`<span class="ac-obj">${esc(d.objetivo)}</span>`:""}
+          <span class="ac-nums"><span><b>${del}</b>deliberações</span><span><b>${ac.length}</b>ações</span><span><b>${cobs.length?`${feitas}/${cobs.length}`:"—"}</b>tarefas entregues</span></span>
+          ${cobs.length?`<span class="ac-barra"><i style="width:${Math.round(feitas/cobs.length*100)}%"></i></span>`:""}</button>`; }).join("")}</div>`
+      :`<p class="vazio">${todas.length?"Nenhuma ATA com esses filtros.":"Nenhuma ATA ainda. Clique em <b>＋ Nova ATA</b> no começo da reunião."}</p>`}</section>`;
+  [["atPer","periodo"],["atSt","status"],["atPart","participante"]].forEach(([id,k])=>$("#"+id,c).onchange=e=>{ estAta[k]=e.target.value; render(); });
+  $("#atBusca",c).oninput=e=>{ estAta.busca=e.target.value; const p=e.target.selectionStart; render(); const i=$("#atBusca"); i.focus(); i.setSelectionRange(p,p); };
   $("#atNova",c).onclick=novaAta;
   c.querySelectorAll(".ata-card").forEach(b=>b.onclick=()=>{ estAta.aberta=b.dataset.id; render(); });
 }
@@ -1076,12 +1129,12 @@ function editorAta(c,a){
     <div class="separado">
       <div class="box" style="margin:0"><b>📋 Assuntos levantados</b><p class="cap" style="margin:4px 0 6px"><code>#</code> tópico · <code>-</code> ponto · <code>&gt;</code> desdobramento</p><textarea data-c="assuntos" rows="8">${esc(d.assuntos)}</textarea></div>
       <div class="box" style="margin:0"><b>⚖️ Deliberações</b> <span class="muted" style="font-size:12.5px">— o que foi decidido</span><div class="lista-ed" id="atDel" style="margin-top:8px"></div></div></div>
-    <div class="box"><b>🎯 Ações com responsável</b> <span class="muted" style="font-size:12.5px">— viram cobranças com um clique</span><div class="lista-ed" id="atAc" style="margin-top:8px"></div></div>
+    <div class="box"><b>🎯 Ações com responsável</b> <span class="muted" style="font-size:12.5px">— viram tarefas com um clique</span><div class="lista-ed" id="atAc" style="margin-top:8px"></div></div>
     <div class="box"><b>📌 Pendências</b><div class="lista-ed" id="atPd" style="margin-top:8px"></div></div>
     <div class="acoes">
       <button type="button" class="primary" id="atGer" title="Abre o Gerador de ATA com o texto já preenchido">📄 Abrir no Gerador (PDF King Star)</button>
       <button type="button" id="atHtml">⬇️ Baixar ATA em HTML</button><button type="button" id="atCop">📋 Copiar texto</button>
-      <button type="button" id="atCob">🎯 Criar cobranças das ações</button><button type="button" id="atLog">📝 Registrar no diário</button>
+      <button type="button" id="atCob">🎯 Criar tarefas das ações</button><button type="button" id="atLog">📝 Registrar no diário</button>
       <button type="button" id="atFin">${trav?"↺ Reabrir":"✓ Finalizar ATA"}</button><button type="button" class="warn" id="atDelAta">Excluir</button><span class="msg" id="atMsg"></span></div>
     <details class="box"><summary>👁 Texto que vai para o Gerador de ATA</summary><pre id="atPrev" style="white-space:pre-wrap;font:13px/1.5 'IBM Plex Sans',sans-serif;margin:0"></pre></details></section>`;
   const prev=()=>{ $("#atPrev").textContent=textoATA(a); };
@@ -1098,7 +1151,7 @@ function editorAta(c,a){
   const desenharAcoes=()=>{ const box=$("#atAc",c);
     box.innerHTML=d.acoes.map((x,i)=>{ const cb=x.cobranca_id&&porId(x.cobranca_id), st=cb?ROT_COB[statusCob(cb)]:null;
       return `<div class="acao-li"><input data-ar="${i}" value="${esc(x.resp)}" placeholder="Responsável" ${trav?"disabled":""}><input data-aa="${i}" value="${esc(x.acao)}" placeholder="Ação combinada" ${trav?"disabled":""}>
-        <input type="date" data-ap="${i}" value="${esc(x.prazo)}" ${trav?"disabled":""} aria-label="Prazo"><span style="display:flex;gap:4px;align-items:center">${st?`<span class="pill ${st[2]}" title="Cobrança: ${esc(st[1])}">${st[0]}</span>`:""}${trav?"":`<button type="button" class="ib del" data-ax="${i}" title="Remover">🗑</button>`}</span></div>`; }).join("")
+        <input type="date" data-ap="${i}" value="${esc(x.prazo)}" ${trav?"disabled":""} aria-label="Prazo"><span style="display:flex;gap:4px;align-items:center">${st?`<span class="pill ${st[2]}" title="Tarefa: ${esc(st[1])}">${st[0]}</span>`:""}${trav?"":`<button type="button" class="ib del" data-ax="${i}" title="Remover">🗑</button>`}</span></div>`; }).join("")
       +(trav?"":`<button type="button" class="peq" id="atAcAdd" style="justify-self:start">＋ Adicionar ação</button>`);
     box.querySelectorAll("[data-ar]").forEach(i=>{ ligarPick(i,false); i.addEventListener("input",()=>{ d.acoes[+i.dataset.ar].resp=i.value; sv(); prev(); }); });
     box.querySelectorAll("[data-aa]").forEach(i=>i.oninput=()=>{ d.acoes[+i.dataset.aa].acao=i.value; sv(); prev(); });
@@ -1119,15 +1172,15 @@ function editorAta(c,a){
   $("#atHtml",c).onclick=async()=>{ try{ await salvarAgora(a); await baixarAtaHTML(a); msg("✓ ATA baixada em HTML (abre no navegador já no modelo King Star).",true); }catch(e){ msg("Não consegui gerar: "+esc(e.message)); } };
   $("#atCop",c).onclick=async()=>{ await copiar(textoATA(a)); msg("✓ Texto copiado.",true); };
   $("#atCob",c).onclick=async()=>{ const novas=d.acoes.filter(x=>tx(x.acao)&&!(x.cobranca_id&&porId(x.cobranca_id)));
-    if(!novas.length){ msg("Todas as ações já viraram cobrança (ou não há ações)."); return; }
+    if(!novas.length){ msg("Todas as ações já viraram tarefa (ou não há ações)."); return; }
     for(const x of novas){ const cb=await criar({_tipo:"cobranca",oque:tx(x.acao),quem:tx(x.resp)||"A definir",contato:"",prazo:x.prazo||"",lembrete:lembretePadrao(x.prazo),pilar:Number(d.pilar)||1,prioridade:"P3",obs:`Ação da ATA “${tx(d.titulo)}” de ${dataBR(d.data)}`,status:"aguardando",historico:[],criado:new Date().toISOString(),origem:{ata_id:a.id}}); x.cobranca_id=cb.id; }
-    await salvarAgora(a); render(); toast(`🎯 ${novas.length} cobrança(s) criada(s) a partir das ações da ATA.`,[["Ver cobranças",()=>ir("cobrancas")]]); };
+    await salvarAgora(a); render(); toast(`🎯 ${novas.length} tarefa(s) criada(s) a partir das ações da ATA.`,[["Ver tarefas",()=>ir("cobrancas")]]); };
   $("#atLog",c).onclick=async()=>{ const del=d.deliberacoes.filter(tx);
     const v={_tipo:"log",data:d.data||hojeISO(),hora:d.hora||agoraHM(),tipo:"reuniao",texto:`Reunião: ${tx(d.titulo)||"(sem tema)"}${del.length?"\nDecisões: "+del.join("; "):""}`,pilar:Number(d.pilar)||4,prioridade:"P2",porque:tx(d.objetivo),pessoas:tx(d.participantes),evidencia:"",resultado:`${d.acoes.filter(x=>tx(x.acao)).length} ação(ões) com responsável`,ata_id:a.id};
     const ja=d.log_id&&porId(d.log_id); if(ja){ Object.assign(ja.dados,v); await salvarAgora(ja); } else { const l=await criar(v); d.log_id=l.id; await salvarAgora(a); }
     msg(`✓ ${ja?"Registro atualizado":"Registrado"} no diário de ${dataBR(v.data)}.`,true); };
   $("#atFin",c).onclick=async()=>{ d.status=trav?"rascunho":"finalizada"; await salvarAgora(a); render(); };
-  $("#atDelAta",c).onclick=async()=>{ if(await excluir(a,"Excluir esta ATA? (as cobranças criadas a partir dela continuam)")){ estAta.aberta=""; render(); } };
+  $("#atDelAta",c).onclick=async()=>{ if(await excluir(a,"Excluir esta ATA? (as tarefas criadas a partir dela continuam)")){ estAta.aberta=""; render(); } };
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1154,8 +1207,8 @@ function renderIndicadores(c){
       <button type="button" class="peq" id="inRel">📄 Relatório de impacto</button><button type="button" class="peq" id="inXls">⬇️ Excel</button></span></header>
     <div class="kpis"><div class="kpi"><span>Registros no diário</span><b>${totL}</b><small>${logs.filter(l=>l.dados.tipo==="decisao").length} decisão(ões) com histórico</small></div>
       <div class="kpi"><span>🚨 P1 (incêndios / bloqueantes)</span><b style="color:var(--bad)">${logs.filter(l=>l.dados.prioridade==="P1").length}</b><small>${logs.filter(l=>l.dados.tipo==="resolvido").length} problema(s) resolvido(s)</small></div>
-      <div class="kpi"><span>🟢 Cobranças entregues no prazo</span><b>${comPrazo.length?Math.round(noPrazo.length/comPrazo.length*100)+"%":"—"}</b><small>${entPer.length} entregue(s) · ${tMed} dia(s) em média</small></div>
-      <div class="kpi"><span>🔴 Cobranças atrasadas agora</span><b style="color:${atrasadas.length?"var(--bad)":"inherit"}">${atrasadas.length}</b><small>${cobrancasPendentes().length} em aberto</small></div>
+      <div class="kpi"><span>🟢 Tarefas entregues no prazo</span><b>${comPrazo.length?Math.round(noPrazo.length/comPrazo.length*100)+"%":"—"}</b><small>${entPer.length} entregue(s) · ${tMed} dia(s) em média</small></div>
+      <div class="kpi"><span>🔴 Tarefas atrasadas agora</span><b style="color:${atrasadas.length?"var(--bad)":"inherit"}">${atrasadas.length}</b><small>${cobrancasPendentes().length} em aberto</small></div>
       <div class="kpi"><span>👥 Conversas com pessoas</span><b>${fbs.length}</b><small>${new Set(fbs.map(f=>nrm(f.dados.pessoa))).size} pessoa(s)</small></div>
       <div class="kpi"><span>📄 ATAs</span><b>${atas.length}</b><small>${acoesAta.length} ação(ões) · ${acOk.length}/${acCob.length} entregue(s)</small></div></div>
     ${totL&&p2/totL>0.4?`<p class="alerta">🔥 <b>${Math.round(p2/totL*100)}%</b> dos registros foram de suporte operacional (incêndios). Vale olhar a causa raiz dos que se repetem — é tempo saindo da melhoria contínua.</p>`:""}
@@ -1165,7 +1218,7 @@ function renderIndicadores(c){
       <div class="box" style="margin:0"><b>🚨 P1 por semana</b><p class="cap" style="margin:2px 0 10px">Incêndios e validações bloqueantes nas últimas 8 semanas.</p>
         <div class="colunas-sem">${semanas.map(s=>`<div><span>${s.v||""}</span><i style="height:${Math.round(s.v/maxS*100)}%"></i><span>${s.rot}</span></div>`).join("")}</div></div>
       <div class="box" style="margin:0"><b>Por tipo de registro</b><p class="cap" style="margin:2px 0 10px">O que mais aparece no seu dia.</p>${porTipo.length?barras(porTipo,totL):'<p class="cap">Sem registros no período.</p>'}</div>
-      <div class="box" style="margin:0"><b>Cobranças em aberto por pessoa</b><p class="cap" style="margin:2px 0 10px">De quem você mais depende agora.</p>${Object.keys(porQuem).length?barras(Object.entries(porQuem).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>({rot:esc(k),v,cls:"pil-2"}))):'<p class="cap">Nenhuma cobrança em aberto. 👌</p>'}</div>
+      <div class="box" style="margin:0"><b>Tarefas em aberto por pessoa</b><p class="cap" style="margin:2px 0 10px">De quem você mais depende agora.</p>${Object.keys(porQuem).length?barras(Object.entries(porQuem).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>({rot:esc(k),v,cls:"pil-2"}))):'<p class="cap">Nenhuma tarefa em aberto. 👌</p>'}</div>
     </div></section>`;
   $("#inPer",c).onchange=e=>{ periodoInd=e.target.value; render(); };
   $("#inRel",c).onclick=()=>relatorioImpacto(periodoInd); $("#inXls",c).onclick=()=>exportarExcel();
@@ -1178,7 +1231,7 @@ function relatorioImpacto(per){
   const secao=(tit,filtro)=>`<h2>${tit}</h2>`+tabela(logs.filter(filtro),[["Data",l=>dataBR(l.dados.data)],["Registro",l=>l.dados.texto],["Por quê / resultado",l=>[l.dados.porque,l.dados.resultado].filter(Boolean).join(" · ")],["Pilar",l=>(pilar(l.dados.pilar)||{}).curto||""],["P",l=>l.dados.prioridade||""]]);
   const html=`<h1>Relatório de impacto — ${esc(USUARIO||"")}</h1><p>Período: ${per==="tudo"?"todo o histórico":`${dataBR(ini)} a ${dataBR(hoje)}`} · emitido em ${dataBR(hoje)}</p>
     <h2>Resumo por pilar</h2><table><tr>${PILARES.map(p=>`<th>${p.ico} ${p.nome}</th>`).join("")}<th>Total</th></tr><tr>${PILARES.map(p=>`<td>${logs.filter(l=>Number(l.dados.pilar)===p.id).length}</td>`).join("")}<td>${logs.length}</td></tr></table>
-    <p>Cobranças de terceiros concluídas: <b>${ent.length}</b> · ATAs conduzidas: <b>${atas.length}</b> · conversas de feedback/alinhamento: <b>${fbs.length}</b></p>
+    <p>Tarefas concluídas: <b>${ent.length}</b> · ATAs conduzidas: <b>${atas.length}</b> · conversas de feedback/alinhamento: <b>${fbs.length}</b></p>
     ${secao("⚖️ Decisões tomadas (com o porquê)",l=>l.dados.tipo==="decisao")}
     ${secao("🚨 Incêndios e problemas resolvidos",l=>["incendio","resolvido"].includes(l.dados.tipo)||l.dados.prioridade==="P1")}
     ${secao("🧪 Testes e validações de sistemas",l=>l.dados.tipo==="teste")}
@@ -1202,7 +1255,7 @@ async function exportarExcel(){
       ws.views=[{state:"frozen",ySplit:1}]; if(linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}}; };
     aba("Registro (log)",[["Data",l=>l.dados.data],["Hora",l=>l.dados.hora],["Tipo",l=>tipoLog(l.dados.tipo).nome],["Pilar",l=>(pilar(l.dados.pilar)||{}).nome||""],["Prioridade",l=>l.dados.prioridade],["Registro",l=>l.dados.texto],["Por quê",l=>l.dados.porque],["Resultado",l=>l.dados.resultado],["Pessoas",l=>l.dados.pessoas],["Evidência",l=>l.dados.evidencia]],
       doTipo("log").sort((a,b)=>(a.dados.data+a.dados.hora).localeCompare(b.dados.data+b.dados.hora)));
-    aba("Cobranças",[["O quê",x=>x.dados.oque],["Quem",x=>x.dados.quem],["Contato",x=>x.dados.contato],["Prazo",x=>x.dados.prazo],["Status",x=>ROT_COB[statusCob(x)][1]],["Prioridade",x=>x.dados.prioridade],["Pilar",x=>(pilar(x.dados.pilar)||{}).nome||""],["Vezes cobrado",x=>(x.dados.historico||[]).length],["Última cobrança",x=>{ const h=x.dados.historico||[]; return h.length?dataHoraBR(h[h.length-1].em):""; }],["Entregue em",x=>x.dados.entregue_em?dataBR(String(x.dados.entregue_em).slice(0,10)):""],["Próximas ações",x=>(x.dados.acoes||[]).filter(a=>tx(a.texto)).map(a=>`${a.feito?"[x]":"[ ]"} ${a.texto}${a.prazo?" ("+dataBR(a.prazo)+")":""}`).join("; ")],["Andamento",x=>(x.dados.andamento||[]).map(a=>`${dataHoraBR(a.em)} — ${a.texto}`).join("; ")],["Observação",x=>x.dados.obs]],doTipo("cobranca"));
+    aba("Tarefas",[["O quê",x=>x.dados.oque],["Quem",x=>x.dados.quem],["Contato",x=>x.dados.contato],["Prazo",x=>x.dados.prazo],["Status",x=>ROT_COB[statusCob(x)][1]],["Prioridade",x=>x.dados.prioridade],["Pilar",x=>(pilar(x.dados.pilar)||{}).nome||""],["Vezes cobrado",x=>(x.dados.historico||[]).length],["Última cobrança",x=>{ const h=x.dados.historico||[]; return h.length?dataHoraBR(h[h.length-1].em):""; }],["Entregue em",x=>x.dados.entregue_em?dataBR(String(x.dados.entregue_em).slice(0,10)):""],["Próximas ações",x=>(x.dados.acoes||[]).filter(a=>tx(a.texto)).map(a=>`${a.feito?"[x]":"[ ]"} ${a.texto}${a.prazo?" ("+dataBR(a.prazo)+")":""}`).join("; ")],["Andamento",x=>(x.dados.andamento||[]).map(a=>`${dataHoraBR(a.em)} — ${a.texto}`).join("; ")],["Observação",x=>x.dados.obs]],doTipo("cobranca"));
     aba("Pessoas",[["Pessoa",f=>f.dados.pessoa],["Data",f=>f.dados.data],["Tipo",f=>f.dados.tipo],["Contexto",f=>f.dados.contexto],["Pontos fortes",f=>f.dados.fortes],["Pontos de melhoria",f=>f.dados.melhorias],["Acordos",f=>f.dados.acordos],["Reavaliar em",f=>f.dados.reavaliar_em],["Reavaliado",f=>f.dados.reavaliado?"Sim":"Não"],["Nota da reavaliação",f=>f.dados.reavaliacao_nota]],doTipo("feedback"));
     aba("ATAs",[["Data",a=>a.dados.data],["Tema",a=>a.dados.titulo],["Participantes",a=>a.dados.participantes],["Deliberações",a=>(a.dados.deliberacoes||[]).filter(tx).join("; ")],["Ações",a=>(a.dados.acoes||[]).filter(x=>tx(x.acao)).map(x=>`${x.resp}: ${x.acao}${x.prazo?" ("+dataBR(x.prazo)+")":""}`).join("; ")],["Pendências",a=>(a.dados.pendencias||[]).filter(tx).join("; ")],["Status",a=>a.dados.status]],doTipo("ata"));
     baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`diario_de_bordo_${hojeISO()}.xlsx`);
