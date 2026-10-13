@@ -191,6 +191,35 @@ table.tbl th.ord.ativo{color:var(--steel)} table.tbl th.ord.ativo .seta{color:va
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .p-ok{background:var(--ok-soft);color:var(--ok)} .p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-amb{background:var(--amber-soft);color:var(--amber)}
 .alerta-sub{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px;border-left:4px solid var(--amber)}
+/* [v3.9] executores, previsto × realizado */
+.info-ok{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--ok-soft);font-size:14px;border-left:4px solid var(--ok)}
+.info-azul{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--prog-soft);font-size:14px;border-left:4px solid var(--prog)}
+.resumo-inv{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}
+.resumo-inv .pill{font-size:12.5px;padding:4px 11px}
+.resumo-inv select{width:auto;min-width:240px;margin-left:auto}
+td[data-campo="executores"] input:placeholder-shown{background:color-mix(in srgb,var(--amber-soft) 70%,transparent);border-color:color-mix(in srgb,var(--amber) 35%,transparent)}
+td[data-campo="executores"] input{cursor:pointer}
+input.cel-pessoas{cursor:pointer}
+.chips-pessoas{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chip-p{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12.5px;background:var(--prog-soft);color:var(--prog);font-weight:600}
+.chip-p.vazio{background:var(--amber-soft);color:var(--amber)}
+.pr-tab td.ok{background:var(--ok-soft)} .pr-tab td.fora{background:var(--amber-soft);color:var(--amber);font-weight:600} .pr-tab td.nao{background:var(--idle-soft);color:var(--ink-2)}
+.pr-tab td{white-space:normal}
+.grupo-alertas{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin:10px 0}
+.grupo-alertas > div{margin:0}
+.grupo-alertas ul{margin:6px 0 0 18px;padding:0;font-size:13.5px}
+.equipe-box{margin:10px 0;padding:10px 14px;border-radius:8px;background:var(--prog-soft);border:1px solid color-mix(in srgb,var(--prog) 30%,transparent)}
+.equipe-box label{color:var(--ink)}
+/* seletor de pessoas */
+.pick{position:fixed;z-index:80;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:0 12px 32px rgba(10,15,25,.22);display:flex;flex-direction:column;max-height:360px;width:320px}
+.pick .pk-b{padding:8px;border-bottom:1px solid var(--rule-2)}
+.pick .pk-b input{width:100%;font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--rule);border-radius:5px;background:var(--paper);color:var(--ink)}
+.pick .pk-l{overflow:auto;padding:4px 8px}
+.pick .pk-g{font:600 11.5px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin:8px 2px 4px}
+.pick label{display:flex;gap:8px;align-items:flex-start;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:13.5px;line-height:1.3;color:var(--ink)}
+.pick label:hover{background:var(--rule-2)} .pick label input{width:16px;height:16px;accent-color:var(--steel);flex:none;margin-top:1px}
+.pick label small{display:block;color:var(--ink-3);font-size:12px}
+.pick .pk-r{display:flex;justify-content:space-between;align-items:center;padding:8px;border-top:1px solid var(--rule-2);font-size:12.5px;color:var(--ink-3)}
 @media (max-width:860px){
   .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px} .bar-tit span{display:none}
   .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
@@ -382,6 +411,45 @@ function urlSecao(sec){ return `${API}/dep/${encodeURIComponent(DEP)}/${encodeUR
 function meu(o){ if(o&&typeof o==="object") o._por=EMAIL; return o; }   // autor do registro (base do perfil "Adicionar")
 
 function lista(sec){ if(!Array.isArray(D[sec])) D[sec]=[]; return D[sec]; }
+// [v3.9] quem executa cada atividade (Inventário) e quem participou de cada registro (Diário)
+const MODOS=["Individual","Dividida","Em equipe"];
+function separarNomes(s){ return String(s||"").split(/\s*[,;]\s*/).map(texto).filter(Boolean); }
+function itemInv(at){ return lista("inventario").find(x=>norm(x.atividade)===norm(at)); }
+function executoresDe(at){ const i=itemInv(at); return i?separarNomes(i.executores):[]; }
+function atribuida(at,pessoa){ return executoresDe(at).some(n=>norm(n)===norm(pessoa)); }
+function participantesDe(r){ const p=separarNomes(r.participantes); return p.length?p:[texto(r.analista)].filter(Boolean); }
+function atribuirA(at,pessoa){ const i=itemInv(at); if(!i||!texto(pessoa)) return; const ex=separarNomes(i.executores);
+  if(!ex.some(n=>norm(n)===norm(pessoa))){ ex.push(texto(pessoa)); i.executores=ex.join(", "); salvar("inventario"); } }
+let PICK=null;
+function fecharPick(){ if(PICK){ PICK.el.remove(); document.removeEventListener("pointerdown",PICK.fora,true); PICK=null; } }
+function abrirPick(input){
+  if(PICK&&PICK.input===input) return; fecharPick();
+  const sel=()=>separarNomes(input.value);
+  const cx=el("div","pick"); cx.innerHTML=`<div class="pk-b"><input placeholder="Buscar ou digitar um nome..." aria-label="Buscar pessoa"></div><div class="pk-l"></div><div class="pk-r"><span class="pk-n"></span><button type="button" class="btn">Pronto</button></div>`;
+  document.body.appendChild(cx);
+  const r=input.getBoundingClientRect(); cx.style.left=Math.max(8,Math.min(r.left,innerWidth-330))+"px"; cx.style.top=(innerHeight-r.bottom>360?r.bottom+4:Math.max(8,r.top-364))+"px";
+  const lst=cx.querySelector(".pk-l"), busca=cx.querySelector(".pk-b input");
+  const grupos=()=>{ const g=[], visto=new Set(), add=(t,arr)=>{ const it=arr.filter(x=>texto(x.nome)&&!visto.has(norm(x.nome))); it.forEach(x=>visto.add(norm(x.nome))); if(it.length) g.push([t,it]); };
+    add("Organograma oficial",(OFICIAL||[]).map(p=>({nome:p.nome,dica:[p.cargo,p.subsetor].filter(Boolean).join(" · ")})));
+    add("Organograma real (diagnóstico)",lista("organograma").map(o=>({nome:o.pessoa,dica:o.papel||""}))); return g; };
+  const aplicar=v=>{ input.value=v.join(", "); input.dispatchEvent(new Event("input",{bubbles:true})); input.dispatchEvent(new Event("change",{bubbles:true})); };
+  const desenhar=()=>{ const t=norm(busca.value), at=sel(), G=grupos();
+    const extras=at.filter(n=>!G.some(g=>g[1].some(x=>norm(x.nome)===norm(n)))); if(extras.length) G.unshift(["Já informados",extras.map(n=>({nome:n,dica:""}))]);
+    let h=G.map(([gt,it])=>{ const f=it.filter(x=>!t||norm(x.nome).includes(t)||norm(x.dica).includes(t)); if(!f.length) return "";
+      return `<div class="pk-g">${esc(gt)}</div>`+f.map(x=>`<label><input type="checkbox" value="${esc(x.nome)}" ${at.some(n=>norm(n)===norm(x.nome))?"checked":""}><span>${esc(x.nome)}${x.dica?`<small>${esc(x.dica)}</small>`:""}</span></label>`).join(""); }).join("");
+    if(texto(busca.value)&&!G.some(g=>g[1].some(x=>norm(x.nome)===t))) h=`<label><input type="checkbox" value="${esc(texto(busca.value))}"><span>Usar “${esc(texto(busca.value))}”<small>nome que não está no organograma</small></span></label>`+h;
+    lst.innerHTML=h||'<p class="cap" style="margin:10px 4px">Cadastre as pessoas no Organograma ou digite um nome.</p>';
+    cx.querySelector(".pk-n").textContent=`${at.length} selecionado(s)`;
+    lst.querySelectorAll("input").forEach(cb=>cb.onchange=()=>{ let v=sel().filter(n=>norm(n)!==norm(cb.value)); if(cb.checked) v.push(cb.value); aplicar(v);
+      cx.querySelector(".pk-n").textContent=`${v.length} selecionado(s)`; if(cb.value===texto(busca.value)){ busca.value=""; desenhar(); } }); };
+  busca.oninput=desenhar; busca.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); const f=lst.querySelector("input:not(:checked)"); if(f){ f.checked=true; f.dispatchEvent(new Event("change")); } } };
+  cx.querySelector(".pk-r button").onclick=fecharPick; cx.onkeydown=e=>{ if(e.key==="Escape"){ e.stopPropagation(); fecharPick(); input.focus(); } };
+  const fora=e=>{ if(!cx.contains(e.target)&&e.target!==input) fecharPick(); };
+  setTimeout(()=>document.addEventListener("pointerdown",fora,true),0);
+  PICK={el:cx,input,fora}; desenhar(); busca.focus();
+}
+function ligarPick(input){ if(!input) return; input.classList.add("cel-pessoas"); input.setAttribute("autocomplete","off");
+  input.title="Clique para escolher uma ou mais pessoas (ou digite, separando por vírgula)"; input.addEventListener("click",()=>abrirPick(input)); }
 function objeto(sec){ if(!D[sec] || typeof D[sec]!=="object" || Array.isArray(D[sec])) D[sec]={}; return D[sec]; }
 
 function setStatus(tipo, detalhe){
@@ -431,11 +499,11 @@ function atualizarListas(){
   $("#dl-atividades").innerHTML = opcoesAtividades().map(a=>`<option value="${esc(a)}">`).join("");
   $("#dl-pessoas").innerHTML = opcoesPessoas().map(a=>`<option value="${esc(a)}">`).join("");
 }
-function addInventarioSeNova(atividade){
+function addInventarioSeNova(atividade, executor){
   atividade=texto(atividade); if(!atividade) return;
   const inv=lista("inventario");
   if(inv.some(i=>norm(i.atividade)===norm(atividade))) return;
-  inv.push(meu({atividade, categoria:"", descricao:"", registrada:""}));
+  inv.push(meu({atividade, categoria:"", descricao:"Incluída durante o Diário de Bordo", registrada:"", executores:texto(executor), modo:"Individual", subsetor:subsetorDaPessoa(executor)}));
   inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
   salvar("inventario"); atualizarListas();
 }
@@ -456,7 +524,7 @@ let focarUltima = null;
 const ORDEM_TBL={};
 function valorOrdem(row,c){ const v=c.tipo==="calc"?c.calc(row):row[c.campo]; return texto(v); }
 function tabela(o){
-  const {secao, linhas, colunas, aoMudar, aoEstrutura, novaLinha, semAdd, semDel, altura, ordenar:podeOrdenar} = o;
+  const {secao, linhas, colunas, aoMudar, aoEstrutura, novaLinha, semAdd, semDel, altura, ordenar:podeOrdenar, filtro} = o;
   const wrap=el("div"), tw=el("div","tbl-wrap"), t=el("table","tbl");
   if(altura) tw.style.maxHeight=altura+"px";
   const ord=podeOrdenar?ORDEM_TBL[secao]:null;
@@ -470,8 +538,10 @@ function tabela(o){
     if(c) vis=linhas.slice().sort((a,b)=>{ const va=valorOrdem(a,c), vb=valorOrdem(b,c);
       if(!va&&!vb) return 0; if(!va) return 1; if(!vb) return -1;   // vazios sempre no fim
       return va.localeCompare(vb,"pt-BR",{numeric:true,sensitivity:"base"})*ord.dir; }); }
+  if(filtro) vis=vis.filter(filtro);
   const tb=el("tbody");
   if(!linhas.length) tb.innerHTML=`<tr><td colspan="${colunas.length+1}" class="vazio">Nenhuma linha ainda.</td></tr>`;
+  else if(!vis.length) tb.innerHTML=`<tr><td colspan="${colunas.length+1}" class="vazio">Nenhuma linha com esse filtro.</td></tr>`;
   vis.forEach(row=>{ const i=linhas.indexOf(row);
     const tr=el("tr"), livre = NIVEL>=3 || (NIVEL===2 && row._por===EMAIL);
     colunas.forEach(c=>{ const td=el("td"); td.dataset.campo=c.campo; td.appendChild(livre?campoCelula(row,c,tr,colunas,secao,aoMudar):celulaTravada(row,c)); tr.appendChild(td); });
@@ -516,7 +586,7 @@ function campoCelula(row, c, tr, colunas, secao, aoMudar){
     if(v && !ops.includes(v)) ops.push(v);
     inp.innerHTML=ops.map(op=>`<option${op===v?" selected":""}>${esc(op)}</option>`).join("");
   } else if(c.tipo==="textarea"){ inp=el("textarea"); inp.rows=2; inp.value=v; }
-  else { inp=el("input"); inp.type=c.tipo||"text"; inp.value=v; if(c.lista) inp.setAttribute("list",c.lista); }
+  else { inp=el("input"); inp.type=c.tipo==="pessoas"||c.tipo==="number"?"text":(c.tipo||"text"); inp.value=v; if(c.lista) inp.setAttribute("list",c.lista); if(c.tipo==="pessoas") ligarPick(inp); }
   if(c.placeholder) inp.placeholder=c.placeholder;
   inp.setAttribute("aria-label", c.label);
   const aplicar=()=>{
@@ -527,7 +597,7 @@ function campoCelula(row, c, tr, colunas, secao, aoMudar){
     });
     salvar(secao);
   };
-  const ehDigitacao = (c.tipo||"text")==="text" || c.tipo==="textarea";
+  const ehDigitacao = (c.tipo||"text")==="text" || c.tipo==="textarea" || c.tipo==="pessoas" || c.tipo==="number";
   if(ehDigitacao) inp.addEventListener("input", aplicar);
   inp.addEventListener("change", ()=>{ if(!ehDigitacao) aplicar(); aoMudar&&aoMudar(row,c); });
   return inp;
@@ -774,14 +844,16 @@ function renderChecklist(c){
 // ═══════════════════════════════════════════════════════════════════
 // 02 · Inventário
 // ═══════════════════════════════════════════════════════════════════
-const estInv={mapaAberto:false};
+const estInv={mapaAberto:false,pessoa:""};
 function renderInventario(c){
   const inv=lista("inventario");
   c.innerHTML=`<h2>📋 Inventário de atividades</h2>
     <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
     <p class="cap">Defina o <b>subsetor responsável</b> de cada atividade (ex.: abastecimento de estoque → Recebimento). O Diário de Bordo e a Matriz passam a mostrar quando outro subsetor está fazendo o trabalho.</p>
+    <p class="cap">Defina também os <b>executores</b> (quem faz cada atividade — pode ser mais de uma pessoa) e o <b>modo</b>: <b>individual</b>, <b>dividida</b> (cada um faz uma parte) ou <b>em equipe</b> (várias pessoas ao mesmo tempo, como descarregar um caminhão). O Diário de Bordo passa a mostrar primeiro as atividades de cada pessoa, e o RACI e o Mapa já recebem os responsáveis.</p>
     <p class="cap">💡 Clique no título de uma coluna para ordenar de A a Z (de novo: Z a A; mais uma vez: volta à ordem original).</p>
     <datalist id="dl-subs">${subsetoresDep().map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
+    <div id="invResumo"></div>
     <div id="invTbl"></div>
     <div class="box" ${NIVEL<2?'style="display:none"':""}><h3 style="margin-top:0">➕ Adicionar nova atividade</h3>
       <div class="grade">
@@ -790,14 +862,31 @@ function renderInventario(c){
         <label class="f">Descrição / exemplo<input id="invDesc"></label>
         <label class="f">Já registrada oficialmente?<select id="invReg">${opts(STATUS_REGISTRADA)}</select></label>
         <label class="f">Subsetor responsável<input id="invSub" list="dl-subs" placeholder="Quem deveria fazer"></label>
+        <label class="f">Executores<input id="invExec" placeholder="Clique para escolher uma ou mais pessoas"></label>
+        <label class="f">Modo de execução<select id="invModo">${MODOS.map(m=>`<option>${m}</option>`).join("")}</select></label>
       </div>
       <div class="acoes"><button class="btn primary" id="invAdd" type="button">💾 Adicionar</button><span class="msg" id="invMsg"></span></div>
     </div>`;
-  $("#invTbl",c).appendChild(tabela({secao:"inventario", linhas:inv, semAdd:true, aoEstrutura:renderAba, ordenar:true,
-    aoMudar:(r,col)=>{ if(col.campo==="atividade") atualizarListas(); },
+  // resumo + filtro por pessoa (atualiza sozinho quando os executores mudam)
+  const desenharResumo=()=>{ const box=$("#invResumo"); if(!box) return;
+  const ativsInv=inv.filter(i=>texto(i.atividade)), semEx=ativsInv.filter(i=>!separarNomes(i.executores).length), emEq=ativsInv.filter(i=>i.modo==="Em equipe"), div=ativsInv.filter(i=>i.modo==="Dividida");
+  const pessoasInv=ordenar([...new Set(ativsInv.flatMap(i=>separarNomes(i.executores)))]);
+  box.innerHTML=`<div class="resumo-inv"><span class="pill p-cinza">${ativsInv.length} atividade(s)</span>
+      <span class="pill ${semEx.length?"p-amb":"p-ok"}">${semEx.length?`${semEx.length} sem executor`:"todas com executor ✓"}</span>
+      ${emEq.length?`<span class="pill p-azul">${emEq.length} em equipe</span>`:""}${div.length?`<span class="pill p-azul">${div.length} dividida(s)</span>`:""}
+      <select id="invPessoa" aria-label="Ver atividades de"><option value="">Ver atividades de: todas as pessoas</option><option value="__sem__"${estInv.pessoa==="__sem__"?" selected":""}>⚠ Só as sem executor</option>
+        ${pessoasInv.map(n=>`<option value="${esc(n)}"${n===estInv.pessoa?" selected":""}>${esc(n)} (${ativsInv.filter(i=>separarNomes(i.executores).some(x=>norm(x)===norm(n))).length})</option>`).join("")}</select></div>`;
+  $("#invPessoa").onchange=e=>{ estInv.pessoa=e.target.value; renderAba(); }; };
+  desenharResumo();
+  const filtroInv=estInv.pessoa==="__sem__"?(r=>!separarNomes(r.executores).length):estInv.pessoa?(r=>separarNomes(r.executores).some(x=>norm(x)===norm(estInv.pessoa))):null;
+  $("#invTbl",c).appendChild(tabela({secao:"inventario", linhas:inv, semAdd:true, aoEstrutura:renderAba, ordenar:true, filtro:filtroInv,
+    aoMudar:(r,col)=>{ if(col.campo==="atividade") atualizarListas(); if(["executores","modo","atividade"].includes(col.campo)) desenharResumo(); },
     colunas:[
       {campo:"atividade",label:"Atividade",largura:240},
       {campo:"subsetor",label:"Subsetor responsável",lista:"dl-subs",largura:170,placeholder:"quem deveria fazer"},
+      {campo:"executores",label:"Executores",tipo:"pessoas",largura:260,placeholder:"— sem executor —"},
+      {campo:"modo",label:"Modo de execução",tipo:"select",opcoes:MODOS},
+      {campo:"equipe_n",label:"Pessoas (equipe)",tipo:"number",largura:90,placeholder:"ex.: 3"},
       {campo:"categoria",label:"Categoria",tipo:"select",opcoes:CATEGORIAS_INVENTARIO},
       {campo:"descricao",label:"Descrição / exemplo",largura:260},
       {campo:"registrada",label:"Já registrada oficialmente?",tipo:"select",opcoes:STATUS_REGISTRADA},
@@ -820,12 +909,14 @@ function renderInventario(c){
     const nome=texto($("#invNova").value), msg=$("#invMsg");
     if(!nome){ msg.className="msg erro"; msg.textContent="Informe o nome da atividade."; return; }
     if(inv.some(i=>norm(i.atividade)===norm(nome))){ msg.className="msg erro"; msg.textContent=`'${nome}' já existe no Inventário.`; return; }
-    inv.push(meu({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value, subsetor:texto($("#invSub").value)}));
+    inv.push(meu({atividade:nome, categoria:$("#invCat").value, descricao:$("#invDesc").value, registrada:$("#invReg").value, subsetor:texto($("#invSub").value),
+      executores:separarNomes($("#invExec").value).join(", "), modo:$("#invModo").value}));
     inv.sort((a,b)=>norm(a.atividade).localeCompare(norm(b.atividade),"pt-BR"));
     salvar("inventario"); renderAba();
     const m2=$("#invMsg"); m2.className="msg ok"; m2.textContent=`Atividade '${nome}' adicionada!`;
   };
-  botoesExport(c,[["⬇️ Baixar Inventário (Excel)",()=>baixarExcel("inventario_atividades","Inventario",inv,["atividade","subsetor","categoria","descricao","registrada"])]]);
+  ligarPick($("#invExec",c));
+  botoesExport(c,[["⬇️ Baixar Inventário (Excel)",()=>baixarExcel("inventario_atividades","Inventario",inv,["atividade","subsetor","executores","modo","equipe_n","categoria","descricao","registrada"])]]);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -892,7 +983,7 @@ function renderOrganograma(c){
     <p class="cap">Montado automaticamente a partir da coluna <b>"Responde para"</b> — inclusive quando mais de uma pessoa responde para o mesmo grupo, ou uma pessoa responde para duas ao mesmo tempo.</p>
     <div id="orgVis"></div><div id="orgExp"></div>
     <h3>🧩 RACI preliminar (por tipo de demanda)</h3>
-    <p class="cap">Visão rápida por tipo de demanda, recomendada na Etapa 2 do documento. Para a matriz completa, use a seção <b>🧩 Matriz RACI</b>.</p>
+    <p class="cap">Visão rápida por tipo de demanda, recomendada na Etapa 2 do documento. Ao carregar do Inventário, o <b>Responsável (R)</b> já vem com os executores da atividade. Para a matriz completa, use a seção <b>🧩 Matriz RACI</b>.</p>
     <div class="acoes"><button class="btn" id="raciInv" type="button">🔄 Carregar atividades do Inventário</button><span class="msg" id="raciMsg"></span></div>
     <div id="raciTbl"></div><div id="raciExp"></div>`;
   const desenhar=()=>{
@@ -944,7 +1035,7 @@ function renderOrganograma(c){
   $("#raciInv",c).onclick=()=>{
     const novas=sugerirDoInventario(new Set(raci.map(r=>norm(r.tipo_demanda)))), msg=$("#raciMsg");
     if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas aqui)."; return; }
-    novas.forEach(n=>raci.push(meu({tipo_demanda:n,responsavel:"",aprovador:"",consultado:"",informado:""})));
+    novas.forEach(n=>raci.push(meu({tipo_demanda:n,responsavel:executoresDe(n).join(", "),aprovador:"",consultado:"",informado:""})));
     salvar("raci"); renderAba();
     const m2=$("#raciMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
   };
@@ -1026,12 +1117,12 @@ function renderRaciMatriz(c){
     if(!nomes.length){ alvo.innerHTML='<div class="aviso">Cadastre ao menos uma pessoa/função acima para liberar a matriz de cruzamento.</div>'; return; }
     const grupo={}; pessoas.forEach(p=>grupo[texto(p.nome)]=p.grupo||"");
     alvo.insertAdjacentHTML("beforeend",`<h3>📐 Matriz — Fases/Atividades x Funções</h3>
-      <p class="cap">Cada linha é uma fase ou atividade; cada coluna, uma pessoa/função. Renomear ou remover uma pessoa não migra os valores já preenchidos para ela — ajuste a matriz em seguida se isso acontecer.</p>
+      <p class="cap">Cada linha é uma fase ou atividade; cada coluna, uma pessoa/função. Ao carregar do Inventário, quem é executor da atividade já recebe <b>R</b>. Renomear ou remover uma pessoa não migra os valores já preenchidos para ela — ajuste a matriz em seguida se isso acontecer.</p>
       <div class="acoes"><button class="btn" id="rmInv" type="button">🔄 Carregar atividades do Inventário</button><span class="msg" id="rmMsg"></span></div>`);
     $("#rmInv").onclick=()=>{
       const novas=sugerirDoInventario(new Set(matriz.map(r=>norm(r.atividade)))), msg=$("#rmMsg");
       if(!novas.length){ msg.className="msg"; msg.textContent="Nenhuma atividade nova encontrada no Inventário (ou já estão todas na matriz)."; return; }
-      novas.forEach(n=>matriz.push(meu({atividade:n, ...Object.fromEntries(nomes.map(x=>[x,"-"]))})));
+      novas.forEach(n=>{ const ex=executoresDe(n); matriz.push(meu({atividade:n, ...Object.fromEntries(nomes.map(x=>[x,ex.some(e=>norm(e)===norm(x))?"R":"-"]))})); });
       salvar("raci_matriz"); parteMatriz();
       const m2=$("#rmMsg"); m2.className="msg ok"; m2.textContent=`${novas.length} atividade(s) carregada(s) do Inventário.`;
     };
@@ -1057,7 +1148,7 @@ function renderRaciMatriz(c){
 // ═══════════════════════════════════════════════════════════════════
 // 05 · Diário de Bordo — modo "esteira" (um toque troca a atividade)
 // ═══════════════════════════════════════════════════════════════════
-const COLS_DIARIO=["data","analista","hora_inicio","hora_fim","duracao","atividade","categoria","origem","sistemas","depende_terceiros","quem","obs"];
+const COLS_DIARIO=["data","analista","participantes","hora_inicio","hora_fim","duracao","atividade","categoria","origem","sistemas","depende_terceiros","quem","passos","obs"];
 const est={analistaSel:"",analistaNovo:"",ativSel:"",ativNova:"",manualAberto:false,regsAberto:false,detAberto:false};
 function analistaAtual(){ return texto(est.analistaNovo) || est.analistaSel; }
 function registroAberto(diario, analista, data){
@@ -1079,8 +1170,8 @@ async function registrarToque(analista, atividade){
   const diario=lista("diario"), agora=agoraHM(), hoje=hojeISO(), i=registroAberto(diario,analista,hoje);
   if(i>=0){ diario[i].hora_fim=agora; diario[i].duracao=duracaoMin(diario[i].hora_inicio,agora); }
   const ctx=contextoUltima(atividade,diario);
-  diario.push(meu({data:hoje,analista,hora_inicio:agora,hora_fim:"",duracao:"",atividade,...ctx,quem:"",obs:""}));
-  await salvarAgora("diario"); addInventarioSeNova(atividade);
+  diario.push(meu({data:hoje,analista,participantes:"",hora_inicio:agora,hora_fim:"",duracao:"",atividade,...ctx,quem:"",passos:"",obs:""}));
+  await salvarAgora("diario"); addInventarioSeNova(atividade, analista);
 }
 async function encerrarDia(analista){
   await recarregar("diario");
@@ -1101,7 +1192,14 @@ function renderDiario(c){
   if(aberto){ const resp=subsetorDaAtividade(aberto.atividade), dele=subsetorDaPessoa(analista);
     h+=`<div class="rodando"><div class="t1">⏱️ EM ANDAMENTO DESDE ${esc(aberto.hora_inicio)}</div><div class="t2">${esc(aberto.atividade)}</div>
       <div class="t3"><span data-desde="${esc(aberto.hora_inicio)}">${minutosDesde(aberto.hora_inicio)} min até agora</span> — escolha outra atividade abaixo para trocar</div></div>`;
-    if(resp&&dele&&norm(resp)!==norm(dele)) h+=`<div class="alerta-sub">⚠ <b>${esc(aberto.atividade)}</b> é do subsetor <b>${esc(resp)}</b>, mas quem está fazendo é do <b>${esc(dele)}</b>. Fica registrado na análise “Quem faz o quê × subsetor” (Matriz).</div>`; }
+    if(resp&&dele&&norm(resp)!==norm(dele)) h+=`<div class="alerta-sub">⚠ <b>${esc(aberto.atividade)}</b> é do subsetor <b>${esc(resp)}</b>, mas quem está fazendo é do <b>${esc(dele)}</b>. Fica registrado na análise “Quem faz o quê × subsetor” (Matriz).</div>`;
+    const exs=executoresDe(aberto.atividade);
+    if(!exs.length) h+=`<div class="alerta-sub">Esta atividade ainda não tem executor no Inventário. ${NIVEL>=2?`<button type="button" class="btn" data-atrib="${esc(aberto.atividade)}" style="padding:5px 10px;margin-left:6px">Atribuir a ${esc(analista)}</button>`:""}</div>`;
+    else if(!atribuida(aberto.atividade,analista)) h+=`<div class="alerta-sub">⚠ <b>Fora do previsto:</b> no Inventário, <b>${esc(aberto.atividade)}</b> é de ${esc(exs.join(", "))} — não de ${esc(analista)}. Fica registrado na análise “Previsto × realizado” (Matriz). ${NIVEL>=2?`<button type="button" class="btn" data-atrib="${esc(aberto.atividade)}" style="padding:5px 10px;margin-left:6px">Atribuir também a ${esc(analista)}</button>`:""}</div>`;
+    else h+=`<div class="info-ok">✓ Atividade atribuída a ${esc(analista)} no Inventário.</div>`;
+    const it=itemInv(aberto.atividade);
+    if(it&&it.modo==="Em equipe") h+=`<div class="equipe-box"><label class="f"><b>👥 Atividade em equipe — quem está participando agora?</b><input data-ab="participantes" id="dPart" value="${esc(aberto.participantes||analista)}" placeholder="Clique para escolher"></label>
+      <p class="cap" style="margin:6px 0 0">O tempo conta para cada participante (${it.equipe_n?`equipe típica: ${esc(it.equipe_n)} pessoas · `:""}ex.: 40 min × 3 pessoas = 2 h de mão de obra).</p></div>`; }
   else if(analista) h+='<div class="aviso">Nenhuma atividade em andamento para essa pessoa hoje — escolha uma atividade abaixo para começar a cronometrar.</div>';
   else h+='<div class="aviso">Selecione ou digite quem está sendo observado para liberar os toques rápidos.</div>';
   if(aberto) h+=`<details class="box" id="dDet" ${est.detAberto?"open":""}><summary>📝 Detalhes desta atividade (opcional, pode preencher enquanto roda)</summary>
@@ -1111,9 +1209,16 @@ function renderDiario(c){
       <label class="f">Sistema(s) utilizado(s)<input data-ab="sistemas" value="${esc(aberto.sistemas)}"></label>
       <label class="f">Depende de terceiros?<select data-ab="depende_terceiros"><option${aberto.depende_terceiros!=="Sim"?" selected":""}>Não</option><option${aberto.depende_terceiros==="Sim"?" selected":""}>Sim</option></select></label>
       <label class="f">Quem? (se depende de terceiros)<input data-ab="quem" value="${esc(aberto.quem)}"></label>
-    </div><label class="f" style="margin-top:10px">Observações<textarea data-ab="obs" rows="3">${esc(aberto.obs)}</textarea></label></details>`;
+    </div><label class="f" style="margin-top:10px">Observações<textarea data-ab="obs" rows="3">${esc(aberto.obs)}</textarea></label>
+    <label class="f" style="margin-top:10px">🪜 Passos observados (opcional — um por linha; vão para o “Como é feito hoje” do Mapa Digital)<textarea data-ab="passos" rows="4" placeholder="Abrir o sistema de tickets&#10;Localizar o pedido na montagem de cargas&#10;Solicitar a retirada e o cancelamento da NF">${esc(aberto.passos||"")}</textarea></label></details>`;
+  if(analista){ const n=ativs.filter(a=>atribuida(a,analista)).length;
+    h+=`<p class="cap" style="margin:10px 0 0">${n?`<span class="pill p-ok">${n} atividade(s) atribuída(s) a ${esc(analista)}</span> aparecem primeiro na lista.`:`<span class="pill p-amb">Nenhuma atividade atribuída a ${esc(analista)} no Inventário</span> — atribua os executores no Inventário para a lista ficar mais enxuta.`}</p>`; }
   if(analista) h+=`<h3>⚡ Iniciar ou trocar de atividade</h3>
-    <div class="grade"><label class="f">Atividade<select id="dAtiv"><option value="">— selecione —</option>${ativs.map(a=>`<option${a===est.ativSel?" selected":""}>${esc(a)}</option>`).join("")}<option value="__nova__"${est.ativSel==="__nova__"?" selected":""}>+ nova atividade...</option></select></label>
+    <div class="grade"><label class="f">Atividade<select id="dAtiv"><option value="">— selecione —</option>${(()=>{ const op=a=>`<option${a===est.ativSel?" selected":""}>${esc(a)}</option>`;
+      const minhas=ativs.filter(a=>atribuida(a,analista)), sem=ativs.filter(a=>!executoresDe(a).length), outras=ativs.filter(a=>!minhas.includes(a)&&!sem.includes(a));
+      return (minhas.length?`<optgroup label="✅ Atribuídas a ${esc(analista)} (${minhas.length})">${minhas.map(op).join("")}</optgroup>`:"")
+        +(sem.length?`<optgroup label="Sem executor definido (${sem.length})">${sem.map(op).join("")}</optgroup>`:"")
+        +(outras.length?`<optgroup label="⚠ Outras do setor — fora do previsto (${outras.length})">${outras.map(op).join("")}</optgroup>`:""); })()}<option value="__nova__"${est.ativSel==="__nova__"?" selected":""}>+ nova atividade (já fica atribuída a ${esc(analista)})...</option></select></label>
     ${est.ativSel==="__nova__"?`<label class="f">Nome da nova atividade<input id="dAtivNova" value="${esc(est.ativNova)}"></label>`:""}</div>
     <div class="acoes"><button class="btn primary" id="dIniciar" type="button" ${!atividadeEscolhida||jaRodando?"disabled":""}>▶️ Iniciar esta atividade</button>
     <button class="btn" id="dPausa" type="button">⏸️ Pausa / Interrupção</button><button class="btn" id="dFim" type="button">🏁 Finalizar o dia</button><span class="msg" id="dMsg"></span></div>`;
@@ -1145,6 +1250,8 @@ function renderDiario(c){
   ["dDet","dManual","dRegs"].forEach(id=>{ const d=$("#"+id,c); if(d) d.ontoggle=()=>{ est[{dDet:"detAberto",dManual:"manualAberto",dRegs:"regsAberto"}[id]]=d.open; }; });
   if(aberto) c.querySelectorAll("[data-ab]").forEach(inp=>{ const f=()=>{ aberto[inp.dataset.ab]=inp.value; salvar("diario"); };
     inp.addEventListener(inp.tagName==="SELECT"?"change":"input", f); });
+  ligarPick($("#dPart",c));
+  c.querySelectorAll("[data-atrib]").forEach(b=>b.onclick=()=>{ atribuirA(b.dataset.atrib,analista); renderAba(); });
   if(analista){
     $("#dAtiv",c).onchange=e=>{ est.ativSel=e.target.value; renderAba(); };
     const nova=$("#dAtivNova",c);
@@ -1164,15 +1271,16 @@ function renderDiario(c){
     await recarregar("diario");
     lista("diario").push(meu({data:$("#mData").value,analista:a,hora_inicio:hi,hora_fim:hf,duracao:duracaoMin(hi,hf),atividade:at,
       categoria:$("#mCat").value,origem:$("#mOri").value,sistemas:$("#mSis").value,depende_terceiros:$("#mDep").value,quem:$("#mQuem").value,obs:$("#mObs").value}));
-    await salvarAgora("diario"); addInventarioSeNova(at); renderAba();
+    await salvarAgora("diario"); addInventarioSeNova(at, a); renderAba();
     const m2=$("#mMsg"); m2.className="msg ok"; m2.textContent="Linha salva!";
   };
   $("#dTbl",c).appendChild(tabela({secao:"diario", linhas:diario, aoEstrutura:renderAba,
-    aoMudar:(row,col)=>{ if(col.campo==="atividade") addInventarioSeNova(row.atividade); },
+    aoMudar:(row,col)=>{ if(col.campo==="atividade") addInventarioSeNova(row.atividade, row.analista); },
     novaLinha:()=>({data:hoje,analista:analista||"",hora_inicio:"",hora_fim:"",duracao:"",atividade:"",categoria:"",origem:"",sistemas:"",depende_terceiros:"Não",quem:"",obs:""}),
     colunas:[
       {campo:"data",label:"Data",tipo:"date"},
       {campo:"analista",label:"Analista",lista:"dl-pessoas",largura:130},
+      {campo:"participantes",label:"Participantes (equipe)",tipo:"pessoas",largura:160,placeholder:"só o analista"},
       {campo:"hora_inicio",label:"Hora início",tipo:"time"},
       {campo:"hora_fim",label:"Hora fim",tipo:"time"},
       {campo:"duracao",label:"Duração (min)",tipo:"calc",calc:r=>duracaoMin(r.hora_inicio,r.hora_fim)},
@@ -1182,6 +1290,7 @@ function renderDiario(c){
       {campo:"sistemas",label:"Sistema(s) utilizado(s)",largura:150},
       {campo:"depende_terceiros",label:"Depende de terceiros?",tipo:"select",opcoes:["Não","Sim"]},
       {campo:"quem",label:"Quem? (se sim)",largura:120},
+      {campo:"passos",label:"Passos observados",tipo:"textarea",largura:220},
       {campo:"obs",label:"Observações",tipo:"textarea",largura:220},
     ]}));
   botoesExport(c,[["⬇️ Baixar Diário de Bordo (Excel)",()=>baixarExcel("diario_de_bordo","Diario",diario,COLS_DIARIO)]]);
@@ -1231,7 +1340,7 @@ function sugerirMatriz(diario, inventario, matrizAtual){
     const dias=new Set(g.datas.filter(Boolean)).size, freq=dias>=4?"Diária":dias>=2?"Semanal":"Eventual";
     const tempo=g.minutos.length?`${Math.round(g.minutos.reduce((a,b)=>a+b,0)/g.minutos.length)} min (média de ${g.minutos.length} registro(s))`:"";
     const r=regPor[k]||"";
-    return {atividade:g.nome,quemfaz:maisFrequente(g.pessoas),frequencia:freq,tempo,origem:maisFrequente(g.origens),
+    return {atividade:g.nome,quemfaz:executoresDe(g.nome).join(", ")||maisFrequente(g.pessoas),frequencia:freq,tempo,origem:maisFrequente(g.origens),
       sistemas:maisFrequente(g.sistemas),dependencia:"",visibilidade:r==="Sim"?"Visível (mapeada)":r?"Invisível (não mapeada)":"",percentual:""};
   });
 }
@@ -1247,14 +1356,32 @@ function calcularPercentual(matriz){
 function quemFazPorSubsetor(){
   const por={}, cols=new Set();
   lista("diario").forEach(r=>{ const a=texto(r.atividade), m=/^\d+$/.test(String(r.duracao||""))?Number(r.duracao):0; if(!a||!m||norm(a)===norm("Pausa / Interrupção")) return;
-    const sub=subsetorDaPessoa(r.analista)||"(sem subsetor)"; cols.add(sub);
     const L=por[norm(a)]=por[norm(a)]||{atividade:a,resp:subsetorDaAtividade(a),min:{},quem:{},total:0};
-    L.min[sub]=(L.min[sub]||0)+m; L.total+=m; (L.quem[sub]=L.quem[sub]||new Set()).add(texto(r.analista)); });
+    participantesDe(r).forEach(pes=>{ const sub=subsetorDaPessoa(pes)||"(sem subsetor)"; cols.add(sub);   // equipe: o tempo conta para cada participante
+      L.min[sub]=(L.min[sub]||0)+m; L.total+=m; (L.quem[sub]=L.quem[sub]||new Set()).add(pes); }); });
   const linhas=Object.values(por).sort((a,b)=>b.total-a.total);
   linhas.forEach(l=>{ if(l.resp) cols.add(l.resp); });
   const fora=linhas.filter(l=>l.resp&&Object.keys(l.min).some(x=>x!==l.resp)).map(l=>{ const outros=Object.keys(l.min).filter(x=>x!==l.resp), mf=outros.reduce((a,x)=>a+l.min[x],0);
     return {atividade:l.atividade,resp:l.resp,outros:outros.map(x=>`${x} (${[...l.quem[x]].join(", ")})`),pct:Math.round(mf/l.total*100)}; });
   return {linhas,cols:ordenar([...cols]),fora,semResp:linhas.filter(l=>!l.resp).length};
+}
+// previsto (executores do Inventário) × realizado (quem aparece no Diário), por pessoa e por atividade
+function previstoRealizado(){
+  const inv=lista("inventario").filter(i=>texto(i.atividade)), dia=lista("diario").filter(r=>texto(r.atividade)&&norm(r.atividade)!==norm("Pausa / Interrupção"));
+  const P={}, porAtiv={}, pes=n=>P[norm(n)]=P[norm(n)]||{nome:texto(n),atrib:new Set(),feitas:{},fora:{}};
+  inv.forEach(i=>separarNomes(i.executores).forEach(n=>pes(n).atrib.add(texto(i.atividade))));
+  dia.forEach(r=>{ const m=/^\d+$/.test(String(r.duracao||""))?Number(r.duracao):0, at=texto(r.atividade);
+    participantesDe(r).forEach(n=>{ const x=pes(n), k=itemInv(at)?texto(itemInv(at).atividade):at, prev=[...x.atrib].some(a=>norm(a)===norm(k));
+      if(prev) x.feitas[k]=(x.feitas[k]||0)+m; else x.fora[k]=(x.fora[k]||0)+m;
+      const A=porAtiv[norm(k)]=porAtiv[norm(k)]||{atividade:k,min:{},total:0}; A.min[x.nome]=(A.min[x.nome]||0)+m; A.total+=m; }); });
+  const pessoas=Object.values(P).sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR")).map(x=>({...x,
+    naoObservadas:[...x.atrib].filter(a=>!(a in x.feitas)), minFora:Object.values(x.fora).reduce((a,b)=>a+b,0)}));
+  const dependencia=inv.filter(i=>separarNomes(i.executores).length===1&&i.modo!=="Em equipe").map(i=>({atividade:i.atividade,quem:separarNomes(i.executores)[0]}));
+  const concentracao=inv.filter(i=>separarNomes(i.executores).length>=2).map(i=>{ const A=porAtiv[norm(i.atividade)]; if(!A||!A.total) return null;
+    const [top,min]=Object.entries(A.min).sort((a,b)=>b[1]-a[1])[0]; return min/A.total>=0.8?{atividade:i.atividade,quem:top,pct:Math.round(min/A.total*100),executores:separarNomes(i.executores).length}:null; }).filter(Boolean);
+  const semExecutor=inv.filter(i=>!separarNomes(i.executores).length).map(i=>i.atividade);
+  const equipeMin=dia.filter(r=>(itemInv(r.atividade)||{}).modo==="Em equipe").reduce((a,r)=>a+(/^\d+$/.test(String(r.duracao||""))?Number(r.duracao):0)*participantesDe(r).length,0);
+  return {pessoas,dependencia,concentracao,semExecutor,equipeMin,temDiario:dia.length>0};
 }
 function renderMatriz(c){
   const matriz=lista("matriz");
@@ -1281,6 +1408,22 @@ function renderMatriz(c){
     {campo:"visibilidade",label:"Visibilidade",tipo:"select",opcoes:VISIBILIDADES},
     {campo:"percentual",label:"% do tempo total",tipo:"ro"},
   ]}));
+  const pr=previstoRealizado(), secPR=el("div"), lim=l=>l.slice(0,8).map(x=>`<li>${x}</li>`).join("")+(l.length>8?`<li>… e mais ${l.length-8}</li>`:"");
+  secPR.innerHTML=`<h3>👥 Previsto × realizado por pessoa</h3>
+    <p class="cap">Previsto = executores definidos no Inventário. Realizado = quem aparece no Diário de Bordo. <span class="pill p-ok">verde</span> feito no previsto · <span class="pill p-amb">âmbar</span> fora do previsto · <span class="pill p-cinza">cinza</span> atribuído e ainda não observado.${pr.equipeMin?` Atividades em equipe somam <b>${Math.round(pr.equipeMin/6)/10} h</b> de mão de obra.`:""}</p>
+    <div class="grupo-alertas">
+      ${pr.dependencia.length?`<div class="alerta-sub"><b>🔒 Dependem de uma pessoa só (${pr.dependencia.length})</b> — risco quando ela falta.<ul>${lim(pr.dependencia.map(d=>`${esc(d.atividade)} — ${esc(d.quem)}`))}</ul></div>`:""}
+      ${pr.concentracao.length?`<div class="alerta-sub"><b>⚖ Concentração (${pr.concentracao.length})</b> — atribuída a várias pessoas, feita quase sempre por uma.<ul>${lim(pr.concentracao.map(d=>`${esc(d.atividade)} — ${esc(d.quem)} fez ${d.pct}% (de ${d.executores} executores)`))}</ul></div>`:""}
+      ${pr.semExecutor.length?`<div class="info-azul"><b>Sem executor definido (${pr.semExecutor.length})</b> — complete no Inventário.<ul>${lim(pr.semExecutor.map(esc))}</ul></div>`:""}
+      ${!pr.dependencia.length&&!pr.concentracao.length&&!pr.semExecutor.length?'<div class="info-ok">✓ Nenhum alerta de dependência, concentração ou atividade sem executor.</div>':""}
+    </div>
+    ${pr.pessoas.length?`<div class="tbl-wrap"><table class="tbl pr-tab"><thead><tr><th>Pessoa</th><th>Subsetor</th><th>Atribuídas</th><th>Feitas no previsto</th><th>Fora do previsto</th><th>Atribuídas e ainda não observadas</th></tr></thead><tbody>${
+      pr.pessoas.map(x=>{ const fe=Object.entries(x.feitas), fo=Object.entries(x.fora);
+        return `<tr><td><b>${esc(x.nome)}</b></td><td>${esc(subsetorDaPessoa(x.nome)||"—")}</td><td style="text-align:center">${x.atrib.size}</td>
+          <td class="${fe.length?"ok":""}">${fe.map(([a,m])=>`${esc(a)}${m?` · ${m} min`:""}`).join("<br>")||"—"}</td>
+          <td class="${fo.length?"fora":""}">${fo.map(([a,m])=>`${esc(a)}${m?` · ${m} min`:""}`).join("<br>")||"—"}</td>
+          <td class="${x.naoObservadas.length&&pr.temDiario?"nao":""}">${x.naoObservadas.map(esc).join("<br>")||"—"}</td></tr>`; }).join("")}</tbody></table></div>`:'<div class="aviso">Defina os executores no Inventário e registre o Diário de Bordo para ver o previsto × realizado.</div>'}`;
+  c.appendChild(secPR);
   const q=quemFazPorSubsetor(), sec=el("div");
   sec.innerHTML=`<h3>🔀 Quem faz o quê × subsetor</h3>
     <p class="cap">Tempo registrado no Diário de Bordo, por atividade e pelo subsetor de quem executou (o subsetor de cada pessoa vem do Organograma). <span class="pill p-ok">verde</span> = subsetor responsável · <span class="pill p-amb">âmbar</span> = feito por outro subsetor.</p>
@@ -1292,6 +1435,9 @@ function renderMatriz(c){
         return `<td class="${!v?"zero":l.resp&&x===l.resp?"resp":l.resp&&x!==l.resp?"fora":""}">${v?v+" min":"·"}</td>`; }).join("")}<td><b>${l.total} min</b></td></tr>`).join("")}</tbody></table></div>`}`;
   c.appendChild(sec);
   botoesExport(c,[["⬇️ Baixar Matriz de Atividades (Excel)",()=>baixarExcel("matriz_atividades_tempo","Matriz",matriz.map(m=>({...m,subsetor_responsavel:subsetorDaAtividade(m.atividade)})),["atividade","subsetor_responsavel",...COLS_MATRIZ.slice(1)])],
+    ["⬇️ Previsto × realizado (Excel)",()=>baixarExcel("previsto_x_realizado","Previsto",pr.pessoas.map(x=>({pessoa:x.nome,subsetor:subsetorDaPessoa(x.nome),atribuidas:[...x.atrib].join("; "),
+      feitas_no_previsto:Object.entries(x.feitas).map(([a,m])=>`${a} (${m} min)`).join("; "),fora_do_previsto:Object.entries(x.fora).map(([a,m])=>`${a} (${m} min)`).join("; "),nao_observadas:x.naoObservadas.join("; ")})),
+      ["pessoa","subsetor","atribuidas","feitas_no_previsto","fora_do_previsto","nao_observadas"])],
     ["⬇️ Quem faz o quê × subsetor (Excel)",()=>baixarExcel("quem_faz_o_que_subsetor","Subsetores",q.linhas.map(l=>({atividade:l.atividade,responsavel:l.resp,...Object.fromEntries(q.cols.map(x=>[x,l.min[x]||0])),total_min:l.total})),["atividade","responsavel",...q.cols,"total_min"])]]);
 }
 
@@ -1452,7 +1598,7 @@ function gerarRelatorio(){
   ETAPAS_CHECKLIST.forEach(([id,t,d])=>L.push(`- ${ck[id]?"✅":"⬜"} ${t} (\`${d}\`)`)); L.push("");
   L.push("## 2. Inventário de atividades\n");
   const itens=inv.filter(i=>texto(i.atividade));
-  if(itens.length) itens.forEach(i=>{ const pr=processoDaAtividade(i.atividade); L.push(`- **${i.atividade}** (${i.categoria||"—"}) — subsetor responsável: ${i.subsetor||"—"} · registrada oficialmente: ${i.registrada||"—"}${pr?` · Mapa: ${pr.codigo} (${pr.status})`:""}`); }); else L.push("_Nenhuma atividade cadastrada ainda._");
+  if(itens.length) itens.forEach(i=>{ const pr=processoDaAtividade(i.atividade); L.push(`- **${i.atividade}** (${i.categoria||"—"}) — subsetor responsável: ${i.subsetor||"—"} · executores: ${i.executores||"—"}${i.modo?` (${i.modo})`:""} · registrada oficialmente: ${i.registrada||"—"}${pr?` · Mapa: ${pr.codigo} (${pr.status})`:""}`); }); else L.push("_Nenhuma atividade cadastrada ainda._");
   L.push(""); L.push("## 3. Organograma funcional real\n");
   const po=org.filter(o=>texto(o.pessoa));
   if(po.length) po.forEach(o=>{ let l=`- **${o.pessoa}** — ${o.papel||"—"}`; if(o.responde_para) l+=`; responde para ${o.responde_para}`; if(o.especialista) l+=`; especialista em ${o.especialista}`; if(o.cobre) l+=`; cobre/é coberto por ${o.cobre}`; L.push(l); });
@@ -1485,6 +1631,13 @@ function gerarRelatorio(){
   L.push(""); L.push("## 9.1 Quem faz o quê × subsetor\n");
   if(qs.fora.length) qs.fora.forEach(f=>L.push(`- ⚠ **${f.atividade}** — responsável: ${f.resp}; ${f.pct}% do tempo feito por ${f.outros.join(", ")}`));
   else L.push(qs.linhas.length?"_Nenhuma atividade feita fora do subsetor responsável._":"_Sem registros do Diário com duração para cruzar._");
+  const prr=previstoRealizado();
+  L.push(""); L.push("## 9.2 Previsto × realizado por pessoa\n");
+  if(prr.dependencia.length) L.push(`- 🔒 Dependem de uma pessoa só: ${prr.dependencia.map(d=>`${d.atividade} (${d.quem})`).join("; ")}`);
+  if(prr.concentracao.length) L.push(`- ⚖ Concentração: ${prr.concentracao.map(d=>`${d.atividade} (${d.quem}, ${d.pct}%)`).join("; ")}`);
+  prr.pessoas.filter(x=>Object.keys(x.fora).length).forEach(x=>L.push(`- ⚠ **${x.nome}** fez fora do previsto: ${Object.entries(x.fora).map(([a,m])=>`${a} (${m} min)`).join(", ")}`));
+  if(prr.semExecutor.length) L.push(`- Sem executor definido: ${prr.semExecutor.join(", ")}`);
+  if(!prr.dependencia.length&&!prr.concentracao.length&&!prr.pessoas.some(x=>Object.keys(x.fora).length)&&!prr.semExecutor.length) L.push("_Sem alertas._");
   L.push(""); L.push("## 10. Mapas de Jornada por atividade\n");
   const jk=Object.entries(jor).filter(([k])=>!k.startsWith("_"));
   if(jk.length) jk.forEach(([k,j])=>L.push(`- **${j.atividade||k}** — mapa de jornada preenchido`)); else L.push("_Nenhum mapa de jornada criado ainda._");
