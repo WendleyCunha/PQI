@@ -1270,12 +1270,40 @@ def mapa_atividades_diagnostico(request: Request):
     saida = []
     for d in _setores_do(u):
         inv = db.diagdep_ler(d["id"], "inventario") or []
+        diario = db.diagdep_ler(d["id"], "diario") or []
         ativs = [{"atividade": (i.get("atividade") or "").strip(), "subsetor": (i.get("subsetor") or "").strip(),
-                  "categoria": i.get("categoria") or "", "descricao": i.get("descricao") or ""}
+                  "categoria": i.get("categoria") or "", "descricao": i.get("descricao") or "",
+                  "executores": (i.get("executores") or "").strip(), "modo": i.get("modo") or "", "equipe_n": i.get("equipe_n") or "",
+                  "diario": _resumo_diario_da_atividade(diario, i.get("atividade"))}
                  for i in inv if isinstance(i, dict) and (i.get("atividade") or "").strip()]
         if ativs:
             saida.append({"id": d["id"], "nome": ((d.get("dados") or {}).get("nome") or "").strip(), "atividades": ativs})
     return {"departamentos": saida}
+
+
+# [NOVO v3.9] o que o Diário de Bordo já mediu de uma atividade: vai para o Mapa
+def _resumo_diario_da_atividade(diario: list, atividade) -> dict:
+    from datetime import date as _date
+    alvo = _sem_acento(atividade)
+    regs = [r for r in (diario or []) if isinstance(r, dict) and _sem_acento(r.get("atividade")) == alvo]
+    if not regs:
+        return {"registros": 0}
+    mins = [int(r["duracao"]) for r in regs if str(r.get("duracao") or "").isdigit()]
+    datas = sorted({str(r.get("data") or "")[:10] for r in regs if r.get("data")})
+    try:
+        dias = max(1, (_date.fromisoformat(datas[-1]) - _date.fromisoformat(datas[0])).days + 1) if datas else 1
+    except ValueError:
+        dias = 1
+    contar = lambda campo: sorted({(r.get(campo) or "").strip() for r in regs} - {""})
+    passos, vistos = [], set()
+    for r in regs:   # na ordem em que foram observados, sem repetir
+        for linha in str(r.get("passos") or "").splitlines():
+            t = linha.strip().lstrip("-•*0123456789.) ").strip()
+            if t and _sem_acento(t) not in vistos:
+                vistos.add(_sem_acento(t)); passos.append({"texto": t, "quem": (r.get("analista") or "").strip()})
+    return {"registros": len(regs), "tempo_medio_min": round(sum(mins) / len(mins)) if mins else None,
+            "vezes_mes": round(len(regs) / dias * 30, 1), "dias_observados": len(datas),
+            "analistas": contar("analista"), "sistemas": contar("sistemas"), "origens": contar("origem"), "passos": passos[:40]}
 
 
 @app.delete("/api/mapa/processos/{processo_id}")
