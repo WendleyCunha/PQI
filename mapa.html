@@ -271,6 +271,14 @@ table.matriz td.zero{color:var(--rule)}
 .ativ-diag{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .ativ-diag .chip-at{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--steel);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;background:var(--sheet)}
 .ativ-diag .chip-at small{color:var(--ink-3)}
+/* [v3.9] o que veio do Diagnóstico */
+.diag-box{background:color-mix(in srgb,var(--prog-soft) 70%,var(--sheet));border:1px solid color-mix(in srgb,var(--prog) 30%,transparent);border-radius:10px;padding:14px 16px;margin:0 0 16px}
+.diag-box h4{margin:0 0 8px;font:700 16px "IBM Plex Sans Condensed",sans-serif;color:var(--prog)}
+.diag-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:6px 0 10px}
+.diag-nums div{background:var(--sheet);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--ink-3)}
+.diag-nums b{display:block;font:700 20px "IBM Plex Sans Condensed",sans-serif;color:var(--ink)}
+.passos-obs{margin:6px 0 0;padding-left:20px;font-size:13.5px} .passos-obs li{margin:2px 0}
+.passos-obs li small{color:var(--ink-3)} .passos-obs li.ja{color:var(--ink-3);text-decoration:line-through}
 @media (max-width:1100px){ .fx-grid{grid-template-columns:1fr} .fx-paleta{display:flex;flex-wrap:wrap;gap:4px;max-height:none} .fx-simb{width:auto} }
 /* [v3.6] seletor de pessoas (várias) */
 .pick{position:fixed;z-index:80;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;box-shadow:0 12px 32px rgba(10,15,25,.22);display:flex;flex-direction:column;max-height:360px;width:340px}
@@ -802,7 +810,9 @@ function ligar(c, id, obj, chave, sv, evento="input", depois){ const e=$("#"+id,
 
 function abaIdent(c,p,d,sv){
   const og=d.origem, depOg=og&&(ATIV_DIAG.find(x=>x.id===og.dep)||(BASE&&BASE.setores.find(x=>x.id===og.dep)));
-  c.innerHTML=`${og?`<p class="origem-box">🗺️ Este processo detalha a atividade <b>${esc(og.atividade)}</b> do Diagnóstico de <b>${esc(depOg?depOg.nome:d.area||"—")}</b>${og.subsetor?` · subsetor responsável: <b>${esc(og.subsetor)}</b>`:""}.
+  const adg=atividadeDiag(d);
+  c.innerHTML=`${og?`<p class="origem-box">🗺️ Este processo detalha a atividade <b>${esc(og.atividade)}</b> do Diagnóstico de <b>${esc(depOg?depOg.nome:d.area||"—")}</b>${og.subsetor?` · subsetor responsável: <b>${esc(og.subsetor)}</b>`:""}${adg&&adg.a.executores?` · executores: <b>${esc(adg.a.executores)}</b>${adg.a.modo?` (${esc(adg.a.modo)})`:""}`:""}.
+      ${adg&&adg.a.executores&&nrm(adg.a.executores)!==nrm(d.dono)?`<button type="button" class="peq" id="fUsarExec" style="margin-left:6px">Usar os executores como responsáveis</button>`:""}
       <a href="/diagnostico?dep=${encodeURIComponent(og.dep)}" style="margin-left:6px">Abrir o diagnóstico →</a></p>`:""}<div class="grade">
       ${campo("Código","fCod",d.codigo)}${campo("Nome do processo *","fNome",d.nome)}
       ${campo("Área","fArea",d.area,'list="dl-areas"')}${campo("Responsável(is) — dono do processo","fDono",d.dono,'placeholder="Clique para escolher uma ou mais pessoas"')}
@@ -830,6 +840,7 @@ function abaIdent(c,p,d,sv){
   [["fCod","codigo"],["fNome","nome"],["fArea","area"],["fDono","dono"],["fObj","objetivo"],["fGat","gatilho"],["fEnt","entradas"],["fSai","saidas"],["fSis","sistemas"],["fEntr","entrevistados"],["fCham","chamados"]]
     .forEach(([id,k])=>ligar(c,id,d,k,sv,"input",k==="nome"?cab:null));
   ligarPick($("#fDono",c),()=>d);
+  const ue=$("#fUsarExec",c); if(ue) ue.onclick=()=>{ d.dono=tx(adg.a.executores); sv(); render(); };
   ligar(c,"fCrit",d,"criticidade",sv,"change",render); ligar(c,"fMacro",d,"macroprocesso",sv); ligar(c,"fRec",d,"recebe_de",sv); ligar(c,"fEnt2",d,"entrega_para",sv);
   ligar(c,"fArea",d,"area",sv,"change",render);
   c.querySelectorAll("[data-et]").forEach(i=>i.onchange=()=>{ const e=d.etapas[i.dataset.et]; e.feito=i.checked; if(i.checked&&!e.data) e.data=hojeISO(); sv(); render(); });
@@ -860,13 +871,36 @@ function abaIT(c,p,d,sv){
       {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:120},{campo:"regra",label:"Regra / controle",tipo:"textarea",largura:200},{campo:"obs",label:"Observação",tipo:"textarea",largura:180}]}));
   blocoColar($("#iColar",c),"Colar passos da IT",linhas=>{ linhas.forEach(t=>d.passos_it.push({id:uid(),descricao:t,quem:"",sistema:"",regra:"",obs:""})); sv(); render(); });
 }
+function blocoDoDiario(c,d,sv){
+  const ad=atividadeDiag(d); if(!ad) return;
+  const a=ad.a, dg=a.diario||{}, passos=dg.passos||[], ja=new Set(d.passos_real.map(x=>nrm(x.descricao)));
+  const novos=passos.filter(x=>!ja.has(nrm(x.texto)));
+  const hMes=dg.tempo_medio_min&&dg.vezes_mes?Math.round(dg.tempo_medio_min*dg.vezes_mes/6)/10:null, eq=a.modo==="Em equipe"&&Number(a.equipe_n)>1?Number(a.equipe_n):1;
+  const box=el("div","diag-box");
+  box.innerHTML=`<h4>📓 Do Diagnóstico de ${esc(ad.dep.nome)} — Diário de Bordo</h4>
+    ${dg.registros?`<div class="diag-nums"><div><b>${dg.registros}</b>registro(s) em ${dg.dias_observados} dia(s)</div><div><b>${dg.tempo_medio_min!=null?dg.tempo_medio_min+" min":"—"}</b>tempo médio por vez</div>
+      <div><b>${dg.vezes_mes}</b>vezes por mês (estimativa)</div><div><b>${hMes!=null?String(hMes*eq).replace(".",","):"—"} h</b>por mês${eq>1?` (× ${eq} pessoas)`:""}</div></div>`
+      :'<p class="cap" style="margin:0 0 8px">Esta atividade ainda não tem registros no Diário de Bordo.</p>'}
+    <p class="cap" style="margin:0 0 6px">${a.executores?`👤 Executores: <b>${esc(a.executores)}</b>${a.modo?` · ${esc(a.modo)}`:""}`:"👤 Sem executor definido no Inventário"}${(dg.analistas||[]).length?` · quem foi observado: ${esc(dg.analistas.join(", "))}`:""}${(dg.sistemas||[]).length?` · sistemas: ${esc(dg.sistemas.join(", "))}`:""}</p>
+    ${passos.length?`<b style="font-size:13.5px">🪜 Passos observados no Diário (${passos.length})</b><ol class="passos-obs">${passos.map(x=>`<li class="${ja.has(nrm(x.texto))?"ja":""}">${esc(x.texto)}${x.quem?` <small>· ${esc(x.quem)}</small>`:""}</li>`).join("")}</ol>
+      <div class="acoes" style="margin-bottom:0">${novos.length?`<button type="button" class="primary peq" id="dgTrazer">⤵ Trazer ${novos.length} passo(s) para “Como é feito hoje”</button>`:'<span class="pill p-ok">✓ Todos os passos observados já estão abaixo</span>'}</div>`
+      :'<p class="cap" style="margin:0">Nenhum passo observado ainda. No Diário de Bordo do Diagnóstico, preencha <b>“Passos observados”</b> enquanto a atividade roda — eles aparecem aqui.</p>'}`;
+  c.appendChild(box);
+  const b=$("#dgTrazer",box); if(b) b.onclick=()=>{ const sis=(dg.sistemas||[]).length===1?dg.sistemas[0]:"";
+    novos.forEach(x=>d.passos_real.push({id:uid(),descricao:x.texto,quem:x.quem||executoresDaOrigem(d)[0]||"",sistema:sis,dado:"",tempo_min:"",vezes_mes:"",it_ref:"",aderencia:"",diferenca:"",obs:"",
+      fonte:"Diário de Bordo (Diagnóstico)",data_obs:hojeISO(),autor:USUARIO_NOME,criado_em:new Date().toISOString()}));
+    if(!d.etapas.registrar.feito){ d.etapas.registrar.feito=true; d.etapas.registrar.data=hojeISO(); }
+    if(!tx(d.dono)&&tx(a.executores)) d.dono=tx(a.executores);
+    sv(); render(); $("#banner").textContent=`✓ ${novos.length} passo(s) trazido(s) do Diário de Bordo. Agora é possível gerar o fluxograma (aba Fluxograma → Puxar do Mapa).`; };
+}
 function abaReal(c,p,d,sv){
   const R=confronto(d);
   c.innerHTML=`<p class="cap">Como o processo <b>realmente</b> acontece hoje, observado no levantamento — incluindo o que é feito "por fora". Para cada passo, indique a qual passo da IT ele corresponde e se é feito <b>Conforme</b> ou <b>Divergente</b>. Passo sem correspondência vira "Feito sem IT" automaticamente.</p>
     <div class="kpis"><div class="kpi"><span>Horas/mês consumidas</span><b id="rHoras">${horas(R.horasMes)}</b><small>tempo (min) × vezes por mês</small></div>
       <div class="kpi"><span>Passos sem correspondência na IT</span><b>${R.semIT.length}</b><small>➕ feitos sem IT</small></div>
       <div class="kpi"><span>Pendentes de classificação</span><b>${R.pendente.length}</b><small>ligados, mas sem Conforme/Divergente</small></div></div>
-    <div id="rTbl"></div><div id="rColar"></div>`;
+    <div id="rDiag"></div><div id="rTbl"></div><div id="rColar"></div>`;
+  blocoDoDiario($("#rDiag",c),d,sv);
   const opIT=()=>d.passos_it.map((x,i)=>[x.id,`${i+1}. ${tx(x.descricao).slice(0,70)}${tx(x.descricao).length>70?"…":""}`]).filter(x=>x[1].length>3);
   const atualizaHoras=()=>{ const h=$("#rHoras"); if(h) h.textContent=horas(confronto(d).horasMes); };
   $("#rTbl",c).appendChild(tabela({chave:"real",linhas:d.passos_real,numerar:true,ordenavel:true,rotuloAdd:"+ Adicionar passo real",
@@ -1176,7 +1210,7 @@ function renderArquitetura(c){
       ${(()=>{ const pd=pendentesDoDiag(nome); if(!pd.lista.length) return "";
         return `<div class="box" style="background:var(--paper);border-style:dashed"><b>🗺️ Atividades do Diagnóstico ainda sem processo (${pd.lista.length})</b>
           <p class="cap" style="margin:4px 0 6px">Levantadas no inventário do Diagnóstico de ${esc(pd.dep.nome)}. Cada uma pode virar um processo para detalhar o passo a passo e o fluxograma.</p>
-          <div class="ativ-diag">${pd.lista.map((a,i)=>`<span class="chip-at">${esc(a.atividade)}${a.subsetor?` <small>· ${esc(a.subsetor)}</small>`:""}<button type="button" class="peq" data-novo-at="${i}">Criar processo</button></span>`).join("")}</div>
+          <div class="ativ-diag">${pd.lista.map((a,i)=>`<span class="chip-at" title="${esc(a.executores?"Executores: "+a.executores:"Sem executor definido")}">${esc(a.atividade)}${a.subsetor?` <small>· ${esc(a.subsetor)}</small>`:""}${a.executores?` <small>· 👤 ${esc(a.executores)}</small>`:""}${(a.diario||{}).registros?` <small>· 📓 ${a.diario.registros}</small>`:""}<button type="button" class="peq" data-novo-at="${i}">Criar processo</button></span>`).join("")}</div>
           ${pd.lista.length>1?`<button type="button" class="peq" data-todas-at>Criar as ${pd.lista.length} de uma vez</button>`:""}</div>`; })()}
       ${procs.length?`<div class="scroll"><table class="lista"><thead><tr><th>Código</th><th>Processo</th><th>Macroprocesso</th><th>Criticidade</th><th>Fase atual</th></tr></thead><tbody>${
         procs.map(p=>`<tr class="clic" data-id="${p.id}"><td class="id">${esc(p.dados.codigo)}</td><td>${esc(p.dados.nome)}</td><td>${esc(p.dados.macroprocesso||"—")}</td><td>${pillCrit(p.dados.criticidade)}</td><td>${pillFase(p)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nenhum processo cadastrado nesta área ainda.</p>'}
@@ -1190,7 +1224,7 @@ function renderArquitetura(c){
     box.querySelectorAll("[data-novo-at]").forEach(b=>b.onclick=()=>novoDaAtividade(pd.dep,pd.lista[+b.dataset.novoAt]));
     const todas=box.querySelector("[data-todas-at]");
     if(todas) todas.onclick=async()=>{ if(!confirm(`Criar ${pd.lista.length} processo(s) a partir das atividades do Diagnóstico de ${pd.dep.nome}?`)) return; todas.disabled=true;
-      try{ for(const a of pd.lista){ const dados=normalizar({codigo:proximoCodigo(),nome:a.atividade,area:pd.dep.nome,macroprocesso:a.subsetor||"",origem:{dep:pd.dep.id,atividade:a.atividade,subsetor:a.subsetor||""}});
+      try{ for(const a of pd.lista){ const dados=normalizar({codigo:proximoCodigo(),nome:a.atividade,area:pd.dep.nome,macroprocesso:a.subsetor||"",dono:tx(a.executores),origem:{dep:pd.dep.id,atividade:a.atividade,subsetor:a.subsetor||""}});
           const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`); j.dados=normalizar(j.dados); PROCS.push(j); }
         estArq.aberta=nome; render(); }catch(e){ alert(e.message); todas.disabled=false; } };
     const cem=box.querySelector("[data-cem]"); if(cem) cem.onclick=()=>marcarArea(nome,!(a&&a.mapeado));
@@ -1507,9 +1541,11 @@ function svgFluxo(F, op={}){
 function subsetorDe(nome){ if(!BASE||!tx(nome)) return ""; for(const st of BASE.setores){ const p=st.pessoas.find(x=>nrm(x.nome)===nrm(nome)); if(p) return tx(p.subsetor)||st.nome; } return ""; }
 function fxGerar(d,ver,modo){
   const fonte=(ver==="asis"?d.passos_real:d.tobe.passos).filter(x=>tx(x.descricao));
-  const raiaDe=q=>{ q=tx(q)||"Executante"; return modo==="subsetor"?(subsetorDe(q)||q):q; };
+  const padrao=executoresDaOrigem(d)[0]||"Executante";
+  const raiaDe=q=>{ q=tx(q)||padrao; return modo==="subsetor"?(subsetorDe(q)||q):q; };
   const nomes=[]; fonte.forEach(x=>{ const q=raiaDe(x.quem); if(!nomes.some(n=>nrm(n)===nrm(q))) nomes.push(q); });
-  if(!nomes.length) nomes.push("Executante");
+  if(!nomes.length) nomes.push(raiaDe(""));
+  executoresDaOrigem(d).forEach(n=>{ const r=modo==="subsetor"?(subsetorDe(n)||n):n; if(!nomes.some(x=>nrm(x)===nrm(r))) nomes.push(r); });   // executores sem passo também ganham raia
   const raias=nomes.map(n=>({id:uid(),nome:n})), rid=q=>raias.find(r=>nrm(r.nome)===nrm(raiaDe(q))).id;
   const nos=[], ligacoes=[]; let x=RAIA_W+40;
   const add=(tipo,texto,raia)=>{ const S=SIMB[tipo]; const n={id:uid(),tipo,texto,raia,x,ry:Math.round((RAIA_MIN-S.h)/2)}; nos.push(n); x+=S.w+56; return n; };
@@ -1524,7 +1560,7 @@ function telaInicioFluxo(d,temPassos,setor){
   const asis=FX.ver==="asis", outros=PROCS.filter(p=>p.dados!==d&&(p.dados.fluxo&&((p.dados.fluxo.asis||{}).nos||[]).length||p.dados.passos_real.some(x=>tx(x.descricao))));
   const subs=setor?(setor.subsetores||[]).filter(Boolean):[];
   return `<div class="fx-inicio">
-    <div class="fx-op dest"><h4>⤵ Puxar do Mapa</h4><p>Gera o fluxograma a partir dos passos ${asis?"de <b>Como é feito hoje</b>":"do <b>TO BE</b>"} deste processo: um símbolo por passo, já ligados em sequência.</p>
+    <div class="fx-op dest"><h4>⤵ Puxar do Mapa</h4><p>Gera o fluxograma a partir dos passos ${asis?"de <b>Como é feito hoje</b>":"do <b>TO BE</b>"} deste processo: um símbolo por passo, já ligados em sequência.${asis&&!temPassos&&atividadeDiag(d)&&((atividadeDiag(d).a.diario||{}).passos||[]).length?` <b>Há passos observados no Diário de Bordo</b> — traga-os em “Como é feito hoje”.`:""}</p>
       ${temPassos?`<label class="f">Raias por<select id="fiModo"><option value="pessoa">Pessoa (quem faz cada passo)</option><option value="subsetor"${FX.modoRaia==="subsetor"?" selected":""}>Subsetor de quem faz (do Organograma)</option></select></label>
         <div class="acoes"><button type="button" class="primary" id="fiGerar">Gerar o fluxograma</button></div>`
       :`<p class="msg erro">Ainda não há passos ${asis?"em “Como é feito hoje”":"no TO BE"}.</p><div class="acoes"><button type="button" id="fiIrPassos">Cadastrar os passos</button></div>`}</div>
@@ -1533,7 +1569,7 @@ function telaInicioFluxo(d,temPassos,setor){
       <label class="f">Processo<select id="fiOutro">${outros.map(p=>`<option value="${p.id}">${esc(p.dados.codigo)} · ${esc(p.dados.nome)}</option>`).join("")}</select></label>
       <div class="acoes"><button type="button" id="fiOutroOk">Usar como base</button></div></div>`:""}
     <div class="fx-op"><h4>✏️ Começar do zero</h4><p>Cria as raias e você monta o desenho arrastando os símbolos da paleta para dentro de cada raia.</p>
-      <label class="f">Raias iniciais<select id="fiZero">${subs.length?`<option value="sub">Subsetores de ${esc(setor.nome)} (${subs.length})</option>`:""}<option value="uma">Uma raia (eu crio as outras)</option></select></label>
+      <label class="f">Raias iniciais<select id="fiZero">${executoresDaOrigem(d).length?`<option value="exec">Executores da atividade (${executoresDaOrigem(d).length})</option>`:""}${subs.length?`<option value="sub">Subsetores de ${esc(setor.nome)} (${subs.length})</option>`:""}<option value="uma">Uma raia (eu crio as outras)</option></select></label>
       <div class="acoes"><button type="button" id="fiZeroOk">Começar</button></div></div>
   </div>`;
 }
@@ -1544,7 +1580,7 @@ function ligarInicioFluxo(c,d,sv,setor){
   const cp=$("#fiCopiar",c); if(cp) cp.onclick=()=>ok(JSON.parse(JSON.stringify(d.fluxo.asis)));
   const oo=$("#fiOutroOk",c); if(oo) oo.onclick=()=>{ const o=procPorId($("#fiOutro",c).value); if(!o) return; const fo=o.dados.fluxo&&o.dados.fluxo.asis;
     ok(fo&&fo.nos.length?JSON.parse(JSON.stringify(fo)):fxGerar(o.dados,"asis",FX.modoRaia||"pessoa")); };
-  $("#fiZeroOk",c).onclick=()=>{ const v=$("#fiZero",c).value, nomes=v==="sub"?setor.subsetores.filter(Boolean):["Executante"];
+  $("#fiZeroOk",c).onclick=()=>{ const v=$("#fiZero",c).value, nomes=v==="exec"?executoresDaOrigem(d):v==="sub"?setor.subsetores.filter(Boolean):["Executante"];
     ok({raias:nomes.map(n=>({id:uid(),nome:tx(n)})),nos:[],ligacoes:[]}); };
 }
 
@@ -1812,6 +1848,7 @@ const setorOficial=nome=>BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(nome));
 // [NOVO v3.6] SELETOR DE PESSOAS — marca uma ou várias; o campo guarda "Nome A, Nome B"
 function pessoasSugeridas(d){
   const grupos=[], visto=new Set(), add=(tit,lst)=>{ const it=lst.filter(x=>tx(x.nome)&&!visto.has(nrm(x.nome))); it.forEach(x=>visto.add(nrm(x.nome))); if(it.length) grupos.push([tit,it]); };
+  add("Executores da atividade (Diagnóstico)",executoresDaOrigem(d).map(n=>({nome:n,dica:"executor"})));
   const fx=d.fluxo||{}; add("Raias do fluxograma",[...((fx.asis||{}).raias||[]),...((fx.tobe||{}).raias||[])].map(r=>({nome:tx(r.nome),dica:"raia"})));
   add("Quem faz os passos",[...(d.passos_real||[]),...(d.passos_it||[]),...((d.tobe||{}).passos||[])].map(x=>({nome:tx(x.quem),dica:""})));
   if(BASE){ const st=setorOficial(d.area);
@@ -1865,10 +1902,14 @@ function pendentesDoDiag(depNome){
   const dep=ATIV_DIAG.find(x=>nrm(x.nome)===nrm(depNome)); if(!dep) return {dep:null,lista:[]};
   return {dep, lista:dep.atividades.filter(a=>!processoDaAtividade(dep.id,a.atividade,dep.nome))};
 }
+// [v3.9] a atividade do Diagnóstico deste processo: executores, modo e o que o Diário de Bordo mediu
+function atividadeDiag(d){ const o=d&&d.origem; if(!o) return null; const dep=ATIV_DIAG.find(x=>x.id===o.dep); if(!dep) return null;
+  const a=dep.atividades.find(x=>nrm(x.atividade)===nrm(o.atividade)); return a?{dep,a}:null; }
+function executoresDaOrigem(d){ const ad=atividadeDiag(d); return ad?tx(ad.a.executores).split(/\s*,\s*/).filter(Boolean):[]; }
 let NOVO_ORIGEM=null;   // preenchido quando o processo nasce de uma atividade do Diagnóstico
 function novoDaAtividade(dep, a){
   NOVO_ORIGEM={dep:dep.id, dep_nome:dep.nome, atividade:a.atividade, subsetor:a.subsetor||""};
-  abrirNovoProcesso(); $("#npNome").value=a.atividade; $("#npArea").value=dep.nome;
+  abrirNovoProcesso(); $("#npNome").value=a.atividade; $("#npArea").value=dep.nome; $("#npDono").value=tx(a.executores);
   $("#npOrigem").innerHTML=`🗺️ Do Diagnóstico de <b>${esc(dep.nome)}</b>${a.subsetor?` · subsetor responsável: <b>${esc(a.subsetor)}</b>`:""}`; $("#npOrigem").hidden=false;
 }
 function atualizarListas(){
