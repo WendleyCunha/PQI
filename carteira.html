@@ -293,7 +293,7 @@ async function compactar(obj){
     const buf=await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
     const u=new Uint8Array(buf); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); b64=btoa(s);
   } else { b64=btoa(unescape(encodeURIComponent(json))); formato="json"; }
-  const partes=[]; for(let i=0;i<b64.length;i+=800000) partes.push(b64.slice(i,i+800000));
+  const partes=[]; for(let i=0;i<b64.length;i+=200000) partes.push(b64.slice(i,i+200000));   // pedaços pequenos: passam por proxy/antivírus da rede
   return {partes,formato};
 }
 async function descompactar(partes,formato){
@@ -316,6 +316,23 @@ async function api(url,op={}){
   if(r.status===401){ $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
   if(!r.ok&&r.status!==409) throw new Error(j.detail||`HTTP ${r.status}`);
   return {r,j};
+}
+// envia a foto em pedaços (com nova tentativa em cada um) e só no fim "fecha" o dia
+async function enviarFoto(data, meta, partes, aoProgredir){
+  const envio=(Date.now().toString(36)+Math.random().toString(36).slice(2,8)).toLowerCase();
+  for(let i=0;i<partes.length;i++){
+    for(let tent=1;;tent++){
+      aoProgredir(`Enviando parte ${i+1} de ${partes.length}${tent>1?` (tentativa ${tent})`:""}…`);
+      try{ await api(`${API}/dias/${data}/partes/${i}`,{method:"POST",body:JSON.stringify({envio,conteudo:partes[i]})}); break; }
+      catch(e){ if(e.message==="sessão expirada"||tent>=3) throw new Error(e instanceof TypeError||/fetch|network/i.test(e.message)?`a conexão caiu ao enviar a parte ${i+1} de ${partes.length}. Verifique a internet e clique em Gravar de novo — nada foi alterado na carteira.`:e.message);
+        await new Promise(r=>setTimeout(r,1500*tent)); }
+    }
+  }
+  aoProgredir("Fechando a carteira do dia…");
+  for(let tent=1;;tent++){
+    try{ return (await api(`${API}/dias/${data}`,{method:"POST",body:JSON.stringify({meta,envio,n:partes.length})})).j; }
+    catch(e){ if(tent>=3) throw new Error(e instanceof TypeError||/fetch|network/i.test(e.message)?"a conexão caiu ao fechar a carteira. Clique em Gravar de novo.":e.message); await new Promise(r=>setTimeout(r,1500*tent)); }
+  }
 }
 async function carregarFoto(data){
   const {j}=await api(`${API}/dias/${data}`);
@@ -762,7 +779,7 @@ function renderImportar(c){
       const meta={resumo:pv.resumo,novos:corta(pv.novos),sairam:corta(pv.sairam),primeira:pv.primeira,formato,
         arquivos:{itens:imp.itens&&imp.itens.nome,pedidos:imp.pedidos&&imp.pedidos.nome},origem:{ambas:pv.ambas,so_pedidos:pv.soPed,so_itens:pv.soIt},conflitos:pv.conflitos.slice(0,200)};
       setStatus("salvando");
-      await api(`${API}/dias/${imp.data}`,{method:"POST",body:JSON.stringify({meta,partes})});
+      await enviarFoto(imp.data,meta,partes,t=>{ m.textContent=t; });
       const {j}=await api(`${API}/dias`); DIAS=j||[];
       if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
       let fechadas=0;
