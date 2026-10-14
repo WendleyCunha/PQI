@@ -659,3 +659,56 @@ def dg_dono(doc_id: str) -> Optional[str]:
         return None
     d = snap.to_dict() or {}
     return None if d.get("excluido") else d.get("criado_por_email")
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.0] CARTEIRA DE ENCOMENDAS — foto diária da carteira (planilhas do
+# BI unidas por loja+pedido). A foto vai compactada (gzip+base64) em partes,
+# para caber no limite de 1 MB por documento. A meta (resumo do dia) fica
+# separada, para o histórico carregar rápido sem ler as fotos.
+# Tratativas (classificação → setor) e configuração usam docs_* genéricos.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_CART_DIAS = "carteira_dias"
+COLECAO_CART_PARTES = "carteira_partes"
+COLECAO_CART_TRATATIVAS = "carteira_tratativas"
+COLECAO_CART_CONFIG = "carteira_config"
+
+
+def cart_dias_listar() -> list[dict]:
+    saida = []
+    for doc in get_db().collection(COLECAO_CART_DIAS).stream(timeout=TIMEOUT_FS):
+        d = doc.to_dict() or {}
+        d["data"] = doc.id
+        saida.append(d)
+    saida.sort(key=lambda x: x["data"])
+    return saida
+
+
+def cart_dia_ler(data: str) -> Optional[dict]:
+    db_ = get_db()
+    snap = db_.collection(COLECAO_CART_DIAS).document(data).get(timeout=TIMEOUT_FS)
+    if not snap.exists:
+        return None
+    meta = snap.to_dict() or {}
+    partes = []
+    for i in range(int(meta.get("partes") or 0)):
+        ps = db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").get(timeout=TIMEOUT_FS)
+        partes.append((ps.to_dict() or {}).get("conteudo", "") if ps.exists else "")
+    meta["data"] = data
+    return {"meta": meta, "partes": partes}
+
+
+def cart_dia_salvar(data: str, meta: dict, partes: list[str], usuario: str, email: str) -> dict:
+    db_ = get_db()
+    ref = db_.collection(COLECAO_CART_DIAS).document(data)
+    antigo = ref.get(timeout=TIMEOUT_FS)
+    n_antigo = int((antigo.to_dict() or {}).get("partes") or 0) if antigo.exists else 0
+    for i, conteudo in enumerate(partes):
+        db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").set({"data": data, "ordem": i, "conteudo": conteudo})
+    for i in range(len(partes), n_antigo):   # foto anterior tinha mais partes: apaga as que sobraram
+        db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").delete()
+    registro = {**meta, "partes": len(partes), "importado_por": usuario, "importado_por_email": email,
+                "importado_em": _now_iso(), "substituiu": bool(antigo.exists)}
+    ref.set(registro)
+    registro["data"] = data
+    return registro
