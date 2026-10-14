@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carteira de Encomendas — King Star</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="carteira"></script>
+<style>
+/* ═══ Mesmo padrão visual do PQI (Diário, Mapa, Diagnóstico, Organogramas) ═══ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,h4,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:22px 0 8px;font-weight:600}
+a{color:var(--steel)}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:90ch}
+.muted{color:var(--ink-3)}
+[hidden]{display:none!important}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who{color:var(--ink-3);font-size:13px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.who.erro{color:var(--bad)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);flex:none}
+.dot.ok{background:var(--ok)} .dot.salvando{background:var(--amber)} .dot.erro{background:var(--bad)}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--ink-3)}
+button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn{color:var(--bad)} button.peq{padding:6px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{min-height:70px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.msg{font-size:13px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);font-size:14px}
+.alerta{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px;border-left:4px solid var(--amber)}
+.conflito{margin:0 0 16px;padding:12px 14px;border-radius:6px;background:var(--bad-soft);border:1px solid var(--bad);font-size:14px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-warn{background:var(--amber-soft);color:var(--amber)}
+.p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-roxo{background:var(--block-soft);color:var(--block)} .p-aco{background:var(--steel-soft);color:var(--steel)}
+.wrap{padding:24px 28px 64px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow-y:auto}
+.side-btn{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:1px solid transparent;background:none;
+  color:var(--ink-3);font:500 10.5px/1.2 "IBM Plex Sans",sans-serif;text-align:center;cursor:pointer;position:relative}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--amber);color:#fff;border-radius:8px;padding:0 5px}
+.side-sep{flex:none;width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+section > header .direita{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--steel);border-radius:10px;padding:18px 22px;display:grid;grid-template-columns:1fr auto;gap:14px 28px;margin-bottom:18px}
+.doc-head h1{margin:0;font-size:28px;line-height:1.1}
+.doc-head .obj{margin:6px 0 0;color:var(--ink-2)}
+.stamp{border:2px solid var(--steel);border-radius:8px;padding:10px 14px;min-width:240px;align-self:start}
+.stamp .code{font:700 17px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.stamp dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin:12px 0}
+.kpi{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 16px;text-align:left;font:inherit;color:inherit;display:block;width:100%;border-top:4px solid var(--kc,var(--rule))}
+button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
+.kpi > span{color:var(--ink-3);font-size:13px}
+.kpi b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
+.kpi small{display:block;color:var(--ink-3);font-size:12px;margin-top:4px}
+.k-bad{--kc:var(--bad)} .k-warn{--kc:var(--amber)} .k-ok{--kc:var(--ok)} .k-azul{--kc:var(--prog)} .k-roxo{--kc:var(--block)} .k-cinza{--kc:var(--idle)}
+/* filtros */
+.filtros{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.filtros select,.filtros input{padding:6px 8px;font-size:13px}
+.filtros .busca{grid-column:span 2}
+.filtros-rodape{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-4px 0 12px;font-size:13px;color:var(--ink-3)}
+.chip-f{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 6px 3px 10px;font-size:12.5px;background:var(--steel-soft);color:var(--steel);font-weight:600}
+.chip-f button{border:0;background:none;padding:0 4px;color:inherit;font-size:12px}
+/* tabela */
+.tbl-wrap{overflow:auto;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);max-height:70vh}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{position:sticky;top:0;z-index:1;text-align:left;font:600 12.5px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+th.ord{cursor:pointer} th.ord:hover{color:var(--ink)}
+td{padding:7px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+tr.clic{cursor:pointer} tr.clic:hover td{background:color-mix(in srgb,var(--steel-soft) 45%,var(--sheet))}
+tr.sel td{background:color-mix(in srgb,var(--amber-soft) 60%,var(--sheet))}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .sub{display:block;font-size:12px;color:var(--ink-3)}
+td input[type=checkbox],th input[type=checkbox]{width:16px;height:16px;accent-color:var(--steel)}
+.mais{display:flex;justify-content:center;margin:10px 0}
+.novo{font:700 10px "IBM Plex Sans Condensed",sans-serif;background:var(--prog);color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.trat{display:inline-flex;flex-direction:column;gap:2px;border-left:3px solid var(--sc,var(--steel));padding:1px 0 1px 8px}
+.trat b{font-size:12.5px;color:var(--ink)} .trat small{font-size:11.5px;color:var(--ink-3)}
+.sel-barra{position:sticky;top:58px;z-index:5;display:flex;gap:10px;align-items:center;background:var(--amber-soft);border:1px solid var(--amber);border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:14px}
+/* filas por setor */
+.setores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 14px}
+.setor-card{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--sc);border-radius:10px;padding:10px 14px;text-align:left;font:inherit;color:inherit;cursor:pointer;display:block;width:100%}
+.setor-card:hover{border-color:var(--sc)} .setor-card.ativo{background:color-mix(in srgb,var(--sc) 10%,var(--sheet));box-shadow:inset 0 0 0 1px var(--sc)}
+.setor-card h4{margin:0;font-size:16px;color:var(--ink)} .setor-card b{display:block;font:700 26px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
+.setor-card small{display:block;color:var(--ink-3);font-size:12px}
+/* detalhe do pedido */
+dialog{border:1px solid var(--rule);border-radius:12px;background:var(--sheet);color:var(--ink);padding:24px 28px;max-width:min(1320px,96vw);width:96vw;max-height:94vh;overflow:auto}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 4px;font-size:24px}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:-24px;background:var(--sheet);padding:12px 0 4px;border-top:1px solid var(--rule-2)}
+.det-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start;margin-top:12px}
+.info{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.info div{background:var(--paper);border-radius:8px;padding:8px 10px;font-size:13.5px}
+.info div small{display:block;color:var(--ink-3);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.trat-box{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.hist{list-style:none;margin:10px 0 0;padding:0;border-left:2px solid var(--rule);font-size:13px}
+.hist li{position:relative;padding:4px 0 8px 14px}
+.hist li::before{content:"";position:absolute;left:-6px;top:9px;width:10px;height:10px;border-radius:50%;background:var(--sc,var(--steel))}
+.hist li small{display:block;color:var(--ink-3)}
+/* importar */
+.drop{border:2px dashed var(--rule);border-radius:12px;padding:30px;text-align:center;background:var(--sheet);cursor:pointer;color:var(--ink-2)}
+.drop.sobre{border-color:var(--steel);background:var(--steel-soft)}
+.arq{display:flex;gap:10px;align-items:center;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;margin:6px 0;font-size:14px}
+/* barras e gráfico */
+.barras{display:flex;flex-direction:column;gap:6px}
+.barra-l{display:grid;grid-template-columns:minmax(120px,240px) 1fr 96px;gap:10px;align-items:center;font-size:13.5px}
+.barra-l .tr{height:12px;background:var(--rule-2);border-radius:6px;overflow:hidden}
+.barra-l .tr i{display:block;height:100%;background:var(--bc,var(--steel));border-radius:6px}
+.barra-l b{text-align:right;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
+.graf svg{width:100%;height:auto;display:block}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:6px}
+.legenda i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:400px}
+.toast{background:var(--ink);color:var(--sheet);border-radius:10px;padding:12px 14px;font-size:14px;box-shadow:0 10px 26px rgba(10,15,25,.3)}
+.ver-dia{display:flex;gap:10px;align-items:center;background:var(--block-soft);color:var(--ink);border-radius:8px;padding:8px 12px;margin:0 0 12px;font-size:14px}
+@media (max-width:1100px){ .det-grid{grid-template-columns:1fr} }
+@media (max-width:860px){
+  .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
+  .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .doc-head{grid-template-columns:1fr} .filtros .busca{grid-column:auto} .barra-l{grid-template-columns:110px 1fr 54px}
+}
+@media print{ .bar,.side-rg,.acoes,.filtros{display:none!important} body{background:#fff} .wrap{padding:0} .shell-item{display:block} }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <button type="button" id="btImportar" class="primary" hidden>⤒ Importar a carteira do dia</button>
+</div></div>
+<div class="wrap">
+  <div class="shell-item">
+    <nav class="side-rg" id="menu" aria-label="Seções da carteira"></nav>
+    <div class="conteudo-item"><main id="root"><p class="cap">Carregando a carteira…</p></main></div>
+  </div>
+  <footer class="doc-foot">Carteira de Encomendas · BI “Pedidos em Aberto” + “PV Abertos”, unidos por loja + pedido · cada classificação deixa a pendência com um setor.</footer>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<dialog id="dlg"><div id="dlgCorpo"></div></dialog>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// CARTEIRA DE ENCOMENDAS  [v4.0]
+// Todo dia: importar as duas planilhas do BI (itens e pedidos) → unir por
+// LOJA + PEDIDO → gravar a "foto do dia" (compactada). O histórico é a
+// sequência de fotos. Cada pedido pode receber uma TRATATIVA: motivo →
+// setor responsável (Compras, CX, Logística…), com histórico de passagens.
+// O servidor não conhece os campos: campo novo = só mexer AQUI.
+// ═══════════════════════════════════════════════════════════════════
+const API="/api/carteira";
+const $=(s,r=document)=>r.querySelector(s);
+function el(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function tx(v){ return String(v==null?"":v).trim(); }
+const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
+function pad(n){ return String(n).padStart(2,"0"); }
+function iso(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function hojeISO(){ return iso(new Date()); }
+function dataBR(i){ if(!i) return "—"; const [a,m,d]=String(i).slice(0,10).split("-"); return d?`${d}/${m}/${a}`:i; }
+function dataHoraBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+function diasEntre(a,b){ return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5); }
+function numBR(s){ s=tx(s); if(!s) return 0; const n=parseFloat(s.replace(/\./g,"").replace(",",".")); return isNaN(n)?0:n; }
+function moeda(v){ return (v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}); }
+function int(v){ return (v||0).toLocaleString("pt-BR"); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function baixarBlob(b,nome){ const u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+function toast(t){ const e=el("div","toast"); e.innerHTML=t; $("#toasts").appendChild(e); setTimeout(()=>e.remove(),7000); }
+// "24/01/25" → "2025-01-24" (século: 00–69 → 20xx)
+function dataBI(s){ const m=tx(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) return ""; let a=Number(m[3]); if(a<100) a+=a<70?2000:1900; return `${a}-${pad(m[2])}-${pad(m[1])}`; }
+
+// ═══ leitura das planilhas do BI (são tabelas HTML com extensão .xls) ═══
+// O BI às vezes exporta com codificação MISTURADA (cabeçalho em UTF-8 e dados em Windows-1252).
+// Decodifica byte a byte: sequência UTF-8 válida vira UTF-8; byte solto vira Windows-1252.
+async function lerTexto(file){
+  const u=new Uint8Array(await file.arrayBuffer());
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(u).replace(/^\uFEFF/,""); }catch(_){}
+  const utf8=new TextDecoder("utf-8"), w1252=new TextDecoder("windows-1252"), partes=[]; let i=0, ini=0;
+  const corte=()=>{ if(i>ini) partes.push(utf8.decode(u.subarray(ini,i))); };
+  while(i<u.length){ const b=u[i];
+    if(b<0x80){ i++; continue; }
+    const n=(b&0xE0)===0xC0?2:(b&0xF0)===0xE0?3:(b&0xF8)===0xF0?4:0;
+    let ok=n>0&&i+n<=u.length; for(let k=1;ok&&k<n;k++) if((u[i+k]&0xC0)!==0x80) ok=false;
+    if(ok){ i+=n; continue; }
+    corte(); partes.push(w1252.decode(u.subarray(i,i+1))); i++; ini=i; }
+  corte(); return partes.join("").replace(/^\uFEFF/,"");
+}
+function tabelaDoHTML(texto){
+  const doc=new DOMParser().parseFromString(texto,"text/html"), tbs=[...doc.querySelectorAll("table")];
+  if(!tbs.length) throw new Error("não encontrei nenhuma tabela no arquivo (é a exportação do BI?)");
+  const t=tbs.sort((a,b)=>b.rows.length-a.rows.length)[0], linhas=[...t.rows].map(r=>[...r.cells].map(c=>tx(c.textContent)));
+  const cab=linhas[0].map(h=>h.replace(/\s+/g," "));
+  const dados=linhas.slice(1).filter(l=>l.some(Boolean)&&l.length>=cab.length-2).map(l=>Object.fromEntries(cab.map((h,i)=>[h,l[i]??""])));
+  // linhas de total do BI (TOTAL / BLOQUEADOS / LIBERADOS…): servem para conferir a importação
+  dados.totais={}; linhas.slice(1).filter(l=>l.length<cab.length-2&&/^[A-ZÇÃÕ ]+$/.test(l[0]||"")).forEach(l=>{ dados.totais[l[0]]=numBR(l[1]); });
+  return dados;
+}
+function tipoDaPlanilha(linhas){
+  const c=Object.keys(linhas[0]||{}).map(nrm);
+  if(c.includes("produto")&&c.includes("item")) return "itens";
+  if(c.includes("itens pv")||c.includes("agenda")||c.includes("cep")) return "pedidos";
+  return null;
+}
+const campo=(o,...nomes)=>{ for(const n of nomes){ const k=Object.keys(o).find(x=>nrm(x)===nrm(n)); if(k!=null) return tx(o[k]); } return ""; };
+
+// une as duas planilhas: chave = loja + pedido (a loja do arquivo de itens vem em "Filial Origem": "03 - MOEMA")
+function montarFoto(itens, pedidos){
+  const P=new Map(), conflitos=[];
+  pedidos.forEach(r=>{ const loja=campo(r,"Filial"), ped=campo(r,"Pedido"); if(!ped) return; const k=`${loja}-${ped}`;
+    if(P.has(k)) conflitos.push(k);
+    P.set(k,{k,p:ped,l:loja,ln:campo(r,"Nome"),c:campo(r,"Codigo"),n:campo(r,"Cliente"),em:dataBI(campo(r,"Emissao","Emissão")),en:dataBI(campo(r,"Entrega")),
+      st:campo(r,"Status"),tp:campo(r,"Tipo Pedido"),sp:"",ag:campo(r,"Agenda"),ci:campo(r,"Cidade"),ba:campo(r,"Bairro"),cep:campo(r,"CEP"),
+      t:[...new Set([campo(r,"Tel"),campo(r,"Tel2"),campo(r,"Tel3")].filter(Boolean))],ob:campo(r,"Observações","Observacoes"),de:campo(r,"Desp. Aces."),
+      cu:numBR(campo(r,"Cubagem")),v:numBR(campo(r,"Valor")),ipv:Number(campo(r,"Itens PV"))||0,qpv:Number(campo(r,"Qtd PV"))||0,qb:numBR(campo(r,"Qtd Bloq")),fo:"pedidos",it:[]}); });
+  itens.forEach(r=>{ const ped=campo(r,"Pedido"); if(!ped) return; const fo=campo(r,"Filial Origem"), loja=fo.split(" - ")[0].trim(), k=`${loja}-${ped}`;
+    let x=P.get(k);
+    if(!x){ x={k,p:ped,l:loja,ln:(fo.split(" - ")[1]||"").trim(),c:campo(r,"Codigo"),n:campo(r,"Cliente"),em:dataBI(campo(r,"Emissão","Emissao")),en:dataBI(campo(r,"Entrega")),
+      st:"",tp:campo(r,"Tipo Pedido"),sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:0,fo:"itens",it:[]}; P.set(k,x); }
+    else if(x.fo==="pedidos") x.fo="ambas";
+    if(!x.sp) x.sp=campo(r,"Status Pedido");
+    x.it.push([campo(r,"Item"),campo(r,"Produto"),campo(r,"Descrição","Descricao"),campo(r,"Grupo Produto"),campo(r,"Local"),numBR(campo(r,"QTD")),numBR(campo(r,"Total")),campo(r,"Status")]); });
+  return {pedidos:[...P.values()],conflitos};
+}
+// índices do item: [item, produto, descrição, grupo, local, qtd, total, status]
+const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7};
+
+// ═══ regras ═══
+let CFG_DADOS={ano_ficticio:2030,dias_alerta:4};
+function prazo(p){
+  if(!p.en) return {cls:"semdata",rot:"Sem data",pill:"p-cinza"};
+  if(Number(p.en.slice(0,4))>=Number(CFG_DADOS.ano_ficticio||2030)) return {cls:"semdata",rot:"Sem data",pill:"p-cinza",obs:"data fictícia"};
+  const n=diasEntre(hojeISO(),p.en), lim=Number(CFG_DADOS.dias_alerta||4);
+  if(n<0) return {cls:"atrasado",rot:`Venceu há ${-n} d`,pill:"p-bad",n};
+  if(n<=lim) return {cls:"atrasado",rot:n===0?"Vence hoje":`Vence em ${n} d`,pill:"p-bad",n};
+  return {cls:"emdia",rot:`Em dia · ${n} d`,pill:"p-ok",n};
+}
+function bloqueado(p){ return nrm(p.st)==="bloqueado"||nrm(p.sp).includes("bloque")||p.it.some(i=>nrm(i[IT.st])==="bloqueado"); }
+function qtdTotal(p){ return p.it.reduce((a,i)=>a+(i[IT.qtd]||0),0)||p.qpv||0; }
+function resumoDaFoto(peds){
+  const r={pedidos:peds.length,itens:0,unidades:0,valor:0,bloqueados:0,atrasados:0,bloq_atrasados:0,sem_data:0};
+  peds.forEach(p=>{ r.itens+=p.it.length; r.unidades+=qtdTotal(p); r.valor+=p.v||0; const b=bloqueado(p), pz=prazo(p).cls;
+    if(b) r.bloqueados++; if(pz==="atrasado"){ r.atrasados++; if(b) r.bloq_atrasados++; } if(pz==="semdata") r.sem_data++; });
+  return r;
+}
+
+// ═══ compactação da foto (gzip → base64, em partes de até 800 mil caracteres) ═══
+async function compactar(obj){
+  const json=JSON.stringify(obj);
+  let b64, formato="gzip";
+  if("CompressionStream" in window){
+    const buf=await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+    const u=new Uint8Array(buf); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); b64=btoa(s);
+  } else { b64=btoa(unescape(encodeURIComponent(json))); formato="json"; }
+  const partes=[]; for(let i=0;i<b64.length;i+=800000) partes.push(b64.slice(i,i+800000));
+  return {partes,formato};
+}
+async function descompactar(partes,formato){
+  const b64=partes.join(""), bin=atob(b64), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  if(formato==="json") return JSON.parse(decodeURIComponent(escape(bin)));
+  const txt=await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(txt);
+}
+
+// ═══ dados ═══
+let NIVEL=3, USUARIO="", EMAIL="", MEUS_SETORES=[];
+let DIAS=[], FOTO=null, FOTO_DATA="", FOTO_ATUAL=null, TRAT=new Map(), CFG=null;
+let statusAtual={tipo:"ok",det:""};
+function setStatus(t,d){ statusAtual={tipo:t,det:d||""}; $("#dot").className="dot "+t; $("#who").classList.toggle("erro",t==="erro");
+  const ult=DIAS[DIAS.length-1];
+  $("#whoTxt").textContent= t==="salvando"?"Salvando…":t==="erro"?"Erro: "+(d||""):ult?`Tudo salvo · carteira de ${dataBR(ult.data)} (importada ${dataHoraBR(ult.importado_em)} por ${ult.importado_por||"—"})`:"Nenhuma carteira importada ainda"; }
+async function api(url,op={}){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){ $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  if(!r.ok&&r.status!==409) throw new Error(j.detail||`HTTP ${r.status}`);
+  return {r,j};
+}
+async function carregarFoto(data){
+  const {j}=await api(`${API}/dias/${data}`);
+  const f=await descompactar(j.partes,j.meta.formato);
+  f.meta=j.meta; return f;
+}
+async function carregarTratativas(){ const {j}=await api(`${API}/tratativas`); TRAT=new Map((j||[]).map(t=>[t.dados.chave,t])); }
+
+// ═══ configuração: setores e motivos (classificação → motivo → setor) ═══
+const CORES=["#2E4A7A","#2B63B0","#2F7D4F","#C98A0B","#6B46A8","#B83232","#0F766E","#9D174D","#4A5568"];
+const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,
+  setores:[{id:"compras",nome:"Compras",cor:"#2B63B0"},{id:"cx",nome:"CX",cor:"#6B46A8"},{id:"logistica",nome:"Logística",cor:"#2F7D4F"},
+    {id:"financeiro",nome:"Financeiro",cor:"#C98A0B"},{id:"loja",nome:"Comercial / Loja",cor:"#0F766E"}],
+  motivos:[
+    {id:"m1",classe:"Pendente compra",motivo:"Item sem estoque — comprar",setor:"compras",sla:5,ativo:true},
+    {id:"m2",classe:"Pendente compra",motivo:"Medida especial — pedido ao fornecedor",setor:"compras",sla:10,ativo:true},
+    {id:"m3",classe:"Pendente fornecedor",motivo:"Fornecedor atrasado",setor:"compras",sla:3,ativo:true},
+    {id:"m4",classe:"Pendente fornecedor",motivo:"Aguardando previsão do fornecedor",setor:"compras",sla:3,ativo:true},
+    {id:"m5",classe:"Pendente alteração de pedido",motivo:"Cliente pediu troca de produto",setor:"cx",sla:2,ativo:true},
+    {id:"m6",classe:"Pendente alteração de pedido",motivo:"Alterar medida / item do pedido",setor:"loja",sla:2,ativo:true},
+    {id:"m7",classe:"Pendente cliente",motivo:"Cliente não atende / sem retorno",setor:"cx",sla:2,ativo:true},
+    {id:"m8",classe:"Pendente cliente",motivo:"Cliente pediu para segurar a entrega",setor:"cx",sla:7,ativo:true},
+    {id:"m9",classe:"Pendente logística",motivo:"Aguardando transferência entre CDs",setor:"logistica",sla:3,ativo:true},
+    {id:"m10",classe:"Pendente logística",motivo:"Reagendar entrega",setor:"logistica",sla:1,ativo:true},
+    {id:"m11",classe:"Pendente financeiro",motivo:"Pagamento / liberação pendente",setor:"financeiro",sla:2,ativo:true},
+    {id:"m12",classe:"Cancelamento",motivo:"Cliente solicitou cancelamento",setor:"cx",sla:2,ativo:true}]};
+function cfg(){ return (CFG&&CFG.dados)||CONFIG_PADRAO; }
+function setorPor(id){ return cfg().setores.find(s=>s.id===id)||{id,nome:id||"—",cor:"#8A93A3"}; }
+function motivoPor(id){ return cfg().motivos.find(m=>m.id===id)||null; }
+async function salvarConfig(dados){
+  if(CFG){ const {r,j}=await api(`${API}/config/${CFG.id}`,{method:"PUT",body:JSON.stringify({dados,versao:CFG.versao})});
+    if(r.status===409){ CFG=j.atual; throw new Error("outra pessoa alterou a configuração ao mesmo tempo — a tela foi atualizada, refaça a alteração"); } CFG=j; }
+  else { const {j}=await api(`${API}/config`,{method:"POST",body:JSON.stringify({dados})}); CFG=j; }
+  CFG_DADOS=cfg();
+}
+
+// ═══ tratativas ═══
+function tratDe(k){ return TRAT.get(k)||null; }
+function aberta(t){ return t&&t.dados.status==="aberta"; }
+function diasComSetor(t){ const h=(t.dados.historico||[]).filter(x=>x.setor); const ult=h[h.length-1]; return ult?Math.max(0,diasEntre(String(ult.em).slice(0,10),hojeISO())):0; }
+async function gravarTratativa(p, mudar){
+  // mudar: {acao:"classificar"|"nota"|"resolver"|"reabrir", motivo_id, nota}
+  const t=tratDe(p.k), agora=new Date().toISOString(), m=mudar.motivo_id?motivoPor(mudar.motivo_id):null;
+  const reg={em:agora,por:USUARIO,acao:mudar.acao,nota:tx(mudar.nota)};
+  let dados;
+  if(t){ dados=JSON.parse(JSON.stringify(t.dados)); }
+  else dados={chave:p.k,pedido:p.p,loja:p.l,cliente:p.n,status:"aberta",motivo_id:"",motivo:"",classe:"",setor:"",historico:[],aberta_em:agora};
+  if(mudar.acao==="classificar"){ if(!m) throw new Error("Escolha o motivo.");
+    reg.de_setor=dados.status==="aberta"?dados.setor:""; reg.setor=m.setor; reg.motivo=m.motivo; reg.classe=m.classe;
+    Object.assign(dados,{status:"aberta",motivo_id:m.id,motivo:m.motivo,classe:m.classe,setor:m.setor}); if(!t||t.dados.status!=="aberta") dados.aberta_em=agora; }
+  else if(mudar.acao==="resolver"){ dados.status="resolvida"; dados.resolvida_em=agora; reg.setor_atual=dados.setor; }
+  else if(mudar.acao==="reabrir"){ dados.status="aberta"; reg.setor=dados.setor; reg.motivo=dados.motivo; }
+  else if(mudar.acao==="auto"){ dados.status="resolvida"; dados.resolvida_em=agora; reg.setor_atual=dados.setor; }
+  else if(!reg.nota) throw new Error("Escreva a nota.");
+  dados.historico.push(reg); dados.cliente=p.n||dados.cliente;
+  setStatus("salvando");
+  if(t){ const {r,j}=await api(`${API}/tratativas/${t.id}`,{method:"PUT",body:JSON.stringify({dados,versao:t.versao})});
+    if(r.status===409){ TRAT.set(p.k,j.atual); setStatus("ok"); throw new Error("outra pessoa mexeu nesta tratativa agora — a tela foi atualizada, confira e repita"); }
+    TRAT.set(p.k,j); }
+  else { const {j}=await api(`${API}/tratativas`,{method:"POST",body:JSON.stringify({dados})}); TRAT.set(p.k,j); }
+  setStatus("ok");
+}
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// NAVEGAÇÃO
+// ═══════════════════════════════════════════════════════════════════
+const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
+const ICO={
+  painel:SV+'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
+  carteira:SV+'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h4"/></svg>',
+  itens:SV+'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>',
+  filas:SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>',
+  historico:SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
+  importar:SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
+  config:SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
+};
+const SECOES=[["painel","Painel",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
+let secao="painel";
+try{ secao=sessionStorage.getItem("cart_secao")||"painel"; }catch(_){}
+function ir(s){ secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
+function atualizarMenu(){
+  const abertas=[...TRAT.values()].filter(aberta).length;
+  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
+    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}</button>`).join("");
+  $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
+}
+function render(){
+  atualizarMenu(); const c=$("#root"); c.innerHTML="";
+  if(!FOTO&&!["importar","config","historico"].includes(secao)){ c.innerHTML=`<div class="aviso"><b>Nenhuma carteira importada ainda.</b> ${NIVEL>=3?'Use <b>⤒ Importar a carteira do dia</b> e arraste as duas planilhas do BI.':"Peça a quem tem o perfil Editar no módulo para importar a carteira do dia."}</div>`; return; }
+  if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
+  const vd=$("#vdVoltar",c); if(vd) vd.onclick=()=>{ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; render(); };
+  const box=el("div"); c.appendChild(box);
+  ({painel:renderPainel,carteira:renderCarteira,itens:renderItens,filas:renderFilas,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
+  if(NIVEL<2) c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil na Carteira permite consultar, sem classificar.</p>');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FILTROS (compartilhados entre Carteira e Itens)
+// ═══════════════════════════════════════════════════════════════════
+const F={busca:"",loja:"",st:"",sp:"",tp:"",grupo:"",local:"",ag:"",ci:"",prazo:"",bloq:"",trat:"",setor:"",motivo:"",novo:false,produto:""};
+const ROT_F={loja:"Loja",st:"Status",sp:"Status do pedido",tp:"Tipo",grupo:"Grupo",local:"Local",ag:"Agenda",ci:"Cidade",prazo:"Prazo",bloq:"Bloqueio",trat:"Tratativa",setor:"Setor",motivo:"Motivo",produto:"Produto",novo:"Novos"};
+function limparFiltros(){ Object.keys(F).forEach(k=>F[k]=typeof F[k]==="boolean"?false:""); }
+function novos(){ return new Set((FOTO&&FOTO.meta&&FOTO.meta.novos)||[]); }
+function passa(p,ignorarItem){
+  const t=nrm(F.busca);
+  if(t&&![p.p,p.n,p.c,p.k,p.ci,...p.it.flatMap(i=>[i[IT.prod],i[IT.desc]])].some(x=>nrm(x).includes(t))) return false;
+  if(F.loja&&p.l!==F.loja) return false; if(F.st&&p.st!==F.st) return false; if(F.sp&&p.sp!==F.sp) return false; if(F.tp&&p.tp!==F.tp) return false;
+  if(F.ag&&p.ag!==F.ag) return false; if(F.ci&&p.ci!==F.ci) return false;
+  if(F.prazo&&prazo(p).cls!==F.prazo) return false;
+  if(F.bloq==="sim"&&!bloqueado(p)) return false; if(F.bloq==="nao"&&bloqueado(p)) return false;
+  const tr=tratDe(p.k);
+  if(F.trat==="sem"&&aberta(tr)) return false; if(F.trat==="aberta"&&!aberta(tr)) return false; if(F.trat==="resolvida"&&!(tr&&tr.dados.status==="resolvida")) return false;
+  if(F.setor&&!(aberta(tr)&&tr.dados.setor===F.setor)) return false; if(F.motivo&&!(aberta(tr)&&tr.dados.motivo_id===F.motivo)) return false;
+  if(F.novo&&!novos().has(p.k)) return false;
+  if(!ignorarItem&&(F.grupo||F.local||F.produto)&&!p.it.some(i=>itemPassa(i))) return false;
+  return true;
+}
+function itemPassa(i){ return (!F.grupo||i[IT.grupo]===F.grupo)&&(!F.local||i[IT.local]===F.local)&&(!F.produto||i[IT.prod]===F.produto); }
+function opcoes(fn){ const s=new Set(); FOTO.pedidos.forEach(p=>{ const v=fn(p); (Array.isArray(v)?v:[v]).forEach(x=>{ if(tx(x)) s.add(tx(x)); }); }); return [...s].sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true})); }
+function sel(id,rot,lista,valor,rotulo){ return `<select data-f="${id}" aria-label="${rot}"><option value="">${rot}: todos</option>${lista.map(v=>{ const [val,txt]=Array.isArray(v)?v:[v,rotulo?rotulo(v):v]; return `<option value="${esc(val)}"${val===valor?" selected":""}>${esc(txt)}</option>`; }).join("")}</select>`; }
+function painelFiltros(onMudar){
+  const lojas=[...new Map(FOTO.pedidos.map(p=>[p.l,p.ln])).entries()].sort((a,b)=>a[0].localeCompare(b[0],"pt-BR",{numeric:true})).map(([l,n])=>[l,`${l}${n?" · "+n:""}`]);
+  const box=el("div");
+  box.innerHTML=`<div class="filtros"><input class="busca" data-f="busca" placeholder="Buscar pedido, cliente, código, produto, cidade..." value="${esc(F.busca)}" aria-label="Buscar">
+    ${sel("prazo","Prazo",[["atrasado","🔴 Atrasado (≤ "+cfg().dias_alerta+" dias ou vencido)"],["emdia","🟢 Em dia"],["semdata","⚪ Sem data"]],F.prazo)}
+    ${sel("bloq","Bloqueio",[["sim","Só bloqueados"],["nao","Só não bloqueados"]],F.bloq)}
+    ${sel("trat","Tratativa",[["sem","Sem tratativa aberta"],["aberta","Com tratativa aberta"],["resolvida","Resolvida"]],F.trat)}
+    ${sel("setor","Pendente com",cfg().setores.map(s=>[s.id,s.nome]),F.setor)}
+    ${sel("motivo","Motivo",cfg().motivos.map(m=>[m.id,`${m.classe} · ${m.motivo}`]),F.motivo)}
+    ${sel("loja","Loja",lojas,F.loja)}${sel("st","Status",opcoes(p=>p.st),F.st)}${sel("sp","Status do pedido",opcoes(p=>p.sp),F.sp)}
+    ${sel("tp","Tipo",opcoes(p=>p.tp),F.tp)}${sel("grupo","Grupo",opcoes(p=>p.it.map(i=>i[IT.grupo])),F.grupo)}${sel("local","Local",opcoes(p=>p.it.map(i=>i[IT.local])),F.local)}
+    ${sel("ag","Agenda",opcoes(p=>p.ag),F.ag)}${sel("ci","Cidade",opcoes(p=>p.ci),F.ci)}
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" data-f="novo" ${F.novo?"checked":""} style="width:16px;height:16px"> Só novos nesta foto (${novos().size})</label></div>`;
+  const ativos=Object.keys(F).filter(k=>k!=="busca"&&F[k]);
+  if(ativos.length||F.busca) box.insertAdjacentHTML("beforeend",`<div class="filtros-rodape">Filtros: ${ativos.map(k=>`<span class="chip-f">${ROT_F[k]||k}${k==="produto"?": "+esc(F.produto):""}<button type="button" data-tira="${k}" title="Tirar">✕</button></span>`).join("")}${F.busca?`<span class="chip-f">“${esc(F.busca)}”<button type="button" data-tira="busca">✕</button></span>`:""}<button type="button" class="peq" data-limpar>Limpar tudo</button></div>`);
+  box.querySelectorAll("[data-f]").forEach(i=>{ const k=i.dataset.f;
+    if(k==="busca") i.oninput=()=>{ F.busca=i.value; clearTimeout(i._t); i._t=setTimeout(()=>{ const pos=i.selectionStart; onMudar(); const n=document.querySelector('[data-f="busca"]'); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
+    else i.onchange=()=>{ F[k]=i.type==="checkbox"?i.checked:i.value; onMudar(); }; });
+  box.querySelectorAll("[data-tira]").forEach(b=>b.onclick=()=>{ const k=b.dataset.tira; F[k]=typeof F[k]==="boolean"?false:""; onMudar(); });
+  const lp=box.querySelector("[data-limpar]"); if(lp) lp.onclick=()=>{ limparFiltros(); onMudar(); };
+  return box;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PAINEL
+// ═══════════════════════════════════════════════════════════════════
+function irCarteira(f){ limparFiltros(); Object.assign(F,f); ir("carteira"); }
+function barras(lista,total){ const max=Math.max(1,...lista.map(x=>x.v));
+  return `<div class="barras">${lista.map(x=>`<div class="barra-l"${x.on?` data-on="${esc(x.on)}" style="cursor:pointer"`:""}><span title="${esc(x.rot)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.rot)}</span><span class="tr"><i style="width:${Math.round(x.v/max*100)}%;--bc:${x.cor||"var(--steel)"}"></i></span><b>${int(x.v)}${total?` <small class="muted">${Math.round(x.v/Math.max(1,total)*100)}%</small>`:""}</b></div>`).join("")}</div>`; }
+function graficoLinhas(series, rotulos){
+  const W=640,H=200,pl=40,pb=24,pt=10,max=Math.max(1,...series.flatMap(s=>s.v)), n=rotulos.length;
+  const x=i=>pl+(n<2?(W-pl-10)/2:i*(W-pl-10)/(n-1)), y=v=>pt+(H-pt-pb)*(1-v/max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução da carteira">`;
+  [0,.5,1].forEach(f=>{ const yy=y(max*f); s+=`<line x1="${pl}" x2="${W-10}" y1="${yy}" y2="${yy}" stroke="currentColor" stroke-opacity=".12"/><text x="${pl-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="currentColor" fill-opacity=".55">${int(Math.round(max*f))}</text>`; });
+  rotulos.forEach((r,i)=>{ if(n<=12||i%Math.ceil(n/10)===0||i===n-1) s+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity=".55">${esc(r)}</text>`; });
+  series.forEach(se=>{ s+=`<polyline fill="none" stroke="${se.cor}" stroke-width="2.4" stroke-linejoin="round" points="${se.v.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}"/>`;
+    se.v.forEach((v,i)=>{ s+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${se.cor}"><title>${esc(se.nome)} · ${rotulos[i]}: ${int(v)}</title></circle>`; }); });
+  return s+`</svg><div class="legenda">${series.map(se=>`<span><i style="background:${se.cor}"></i>${esc(se.nome)}</span>`).join("")}</div>`;
+}
+function renderPainel(c){
+  const P=FOTO.pedidos, R=resumoDaFoto(P), m=FOTO.meta||{}, tr=[...TRAT.values()];
+  const abertas=tr.filter(aberta), semTrat=P.filter(p=>bloqueado(p)&&!aberta(tratDe(p.k))).length, atrasBloqSem=P.filter(p=>bloqueado(p)&&prazo(p).cls==="atrasado"&&!aberta(tratDe(p.k))).length;
+  const chavesFoto=new Set(P.map(p=>p.k));
+  c.innerHTML=`<header class="doc-head"><div><h1>Carteira de ${dataBR(FOTO_DATA)}</h1>
+      <p class="obj">${int(R.pedidos)} pedidos · ${int(R.itens)} itens · ${int(R.unidades)} unidades · ${moeda(R.valor)} em carteira</p>
+      <p class="cap" style="margin:6px 0 0">Prazo: entrega a ${cfg().dias_alerta} dias ou menos (ou vencida) = <b>atrasado</b>; ano a partir de ${cfg().ano_ficticio} = <b>sem data</b>. Pode vender sem estoque — o que não pode é furar a data de entrega.</p></div>
+    <div class="stamp"><div class="code">Foto do dia</div><dl><dt>Importada</dt><dd>${dataHoraBR(m.importado_em)}</dd><dt>Por</dt><dd>${esc(m.importado_por||"—")}</dd>
+      <dt>Entraram</dt><dd>${m.novos?int(m.novos.length):"—"}</dd><dt>Saíram</dt><dd>${m.sairam?int(m.sairam.length):"—"}</dd></dl></div></header>
+    <div class="kpis">
+      <button type="button" class="kpi k-bad" data-k="atrasado"><span>🔴 Atrasados (≤ ${cfg().dias_alerta} dias)</span><b>${int(R.atrasados)}</b><small>${int(R.bloq_atrasados)} deles bloqueados</small></button>
+      <button type="button" class="kpi k-warn" data-k="bloq"><span>⛔ Bloqueados</span><b>${int(R.bloqueados)}</b><small>${int(semTrat)} sem tratativa aberta</small></button>
+      <button type="button" class="kpi k-bad" data-k="critico"><span>🚨 Bloqueado + atrasado + sem tratativa</span><b>${int(atrasBloqSem)}</b><small>risco de agendamento furado</small></button>
+      <button type="button" class="kpi k-cinza" data-k="semdata"><span>⚪ Sem data</span><b>${int(R.sem_data)}</b><small>datas fictícias</small></button>
+      <button type="button" class="kpi k-azul" data-k="aberta"><span>📌 Pendências abertas</span><b>${int(abertas.length)}</b><small>com algum setor</small></button>
+      <button type="button" class="kpi k-roxo" data-k="novo"><span>🆕 Entraram nesta foto</span><b>${int((m.novos||[]).length)}</b><small>${int((m.sairam||[]).length)} saíram</small></button></div>
+    <h3>Pendências por setor</h3><div class="setores" id="pnSet"></div>
+    <div class="grid2">
+      <div class="box" style="margin:0"><b>Evolução da carteira</b><p class="cap" style="margin:2px 0 8px">Uma linha por importação (últimas 30).</p><div class="graf" id="pnGraf"></div></div>
+      <div class="box" style="margin:0"><b>Itens mais bloqueados</b><p class="cap" style="margin:2px 0 8px">Unidades bloqueadas por produto — clique para ver os pedidos.</p><div id="pnTop"></div></div>
+      <div class="box" style="margin:0"><b>Bloqueados por loja</b><p class="cap" style="margin:2px 0 8px">Pedidos bloqueados, por loja de origem.</p><div id="pnLoja"></div></div>
+      <div class="box" style="margin:0"><b>Por tipo de pedido</b><p class="cap" style="margin:2px 0 8px">Pedidos na carteira.</p><div id="pnTipo"></div></div></div>`;
+  c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const k=b.dataset.k;
+    irCarteira(k==="atrasado"?{prazo:"atrasado"}:k==="bloq"?{bloq:"sim"}:k==="critico"?{bloq:"sim",prazo:"atrasado",trat:"sem"}:k==="semdata"?{prazo:"semdata"}:k==="aberta"?{trat:"aberta"}:{novo:true}); });
+  const ps=$("#pnSet",c);
+  ps.innerHTML=cfg().setores.map(s=>{ const l=abertas.filter(t=>t.dados.setor===s.id), est=l.filter(t=>{ const m=motivoPor(t.dados.motivo_id); return m&&m.sla&&diasComSetor(t)>m.sla; }).length,
+      velho=l.reduce((a,t)=>Math.max(a,diasComSetor(t)),0), fora=l.filter(t=>!chavesFoto.has(t.dados.chave)).length;
+    return `<button type="button" class="setor-card" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span> · `:""}${l.length?`mais antiga: ${velho} d`:"nada pendente"}${fora?` · ${fora} saíram da carteira`:""}</small></button>`; }).join("");
+  ps.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ estFila.setor=b.dataset.set; ir("filas"); });
+  const ult=DIAS.slice(-30).filter(d=>d.resumo);
+  $("#pnGraf",c).innerHTML=ult.length<2?'<p class="cap">O gráfico aparece a partir da segunda importação.</p>':graficoLinhas([
+    {nome:"Pedidos",cor:"#2E4A7A",v:ult.map(d=>d.resumo.pedidos)},{nome:"Bloqueados",cor:"#C98A0B",v:ult.map(d=>d.resumo.bloqueados)},{nome:"Atrasados",cor:"#B83232",v:ult.map(d=>d.resumo.atrasados)}],ult.map(d=>dataBR(d.data).slice(0,5)));
+  const prod=new Map(); P.forEach(p=>p.it.forEach(i=>{ if(nrm(i[IT.st])!=="bloqueado") return; const k=i[IT.prod]; const x=prod.get(k)||{rot:`${i[IT.desc]||k}`,v:0,on:k}; x.v+=i[IT.qtd]||0; prod.set(k,x); }));
+  $("#pnTop",c).innerHTML=prod.size?barras([...prod.values()].sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...x,cor:"#C98A0B"}))):'<p class="cap">Nenhum item bloqueado.</p>';
+  $("#pnTop",c).querySelectorAll("[data-on]").forEach(b=>b.onclick=()=>irCarteira({produto:b.dataset.on,bloq:"sim"}));
+  const porLoja=new Map(); P.filter(bloqueado).forEach(p=>{ const k=p.l; const x=porLoja.get(k)||{rot:`${p.l}${p.ln?" · "+p.ln:""}`,v:0,on:k}; x.v++; porLoja.set(k,x); });
+  $("#pnLoja",c).innerHTML=barras([...porLoja.values()].sort((a,b)=>b.v-a.v).slice(0,10).map(x=>({...x,cor:"#2B63B0"})));
+  $("#pnLoja",c).querySelectorAll("[data-on]").forEach(b=>b.onclick=()=>irCarteira({loja:b.dataset.on,bloq:"sim"}));
+  const porTipo=new Map(); P.forEach(p=>{ const k=p.tp||"—"; porTipo.set(k,(porTipo.get(k)||0)+1); });
+  $("#pnTipo",c).innerHTML=barras([...porTipo.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>({rot:k,v,on:k,cor:"#6B46A8"})),P.length);
+  $("#pnTipo",c).querySelectorAll("[data-on]").forEach(b=>b.onclick=()=>irCarteira({tp:b.dataset.on}));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CARTEIRA (pedidos) — com seleção para classificar em lote
+// ═══════════════════════════════════════════════════════════════════
+const estC={limite:150,ord:"entrega",dir:1,sel:new Set()};
+function celTrat(p){ const t=tratDe(p.k); if(!t) return '<span class="muted">—</span>';
+  const s=setorPor(t.dados.setor), d=t.dados;
+  if(d.status!=="aberta") return `<span class="pill p-ok">✓ resolvida</span>`;
+  const m=motivoPor(d.motivo_id), est=m&&m.sla&&diasComSetor(t)>m.sla;
+  return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(s.nome)} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>`; }
+function linhasOrdenadas(lst){
+  const k=estC.ord, d=estC.dir, v=p=>k==="entrega"?(p.en||"9999"):k==="valor"?p.v:k==="emissao"?(p.em||""):k==="cliente"?nrm(p.n):k==="trat"?(aberta(tratDe(p.k))?diasComSetor(tratDe(p.k)):-1):k==="qtd"?qtdTotal(p):p.k;
+  return lst.slice().sort((a,b)=>{ const x=v(a), y=v(b); return (x<y?-1:x>y?1:0)*d; });
+}
+function renderCarteira(c){
+  c.innerHTML=`<section><header><h2>Carteira</h2><p>Um pedido por linha — as duas planilhas do BI juntas.</p>
+      <span class="direita"><button type="button" class="peq" id="ctXls">⬇️ Excel (com os filtros)</button></span></header><div id="ctF"></div><div id="ctSel"></div><div id="ctT"></div></section>`;
+  const desenhar=()=>{
+    const lst=linhasOrdenadas(FOTO.pedidos.filter(p=>passa(p))), nv=novos();
+    estC.sel=new Set([...estC.sel].filter(k=>lst.some(p=>p.k===k)));
+    const sb=$("#ctSel");
+    sb.innerHTML=estC.sel.size&&NIVEL>=2?`<div class="sel-barra"><b>${estC.sel.size} pedido(s) selecionado(s)</b><button type="button" class="primary peq" id="ctClassif">Classificar / tocar para um setor</button><button type="button" class="peq" id="ctLimparSel">Limpar seleção</button></div>`:"";
+    if(estC.sel.size&&NIVEL>=2){ $("#ctClassif").onclick=()=>dlgLote(lst.filter(p=>estC.sel.has(p.k))); $("#ctLimparSel").onclick=()=>{ estC.sel.clear(); desenhar(); }; }
+    const th=(k,r,cls)=>`<th class="ord ${cls||""}" data-o="${k}">${r}${estC.ord===k?(estC.dir>0?" ▲":" ▼"):""}</th>`, vis=lst.slice(0,estC.limite);
+    const somaV=lst.reduce((a,p)=>a+(p.v||0),0), somaQ=lst.reduce((a,p)=>a+qtdTotal(p),0);
+    $("#ctT").innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> pedido(s) · ${int(somaQ)} unidade(s) · ${moeda(somaV)}${lst.length>vis.length?` · mostrando ${int(vis.length)}`:""}</p>
+      <div class="tbl-wrap"><table><thead><tr>${NIVEL>=2?`<th><input type="checkbox" id="ctTodos" title="Selecionar os ${vis.length} visíveis" ${vis.length&&vis.every(p=>estC.sel.has(p.k))?"checked":""}></th>`:""}
+        ${th("k","Pedido")}${th("cliente","Cliente")}<th>Loja</th>${th("entrega","Entrega / prazo")}<th>Status</th><th>Tipo</th>${th("qtd","Itens","num")}${th("valor","Valor","num")}${th("trat","Tratativa")}</tr></thead><tbody>${
+      vis.map(p=>{ const pz=prazo(p), b=bloqueado(p), nb=p.it.filter(i=>nrm(i[IT.st])==="bloqueado").length;
+        return `<tr class="clic${estC.sel.has(p.k)?" sel":""}" data-k="${esc(p.k)}">${NIVEL>=2?`<td><input type="checkbox" data-sel="${esc(p.k)}" ${estC.sel.has(p.k)?"checked":""} aria-label="Selecionar ${esc(p.p)}"></td>`:""}
+          <td><b>${esc(p.p)}</b>${nv.has(p.k)?'<span class="novo">NOVO</span>':""}<span class="sub">${esc(p.em?dataBR(p.em):"")}</span></td>
+          <td>${esc(p.n||"—")}<span class="sub">${esc(p.c)}${p.ci?" · "+esc(p.ci):""}</span></td><td>${esc(p.l)}<span class="sub">${esc(p.ln)}</span></td>
+          <td>${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span></td>
+          <td>${b?'<span class="pill p-warn">⛔ Bloqueado</span>':esc(p.st||"—")}<span class="sub">${esc(p.sp)}</span></td><td>${esc(p.tp)}<span class="sub">${p.ag&&p.ag!=="NAO"?"agenda: "+esc(p.ag):""}</span></td>
+          <td class="num">${p.it.length||p.ipv} it · ${int(qtdTotal(p))} un${nb?`<span class="sub" style="color:var(--amber)">${nb} bloq.</span>`:""}</td><td class="num">${moeda(p.v)}</td><td>${celTrat(p)}</td></tr>`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Nenhum pedido com esses filtros.</td></tr>`}</tbody></table></div>
+      ${lst.length>vis.length?`<div class="mais"><button type="button" id="ctMais">Mostrar mais ${int(Math.min(300,lst.length-vis.length))}</button></div>`:""}`;
+    $("#ctT").querySelectorAll("th[data-o]").forEach(h=>h.onclick=()=>{ const k=h.dataset.o; if(estC.ord===k) estC.dir*=-1; else { estC.ord=k; estC.dir=k==="valor"||k==="trat"||k==="qtd"?-1:1; } desenhar(); });
+    $("#ctT").querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("input")) return; abrirPedido(FOTO.pedidos.find(p=>p.k===tr.dataset.k)); });
+    $("#ctT").querySelectorAll("[data-sel]").forEach(cb=>cb.onchange=()=>{ cb.checked?estC.sel.add(cb.dataset.sel):estC.sel.delete(cb.dataset.sel); desenhar(); });
+    const td=$("#ctTodos"); if(td) td.onchange=()=>{ vis.forEach(p=>td.checked?estC.sel.add(p.k):estC.sel.delete(p.k)); desenhar(); };
+    const mm=$("#ctMais"); if(mm) mm.onclick=()=>{ estC.limite+=300; desenhar(); };
+    c._lista=lst;
+  };
+  $("#ctF",c).appendChild(painelFiltros(()=>{ estC.limite=150; render(); }));
+  desenhar();
+  $("#ctXls",c).onclick=()=>exportarCarteira(c._lista||[]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ITENS — quantidade de cada produto (respeita os filtros)
+// ═══════════════════════════════════════════════════════════════════
+function renderItens(c){
+  c.innerHTML=`<section><header><h2>Itens</h2><p>Quanto de cada produto está na carteira — com os mesmos filtros da Carteira. Clique num produto para ver os pedidos.</p>
+      <span class="direita"><button type="button" class="peq" id="itXls">⬇️ Excel</button></span></header><div id="itF"></div><div id="itT"></div></section>`;
+  $("#itF",c).appendChild(painelFiltros(()=>render()));
+  const ag=new Map();
+  FOTO.pedidos.filter(p=>passa(p,true)).forEach(p=>{ const pz=prazo(p).cls; p.it.filter(itemPassa).forEach(i=>{ const k=i[IT.prod];
+    const x=ag.get(k)||{prod:k,desc:i[IT.desc],grupo:i[IT.grupo],locais:new Set(),qtd:0,bloq:0,ped:new Set(),atr:new Set(),valor:0};
+    x.qtd+=i[IT.qtd]||0; if(nrm(i[IT.st])==="bloqueado") x.bloq+=i[IT.qtd]||0; x.ped.add(p.k); if(pz==="atrasado") x.atr.add(p.k); x.valor+=i[IT.total]||0; x.locais.add(i[IT.local]); ag.set(k,x); }); });
+  const lst=[...ag.values()].sort((a,b)=>b.qtd-a.qtd);
+  $("#itT",c).innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> produto(s) · ${int(lst.reduce((a,x)=>a+x.qtd,0))} unidade(s) · ${int(lst.reduce((a,x)=>a+x.bloq,0))} bloqueada(s)</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th><th class="num">Bloqueada</th><th class="num">Pedidos</th><th class="num">Pedidos atrasados</th><th class="num">Valor</th></tr></thead><tbody>${
+    lst.slice(0,500).map(x=>`<tr class="clic" data-p="${esc(x.prod)}"><td><b>${esc(x.prod)}</b></td><td>${esc(x.desc)}</td><td>${esc(x.grupo)}</td><td>${esc([...x.locais].join(", "))}</td>
+      <td class="num"><b>${int(x.qtd)}</b></td><td class="num">${x.bloq?`<span class="pill p-warn">${int(x.bloq)}</span>`:"—"}</td><td class="num">${int(x.ped.size)}</td><td class="num">${x.atr.size?`<span class="pill p-bad">${int(x.atr.size)}</span>`:"—"}</td><td class="num">${moeda(x.valor)}</td></tr>`).join("")||'<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">Nenhum item com esses filtros.</td></tr>'}</tbody></table></div>`;
+  $("#itT",c).querySelectorAll("tr[data-p]").forEach(tr=>tr.onclick=()=>{ F.produto=tr.dataset.p; ir("carteira"); });
+  $("#itXls",c).onclick=()=>exportarXlsx("itens_carteira",[{nome:"Itens",cols:[["Produto",x=>x.prod],["Descrição",x=>x.desc],["Grupo",x=>x.grupo],["Local",x=>[...x.locais].join(", ")],["Qtd",x=>x.qtd],["Qtd bloqueada",x=>x.bloq],["Pedidos",x=>x.ped.size],["Pedidos atrasados",x=>x.atr.size],["Valor",x=>x.valor]],linhas:lst}]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DETALHE DO PEDIDO + TRATATIVA
+// ═══════════════════════════════════════════════════════════════════
+function opcoesMotivo(atual){
+  const classes=[...new Set(cfg().motivos.filter(m=>m.ativo!==false).map(m=>m.classe))];
+  return `<option value="">— escolha o motivo —</option>`+classes.map(cl=>`<optgroup label="${esc(cl)}">${cfg().motivos.filter(m=>m.ativo!==false&&m.classe===cl).map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(m.motivo)} → ${esc(setorPor(m.setor).nome)}</option>`).join("")}</optgroup>`).join("");
+}
+function abrirDlg(html,largo){ const d=$("#dlg"); $("#dlgCorpo").innerHTML=html; if(!d.open) d.showModal(); return $("#dlgCorpo"); }
+function fecharDlg(){ $("#dlg").close(); }
+function abrirPedido(p){
+  if(!p) return;
+  const t=tratDe(p.k), d=t&&t.dados, pz=prazo(p), s=d?setorPor(d.setor):null;
+  const corpo=abrirDlg(`<h3>Pedido ${esc(p.p)} <span class="muted" style="font-size:16px;font-weight:500">· loja ${esc(p.l)} ${esc(p.ln)}</span></h3>
+    <p style="margin:0;font-size:15px"><b>${esc(p.n||"—")}</b> <span class="muted">· ${esc(p.c)}</span> <span class="pill ${pz.pill}">${pz.rot}</span> ${bloqueado(p)?'<span class="pill p-warn">⛔ Bloqueado</span>':""} ${novos().has(p.k)?'<span class="pill p-azul">novo nesta foto</span>':""}</p>
+    <div class="det-grid"><div>
+      <div class="info">
+        <div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Status</small>${esc(p.st||"—")}</div><div><small>Status do pedido</small>${esc(p.sp||"—")}</div>
+        <div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div><div><small>Valor</small>${moeda(p.v)}</div><div><small>Cubagem</small>${p.cu?String(p.cu).replace(".",","):"—"}</div>
+        <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>CEP</small>${esc(p.cep||"—")}</div>
+        <div><small>Telefones</small>${p.t.length?p.t.map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join("<br>"):"—"}</div><div><small>Desp. aces.</small>${esc(p.de||"—")}</div>
+        ${p.ob?`<div style="grid-column:1/-1"><small>Observações</small>${esc(p.ob)}</div>`:""}</div>
+      <h3>Itens (${p.it.length})</h3>
+      ${p.it.length?`<div class="tbl-wrap" style="max-height:none"><table><thead><tr><th>#</th><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th><th class="num">Total</th><th>Status</th></tr></thead><tbody>${
+        p.it.map(i=>`<tr><td>${esc(i[IT.item])}</td><td>${esc(i[IT.prod])}</td><td>${esc(i[IT.desc])}</td><td>${esc(i[IT.grupo])}</td><td>${esc(i[IT.local])}</td><td class="num">${int(i[IT.qtd])}</td><td class="num">${moeda(i[IT.total])}</td><td>${nrm(i[IT.st])==="bloqueado"?'<span class="pill p-warn">Bloqueado</span>':esc(i[IT.st])}</td></tr>`).join("")}</tbody></table></div>`
+        :`<p class="cap">Este pedido não aparece na planilha de itens (${p.ipv} item(ns), ${p.qpv} unidade(s) segundo a planilha de pedidos).</p>`}
+    </div><div class="trat-box">
+      <b style="font-size:16px">Tratativa</b>
+      ${d?`<p style="margin:6px 0 0">${d.status==="aberta"?`<span class="pill" style="background:color-mix(in srgb,${s.cor} 14%,transparent);color:${s.cor}">📌 Pendente com ${esc(s.nome)}</span> há ${diasComSetor(t)} dia(s)`:'<span class="pill p-ok">✓ Resolvida</span>'}</p>
+        <p style="margin:6px 0 0"><b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`:'<p class="cap" style="margin:6px 0 0">Sem tratativa. Classifique para deixar a pendência com um setor.</p>'}
+      ${NIVEL>=2?`<label class="f" style="margin-top:12px">${d&&d.status==="aberta"?"Tocar para outro motivo / setor":"Classificar"}<select id="ptMot">${opcoesMotivo(d&&d.status==="aberta"?d.motivo_id:"")}</select></label>
+        <p class="cap" id="ptSetor" style="margin:4px 0 0"></p>
+        <label class="f" style="margin-top:8px">Nota (o que foi feito, o que falta, combinado com quem)<textarea id="ptNota" rows="3"></textarea></label>
+        <div class="acoes"><button type="button" class="primary" id="ptClass">${d&&d.status==="aberta"?"Tocar a bola":"Classificar"}</button><button type="button" id="ptNotaB">Só registrar nota</button>
+          ${d&&d.status==="aberta"?'<button type="button" id="ptResolver">✓ Resolver</button>':""}${d&&d.status!=="aberta"?'<button type="button" id="ptReabrir">↺ Reabrir</button>':""}<span class="msg" id="ptMsg"></span></div>`:""}
+      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>{ const hs=h.setor?setorPor(h.setor):null;
+        const txt=h.acao==="classificar"?(h.de_setor&&h.de_setor!==h.setor?`Tocou de <b>${esc(setorPor(h.de_setor).nome)}</b> para <b>${esc(hs.nome)}</b>`:`Classificou → <b>${esc(hs?hs.nome:"")}</b>`)+` · ${esc(h.classe||"")} — ${esc(h.motivo||"")}`
+          :h.acao==="resolver"?"✓ Resolveu":h.acao==="reabrir"?"↺ Reabriu":h.acao==="auto"?"Saiu da carteira":"Nota";
+        return `<li style="--sc:${hs?hs.cor:"var(--idle)"}">${txt}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`; }).join("")}</ul>`:""}
+    </div></div>
+    <div class="acts"><button type="button" id="ptFechar">Fechar</button></div>`);
+  $("#ptFechar",corpo).onclick=fecharDlg;
+  const ms=$("#ptMot",corpo), mostrarSetor=()=>{ const m=motivoPor(ms.value); $("#ptSetor",corpo).innerHTML=m?`Fica pendente com <b style="color:${setorPor(m.setor).cor}">${esc(setorPor(m.setor).nome)}</b>${m.sla?` · prazo do setor: ${m.sla} dia(s)`:""}`:""; };
+  if(ms){ ms.onchange=mostrarSetor; mostrarSetor(); }
+  const agir=async(acao)=>{ const msg=$("#ptMsg",corpo); try{ await gravarTratativa(p,{acao,motivo_id:ms&&ms.value,nota:$("#ptNota",corpo).value}); abrirPedido(p); render(); toast("✓ Tratativa gravada."); }catch(e){ msg.className="msg erro"; msg.textContent=e.message; } };
+  [["ptClass","classificar"],["ptNotaB","nota"],["ptResolver","resolver"],["ptReabrir","reabrir"]].forEach(([id,a])=>{ const b=$("#"+id,corpo); if(b) b.onclick=()=>agir(a); });
+}
+function dlgLote(lst){
+  const corpo=abrirDlg(`<h3>Classificar ${lst.length} pedido(s)</h3><p class="cap">Cada pedido recebe a mesma classificação e fica pendente com o setor do motivo. Quem já tinha tratativa aberta é “tocado” para o novo setor (fica no histórico).</p>
+    <label class="f">Motivo<select id="ltMot">${opcoesMotivo("")}</select></label><p class="cap" id="ltSetor" style="margin:4px 0 0"></p>
+    <label class="f" style="margin-top:8px">Nota (vai para todos)<textarea id="ltNota" rows="3"></textarea></label><p class="msg" id="ltMsg"></p>
+    <div class="acts"><button type="button" id="ltNao">Cancelar</button><button type="button" class="primary" id="ltSim">Classificar ${lst.length}</button></div>`);
+  const ms=$("#ltMot",corpo); ms.onchange=()=>{ const m=motivoPor(ms.value); $("#ltSetor",corpo).innerHTML=m?`Fica pendente com <b style="color:${setorPor(m.setor).cor}">${esc(setorPor(m.setor).nome)}</b>`:""; };
+  $("#ltNao",corpo).onclick=fecharDlg;
+  $("#ltSim",corpo).onclick=async()=>{ const b=$("#ltSim",corpo), msg=$("#ltMsg",corpo); if(!ms.value){ msg.className="msg erro"; msg.textContent="Escolha o motivo."; return; }
+    b.disabled=true; let ok=0, erro=0;
+    for(const p of lst){ try{ await gravarTratativa(p,{acao:"classificar",motivo_id:ms.value,nota:$("#ltNota",corpo).value}); ok++; }catch(_){ erro++; } msg.className="msg"; msg.textContent=`Gravando… ${ok+erro} de ${lst.length}`; }
+    fecharDlg(); estC.sel.clear(); render(); toast(`✓ ${ok} pedido(s) classificado(s)${erro?` · ${erro} com erro (tente de novo)`:""}.`); };
+}
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// PENDÊNCIAS POR SETOR — a fila de cada setor
+// ═══════════════════════════════════════════════════════════════════
+const estFila={setor:"",status:"aberta"};
+function pedidoDaTrat(t){ const d=t.dados; return (FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos.find(p=>p.k===d.chave))||
+  {k:d.chave,p:d.pedido,l:d.loja,ln:"",c:"",n:d.cliente,em:"",en:"",st:"",tp:"",sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:0,it:[],fora:true}; }
+function renderFilas(c){
+  const todas=[...TRAT.values()], abertas=todas.filter(aberta), naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(p=>p.k));
+  if(!estFila.setor){ const meu=cfg().setores.find(s=>MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))); estFila.setor=meu?meu.id:"__todos"; }
+  c.innerHTML=`<section><header><h2>Pendências por setor</h2><p>A bola está com quem? Cada setor trata a própria fila e devolve (resolve ou toca para outro setor).</p>
+      <span class="direita"><button type="button" class="peq" id="flXls">⬇️ Excel</button></span></header>
+    <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>t.dados.setor===s.id);
+      const est=l.filter(t=>{ const m=motivoPor(t.dados.motivo_id); return m&&m.sla&&diasComSetor(t)>m.sla; }).length;
+      return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small></button>`; }).join("")}</div>
+    <div class="acoes" style="margin-top:0"><select id="flSt" style="width:auto"><option value="aberta"${estFila.status==="aberta"?" selected":""}>Abertas</option><option value="resolvida"${estFila.status==="resolvida"?" selected":""}>Resolvidas (últimos 30 dias)</option></select></div>
+    <div id="flT"></div></section>`;
+  c.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ estFila.setor=b.dataset.set; render(); });
+  $("#flSt",c).onchange=e=>{ estFila.status=e.target.value; render(); };
+  const lim30=new Date(Date.now()-30*864e5).toISOString();
+  const lst=todas.filter(t=>estFila.status==="aberta"?aberta(t):(t.dados.status==="resolvida"&&String(t.dados.resolvida_em||"")>=lim30))
+    .filter(t=>estFila.setor==="__todos"||t.dados.setor===estFila.setor)
+    .sort((a,b)=>diasComSetor(b)-diasComSetor(a));
+  const linhas=lst.map(t=>({t,p:pedidoDaTrat(t)}));
+  $("#flT",c).innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / prazo</th><th>Classificação · motivo</th><th>Setor</th><th class="num">Com o setor há</th><th>Última nota</th><th>Na carteira?</th><th></th></tr></thead><tbody>${
+    linhas.map(({t,p})=>{ const d=t.dados, s=setorPor(d.setor), m=motivoPor(d.motivo_id), dias=diasComSetor(t), est=m&&m.sla&&dias>m.sla, pz=p.fora?null:prazo(p);
+      const nota=[...(d.historico||[])].reverse().find(h=>h.nota);
+      return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||"—")}</td>
+        <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span>`:"—"}</td>
+        <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td><span class="pill" style="background:color-mix(in srgb,${s.cor} 14%,transparent);color:${s.cor}">${esc(s.nome)}</span></td>
+        <td class="num">${est?`<span class="pill p-bad">${dias} d · prazo ${m.sla} d</span>`:`${dias} d`}</td><td style="max-width:280px">${nota?`“${esc(nota.nota.slice(0,120))}${nota.nota.length>120?"…":""}”<span class="sub">${esc(nota.por||"")} · ${dataHoraBR(nota.em)}</span>`:'<span class="muted">—</span>'}</td>
+        <td>${naFoto.has(d.chave)?'<span class="pill p-cinza">sim</span>':'<span class="pill p-ok">saiu</span>'}</td>
+        <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>`; }).join("")||`<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">${estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
+  $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")) return; abrirPedido(pedidoDaTrat(TRAT.get(tr.dataset.k))); });
+  $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
+    try{ await gravarTratativa(pedidoDaTrat(TRAT.get(b.dataset.res)),{acao:"resolver",nota}); render(); toast("✓ Resolvida."); }catch(e){ alert(e.message); } });
+  $("#flXls",c).onclick=()=>exportarXlsx("pendencias_por_setor",[{nome:"Pendências",cols:[["Loja",x=>x.t.dados.loja],["Pedido",x=>x.t.dados.pedido],["Cliente",x=>x.t.dados.cliente],["Entrega",x=>x.p.en?dataBR(x.p.en):""],
+    ["Classificação",x=>x.t.dados.classe],["Motivo",x=>x.t.dados.motivo],["Setor",x=>setorPor(x.t.dados.setor).nome],["Dias com o setor",x=>diasComSetor(x.t)],["Situação",x=>x.t.dados.status],
+    ["Na carteira",x=>naFoto.has(x.t.dados.chave)?"Sim":"Saiu"],["Histórico",x=>(x.t.dados.historico||[]).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${h.acao}${h.setor?" → "+setorPor(h.setor).nome:""}${h.nota?" — "+h.nota:""}`).join(" | ")]],linhas}]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HISTÓRICO — uma linha por importação
+// ═══════════════════════════════════════════════════════════════════
+function renderHistorico(c){
+  const lst=DIAS.slice().reverse();
+  c.innerHTML=`<section><header><h2>Histórico</h2><p>Cada importação vira uma foto. Abra qualquer dia para ver a carteira como estava.</p></header>
+    ${DIAS.length>=2?`<div class="box"><b>Evolução</b><div class="graf">${graficoLinhas([{nome:"Pedidos",cor:"#2E4A7A",v:DIAS.slice(-60).map(d=>(d.resumo||{}).pedidos||0)},
+      {nome:"Bloqueados",cor:"#C98A0B",v:DIAS.slice(-60).map(d=>(d.resumo||{}).bloqueados||0)},{nome:"Atrasados",cor:"#B83232",v:DIAS.slice(-60).map(d=>(d.resumo||{}).atrasados||0)}],DIAS.slice(-60).map(d=>dataBR(d.data).slice(0,5)))}</div></div>`:""}
+    <div class="tbl-wrap"><table><thead><tr><th>Dia</th><th class="num">Pedidos</th><th class="num">Itens</th><th class="num">Unidades</th><th class="num">Bloqueados</th><th class="num">Atrasados</th><th class="num">Sem data</th><th class="num">Entraram</th><th class="num">Saíram</th><th>Importado</th><th></th></tr></thead><tbody>${
+      lst.map(d=>{ const r=d.resumo||{}; return `<tr><td><b>${dataBR(d.data)}</b>${d.data===(FOTO_DATA)?' <span class="pill p-aco">aberto</span>':""}</td><td class="num">${int(r.pedidos)}</td><td class="num">${int(r.itens)}</td><td class="num">${int(r.unidades)}</td>
+        <td class="num">${int(r.bloqueados)}</td><td class="num">${int(r.atrasados)}</td><td class="num">${int(r.sem_data)}</td><td class="num">${d.primeira?"—":int((d.novos||[]).length)}</td><td class="num">${d.primeira?"—":int((d.sairam||[]).length)}</td>
+        <td>${dataHoraBR(d.importado_em)}<span class="sub">${esc(d.importado_por||"")}${d.substituiu?" · reimportado":""}</span></td><td><button type="button" class="peq" data-ver="${d.data}">Ver esta carteira</button></td></tr>`; }).join("")||'<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">Nenhuma importação ainda.</td></tr>'}</tbody></table></div></section>`;
+  c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=async()=>{ b.disabled=true; try{ const f=await carregarFoto(b.dataset.ver); FOTO=f; FOTO_DATA=b.dataset.ver; ir("painel"); }catch(e){ alert(e.message); b.disabled=false; } });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMPORTAR — as duas planilhas do BI → foto do dia
+// ═══════════════════════════════════════════════════════════════════
+const imp={itens:null,pedidos:null,data:hojeISO(),previa:null,fechar:true};
+async function receberArquivos(files){
+  for(const f of files){ try{ const linhas=tabelaDoHTML(await lerTexto(f)), tipo=tipoDaPlanilha(linhas);
+      if(!tipo){ toast(`⚠ ${esc(f.name)}: não reconheci as colunas (esperava a planilha de itens ou a de pedidos do BI).`); continue; }
+      imp[tipo]={nome:f.name,linhas,totais:linhas.totais||{}}; }catch(e){ toast(`⚠ ${esc(f.name)}: ${esc(e.message)}`); } }
+  imp.previa=null; render();
+}
+async function calcularPrevia(){
+  const m=montarFoto(imp.itens?imp.itens.linhas:[],imp.pedidos?imp.pedidos.linhas:[]);
+  const ant=DIAS.filter(d=>d.data<imp.data).pop(); let novosK=[], sairamK=[], primeira=!ant;
+  if(ant){ const f=FOTO_ATUAL&&FOTO_ATUAL.data===ant.data?FOTO_ATUAL.foto:await carregarFoto(ant.data);
+    const a=new Set(f.pedidos.map(p=>p.k)), b=new Set(m.pedidos.map(p=>p.k)); novosK=[...b].filter(k=>!a.has(k)); sairamK=[...a].filter(k=>!b.has(k)); }
+  imp.previa={...m,resumo:resumoDaFoto(m.pedidos),novos:novosK,sairam:sairamK,primeira,anterior:ant&&ant.data,
+    ambas:m.pedidos.filter(p=>p.fo==="ambas").length,soPed:m.pedidos.filter(p=>p.fo==="pedidos").length,soIt:m.pedidos.filter(p=>p.fo==="itens").length};
+}
+function renderImportar(c){
+  if(NIVEL<3){ c.innerHTML='<div class="aviso">Importar a carteira exige o perfil <b>Editar</b> no módulo Carteira.</div>'; return; }
+  const ex=DIAS.find(d=>d.data===imp.data), pv=imp.previa;
+  c.innerHTML=`<section><header><h2>Importar a carteira do dia</h2><p>Arraste as duas planilhas do BI (a de itens e a de pedidos). O sistema reconhece cada uma pelas colunas e une por loja + pedido.</p></header>
+    <div class="drop" id="drop" tabindex="0" role="button">⤒ <b>Arraste aqui</b> as duas planilhas (.xls do BI) — ou clique para escolher<input type="file" id="arqs" multiple accept=".xls,.xlsx,.htm,.html" hidden></div>
+    <div class="arq">${imp.itens?`✅ <b>Itens</b> · ${esc(imp.itens.nome)} · ${int(imp.itens.linhas.length)} linha(s)`:'<span class="muted">⬜ Planilha de <b>itens</b> (Filial, Filial Origem, Pedido, Item, Produto, Grupo, Local, QTD, Status, Status Pedido…)</span>'}</div>
+    <div class="arq">${imp.pedidos?`✅ <b>Pedidos</b> · ${esc(imp.pedidos.nome)} · ${int(imp.pedidos.linhas.length)} linha(s)`:'<span class="muted">⬜ Planilha de <b>pedidos</b> (Filial, Nome, Pedido, Itens PV, Agenda, Cidade, CEP, Tel, Cubagem, Valor…)</span>'}</div>
+    <div class="grade" style="max-width:520px;margin-top:12px"><label class="f">Data da carteira<input type="date" id="impData" value="${imp.data}"></label></div>
+    ${ex?`<p class="alerta">Já existe uma carteira de <b>${dataBR(imp.data)}</b> (importada ${dataHoraBR(ex.importado_em)} por ${esc(ex.importado_por||"—")}). Gravar de novo <b>substitui</b> a foto desse dia; as tratativas não são afetadas.</p>`:""}
+    <div class="acoes"><button type="button" id="impPrev" ${imp.itens||imp.pedidos?"":"disabled"}>Conferir antes de gravar</button>${imp.itens||imp.pedidos?'<button type="button" class="peq" id="impLimpar">Trocar arquivos</button>':""}<span class="msg" id="impMsg"></span></div>
+    <div id="impPv"></div></section>`;
+  const drop=$("#drop",c), inp=$("#arqs",c);
+  drop.onclick=()=>inp.click(); drop.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); inp.click(); } };
+  inp.onchange=()=>receberArquivos([...inp.files]);
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add("sobre"); }; drop.ondragleave=()=>drop.classList.remove("sobre");
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove("sobre"); receberArquivos([...e.dataTransfer.files]); };
+  $("#impData",c).onchange=e=>{ imp.data=e.target.value||hojeISO(); imp.previa=null; render(); };
+  const lp=$("#impLimpar",c); if(lp) lp.onclick=()=>{ imp.itens=imp.pedidos=imp.previa=null; render(); };
+  $("#impPrev",c).onclick=async()=>{ const b=$("#impPrev"); b.disabled=true; $("#impMsg").textContent="Unindo as planilhas…"; try{ await calcularPrevia(); render(); }catch(e){ $("#impMsg").className="msg erro"; $("#impMsg").textContent=e.message; b.disabled=false; } };
+  if(!pv) return;
+  const r=pv.resumo, abertasSaindo=pv.sairam.filter(k=>aberta(tratDe(k))).length;
+  $("#impPv",c).innerHTML=`<div class="box"><b style="font-size:16px">Conferência — carteira de ${dataBR(imp.data)}</b>
+    <div class="kpis"><div class="kpi k-azul"><span>Pedidos</span><b>${int(r.pedidos)}</b><small>${int(pv.ambas)} nas duas planilhas · ${int(pv.soPed)} só em pedidos · ${int(pv.soIt)} só em itens</small></div>
+      <div class="kpi"><span>Itens / unidades</span><b>${int(r.itens)}</b><small>${int(r.unidades)} unidades · ${moeda(r.valor)}</small></div>
+      <div class="kpi k-warn"><span>Bloqueados</span><b>${int(r.bloqueados)}</b><small>${int(r.bloq_atrasados)} bloqueados e atrasados</small></div>
+      <div class="kpi k-bad"><span>Atrasados</span><b>${int(r.atrasados)}</b><small>${int(r.sem_data)} sem data</small></div>
+      <div class="kpi k-roxo"><span>Comparado com ${pv.anterior?dataBR(pv.anterior):"—"}</span><b>${pv.primeira?"1ª foto":`+${int(pv.novos.length)} / −${int(pv.sairam.length)}`}</b><small>${pv.primeira?"ainda não há dia anterior para comparar":"entraram / saíram da carteira"}</small></div></div>
+    ${imp.itens&&imp.itens.totais.TOTAL!=null?(imp.itens.totais.TOTAL===r.itens?`<p class="aviso" style="background:var(--ok-soft)">✓ Confere com o total do BI: <b>${int(imp.itens.totais.TOTAL)}</b> itens${imp.itens.totais.BLOQUEADOS!=null?` · ${int(imp.itens.totais.BLOQUEADOS)} bloqueados`:""}${imp.itens.totais.LIBERADOS!=null?` · ${int(imp.itens.totais.LIBERADOS)} liberados`:""}.</p>`
+      :`<p class="alerta">⚠ O total do BI diz <b>${int(imp.itens.totais.TOTAL)}</b> itens, mas foram lidos <b>${int(r.itens)}</b>. Confira se a planilha veio completa.</p>`):""}
+    ${!imp.itens||!imp.pedidos?`<p class="alerta">Falta a planilha de <b>${!imp.itens?"itens":"pedidos"}</b>. Dá para gravar assim, mas a foto fica incompleta.</p>`:""}
+    ${pv.conflitos.length?`<p class="alerta">${pv.conflitos.length} pedido(s) repetido(s) na mesma loja dentro da planilha de pedidos — ficou a última linha: ${pv.conflitos.slice(0,10).map(esc).join(", ")}${pv.conflitos.length>10?"…":""}</p>`:""}
+    ${abertasSaindo?`<label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input type="checkbox" id="impFechar" ${imp.fechar?"checked":""} style="width:16px;height:16px"> Encerrar automaticamente as <b>${abertasSaindo}</b> pendência(s) abertas de pedidos que saíram da carteira</label>`:""}
+    <div class="acoes"><button type="button" class="primary" id="impGravar">✓ Gravar a carteira de ${dataBR(imp.data)}</button><span class="msg" id="impMsg2"></span></div></div>`;
+  const fx=$("#impFechar",c); if(fx) fx.onchange=()=>{ imp.fechar=fx.checked; };
+  $("#impGravar",c).onclick=async()=>{ const b=$("#impGravar"), m=$("#impMsg2");
+    if(ex&&!confirm(`Substituir a carteira de ${dataBR(imp.data)} que já está gravada?`)) return;
+    b.disabled=true; m.className="msg"; m.textContent="Compactando e gravando…";
+    try{
+      const foto={versao:1,data:imp.data,pedidos:pv.pedidos}, {partes,formato}=await compactar(foto);
+      const corta=a=>a.length>6000?a.slice(0,6000):a;
+      const meta={resumo:pv.resumo,novos:corta(pv.novos),sairam:corta(pv.sairam),primeira:pv.primeira,formato,
+        arquivos:{itens:imp.itens&&imp.itens.nome,pedidos:imp.pedidos&&imp.pedidos.nome},origem:{ambas:pv.ambas,so_pedidos:pv.soPed,so_itens:pv.soIt},conflitos:pv.conflitos.slice(0,200)};
+      setStatus("salvando");
+      await api(`${API}/dias/${imp.data}`,{method:"POST",body:JSON.stringify({meta,partes})});
+      const {j}=await api(`${API}/dias`); DIAS=j||[];
+      if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
+      let fechadas=0;
+      if(abertasSaindo&&imp.fechar) for(const k of pv.sairam){ const t=tratDe(k); if(!aberta(t)) continue;
+        try{ await gravarTratativa(pedidoDaTrat(t),{acao:"auto",nota:`Saiu da carteira na foto de ${dataBR(imp.data)}`}); fechadas++; }catch(_){} m.textContent=`Encerrando pendências… ${fechadas}`; }
+      setStatus("ok"); imp.itens=imp.pedidos=imp.previa=null; ir("painel");
+      toast(`✓ Carteira de ${dataBR(imp.data)} gravada (${int(pv.resumo.pedidos)} pedidos).${fechadas?` ${fechadas} pendência(s) encerrada(s) — pedidos saíram da carteira.`:""}`);
+    }catch(e){ setStatus("erro",e.message); m.className="msg erro"; m.textContent=e.message; b.disabled=false; } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONFIGURAR — setores e motivos
+// ═══════════════════════════════════════════════════════════════════
+function renderConfig(c){
+  if(NIVEL<3){ c.innerHTML='<div class="aviso">Configurar exige o perfil <b>Editar</b> no módulo Carteira.</div>'; return; }
+  const D=JSON.parse(JSON.stringify(cfg()));
+  c.innerHTML=`<section><header><h2>Configurar</h2><p>Setores que recebem pendências e os motivos de cada classificação. Cada motivo fica pendente com um setor.</p></header>
+    <div class="grade" style="max-width:640px"><label class="f">Atrasado = entrega em até (dias)<input type="number" min="0" id="cfDias" value="${esc(D.dias_alerta)}"></label>
+      <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label></div>
+    <h3>Setores</h3><div id="cfSet"></div><div class="acoes"><button type="button" class="peq" id="cfSetAdd">＋ Setor</button></div>
+    <h3>Motivos</h3><p class="cap">A <b>classificação</b> agrupa (ex.: Pendente compra); o <b>motivo</b> detalha; o <b>setor</b> é com quem fica a pendência; o <b>prazo</b> é quantos dias o setor tem antes de ficar “fora do prazo”.</p>
+    <datalist id="dlClasses">${[...new Set(D.motivos.map(m=>m.classe))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
+    <div id="cfMot"></div><div class="acoes"><button type="button" class="peq" id="cfMotAdd">＋ Motivo</button></div>
+    <div class="acoes"><button type="button" class="primary" id="cfSalvar">Salvar configuração</button><span class="msg" id="cfMsg"></span></div></section>`;
+  const desSet=()=>{ $("#cfSet").innerHTML=`<div class="tbl-wrap" style="max-width:640px"><table><thead><tr><th>Cor</th><th>Setor</th><th>Motivos</th><th></th></tr></thead><tbody>${D.setores.map((s,i)=>`<tr>
+      <td><input type="color" data-sc="${i}" value="${esc(s.cor)}" style="width:44px;padding:2px;height:30px"></td><td><input data-sn="${i}" value="${esc(s.nome)}"></td><td>${D.motivos.filter(m=>m.setor===s.id).length}</td>
+      <td><button type="button" class="peq warn" data-sd="${i}" title="Excluir">🗑</button></td></tr>`).join("")}</tbody></table></div>`;
+    $("#cfSet").querySelectorAll("[data-sn]").forEach(i=>i.oninput=()=>{ D.setores[+i.dataset.sn].nome=i.value; });
+    $("#cfSet").querySelectorAll("[data-sc]").forEach(i=>i.oninput=()=>{ D.setores[+i.dataset.sc].cor=i.value; });
+    $("#cfSet").querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{ const s=D.setores[+b.dataset.sd];
+      if(D.motivos.some(m=>m.setor===s.id)){ alert(`“${s.nome}” tem motivos ligados. Troque o setor desses motivos antes de excluir.`); return; }
+      if([...TRAT.values()].some(t=>aberta(t)&&t.dados.setor===s.id)){ alert(`“${s.nome}” tem pendências abertas. Resolva ou toque para outro setor antes.`); return; }
+      D.setores.splice(+b.dataset.sd,1); desSet(); desMot(); }); };
+  const desMot=()=>{ $("#cfMot").innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Classificação</th><th>Motivo</th><th>Fica pendente com</th><th>Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>${D.motivos.map((m,i)=>`<tr>
+      <td><input data-mc="${i}" list="dlClasses" value="${esc(m.classe)}"></td><td><input data-mm="${i}" value="${esc(m.motivo)}"></td>
+      <td><select data-ms="${i}">${D.setores.map(s=>`<option value="${s.id}"${s.id===m.setor?" selected":""}>${esc(s.nome)}</option>`).join("")}</select></td>
+      <td><input type="number" min="0" data-ml="${i}" value="${esc(m.sla??"")}" style="width:90px"></td><td><input type="checkbox" data-ma="${i}" ${m.ativo!==false?"checked":""}></td>
+      <td><button type="button" class="peq warn" data-md="${i}" title="Excluir">🗑</button></td></tr>`).join("")}</tbody></table></div>`;
+    const lig=(sel,k,conv)=>$("#cfMot").querySelectorAll(`[${sel}]`).forEach(i=>i[i.type==="checkbox"||i.tagName==="SELECT"?"onchange":"oninput"]=()=>{ D.motivos[+i.getAttribute(sel)][k]=conv?conv(i):i.value; });
+    lig("data-mc","classe"); lig("data-mm","motivo"); lig("data-ms","setor"); lig("data-ml","sla",i=>Number(i.value)||0); lig("data-ma","ativo",i=>i.checked);
+    $("#cfMot").querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{ const m=D.motivos[+b.dataset.md];
+      if([...TRAT.values()].some(t=>aberta(t)&&t.dados.motivo_id===m.id)){ alert("Há pendências abertas com este motivo — desative em vez de excluir."); return; }
+      D.motivos.splice(+b.dataset.md,1); desMot(); }); };
+  desSet(); desMot();
+  $("#cfSetAdd",c).onclick=()=>{ D.setores.push({id:uid(),nome:"Novo setor",cor:CORES[D.setores.length%CORES.length]}); desSet(); desMot(); };
+  $("#cfMotAdd",c).onclick=()=>{ D.motivos.push({id:uid(),classe:"",motivo:"",setor:(D.setores[0]||{}).id,sla:3,ativo:true}); desMot(); };
+  $("#cfSalvar",c).onclick=async()=>{ const m=$("#cfMsg");
+    D.dias_alerta=Number($("#cfDias").value)||4; D.ano_ficticio=Number($("#cfAno").value)||2030;
+    D.setores=D.setores.filter(s=>tx(s.nome)).map(s=>({...s,nome:tx(s.nome)})); D.motivos=D.motivos.filter(x=>tx(x.motivo)).map(x=>({...x,classe:tx(x.classe)||"Outros",motivo:tx(x.motivo)}));
+    try{ await salvarConfig(D); m.className="msg ok"; m.textContent="✓ Configuração salva."; render(); toast("✓ Configuração salva."); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXCEL
+// ═══════════════════════════════════════════════════════════════════
+let _xl=null;
+function excelJS(){ if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(!_xl) _xl=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"; s.onload=()=>res(window.ExcelJS); s.onerror=()=>{ _xl=null; rej(new Error("não consegui carregar a biblioteca de Excel (sem internet?)")); }; document.head.appendChild(s); });
+  return _xl; }
+async function exportarXlsx(nome,abas){
+  try{ const X=await excelJS(), wb=new X.Workbook();
+    abas.forEach(a=>{ const ws=wb.addWorksheet(a.nome.slice(0,31)); ws.addRow(a.cols.map(c=>c[0]));
+      ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
+      a.linhas.forEach(l=>ws.addRow(a.cols.map(c=>c[1](l))));
+      a.cols.forEach((c,i)=>ws.getColumn(i+1).width=Math.max(10,Math.min(48,c[0].length+6))); ws.views=[{state:"frozen",ySplit:1}];
+      if(a.linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:a.cols.length}}; });
+    baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`${nome}_${FOTO_DATA||hojeISO()}.xlsx`);
+  }catch(e){ alert(e.message); } }
+function exportarCarteira(lst){
+  const tr=p=>tratDe(p.k), ab=p=>aberta(tr(p));
+  exportarXlsx("carteira",[{nome:"Pedidos",cols:[["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Cliente",p=>p.n],["Código",p=>p.c],["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],
+      ["Prazo",p=>prazo(p).rot],["Bloqueado",p=>bloqueado(p)?"Sim":"Não"],["Status",p=>p.st],["Status do pedido",p=>p.sp],["Tipo",p=>p.tp],["Agenda",p=>p.ag],["Cidade",p=>p.ci],["Bairro",p=>p.ba],["CEP",p=>p.cep],
+      ["Telefones",p=>p.t.join(" / ")],["Itens",p=>p.it.length||p.ipv],["Qtd",p=>qtdTotal(p)],["Valor",p=>p.v],["Cubagem",p=>p.cu],["Observações",p=>p.ob],
+      ["Classificação",p=>ab(p)?tr(p).dados.classe:""],["Motivo",p=>ab(p)?tr(p).dados.motivo:""],["Pendente com",p=>ab(p)?setorPor(tr(p).dados.setor).nome:""],["Dias com o setor",p=>ab(p)?diasComSetor(tr(p)):""]],linhas:lst},
+    {nome:"Itens",cols:[["Loja",x=>x.p.l],["Pedido",x=>x.p.p],["Cliente",x=>x.p.n],["Item",x=>x.i[IT.item]],["Produto",x=>x.i[IT.prod]],["Descrição",x=>x.i[IT.desc]],["Grupo",x=>x.i[IT.grupo]],["Local",x=>x.i[IT.local]],
+      ["Qtd",x=>x.i[IT.qtd]],["Total",x=>x.i[IT.total]],["Status",x=>x.i[IT.st]],["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Prazo",x=>prazo(x.p).rot]],linhas:lst.flatMap(p=>p.it.map(i=>({p,i})))}]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INÍCIO
+// ═══════════════════════════════════════════════════════════════════
+async function iniciar(){
+  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; } }catch(_){}
+  try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||"";
+      const deps=u.departamentos||[];
+      if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
+  $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
+  try{
+    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas()]);
+    CFG=cf.j&&cf.j.id?cf.j:null; CFG_DADOS=cfg(); DIAS=dias.j||[];
+    if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; }
+    else if(NIVEL>=3) secao="importar";
+    setStatus("ok"); render();
+  }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
+    $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar a carteira.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
+}
+iniciar();
+</script>
+</body>
+</html>
