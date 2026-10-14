@@ -24,6 +24,14 @@ MODULOS = [
         "apis": ["/api/atividades", "/api/acoes", "/api/kpis", "/api/upload", "/api/arquivos", "/api/diario"],
     },
     {
+        "id": "carteira",
+        "nome": "Carteira de Encomendas",
+        "descricao": "Carteira do dia (BI Pedidos em Aberto + PV Abertos): prazos, bloqueados, itens e pendências por setor (Compras, CX, Logística…).",
+        "url": "/carteira", "icone": "📦", "tipo": "nuvem",
+        "paginas": ["/carteira"],
+        "apis": ["/api/carteira"],
+    },
+    {
         "id": "rg",
         "nome": "RG do Pedido — Acompanhamento",
         "descricao": "Rastreabilidade do item do pedido origem ao reenvio: cronograma, cenários de teste e GAPs.",
@@ -97,13 +105,13 @@ MODULO_ADMIN = {
 # ──────────────────────────────────────────────────────────────────────────
 PERFIS_PADRAO = [
     {"id": "gestor", "nome": "Gestor", "descricao": "Edita tudo nos sistemas da área.",
-     "niveis": {"diario": 3, "rg": 1, "diagnostico": 3, "mapa": 3, "organograma": 3}},
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 3, "mapa": 3, "organograma": 3, "carteira": 3}},
     {"id": "analista", "nome": "Analista", "descricao": "Edita o Diário; adiciona no Diagnóstico e no Mapa; consulta o Organograma.",
-     "niveis": {"diario": 3, "rg": 1, "diagnostico": 2, "mapa": 2, "organograma": 1}},
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 2, "mapa": 2, "organograma": 1, "carteira": 2}},
     {"id": "colaborador", "nome": "Colaborador", "descricao": "Adiciona demandas e registros, sem alterar os existentes.",
-     "niveis": {"diario": 2, "diagnostico": 2, "mapa": 1, "organograma": 1}},
+     "niveis": {"diario": 2, "diagnostico": 2, "mapa": 1, "organograma": 1, "carteira": 2}},
     {"id": "leitura", "nome": "Somente leitura", "descricao": "Consulta os sistemas da área, sem gravar nada.",
-     "niveis": {"diario": 1, "rg": 1, "diagnostico": 1, "mapa": 1, "organograma": 1}},
+     "niveis": {"diario": 1, "rg": 1, "diagnostico": 1, "mapa": 1, "organograma": 1, "carteira": 1}},
 ]
 
 PAPEIS = {
