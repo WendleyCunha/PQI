@@ -1318,6 +1318,37 @@ def cart_dia_excluir(data: str, request: Request):
     return {"ok": True, "excluido": data, "por": _nome_de(request)}
 
 
+_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}")
+
+
+def _reserva_de_outro(chave: str, request: Request) -> Optional[dict]:
+    r = db.cart_reserva_ativa(chave) if _CHAVE_PEDIDO.fullmatch(chave or "") else None
+    return r if r and (r.get("email") or "").lower() != _email(request).lower() else None
+
+
+@app.get("/api/carteira/reservas")
+def cart_reservas(request: Request):
+    return db.cart_reservas_ativas()
+
+
+@app.post("/api/carteira/reservas/{chave}")
+def cart_reservar(chave: str, request: Request):
+    """[v4.4] Pega o pedido para si. 409 se outra pessoa já está com ele."""
+    if not _CHAVE_PEDIDO.fullmatch(chave):
+        raise HTTPException(status_code=400, detail="Pedido inválido.")
+    ok, reg = db.cart_reservar(chave, _nome_de(request), _email(request))
+    if not ok:
+        return JSONResponse({"detail": f"Este pedido já está sendo tratado por {reg.get('por') or reg.get('email')}.", "reserva": reg}, status_code=409)
+    return reg
+
+
+@app.post("/api/carteira/reservas/{chave}/liberar")
+def cart_liberar(chave: str, request: Request):
+    if not _CHAVE_PEDIDO.fullmatch(chave):
+        raise HTTPException(status_code=400, detail="Pedido inválido.")
+    return {"liberado": db.cart_liberar(chave, _email(request), usuario_atual(request).get("papel") == "admin")}
+
+
 @app.get("/api/carteira/tratativas")
 def cart_tratativas(request: Request):
     return db.docs_listar(db.COLECAO_CART_TRATATIVAS)
@@ -1328,7 +1359,12 @@ def cart_tratativa_criar(payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict) or not payload.dados.get("chave"):
         raise HTTPException(status_code=400, detail="Tratativa inválida.")
     _checar_tamanho(payload.dados)
-    return db.docs_criar(db.COLECAO_CART_TRATATIVAS, payload.dados, _nome_de(request), _email(request))
+    outro = _reserva_de_outro(payload.dados["chave"], request)
+    if outro:
+        raise HTTPException(status_code=423, detail=f"Este pedido está sendo tratado por {outro.get('por') or outro.get('email')}.")
+    reg = db.docs_criar(db.COLECAO_CART_TRATATIVAS, payload.dados, _nome_de(request), _email(request))
+    db.cart_liberar(payload.dados["chave"], _email(request))   # classificou: devolve o pedido
+    return reg
 
 
 @app.put("/api/carteira/tratativas/{item_id}")
@@ -1336,6 +1372,9 @@ def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Tratativa inválida.")
     _checar_tamanho(payload.dados)
+    outro = _reserva_de_outro(payload.dados.get("chave") or "", request)
+    if outro:
+        raise HTTPException(status_code=423, detail=f"Este pedido está sendo tratado por {outro.get('por') or outro.get('email')}.")
     resultado, registro = db.docs_salvar(db.COLECAO_CART_TRATATIVAS, item_id, payload.dados, payload.versao, _nome_de(request))
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Tratativa não encontrada.")
