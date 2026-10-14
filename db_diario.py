@@ -684,31 +684,46 @@ def cart_dias_listar() -> list[dict]:
     return saida
 
 
+def _cart_id_parte(data: str, envio: str, i: int) -> str:
+    return f"{data}__{envio}__{i}" if envio else f"{data}__{i}"
+
+
 def cart_dia_ler(data: str) -> Optional[dict]:
     db_ = get_db()
     snap = db_.collection(COLECAO_CART_DIAS).document(data).get(timeout=TIMEOUT_FS)
     if not snap.exists:
         return None
     meta = snap.to_dict() or {}
+    envio = meta.get("envio") or ""
     partes = []
     for i in range(int(meta.get("partes") or 0)):
-        ps = db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").get(timeout=TIMEOUT_FS)
+        ps = db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, envio, i)).get(timeout=TIMEOUT_FS)
         partes.append((ps.to_dict() or {}).get("conteudo", "") if ps.exists else "")
     meta["data"] = data
     return {"meta": meta, "partes": partes}
 
 
-def cart_dia_salvar(data: str, meta: dict, partes: list[str], usuario: str, email: str) -> dict:
+# [v4.1] envio em pedaços: cada parte chega numa requisição pequena, com um
+# "envio" próprio; a foto só passa a valer no fechamento (cart_dia_fechar).
+# Se o envio cair no meio, a foto anterior do dia continua intacta.
+def cart_parte_salvar(data: str, envio: str, i: int, conteudo: str) -> None:
+    get_db().collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, envio, i)).set(
+        {"data": data, "envio": envio, "ordem": i, "conteudo": conteudo, "criado_em": _now_iso()})
+
+
+def cart_dia_fechar(data: str, meta: dict, envio: str, n: int, usuario: str, email: str) -> dict:
     db_ = get_db()
+    for i in range(n):   # confere se todas as partes chegaram antes de trocar a foto
+        if not db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, envio, i)).get(timeout=TIMEOUT_FS).exists:
+            raise ValueError(f"A parte {i + 1} de {n} não chegou ao servidor. Envie de novo.")
     ref = db_.collection(COLECAO_CART_DIAS).document(data)
     antigo = ref.get(timeout=TIMEOUT_FS)
-    n_antigo = int((antigo.to_dict() or {}).get("partes") or 0) if antigo.exists else 0
-    for i, conteudo in enumerate(partes):
-        db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").set({"data": data, "ordem": i, "conteudo": conteudo})
-    for i in range(len(partes), n_antigo):   # foto anterior tinha mais partes: apaga as que sobraram
-        db_.collection(COLECAO_CART_PARTES).document(f"{data}__{i}").delete()
-    registro = {**meta, "partes": len(partes), "importado_por": usuario, "importado_por_email": email,
+    velho = antigo.to_dict() or {} if antigo.exists else {}
+    registro = {**meta, "partes": n, "envio": envio, "importado_por": usuario, "importado_por_email": email,
                 "importado_em": _now_iso(), "substituiu": bool(antigo.exists)}
     ref.set(registro)
+    if antigo.exists and (velho.get("envio") or "") != envio:   # apaga as partes da foto substituída
+        for i in range(int(velho.get("partes") or 0)):
+            db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, velho.get("envio") or "", i)).delete()
     registro["data"] = data
     return registro
