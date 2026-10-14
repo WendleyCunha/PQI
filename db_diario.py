@@ -741,3 +741,62 @@ def cart_dia_excluir(data: str) -> bool:
         db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, meta.get("envio") or "", i)).delete()
     ref.delete()
     return True
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.4] RESERVA DE PEDIDO NA TRIAGEM — um pedido nunca fica com duas pessoas.
+# Quem abre o pedido "pega" a reserva (transação: só pega se estiver livre,
+# vencida ou já for sua). A reserva vence sozinha depois de alguns minutos sem
+# atividade, para nada ficar travado se alguém fechar a tela.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_CART_RESERVAS = "carteira_reservas"
+RESERVA_MINUTOS = 20
+
+
+def _agora_utc():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def cart_reservar(chave: str, nome: str, email: str) -> tuple:
+    db_ = get_db()
+    ref = db_.collection(COLECAO_CART_RESERVAS).document(chave)
+    agora = _agora_utc()
+
+    @firestore.transactional
+    def _tx(t):
+        snap = ref.get(transaction=t)
+        if snap.exists:
+            d = snap.to_dict() or {}
+            if (d.get("email") or "").lower() != email.lower() and str(d.get("expira") or "") > agora.isoformat():
+                return False, d
+        novo = {"chave": chave, "por": nome, "email": email, "em": agora.isoformat(),
+                "expira": (agora + datetime.timedelta(minutes=RESERVA_MINUTOS)).isoformat()}
+        t.set(ref, novo)
+        return True, novo
+
+    return _tx(db_.transaction())
+
+
+def cart_reserva_ativa(chave: str) -> Optional[dict]:
+    snap = get_db().collection(COLECAO_CART_RESERVAS).document(chave).get(timeout=TIMEOUT_FS)
+    if not snap.exists:
+        return None
+    d = snap.to_dict() or {}
+    return d if str(d.get("expira") or "") > _agora_utc().isoformat() else None
+
+
+def cart_reservas_ativas() -> list[dict]:
+    agora = _agora_utc().isoformat()
+    return [d for d in (doc.to_dict() or {} for doc in get_db().collection(COLECAO_CART_RESERVAS).stream(timeout=TIMEOUT_FS))
+            if str(d.get("expira") or "") > agora]
+
+
+def cart_liberar(chave: str, email: str, admin: bool = False) -> bool:
+    ref = get_db().collection(COLECAO_CART_RESERVAS).document(chave)
+    snap = ref.get(timeout=TIMEOUT_FS)
+    if not snap.exists:
+        return False
+    if admin or (snap.to_dict() or {}).get("email", "").lower() == email.lower():
+        ref.delete()
+        return True
+    return False
