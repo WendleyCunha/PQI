@@ -822,9 +822,7 @@ function renderFilas(c){
   const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"normal",()=>render());
   $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
     try{ await gravarTratativa(pedidoDaTrat(TRAT.get(b.dataset.res)),{acao:"resolver",nota}); render(); toast("✓ Resolvida."); }catch(e){ alert(e.message); } });
-  $("#flXls",c).onclick=()=>exportarXlsx("pendencias_por_setor",[{nome:"Pendências",cols:[["Loja",x=>x.t.dados.loja],["Pedido",x=>x.t.dados.pedido],["Cliente",x=>x.t.dados.cliente],["Entrega",x=>x.p.en?dataBR(x.p.en):""],
-    ["Classificação",x=>x.t.dados.classe],["Motivo",x=>x.t.dados.motivo],["Setor(es)",x=>setoresDe(x.t).map(i=>setorPor(i).nome).join(" + ")],["Dias com o setor",x=>diasComSetor(x.t)],["Situação",x=>x.t.dados.status],
-    ["Na carteira",x=>naFoto.has(x.t.dados.chave)?"Sim":"Saiu"],["Histórico",x=>(x.t.dados.historico||[]).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${h.acao}${h.setor?" → "+setorPor(h.setor).nome:""}${h.nota?" — "+h.nota:""}`).join(" | ")]],linhas}]);
+  $("#flXls",c).onclick=()=>exportarRelatorio(`pendencias_${estFila.setor==="__todos"?"todos_setores":nrm(setorPor(estFila.setor).nome).replace(/\W+/g,"_")}`,linhas.map(x=>x.p));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1091,16 +1089,49 @@ async function exportarXlsx(nome,abas){
       if(a.linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:a.cols.length}}; });
     baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`${nome}_${FOTO_DATA||hojeISO()}.xlsx`);
   }catch(e){ alert(e.message); } }
-function exportarCarteira(lst){
-  const tr=p=>tratDe(p.k), ab=p=>aberta(tr(p));
-  exportarXlsx("carteira",[{nome:"Pedidos",cols:[["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Cliente",p=>p.n],["Código do cliente",p=>p.c],["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],
-      ["Prazo",p=>prazo(p).rot],["Bloqueado",p=>bloqueado(p)?"Sim":"Não"],["Qtd Bloq",p=>temQtdBloq(p)?p.qb:""],["Status (ajustado)",p=>statusReal(p)],["Status (planilha)",p=>p.st],
-      ["Status do pedido (ajustado)",p=>situacao(p)],["Status Pedido (coluna Q)",p=>p.sp],["Analisado",p=>analisado(p.k)?"Sim":"Não"],["Tipo",p=>p.tp],["Agenda",p=>p.ag],["Cidade",p=>p.ci],["Bairro",p=>p.ba],["CEP",p=>p.cep],
-      ["Telefones",p=>p.t.join(" / ")],["Itens",p=>p.it.length||p.ipv],["Qtd",p=>qtdTotal(p)],["Valor",p=>p.v],["Cubagem",p=>p.cu],["Observações",p=>p.ob],
-      ["Classificação",p=>ab(p)?tr(p).dados.classe:""],["Motivo",p=>ab(p)?tr(p).dados.motivo:""],["Pendente com",p=>ab(p)?setoresDe(tr(p)).map(i=>setorPor(i).nome).join(" + "):""],["Dias com o setor",p=>ab(p)?diasComSetor(tr(p)):""]],linhas:lst},
-    {nome:"Itens",cols:[["Loja",x=>x.p.l],["Pedido",x=>x.p.p],["Cliente",x=>x.p.n],["Item",x=>x.i[IT.item]],["Produto",x=>x.i[IT.prod]],["Descrição",x=>x.i[IT.desc]],["Grupo",x=>x.i[IT.grupo]],["Local",x=>x.i[IT.local]],
-      ["Qtd",x=>x.i[IT.qtd]],["Total",x=>x.i[IT.total]],["Status",x=>x.i[IT.st]],["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Prazo",x=>prazo(x.p).rot]],linhas:lst.flatMap(p=>p.it.map(i=>({p,i})))}]);
+function exportarCarteira(lst){ return exportarRelatorio("carteira",lst); }
+
+// ═══════════════════════════════════════════════════════════════════
+// [v4.6] RELATÓRIO COMPLETO — as duas planilhas do BI unidas + tudo o
+// que foi digitado no sistema. Aba "Itens": uma linha por peça pendente
+// (pedido sem item na planilha de itens sai numa linha só). Aba "Pedidos":
+// uma linha por pedido. Aba "Histórico": cada movimentação da tratativa.
+// ═══════════════════════════════════════════════════════════════════
+function foraDeLinha(i){ const g=nrm(i[IT.grupo]); return g.startsWith("9999")||g.includes("fora de linha"); }
+function colunasPedido(){
+  const tr=p=>tratDe(p.k), d=p=>(tr(p)||{}).dados||{}, hist=p=>d(p).historico||[], ult=(p,f)=>{ const h=[...hist(p)].reverse().find(f); return h; };
+  const naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(x=>x.k));
+  return [
+    ["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Código do cliente",p=>p.c],["Cliente",p=>p.n],
+    ["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],["Prazo",p=>p.fora?"":prazo(p).rot],["Etapa da triagem",p=>p.fora?"":({vencidos:"1ª · Vencido",emdia:"2ª · Em dia",semdata:"Sem data"})[etapaDe(p)]],
+    ["Bloqueado",p=>p.fora?"":bloqueado(p)?"Sim":"Não"],["Qtd Bloq (col. L)",p=>temQtdBloq(p)?p.qb:""],["Status (ajustado)",p=>p.fora?"":statusReal(p)],["Status (planilha, col. J)",p=>p.st],
+    ["Status do pedido (ajustado)",p=>p.fora?(d(p).situacao||""):situacao(p)],["Status Pedido (col. Q)",p=>p.sp],["Tipo do pedido",p=>p.tp],["Agenda",p=>p.ag],
+    ["Cidade",p=>p.ci],["Bairro",p=>p.ba],["CEP",p=>p.cep],["Telefone 1",p=>p.t[0]||""],["Telefone 2",p=>p.t[1]||""],["Telefone 3",p=>p.t[2]||""],
+    ["Observações",p=>p.ob],["Desp. aces.",p=>p.de],["Cubagem",p=>p.cu||""],["Valor do pedido",p=>p.v||""],["Itens PV",p=>p.ipv||""],["Qtd PV",p=>p.qpv||""],
+    ["Origem dos dados",p=>p.fora?"fora da carteira atual":({ambas:"as duas planilhas",pedidos:"só planilha de pedidos",itens:"só planilha de itens"})[p.fo]||""],
+    ["Na carteira atual",p=>naFoto.has(p.k)?"Sim":"Saiu"],
+    ["Analisado",p=>tr(p)?"Sim":"Não"],["Situação da tratativa",p=>({aberta:"Aberta",resolvida:"Resolvida",ok:"Analisado — sem pendência"})[d(p).status]||""],
+    ["Classificação",p=>d(p).classe||""],["Motivo(s)",p=>d(p).motivo||""],["Setor(es)",p=>setoresDe(tr(p)).map(i=>setorPor(i).nome).join(" + ")],
+    ["Dias com o setor",p=>aberta(tr(p))?diasComSetor(tr(p)):""],["Fora do prazo do setor",p=>aberta(tr(p))&&foraDoPrazo(tr(p))?`Sim (prazo ${foraDoPrazo(tr(p))} d)`:""],
+    ["Aberta em",p=>d(p).aberta_em?dataHoraBR(d(p).aberta_em):""],["Classificado por",p=>(hist(p).find(h=>h.acao==="classificar"||h.acao==="ok")||{}).por||""],
+    ["Última nota",p=>(ult(p,h=>h.nota)||{}).nota||""],["Última movimentação",p=>{ const h=hist(p)[hist(p).length-1]; return h?`${dataHoraBR(h.em)} · ${h.por||""}`:""; }],
+    ["Resolvida em",p=>d(p).resolvida_em?dataHoraBR(d(p).resolvida_em):""],["Em análise agora por",p=>{ const r=RESERVAS.get(p.k); return r&&String(r.expira)>new Date().toISOString()?(r.por||r.email):""; }],
+    ["Histórico",p=>hist(p).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${textoHist(h).replace(/<[^>]+>/g,"")}${h.nota?` — “${h.nota}”`:""}`).join(" | ")]];
 }
+const COLS_ITEM=[["Item",x=>x.i?x.i[IT.item]:""],["Produto",x=>x.i?x.i[IT.prod]:""],["Descrição da peça",x=>x.i?x.i[IT.desc]:""],["Grupo do produto",x=>x.i?x.i[IT.grupo]:""],
+  ["Fora de linha",x=>x.i?(foraDeLinha(x.i)?"Sim":"Não"):""],["Local",x=>x.i?x.i[IT.local]:""],["Qtd do item",x=>x.i?x.i[IT.qtd]:""],["Total do item",x=>x.i?x.i[IT.total]:""],["Status do item",x=>x.i?x.i[IT.st]:""]];
+function linhasRelatorio(lst){
+  const cp=colunasPedido(), POS=5;   // as colunas da peça entram logo depois do cliente
+  const colsItens=[...cp.slice(0,POS).map(([r,f])=>[r,x=>f(x.p)]),...COLS_ITEM,...cp.slice(POS).map(([r,f])=>[r,x=>f(x.p)])];
+  const itens=lst.flatMap(p=>p.it.length?p.it.map(i=>({p,i})):[{p,i:null}]);
+  const hist=lst.flatMap(p=>{ const t=tratDe(p.k); return t?(t.dados.historico||[]).map(h=>({p,h})):[]; });
+  return [
+    {nome:"Itens",cols:colsItens,linhas:itens},
+    {nome:"Pedidos",cols:[...cp.slice(0,POS),["Itens na planilha",p=>p.it.length],["Peças",p=>p.it.map(i=>`${i[IT.qtd]}x ${i[IT.desc]}`).join(" | ")],["Qtd total",p=>qtdTotal(p)],["Itens bloqueados",p=>p.it.filter(i=>nrm(i[IT.st])==="bloqueado").length],["Tem item fora de linha",p=>p.it.some(foraDeLinha)?"Sim":"Não"],...cp.slice(POS)],linhas:lst},
+    {nome:"Histórico",cols:[["Loja",x=>x.p.l],["Pedido",x=>x.p.p],["Código do cliente",x=>x.p.c],["Cliente",x=>x.p.n],["Data e hora",x=>dataHoraBR(x.h.em)],["Por",x=>x.h.por||""],
+      ["Ação",x=>textoHist(x.h).replace(/<[^>]+>/g,"")],["Setor(es)",x=>(x.h.setores||(x.h.setor?[x.h.setor]:[])).map(i=>setorPor(i).nome).join(" + ")],["Classificação",x=>x.h.classe||""],["Motivo",x=>x.h.motivo||""],["Nota",x=>x.h.nota||""]],linhas:hist}];
+}
+function exportarRelatorio(nome,lst){ if(!lst.length) return alert("Nada para exportar com esses filtros."); return exportarXlsx(nome,linhasRelatorio(lst)); }
 
 // ═══════════════════════════════════════════════════════════════════
 // INÍCIO
