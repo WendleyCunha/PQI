@@ -1245,7 +1245,13 @@ def dg_excluir(item_id: str, request: Request):
 # ──────────────────────────────────────────────────────────────────────────
 class CarteiraDia(BaseModel):
     meta: dict
-    partes: list[str]
+    envio: str
+    n: int
+
+
+class CarteiraParte(BaseModel):
+    envio: str
+    conteudo: str
 
 
 def _exigir_editar_carteira(request: Request) -> None:
@@ -1268,16 +1274,35 @@ def cart_dia(data: str, request: Request):
     return r
 
 
+def _validar_data_envio(data: str, envio: str) -> None:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data):
+        raise HTTPException(status_code=400, detail="Data inválida.")
+    if not re.fullmatch(r"[a-z0-9]{6,24}", envio or ""):
+        raise HTTPException(status_code=400, detail="Identificador de envio inválido.")
+
+
+@app.post("/api/carteira/dias/{data}/partes/{ordem}")
+def cart_parte_gravar(data: str, ordem: int, payload: CarteiraParte, request: Request):
+    _exigir_editar_carteira(request)
+    _validar_data_envio(data, payload.envio)
+    if not 0 <= ordem < 60 or not payload.conteudo or len(payload.conteudo) > 300_000:
+        raise HTTPException(status_code=400, detail="Parte da carteira com tamanho inválido.")
+    db.cart_parte_salvar(data, payload.envio, ordem, payload.conteudo)
+    return {"ok": True}
+
+
 @app.post("/api/carteira/dias/{data}")
 def cart_dia_gravar(data: str, payload: CarteiraDia, request: Request):
     _exigir_editar_carteira(request)
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data):
-        raise HTTPException(status_code=400, detail="Data inválida.")
-    if not payload.partes or len(payload.partes) > 20 or any(len(x) > 900_000 for x in payload.partes):
-        raise HTTPException(status_code=400, detail="Foto da carteira com tamanho inválido.")
+    _validar_data_envio(data, payload.envio)
+    if not 1 <= payload.n <= 60:
+        raise HTTPException(status_code=400, detail="Número de partes inválido.")
     if len(json.dumps(payload.meta, ensure_ascii=False)) > 200_000:
         raise HTTPException(status_code=400, detail="Resumo do dia grande demais.")
-    return db.cart_dia_salvar(data, payload.meta, payload.partes, _nome_de(request), _email(request))
+    try:
+        return db.cart_dia_fechar(data, payload.meta, payload.envio, payload.n, _nome_de(request), _email(request))
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @app.get("/api/carteira/tratativas")
