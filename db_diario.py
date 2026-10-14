@@ -727,3 +727,17 @@ def cart_dia_fechar(data: str, meta: dict, envio: str, n: int, usuario: str, ema
             db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, velho.get("envio") or "", i)).delete()
     registro["data"] = data
     return registro
+
+
+def cart_dia_excluir(data: str) -> bool:
+    """[v4.2] Apaga a foto de um dia (meta + partes). Só o administrador chega aqui."""
+    db_ = get_db()
+    ref = db_.collection(COLECAO_CART_DIAS).document(data)
+    snap = ref.get(timeout=TIMEOUT_FS)
+    if not snap.exists:
+        return False
+    meta = snap.to_dict() or {}
+    for i in range(int(meta.get("partes") or 0)):
+        db_.collection(COLECAO_CART_PARTES).document(_cart_id_parte(data, meta.get("envio") or "", i)).delete()
+    ref.delete()
+    return True
