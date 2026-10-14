@@ -1235,6 +1235,103 @@ def dg_excluir(item_id: str, request: Request):
     return {"sucesso": True}
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.0] CARTEIRA DE ENCOMENDAS
+#  · fotos do dia: a página lê as planilhas do BI, une por loja+pedido e envia
+#    a foto compactada; o servidor só guarda (não conhece os campos)
+#  · tratativas: classificação do pedido → motivo → setor responsável
+#  · config: setores e motivos
+# Importar e configurar exigem perfil "Editar" no módulo; classificar, "Adicionar".
+# ──────────────────────────────────────────────────────────────────────────
+class CarteiraDia(BaseModel):
+    meta: dict
+    partes: list[str]
+
+
+def _exigir_editar_carteira(request: Request) -> None:
+    if _niveis(usuario_atual(request)).get("carteira", 0) < 3:
+        raise HTTPException(status_code=403, detail="Importar a carteira e mudar as configurações exige o perfil “Editar” no módulo Carteira.")
+
+
+@app.get("/api/carteira/dias")
+def cart_dias(request: Request):
+    return db.cart_dias_listar()
+
+
+@app.get("/api/carteira/dias/{data}")
+def cart_dia(data: str, request: Request):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data):
+        raise HTTPException(status_code=400, detail="Data inválida.")
+    r = db.cart_dia_ler(data)
+    if r is None:
+        raise HTTPException(status_code=404, detail="Não há carteira importada nesse dia.")
+    return r
+
+
+@app.post("/api/carteira/dias/{data}")
+def cart_dia_gravar(data: str, payload: CarteiraDia, request: Request):
+    _exigir_editar_carteira(request)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data):
+        raise HTTPException(status_code=400, detail="Data inválida.")
+    if not payload.partes or len(payload.partes) > 20 or any(len(x) > 900_000 for x in payload.partes):
+        raise HTTPException(status_code=400, detail="Foto da carteira com tamanho inválido.")
+    if len(json.dumps(payload.meta, ensure_ascii=False)) > 200_000:
+        raise HTTPException(status_code=400, detail="Resumo do dia grande demais.")
+    return db.cart_dia_salvar(data, payload.meta, payload.partes, _nome_de(request), _email(request))
+
+
+@app.get("/api/carteira/tratativas")
+def cart_tratativas(request: Request):
+    return db.docs_listar(db.COLECAO_CART_TRATATIVAS)
+
+
+@app.post("/api/carteira/tratativas")
+def cart_tratativa_criar(payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict) or not payload.dados.get("chave"):
+        raise HTTPException(status_code=400, detail="Tratativa inválida.")
+    _checar_tamanho(payload.dados)
+    return db.docs_criar(db.COLECAO_CART_TRATATIVAS, payload.dados, _nome_de(request), _email(request))
+
+
+@app.put("/api/carteira/tratativas/{item_id}")
+def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Tratativa inválida.")
+    _checar_tamanho(payload.dados)
+    resultado, registro = db.docs_salvar(db.COLECAO_CART_TRATATIVAS, item_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Tratativa não encontrada.")
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    return registro
+
+
+@app.get("/api/carteira/config")
+def cart_config(request: Request):
+    lst = db.docs_listar(db.COLECAO_CART_CONFIG)
+    return lst[0] if lst else None
+
+
+@app.post("/api/carteira/config")
+def cart_config_criar(payload: ProcessoEntrada, request: Request):
+    _exigir_editar_carteira(request)
+    if db.docs_listar(db.COLECAO_CART_CONFIG):
+        raise HTTPException(status_code=409, detail="A configuração já existe — atualize em vez de criar.")
+    return db.docs_criar(db.COLECAO_CART_CONFIG, payload.dados or {}, _nome_de(request), _email(request))
+
+
+@app.put("/api/carteira/config/{item_id}")
+def cart_config_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
+    _exigir_editar_carteira(request)
+    _checar_tamanho(payload.dados)
+    resultado, registro = db.docs_salvar(db.COLECAO_CART_CONFIG, item_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Configuração não encontrada.")
+    return registro
+
+
 @app.get("/api/mapa/processos")
 def mapa_listar():
     return db.mapa_listar()
@@ -1396,6 +1493,7 @@ PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
     "/diario": "diario.html",                                            # Diário de gestão [v3.7]
     "/ata": "ata.html",                                                  # Gerador de ATA King Star
+    "/carteira": "carteira.html",                                        # Carteira de Encomendas [v4.0]
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
