@@ -228,8 +228,12 @@ async function lerTexto(file){
   corte(); return partes.join("").replace(/^\uFEFF/,"");
 }
 function tabelaDoHTML(texto){
-  const doc=new DOMParser().parseFromString(texto,"text/html"), tbs=[...doc.querySelectorAll("table")];
-  if(!tbs.length) throw new Error("não encontrei nenhuma tabela no arquivo (é a exportação do BI?)");
+  const doc=new DOMParser().parseFromString(texto,"text/html");
+  // [v4.2] arquivo aberto e salvo no Excel como "página da web": é só a capa, os dados ficam na pasta "..._arquivos"
+  if(doc.querySelector("frameset, frame")||/Excel Workbook Frameset/i.test(texto))
+    throw new Error("este arquivo foi aberto e salvo no Excel e ficou só com a “capa” — os dados não estão dentro dele. Baixe a planilha de novo do BI e arraste aqui direto, sem abrir no Excel.");
+  const tbs=[...doc.querySelectorAll("table")].filter(t=>t.rows.length>1);
+  if(!tbs.length) throw new Error("não encontrei a tabela de dados no arquivo. Use a planilha exatamente como sai do BI (.xls), sem abrir nem salvar no Excel.");
   const t=tbs.sort((a,b)=>b.rows.length-a.rows.length)[0], linhas=[...t.rows].map(r=>[...r.cells].map(c=>tx(c.textContent)));
   const cab=linhas[0].map(h=>h.replace(/\s+/g," "));
   const dados=linhas.slice(1).filter(l=>l.some(Boolean)&&l.length>=cab.length-2).map(l=>Object.fromEntries(cab.map((h,i)=>[h,l[i]??""])));
@@ -304,7 +308,7 @@ async function descompactar(partes,formato){
 }
 
 // ═══ dados ═══
-let NIVEL=3, USUARIO="", EMAIL="", MEUS_SETORES=[];
+let NIVEL=3, USUARIO="", EMAIL="", MEUS_SETORES=[], ADMIN=false;
 let DIAS=[], FOTO=null, FOTO_DATA="", FOTO_ATUAL=null, TRAT=new Map(), CFG=null;
 let statusAtual={tipo:"ok",det:""};
 function setStatus(t,d){ statusAtual={tipo:t,det:d||""}; $("#dot").className="dot "+t; $("#who").classList.toggle("erro",t==="erro");
@@ -714,7 +718,15 @@ function renderHistorico(c){
     <div class="tbl-wrap"><table><thead><tr><th>Dia</th><th class="num">Pedidos</th><th class="num">Itens</th><th class="num">Unidades</th><th class="num">Bloqueados</th><th class="num">Atrasados</th><th class="num">Sem data</th><th class="num">Entraram</th><th class="num">Saíram</th><th>Importado</th><th></th></tr></thead><tbody>${
       lst.map(d=>{ const r=d.resumo||{}; return `<tr><td><b>${dataBR(d.data)}</b>${d.data===(FOTO_DATA)?' <span class="pill p-aco">aberto</span>':""}</td><td class="num">${int(r.pedidos)}</td><td class="num">${int(r.itens)}</td><td class="num">${int(r.unidades)}</td>
         <td class="num">${int(r.bloqueados)}</td><td class="num">${int(r.atrasados)}</td><td class="num">${int(r.sem_data)}</td><td class="num">${d.primeira?"—":int((d.novos||[]).length)}</td><td class="num">${d.primeira?"—":int((d.sairam||[]).length)}</td>
-        <td>${dataHoraBR(d.importado_em)}<span class="sub">${esc(d.importado_por||"")}${d.substituiu?" · reimportado":""}</span></td><td><button type="button" class="peq" data-ver="${d.data}">Ver esta carteira</button></td></tr>`; }).join("")||'<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">Nenhuma importação ainda.</td></tr>'}</tbody></table></div></section>`;
+        <td>${dataHoraBR(d.importado_em)}<span class="sub">${esc(d.importado_por||"")}${d.substituiu?" · reimportado":""}</span></td><td style="white-space:nowrap"><button type="button" class="peq" data-ver="${d.data}">Ver esta carteira</button>${ADMIN?` <button type="button" class="peq warn" data-del="${d.data}" title="Excluir esta importação (só administrador)">🗑 Excluir</button>`:""}</td></tr>`; }).join("")||'<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">Nenhuma importação ainda.</td></tr>'}</tbody></table></div></section>`;
+  c.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ const dt=b.dataset.del, d=DIAS.find(x=>x.data===dt), r=(d&&d.resumo)||{};
+    if(!confirm(`Excluir a carteira importada de ${dataBR(dt)}?\n\n${int(r.pedidos)} pedidos · importada ${dataHoraBR(d&&d.importado_em)} por ${(d&&d.importado_por)||"—"}.\n\nA foto desse dia é apagada de vez. As tratativas (classificações, notas e histórico por pedido) NÃO são apagadas.`)) return;
+    b.disabled=true;
+    try{ await api(`${API}/dias/${dt}`,{method:"DELETE"}); const {j}=await api(`${API}/dias`); DIAS=j||[];
+      if(FOTO_ATUAL&&FOTO_ATUAL.data===dt||FOTO_DATA===dt){ FOTO=null; FOTO_DATA=""; FOTO_ATUAL=null;
+        if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; } }
+      setStatus("ok"); render(); toast(`🗑 Carteira de ${dataBR(dt)} excluída.`);
+    }catch(e){ alert(e.message); b.disabled=false; } });
   c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=async()=>{ b.disabled=true; try{ const f=await carregarFoto(b.dataset.ver); FOTO=f; FOTO_DATA=b.dataset.ver; ir("painel"); }catch(e){ alert(e.message); b.disabled=false; } });
 }
 
@@ -863,7 +875,7 @@ function exportarCarteira(lst){
 // ═══════════════════════════════════════════════════════════════════
 async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; } }catch(_){}
-  try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||"";
+  try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||""; ADMIN=u.papel==="admin";
       const deps=u.departamentos||[];
       if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
   $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
