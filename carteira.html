@@ -162,12 +162,25 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .pp{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
 .pp-tit{font-size:15px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pp-trat{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 14px}
-.grupo-mot{margin:8px 0 0} .grupo-mot > small{display:block;font:600 11.5px "IBM Plex Sans Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:4px}
-.chips-mot{display:flex;flex-wrap:wrap;gap:6px}
-.chip-m{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--rule);border-left:4px solid var(--sc);background:var(--sheet);padding:6px 10px;border-radius:7px;font-size:13px;line-height:1.25}
-.chip-m small{font-size:11.5px;color:var(--sc);font-weight:600}
-.chip-m:hover{background:color-mix(in srgb,var(--sc) 10%,var(--sheet));border-color:var(--sc)}
-.chip-m.atual{background:color-mix(in srgb,var(--sc) 16%,var(--sheet));border-color:var(--sc);font-weight:600}
+/* [v4.4] motivos: cada classificação é um bloco com destaque; marque um ou mais motivos */
+.pp.pp-tri{grid-template-columns:minmax(0,.85fr) minmax(0,1.6fr)}
+.grupos-mot{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:10px 0 0}
+.grupo-mot{border:1px solid color-mix(in srgb,var(--sc) 35%,var(--rule));border-radius:9px;overflow:hidden;background:var(--sheet);display:flex;flex-direction:column}
+.gm-cab{background:color-mix(in srgb,var(--sc) 14%,var(--sheet));border-bottom:1px solid color-mix(in srgb,var(--sc) 30%,var(--rule));padding:6px 10px;display:flex;flex-direction:column}
+.gm-cab b{font:700 14px "IBM Plex Sans Condensed",sans-serif;color:var(--sc);text-transform:uppercase;letter-spacing:.03em}
+.gm-cab span{font-size:11.5px;color:var(--ink-2);font-weight:600}
+.chip-m{display:flex;align-items:flex-start;gap:8px;text-align:left;border:0;border-top:1px solid var(--rule-2);border-radius:0;background:none;padding:7px 10px;font-size:13px;line-height:1.3;width:100%;color:var(--ink)}
+.chip-m:first-of-type{border-top:0}
+.chip-m i{flex:none;width:15px;height:15px;border:2px solid var(--sc);border-radius:4px;margin-top:1px;background:var(--sheet)}
+.chip-m small{display:block;font-size:11px;color:var(--sc);font-weight:600}
+.chip-m:hover{background:color-mix(in srgb,var(--sc) 8%,var(--sheet))}
+.chip-m.marcado{background:color-mix(in srgb,var(--sc) 16%,var(--sheet));font-weight:600}
+.chip-m.marcado i{background:var(--sc);box-shadow:inset 0 0 0 2px var(--sheet)}
+.pp-conf{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;position:sticky;bottom:0;background:var(--sheet);padding-top:8px;border-top:1px solid var(--rule-2)}
+.pp-conf input{flex:1 1 240px;width:auto}
+.trava{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--block-soft);border-left:4px solid var(--block);font-size:14px}
+.est-item.travado .est-linha{opacity:.6}
+.cod-cli{font:600 11.5px "IBM Plex Sans",sans-serif;color:var(--steel);background:var(--steel-soft);border-radius:4px;padding:0 5px;margin-left:4px;white-space:nowrap}
 /* triagem: esteira */
 .tri-prog{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--prog);border-radius:10px;padding:12px 16px;margin:0 0 12px;font-size:15px}
 .tri-prog b{font:700 26px "IBM Plex Sans Condensed",sans-serif;color:var(--prog)}
@@ -176,7 +189,7 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .est-item{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:hidden;transition:opacity .3s,transform .3s,max-height .3s}
 .est-item.aberto{border-color:var(--steel);box-shadow:0 4px 16px rgba(20,30,50,.08)}
 .est-item.saindo{opacity:0;transform:translateY(-14px)}
-.est-linha{display:grid;grid-template-columns:150px minmax(0,1fr) auto auto 110px;gap:12px;align-items:center;padding:10px 14px;cursor:pointer}
+.est-linha{display:grid;grid-template-columns:150px minmax(0,1fr) auto auto auto 110px;gap:12px;align-items:center;padding:10px 14px;cursor:pointer}
 .est-linha:hover{background:var(--rule-2)}
 .est-item.aberto .est-linha{background:var(--steel-soft)}
 .est-ped b{display:block} .est-ped small,.est-cli small{display:block;font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -372,6 +385,7 @@ async function api(url,op={}){
   const r=await fetch(url,{headers:{"Content-Type":"application/json"},cache:"no-store",...op});
   const j=await r.json().catch(()=>({}));
   if(r.status===401){ $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  if(r.status===423) carregarReservas();
   if(!r.ok&&r.status!==409) throw new Error(j.detail||`HTTP ${r.status}`);
   return {r,j};
 }
@@ -429,23 +443,43 @@ async function salvarConfig(dados){
 
 // ═══ tratativas ═══
 function tratDe(k){ return TRAT.get(k)||null; }
+// [v4.4] um pedido pode ter VÁRIOS motivos (e ficar pendente com mais de um setor ao mesmo tempo)
+function motivosDe(t){ if(!t) return []; const d=t.dados; if(Array.isArray(d.motivos)&&d.motivos.length) return d.motivos;
+  return d.motivo_id?[{id:d.motivo_id,motivo:d.motivo,classe:d.classe,setor:d.setor}]:[]; }
+function setoresDe(t){ return [...new Set(motivosDe(t).map(m=>m.setor).filter(Boolean))]; }
+function foraDoPrazo(t){ const sl=motivosDe(t).map(x=>(motivoPor(x.id)||{}).sla).filter(Boolean); return sl.length&&diasComSetor(t)>Math.min(...sl)?Math.min(...sl):0; }
+function pillsSetores(t){ return setoresDe(t).map(id=>{ const s=setorPor(id); return `<span class="pill" style="background:color-mix(in srgb,${s.cor} 14%,transparent);color:${s.cor}">${esc(s.nome)}</span>`; }).join(" "); }
+// ═══ reserva do pedido na triagem: ninguém trata o mesmo pedido ao mesmo tempo ═══
+let RESERVAS=new Map();
+async function carregarReservas(){ try{ const {j}=await api(`${API}/reservas`); RESERVAS=new Map((j||[]).map(r=>[r.chave,r])); }catch(_){} }
+function reservaDeOutro(k){ const r=RESERVAS.get(k); return r&&nrm(r.email)!==nrm(EMAIL)&&String(r.expira)>new Date().toISOString()?r:null; }
+async function reservar(k){
+  const r=await fetch(`${API}/reservas/${encodeURIComponent(k)}`,{method:"POST",cache:"no-store"}), j=await r.json().catch(()=>({}));
+  if(r.status===409){ if(j.reserva) RESERVAS.set(k,j.reserva); return {ok:false,por:(j.reserva&&(j.reserva.por||j.reserva.email))||"outra pessoa"}; }
+  if(!r.ok) return {ok:false,erro:j.detail||`HTTP ${r.status}`};
+  RESERVAS.set(k,j); return {ok:true};
+}
+function liberar(k){ if(!k) return; RESERVAS.delete(k); try{ fetch(`${API}/reservas/${encodeURIComponent(k)}/liberar`,{method:"POST",keepalive:true}); }catch(_){} }
 function aberta(t){ return t&&t.dados.status==="aberta"; }
 function analisado(k){ return TRAT.has(k); }   // qualquer tratativa (aberta, resolvida ou "sem pendência") = já passou pela triagem
 function diasComSetor(t){ const h=(t.dados.historico||[]).filter(x=>x.setor); const ult=h[h.length-1]; return ult?Math.max(0,diasEntre(String(ult.em).slice(0,10),hojeISO())):0; }
 async function gravarTratativa(p, mudar){
   // mudar: {acao:"classificar"|"nota"|"resolver"|"reabrir", motivo_id, nota}
-  const t=tratDe(p.k), agora=new Date().toISOString(), m=mudar.motivo_id?motivoPor(mudar.motivo_id):null;
+  const t=tratDe(p.k), agora=new Date().toISOString(), ids=mudar.motivo_ids||(mudar.motivo_id?[mudar.motivo_id]:[]), ms=ids.map(motivoPor).filter(Boolean), m=ms[0]||null;
   const reg={em:agora,por:USUARIO,acao:mudar.acao,nota:tx(mudar.nota)};
   let dados;
   if(t){ dados=JSON.parse(JSON.stringify(t.dados)); }
   else dados={chave:p.k,pedido:p.p,loja:p.l,cliente:p.n,status:"aberta",motivo_id:"",motivo:"",classe:"",setor:"",historico:[],aberta_em:agora,situacao:situacao(p)};
-  if(mudar.acao==="classificar"){ if(!m) throw new Error("Escolha o motivo.");
-    reg.de_setor=dados.status==="aberta"?dados.setor:""; reg.setor=m.setor; reg.motivo=m.motivo; reg.classe=m.classe;
-    Object.assign(dados,{status:"aberta",motivo_id:m.id,motivo:m.motivo,classe:m.classe,setor:m.setor}); if(!t||t.dados.status!=="aberta") dados.aberta_em=agora; }
+  if(mudar.acao==="classificar"){ if(!ms.length) throw new Error("Escolha pelo menos um motivo.");
+    const antes=dados.status==="aberta"?setoresDe({dados}):[];
+    reg.de_setor=antes[0]||""; reg.de_setores=antes; reg.setor=m.setor; reg.setores=[...new Set(ms.map(x=>x.setor))];
+    reg.motivo=ms.map(x=>x.motivo).join(" + "); reg.classe=[...new Set(ms.map(x=>x.classe))].join(" + ");
+    Object.assign(dados,{status:"aberta",motivo_id:m.id,motivo:reg.motivo,classe:reg.classe,setor:m.setor,
+      motivos:ms.map(x=>({id:x.id,motivo:x.motivo,classe:x.classe,setor:x.setor})),setores:reg.setores}); if(!t||t.dados.status!=="aberta") dados.aberta_em=agora; }
   else if(mudar.acao==="resolver"){ dados.status="resolvida"; dados.resolvida_em=agora; reg.setor_atual=dados.setor; }
   else if(mudar.acao==="reabrir"){ dados.status="aberta"; reg.setor=dados.setor; reg.motivo=dados.motivo; }
   else if(mudar.acao==="auto"){ dados.status="resolvida"; dados.resolvida_em=agora; reg.setor_atual=dados.setor; if(mudar.situacao!=null) dados.situacao=mudar.situacao; }
-  else if(mudar.acao==="ok"){ Object.assign(dados,{status:"ok",motivo_id:"",motivo:"Analisado — sem pendência",classe:"Sem pendência",setor:"",resolvida_em:agora}); reg.motivo=dados.motivo; }
+  else if(mudar.acao==="ok"){ Object.assign(dados,{status:"ok",motivo_id:"",motivo:"Analisado — sem pendência",classe:"Sem pendência",setor:"",motivos:[],setores:[],resolvida_em:agora}); reg.motivo=dados.motivo; }
   else if(mudar.acao==="status"){ dados.situacao=mudar.situacao; }
   else if(!reg.nota) throw new Error("Escreva a nota.");
   if(mudar.acao==="classificar"||mudar.acao==="ok") dados.situacao=situacao(p)||dados.situacao||"";
@@ -477,7 +511,8 @@ const ICO={
 const SECOES=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
 let secao="painel";
 try{ secao=sessionStorage.getItem("cart_secao")||"painel"; }catch(_){}
-function ir(s){ secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
+function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ liberar(estT.reservado); estT.reservado=""; estT.aberto=""; }   // saiu da triagem: devolve o pedido
+  secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
   const abertas=[...TRAT.values()].filter(aberta).length;
   $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
@@ -512,7 +547,7 @@ function passa(p,ignorarItem){
   const tr=tratDe(p.k);
   if(F.trat==="sem"&&aberta(tr)) return false; if(F.trat==="aberta"&&!aberta(tr)) return false; if(F.trat==="resolvida"&&!(tr&&tr.dados.status==="resolvida")) return false;
   if(F.trat==="ok"&&!(tr&&tr.dados.status==="ok")) return false; if(F.trat==="naoanalisado"&&tr) return false;
-  if(F.setor&&!(aberta(tr)&&tr.dados.setor===F.setor)) return false; if(F.motivo&&!(aberta(tr)&&tr.dados.motivo_id===F.motivo)) return false;
+  if(F.setor&&!(aberta(tr)&&setoresDe(tr).includes(F.setor))) return false; if(F.motivo&&!(aberta(tr)&&motivosDe(tr).some(m=>m.id===F.motivo))) return false;
   if(F.novo&&!novos().has(p.k)) return false;
   if(!ignorarItem&&(F.grupo||F.local||F.produto)&&!p.it.some(i=>itemPassa(i))) return false;
   return true;
@@ -586,7 +621,7 @@ function renderPainel(c){
   c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==="triagem") return ir("triagem");
     irCarteira(k==="atrasado"?{prazo:"atrasado"}:k==="bloq"?{bloq:"sim"}:k==="critico"?{bloq:"sim",prazo:"atrasado",trat:"sem"}:k==="semdata"?{prazo:"semdata"}:k==="aberta"?{trat:"aberta"}:{novo:true}); });
   const ps=$("#pnSet",c);
-  ps.innerHTML=cfg().setores.map(s=>{ const l=abertas.filter(t=>t.dados.setor===s.id), est=l.filter(t=>{ const m=motivoPor(t.dados.motivo_id); return m&&m.sla&&diasComSetor(t)>m.sla; }).length,
+  ps.innerHTML=cfg().setores.map(s=>{ const l=abertas.filter(t=>setoresDe(t).includes(s.id)), est=l.filter(foraDoPrazo).length,
       velho=l.reduce((a,t)=>Math.max(a,diasComSetor(t)),0), fora=l.filter(t=>!chavesFoto.has(t.dados.chave)).length;
     return `<button type="button" class="setor-card" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span> · `:""}${l.length?`mais antiga: ${velho} d`:"nada pendente"}${fora?` · ${fora} saíram da carteira`:""}</small></button>`; }).join("");
   ps.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ estFila.setor=b.dataset.set; ir("filas"); });
@@ -609,11 +644,11 @@ function renderPainel(c){
 // ═══════════════════════════════════════════════════════════════════
 const estC={limite:150,ord:"entrega",dir:1,sel:new Set(),aberto:""};
 function celTrat(p){ const t=tratDe(p.k); if(!t) return '<span class="muted">—</span>';
-  const s=setorPor(t.dados.setor), d=t.dados;
+  const d=t.dados, s=setorPor(setoresDe(t)[0]);
   if(d.status==="ok") return `<span class="pill p-ok">✓ analisado · sem pendência</span>`;
   if(d.status!=="aberta") return `<span class="pill p-ok">✓ resolvida</span>`;
-  const m=motivoPor(d.motivo_id), est=m&&m.sla&&diasComSetor(t)>m.sla;
-  return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(s.nome)} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>`; }
+  const est=foraDoPrazo(t);
+  return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(setoresDe(t).map(x=>setorPor(x).nome).join(" + "))} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>`; }
 function linhasOrdenadas(lst){
   const k=estC.ord, d=estC.dir, v=p=>k==="entrega"?(p.en||"9999"):k==="valor"?p.v:k==="emissao"?(p.em||""):k==="cliente"?nrm(p.n):k==="trat"?(aberta(tratDe(p.k))?diasComSetor(tratDe(p.k)):-1):k==="qtd"?qtdTotal(p):p.k;
   return lst.slice().sort((a,b)=>{ const x=v(a), y=v(b); return (x<y?-1:x>y?1:0)*d; });
@@ -684,19 +719,20 @@ function opcoesMotivo(atual){
   const classes=[...new Set(cfg().motivos.filter(m=>m.ativo!==false).map(m=>m.classe))];
   return `<option value="">— escolha o motivo —</option>`+classes.map(cl=>`<optgroup label="${esc(cl)}">${cfg().motivos.filter(m=>m.ativo!==false&&m.classe===cl).map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(m.motivo)} → ${esc(setorPor(m.setor).nome)}</option>`).join("")}</optgroup>`).join("");
 }
-function textoHist(h){ const hs=h.setor?setorPor(h.setor):null;
-  return h.acao==="classificar"?(h.de_setor&&h.de_setor!==h.setor?`Tocou de <b>${esc(setorPor(h.de_setor).nome)}</b> para <b>${esc(hs.nome)}</b>`:`Classificou → <b>${esc(hs?hs.nome:"")}</b>`)+` · ${esc(h.classe||"")} — ${esc(h.motivo||"")}`
+function textoHist(h){ const nomes=a=>(a||[]).map(x=>setorPor(x).nome).join(" + "), para=nomes(h.setores||(h.setor?[h.setor]:[])), de=nomes(h.de_setores||(h.de_setor?[h.de_setor]:[]));
+  return h.acao==="classificar"?(de&&de!==para?`Tocou de <b>${esc(de)}</b> para <b>${esc(para)}</b>`:`Classificou → <b>${esc(para)}</b>`)+` · ${esc(h.classe||"")} — ${esc(h.motivo||"")}`
     :h.acao==="ok"?"✓ Analisado — sem pendência":h.acao==="resolver"?"✓ Resolveu":h.acao==="reabrir"?"↺ Reabriu":h.acao==="auto"?"⚙ Atualizado pela planilha — encerrado":h.acao==="status"?"⚙ Status do pedido mudou na planilha":"Nota"; }
 function montarPainelPedido(box,p,modo,aoFim){
-  const t=tratDe(p.k), d=t&&t.dados, s=d&&d.setor?setorPor(d.setor):null, pz=prazo(p), ativos=cfg().motivos.filter(m=>m.ativo!==false);
-  const classes=[...new Set(ativos.map(m=>m.classe))];
-  box.className="pp";
+  const t=tratDe(p.k), d=t&&t.dados, pz=prazo(p), ativos=cfg().motivos.filter(m=>m.ativo!==false), aberta_=d&&d.status==="aberta";
+  const classes=[...new Set(ativos.map(m=>m.classe))], outro=reservaDeOutro(p.k);
+  const marcados=new Set(aberta_?motivosDe(t).map(m=>m.id):[]);
+  box.className="pp"+(modo==="triagem"?" pp-tri":"");
   box.innerHTML=`<div class="pp-info">
-      <div class="pp-tit"><b>Pedido ${esc(p.p)}</b> · loja ${esc(p.l)} ${esc(p.ln)} · <b>${esc(p.n||"—")}</b> <span class="muted">${esc(p.c)}</span>
+      <div class="pp-tit"><b>Pedido ${esc(p.p)}</b> · loja ${esc(p.l)} ${esc(p.ln)} · <b>${esc(p.n||"—")}</b> <span class="pill p-aco">cód. ${esc(p.c||"—")}</span>
         <span class="pill ${pz.pill}">${pz.rot}</span> <span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span></div>
       ${corrigidoPelaQtdBloq(p)?`<p class="cap" style="margin:4px 0 0">⛔ Bloqueado pela <b>Qtd Bloq = 1</b> (coluna L) — o Status na planilha diz “${esc(p.st)}”.</p>`:""}
       <div class="info" style="margin-top:8px">
-        <div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div>
+        <div><small>Código do cliente</small><b>${esc(p.c||"—")}</b></div><div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div>
         <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>Telefones</small>${p.t.length?p.t.map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join(" · "):"—"}</div>
         <div><small>Valor</small>${moeda(p.v)}</div><div><small>Qtd Bloq</small>${temQtdBloq(p)?esc(p.qb):"—"}</div>${p.ob?`<div style="grid-column:1/-1"><small>Observações</small>${esc(p.ob)}</div>`:""}</div>
       ${p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th><th>Status</th></tr></thead><tbody>${
@@ -704,29 +740,38 @@ function montarPainelPedido(box,p,modo,aoFim){
         :`<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":`Fora da planilha de itens (${p.ipv} item(ns), ${p.qpv} unidade(s) segundo a planilha de pedidos).`}</p>`}
     </div>
     <div class="pp-trat">
-      ${d?(d.status==="aberta"?`<p style="margin:0"><span class="pill" style="background:color-mix(in srgb,${s.cor} 14%,transparent);color:${s.cor}">📌 Pendente com ${esc(s.nome)}</span> há ${diasComSetor(t)} dia(s) · <b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`
+      ${d?(aberta_?`<p style="margin:0">📌 Pendente com ${pillsSetores(t)} há ${diasComSetor(t)} dia(s) · <b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`
           :d.status==="ok"?'<p style="margin:0"><span class="pill p-ok">✓ Analisado — sem pendência</span></p>':`<p style="margin:0"><span class="pill p-ok">✓ Resolvida</span> ${esc(d.classe)} — ${esc(d.motivo)}</p>`)
         :`<p style="margin:0"><span class="pill p-azul">🔎 Ainda não analisado</span></p>`}
-      ${NIVEL>=2?`<input data-nota placeholder="Nota (opcional) — o que foi visto, combinado com quem" style="margin-top:10px">
-        <p class="cap" style="margin:8px 0 4px">${modo==="triagem"?"Clique no motivo: o pedido sai da triagem e fica pendente com o setor.":d&&d.status==="aberta"?"Clique em outro motivo para tocar a bola para outro setor.":"Clique no motivo para classificar."}</p>
-        ${classes.map(cl=>`<div class="grupo-mot"><small>${esc(cl)}</small><div class="chips-mot">${ativos.filter(m=>m.classe===cl).map(m=>{ const st=setorPor(m.setor);
-          return `<button type="button" class="chip-m${d&&d.status==="aberta"&&d.motivo_id===m.id?" atual":""}" style="--sc:${st.cor}" data-mot="${m.id}">${esc(m.motivo)}<small>→ ${esc(st.nome)}</small></button>`; }).join("")}</div></div>`).join("")}
-        <div class="acoes" style="margin-bottom:0">${!d||d.status==="aberta"?`<button type="button" class="peq" data-ok>✓ Analisado — sem pendência</button>`:""}${d&&d.status==="aberta"?'<button type="button" class="peq" data-res>✓ Resolver</button>':""}${d&&d.status!=="aberta"?'<button type="button" class="peq" data-reab>↺ Reabrir</button>':""}${d?'<button type="button" class="peq" data-nt>Só registrar a nota</button>':""}<span class="msg" data-msg></span></div>`:""}
-      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${h.setor?setorPor(h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
+      ${outro?`<div class="trava">🔒 <b>Em análise por ${esc(outro.por||outro.email)}</b> agora — para não tratarem o mesmo pedido em dobro, só essa pessoa pode classificar até terminar (ou a reserva vencer).</div>`
+      :NIVEL>=2?`<div class="grupos-mot">${classes.map(cl=>{ const ms=ativos.filter(m=>m.classe===cl), sets=[...new Set(ms.map(m=>m.setor))];
+          return `<div class="grupo-mot" style="--sc:${setorPor(sets[0]).cor}"><div class="gm-cab"><b>${esc(cl)}</b><span>${esc(sets.map(x=>setorPor(x).nome).join(" · "))}</span></div>
+            ${ms.map(m=>`<button type="button" class="chip-m${marcados.has(m.id)?" marcado":""}" style="--sc:${setorPor(m.setor).cor}" data-mot="${m.id}" aria-pressed="${marcados.has(m.id)}"><i></i><span>${esc(m.motivo)}${sets.length>1?`<small>→ ${esc(setorPor(m.setor).nome)}</small>`:""}</span></button>`).join("")}</div>`; }).join("")}</div>
+        <div class="pp-conf"><input data-nota placeholder="Nota (opcional) — o que foi visto, combinado com quem">
+          <button type="button" class="primary" data-conf disabled>Marque um ou mais motivos</button>
+          ${!d||aberta_?'<button type="button" data-ok>✓ Sem pendência</button>':""}${aberta_?'<button type="button" data-res>✓ Resolver</button>':""}${d&&!aberta_?'<button type="button" data-reab>↺ Reabrir</button>':""}${d?'<button type="button" data-nt>Só a nota</button>':""}
+          <span class="msg" data-msg></span></div>`:""}
+      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
     </div>`;
-  const nota=()=>{ const i=box.querySelector("[data-nota]"); return i?i.value:""; };
+  const nota=()=>{ const i=box.querySelector("[data-nota]"); return i?i.value:""; }, conf=box.querySelector("[data-conf]");
+  const atualizarConf=()=>{ if(!conf) return; const ms=[...marcados].map(motivoPor).filter(Boolean), st=[...new Set(ms.map(m=>setorPor(m.setor).nome))];
+    conf.disabled=!ms.length; conf.textContent=ms.length?`${aberta_?"Atualizar":"Classificar"} (${ms.length}) → ${st.join(" + ")}`:"Marque um ou mais motivos"; };
   const agir=async m=>{ const msg=box.querySelector("[data-msg]"); box.querySelectorAll(".pp-trat button").forEach(b=>b.disabled=true);
     try{ await gravarTratativa(p,{...m,nota:nota()}); aoFim(m.acao); }
-    catch(e){ msg.className="msg erro"; msg.textContent=e.message; box.querySelectorAll(".pp-trat button").forEach(b=>b.disabled=false); } };
-  box.querySelectorAll("[data-mot]").forEach(b=>b.onclick=()=>agir({acao:"classificar",motivo_id:b.dataset.mot}));
+    catch(e){ msg.className="msg erro"; msg.textContent=e.message; box.querySelectorAll(".pp-trat button").forEach(b=>b.disabled=false); atualizarConf(); } };
+  box.querySelectorAll("[data-mot]").forEach(b=>b.onclick=()=>{ const id=b.dataset.mot; marcados.has(id)?marcados.delete(id):marcados.add(id);
+    b.classList.toggle("marcado",marcados.has(id)); b.setAttribute("aria-pressed",marcados.has(id)); atualizarConf(); });
+  if(conf) conf.onclick=()=>agir({acao:"classificar",motivo_ids:[...marcados]});
+  const ni=box.querySelector("[data-nota]"); if(ni) ni.onkeydown=e=>{ if(e.key==="Enter"&&conf&&!conf.disabled){ e.preventDefault(); conf.click(); } };
   const on=(sel,acao)=>{ const b=box.querySelector(sel); if(b) b.onclick=()=>agir({acao}); };
   on("[data-ok]","ok"); on("[data-res]","resolver"); on("[data-reab]","reabrir"); on("[data-nt]","nota");
+  atualizarConf();
 }
 async function classificarLote(lst,depois){
   const mot=$("#ltMot").value, msg=$("#ltMsg"), nota=$("#ltNota").value;
   if(!mot){ msg.className="msg erro"; msg.textContent="Escolha o motivo."; return; }
   $("#ctClassif").disabled=true; let ok=0, erro=0;
-  for(const p of lst){ try{ await gravarTratativa(p,{acao:"classificar",motivo_id:mot,nota}); ok++; }catch(_){ erro++; } msg.className="msg"; msg.textContent=`Gravando… ${ok+erro} de ${lst.length}`; }
+  for(const p of lst){ try{ await gravarTratativa(p,{acao:"classificar",motivo_ids:[mot],nota}); ok++; }catch(_){ erro++; } msg.className="msg"; msg.textContent=`Gravando… ${ok+erro} de ${lst.length}`; }
   estC.sel.clear(); depois(); atualizarMenu(); toast(`✓ ${ok} pedido(s) classificado(s)${erro?` · ${erro} com erro (tente de novo)`:""}.`);
 }
 </script>
@@ -742,8 +787,8 @@ function renderFilas(c){
   if(!estFila.setor){ const meu=cfg().setores.find(s=>MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))); estFila.setor=meu?meu.id:"__todos"; }
   c.innerHTML=`<section><header><h2>Pendências por setor</h2><p>A bola está com quem? Cada setor trata a própria fila e devolve (resolve ou toca para outro setor).</p>
       <span class="direita"><button type="button" class="peq" id="flXls">⬇️ Excel</button></span></header>
-    <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>t.dados.setor===s.id);
-      const est=l.filter(t=>{ const m=motivoPor(t.dados.motivo_id); return m&&m.sla&&diasComSetor(t)>m.sla; }).length;
+    <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>setoresDe(t).includes(s.id));
+      const est=l.filter(foraDoPrazo).length;
       return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small></button>`; }).join("")}</div>
     <div class="acoes" style="margin-top:0"><select id="flSt" style="width:auto"><option value="aberta"${estFila.status==="aberta"?" selected":""}>Abertas</option><option value="resolvida"${estFila.status==="resolvida"?" selected":""}>Resolvidas (últimos 30 dias)</option></select></div>
     <div id="flT"></div></section>`;
@@ -751,16 +796,16 @@ function renderFilas(c){
   $("#flSt",c).onchange=e=>{ estFila.status=e.target.value; render(); };
   const lim30=new Date(Date.now()-30*864e5).toISOString();
   const lst=todas.filter(t=>estFila.status==="aberta"?aberta(t):(t.dados.status==="resolvida"&&String(t.dados.resolvida_em||"")>=lim30))
-    .filter(t=>estFila.setor==="__todos"||t.dados.setor===estFila.setor)
+    .filter(t=>estFila.setor==="__todos"||setoresDe(t).includes(estFila.setor))
     .sort((a,b)=>diasComSetor(b)-diasComSetor(a));
   const linhas=lst.map(t=>({t,p:pedidoDaTrat(t)}));
   $("#flT",c).innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / prazo</th><th>Status do pedido</th><th>Classificação · motivo</th><th>Setor</th><th class="num">Com o setor há</th><th>Última nota</th><th>Na carteira?</th><th></th></tr></thead><tbody>${
-    linhas.map(({t,p})=>{ const d=t.dados, s=setorPor(d.setor), m=motivoPor(d.motivo_id), dias=diasComSetor(t), est=m&&m.sla&&dias>m.sla, pz=p.fora?null:prazo(p);
+    linhas.map(({t,p})=>{ const d=t.dados, dias=diasComSetor(t), sla=foraDoPrazo(t), est=!!sla, m={sla}, pz=p.fora?null:prazo(p);
       const nota=[...(d.historico||[])].reverse().find(h=>h.nota);
       return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||"—")}</td>
         <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span>`:"—"}</td>
         <td>${p.fora?`<span class="muted">${esc(d.situacao||"—")}</span>`:`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`}</td>
-        <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td><span class="pill" style="background:color-mix(in srgb,${s.cor} 14%,transparent);color:${s.cor}">${esc(s.nome)}</span></td>
+        <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
         <td class="num">${est?`<span class="pill p-bad">${dias} d · prazo ${m.sla} d</span>`:`${dias} d`}</td><td style="max-width:280px">${nota?`“${esc(nota.nota.slice(0,120))}${nota.nota.length>120?"…":""}”<span class="sub">${esc(nota.por||"")} · ${dataHoraBR(nota.em)}</span>`:'<span class="muted">—</span>'}</td>
         <td>${naFoto.has(d.chave)?'<span class="pill p-cinza">sim</span>':'<span class="pill p-ok">saiu</span>'}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
@@ -770,7 +815,7 @@ function renderFilas(c){
   $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
     try{ await gravarTratativa(pedidoDaTrat(TRAT.get(b.dataset.res)),{acao:"resolver",nota}); render(); toast("✓ Resolvida."); }catch(e){ alert(e.message); } });
   $("#flXls",c).onclick=()=>exportarXlsx("pendencias_por_setor",[{nome:"Pendências",cols:[["Loja",x=>x.t.dados.loja],["Pedido",x=>x.t.dados.pedido],["Cliente",x=>x.t.dados.cliente],["Entrega",x=>x.p.en?dataBR(x.p.en):""],
-    ["Classificação",x=>x.t.dados.classe],["Motivo",x=>x.t.dados.motivo],["Setor",x=>setorPor(x.t.dados.setor).nome],["Dias com o setor",x=>diasComSetor(x.t)],["Situação",x=>x.t.dados.status],
+    ["Classificação",x=>x.t.dados.classe],["Motivo",x=>x.t.dados.motivo],["Setor(es)",x=>setoresDe(x.t).map(i=>setorPor(i).nome).join(" + ")],["Dias com o setor",x=>diasComSetor(x.t)],["Situação",x=>x.t.dados.status],
     ["Na carteira",x=>naFoto.has(x.t.dados.chave)?"Sim":"Saiu"],["Histórico",x=>(x.t.dados.historico||[]).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${h.acao}${h.setor?" → "+setorPor(h.setor).nome:""}${h.nota?" — "+h.nota:""}`).join(" | ")]],linhas}]);
 }
 
@@ -779,7 +824,18 @@ function renderFilas(c){
 // Pedido analisado em qualquer dia anterior não volta (a tratativa é por
 // loja + pedido e atravessa as importações).
 // ═══════════════════════════════════════════════════════════════════
-const estT={escopo:"bloq",busca:"",loja:"",sit:"",aberto:"",limite:40};
+const estT={escopo:"bloq",busca:"",loja:"",sit:"",aberto:"",reservado:"",reservando:"",preferir:"",limite:40};
+// abre o pedido para quem está logado: só abre se conseguir a reserva no servidor
+async function abrirNaTriagem(k){
+  if(estT.reservado&&estT.reservado!==k){ liberar(estT.reservado); estT.reservado=""; }
+  estT.reservando=k; const r=await reservar(k); estT.reservando="";
+  if(!r.ok){ toast(r.por?`🔒 O pedido ${esc(k.split("-")[1])} já está sendo tratado por <b>${esc(r.por)}</b>.`:`⚠ ${esc(r.erro||"não consegui reservar o pedido")}`); if(estT.aberto===k) estT.aberto=""; if(secao==="triagem") render(); return; }
+  estT.reservado=k; estT.aberto=k; if(secao==="triagem") render();
+}
+setInterval(async()=>{ if(secao!=="triagem"||!FOTO) return; await carregarReservas();
+  if(!document.activeElement||!document.activeElement.closest(".pp")) render(); },20000);                    // vê quem pegou o quê
+setInterval(()=>{ if(estT.reservado) reservar(estT.reservado); },5*60000);                                    // mantém a sua reserva viva
+window.addEventListener("pagehide",()=>{ if(estT.reservado) liberar(estT.reservado); });
 function escopoTriagem(p){ return estT.escopo==="todos"?true:estT.escopo==="atrasados"?bloqueado(p)&&prazo(p).cls==="atrasado":bloqueado(p); }
 function faltaTriar(){ return FOTO?FOTO.pedidos.filter(p=>escopoTriagem(p)&&!analisado(p.k)):[]; }
 function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atrasado"?0:x.cls==="emdia"?1:2;
@@ -788,21 +844,25 @@ function renderTriagem(c){
   const doEscopo=FOTO.pedidos.filter(escopoTriagem), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
   const hoje=hojeISO(), hojeN=[...TRAT.values()].filter(x=>String(((x.dados.historico||[])[0]||{}).em||"").slice(0,10)===hoje).length;
   const fila=faltaTriar().filter(p=>(!estT.loja||p.l===estT.loja)&&(!estT.sit||situacao(p)===estT.sit)&&(!t||[p.p,p.n,p.c,...p.it.map(i=>i[IT.desc])].some(x=>nrm(x).includes(t)))).sort(ordemUrgencia);
-  if(!fila.some(p=>p.k===estT.aberto)) estT.aberto=fila.length?fila[0].k:"";
+  const livres=fila.filter(p=>!reservaDeOutro(p.k)), comOutros=fila.length-livres.length;
+  if(estT.aberto&&(!fila.some(p=>p.k===estT.aberto)||reservaDeOutro(estT.aberto))) estT.aberto="";
+  if(!estT.aberto&&!estT.reservando&&livres.length){ const alvo=livres.find(p=>p.k===estT.preferir)||livres[0]; estT.preferir=""; estT.aberto=alvo.k; setTimeout(()=>abrirNaTriagem(alvo.k),0); }
   const lojas=[...new Map(faltaTriar().map(p=>[p.l,p.ln])).entries()].sort((a,b)=>a[0].localeCompare(b[0],"pt-BR",{numeric:true}));
   c.innerHTML=`<section><header><h2>Triagem</h2><p>Esteira: classifique e o pedido sai da lista. O que já foi analisado em qualquer dia não volta.</p></header>
-    <div class="tri-prog"><div><b>${int(fila.length)}</b> para analisar <span class="muted">· ${int(feitos)} de ${int(total)} já analisados (${pct}%) · ${int(hojeN)} analisados hoje</span></div>
+    <div class="tri-prog"><div><b>${int(fila.length)}</b> para analisar <span class="muted">· ${int(feitos)} de ${int(total)} já analisados (${pct}%) · ${int(hojeN)} analisados hoje${comOutros?` · <span style="color:var(--block)">🔒 ${int(comOutros)} em análise por outras pessoas</span>`:""}</span></div>
       <div class="track"><i style="width:${pct}%"></i></div></div>
     <div class="filtros" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
       <select id="trEsc" aria-label="O que triar"><option value="bloq"${estT.escopo==="bloq"?" selected":""}>Bloqueados (Qtd Bloq = 1)</option><option value="atrasados"${estT.escopo==="atrasados"?" selected":""}>Bloqueados e atrasados</option><option value="todos"${estT.escopo==="todos"?" selected":""}>Todos os pedidos da carteira</option></select>
       <select id="trLoja" aria-label="Loja"><option value="">Loja: todas</option>${lojas.map(([l,n])=>`<option value="${esc(l)}"${l===estT.loja?" selected":""}>${esc(l)}${n?" · "+esc(n):""}</option>`).join("")}</select>
       <select id="trSit" aria-label="Status do pedido"><option value="">Status do pedido: todos</option>${[...new Set(faltaTriar().map(situacao))].sort().map(x=>`<option${x===estT.sit?" selected":""}>${esc(x)}</option>`).join("")}</select>
       <input id="trBusca" placeholder="Buscar pedido, cliente, produto..." value="${esc(estT.busca)}"></div>
-    <div class="esteira" id="trLista">${fila.length?fila.slice(0,estT.limite).map(p=>{ const pz=prazo(p), si=situacao(p);
-      return `<div class="est-item${p.k===estT.aberto?" aberto":""}" data-k="${esc(p.k)}"><div class="est-linha" role="button" tabindex="0">
-        <span class="est-ped"><b>${esc(p.p)}</b><small>loja ${esc(p.l)} ${esc(p.ln)}</small></span><span class="est-cli">${esc(p.n||"—")}<small>${esc(p.it.slice(0,2).map(i=>i[IT.desc]).join(" · ")||p.tp)}</small></span>
+    <div class="esteira" id="trLista">${fila.length?fila.slice(0,estT.limite).map(p=>{ const pz=prazo(p), si=situacao(p), outro=reservaDeOutro(p.k), meu=p.k===estT.reservado;
+      return `<div class="est-item${p.k===estT.aberto?" aberto":""}${outro?" travado":""}" data-k="${esc(p.k)}"><div class="est-linha" role="button" tabindex="0">
+        <span class="est-ped"><b>${esc(p.p)}</b><small>loja ${esc(p.l)} ${esc(p.ln)}</small></span>
+        <span class="est-cli">${esc(p.n||"—")} <span class="cod-cli">cód. ${esc(p.c||"—")}</span><small>${esc(p.it.slice(0,2).map(i=>i[IT.desc]).join(" · ")||p.tp)}</small></span>
+        <span>${outro?`<span class="pill p-roxo">🔒 em análise por ${esc(outro.por||outro.email)}</span>`:meu?'<span class="pill p-azul">👤 com você</span>':""}</span>
         <span class="pill ${pz.pill}">${pz.rot}</span><span class="pill" style="background:color-mix(in srgb,${corSituacao(si)} 14%,transparent);color:${corSituacao(si)}">${esc(si)}</span><span class="est-v">${moeda(p.v)}</span></div>
-        ${p.k===estT.aberto?`<div data-pp="${esc(p.k)}"></div>`:""}</div>`; }).join("")
+        ${p.k===estT.aberto?(meu?`<div data-pp="${esc(p.k)}"></div>`:'<p class="cap" style="padding:14px 16px;margin:0">⏳ Separando este pedido para você…</p>'):""}</div>`; }).join("")
       :`<div class="vazio-tri">${total?"✅ Tudo analisado"+(estT.loja||estT.sit||t?" com esses filtros":"")+". Quando a próxima planilha subir, só os pedidos novos aparecem aqui.":"Nada para triar neste escopo."}</div>`}</div>
     ${fila.length>estT.limite?`<div class="mais"><button type="button" id="trMais">Mostrar mais ${Math.min(40,fila.length-estT.limite)}</button></div>`:""}</section>`;
   $("#trEsc",c).onchange=e=>{ estT.escopo=e.target.value; estT.aberto=""; render(); };
@@ -810,13 +870,16 @@ function renderTriagem(c){
   $("#trSit",c).onchange=e=>{ estT.sit=e.target.value; estT.aberto=""; render(); };
   $("#trBusca",c).oninput=e=>{ estT.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#trBusca"); n.focus(); n.setSelectionRange(pos,pos); },300); };
   const mm=$("#trMais",c); if(mm) mm.onclick=()=>{ estT.limite+=40; render(); };
-  c.querySelectorAll(".est-linha").forEach(l=>{ const k=l.parentElement.dataset.k, abrir=()=>{ estT.aberto=k; render(); const a=document.querySelector(`.est-item[data-k="${CSS.escape(k)}"]`); a&&a.scrollIntoView({block:"nearest"}); };
+  c.querySelectorAll(".est-linha").forEach(l=>{ const k=l.parentElement.dataset.k, abrir=()=>{ const o=reservaDeOutro(k);
+      if(o) return toast(`🔒 O pedido ${esc(k.split("-")[1])} já está sendo tratado por <b>${esc(o.por||o.email)}</b>.`);
+      if(k===estT.reservado) return; estT.aberto=k; render(); abrirNaTriagem(k); };
     l.onclick=abrir; l.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); abrir(); } }; });
   const pp=$("#trLista [data-pp]",c);
   if(pp){ const i=fila.findIndex(p=>p.k===pp.dataset.pp), p=fila[i];
     montarPainelPedido(pp,p,"triagem",acao=>{ if(acao==="nota") return render();
-      const prox=fila[i+1]||fila[i-1], item=pp.closest(".est-item"); item.classList.add("saindo");   // sobe da esteira
-      setTimeout(()=>{ estT.aberto=prox?prox.k:""; render(); },320); }); }
+      RESERVAS.delete(p.k); estT.reservado=""; atualizarMenu();          // o servidor já devolveu a reserva ao gravar
+      const prox=fila.slice(i+1).find(x=>!reservaDeOutro(x.k))||fila.slice(0,i).reverse().find(x=>!reservaDeOutro(x.k)), item=pp.closest(".est-item"); item.classList.add("saindo");   // sobe da esteira
+      setTimeout(()=>{ estT.aberto=""; estT.preferir=prox?prox.k:""; render(); },320); }); }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -975,7 +1038,7 @@ function renderConfig(c){
     $("#cfSet").querySelectorAll("[data-sc]").forEach(i=>i.oninput=()=>{ D.setores[+i.dataset.sc].cor=i.value; });
     $("#cfSet").querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{ const s=D.setores[+b.dataset.sd];
       if(D.motivos.some(m=>m.setor===s.id)){ alert(`“${s.nome}” tem motivos ligados. Troque o setor desses motivos antes de excluir.`); return; }
-      if([...TRAT.values()].some(t=>aberta(t)&&t.dados.setor===s.id)){ alert(`“${s.nome}” tem pendências abertas. Resolva ou toque para outro setor antes.`); return; }
+      if([...TRAT.values()].some(t=>aberta(t)&&setoresDe(t).includes(s.id))){ alert(`“${s.nome}” tem pendências abertas. Resolva ou toque para outro setor antes.`); return; }
       D.setores.splice(+b.dataset.sd,1); desSet(); desMot(); }); };
   const desMot=()=>{ $("#cfMot").innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Classificação</th><th>Motivo</th><th>Fica pendente com</th><th>Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>${D.motivos.map((m,i)=>`<tr>
       <td><input data-mc="${i}" list="dlClasses" value="${esc(m.classe)}"></td><td><input data-mm="${i}" value="${esc(m.motivo)}"></td>
@@ -985,7 +1048,7 @@ function renderConfig(c){
     const lig=(sel,k,conv)=>$("#cfMot").querySelectorAll(`[${sel}]`).forEach(i=>i[i.type==="checkbox"||i.tagName==="SELECT"?"onchange":"oninput"]=()=>{ D.motivos[+i.getAttribute(sel)][k]=conv?conv(i):i.value; });
     lig("data-mc","classe"); lig("data-mm","motivo"); lig("data-ms","setor"); lig("data-ml","sla",i=>Number(i.value)||0); lig("data-ma","ativo",i=>i.checked);
     $("#cfMot").querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{ const m=D.motivos[+b.dataset.md];
-      if([...TRAT.values()].some(t=>aberta(t)&&t.dados.motivo_id===m.id)){ alert("Há pendências abertas com este motivo — desative em vez de excluir."); return; }
+      if([...TRAT.values()].some(t=>aberta(t)&&motivosDe(t).some(x=>x.id===m.id))){ alert("Há pendências abertas com este motivo — desative em vez de excluir."); return; }
       D.motivos.splice(+b.dataset.md,1); desMot(); }); };
   desSet(); desMot();
   $("#cfSetAdd",c).onclick=()=>{ D.setores.push({id:uid(),nome:"Novo setor",cor:CORES[D.setores.length%CORES.length]}); desSet(); desMot(); };
@@ -1014,11 +1077,11 @@ async function exportarXlsx(nome,abas){
   }catch(e){ alert(e.message); } }
 function exportarCarteira(lst){
   const tr=p=>tratDe(p.k), ab=p=>aberta(tr(p));
-  exportarXlsx("carteira",[{nome:"Pedidos",cols:[["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Cliente",p=>p.n],["Código",p=>p.c],["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],
+  exportarXlsx("carteira",[{nome:"Pedidos",cols:[["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Cliente",p=>p.n],["Código do cliente",p=>p.c],["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],
       ["Prazo",p=>prazo(p).rot],["Bloqueado",p=>bloqueado(p)?"Sim":"Não"],["Qtd Bloq",p=>temQtdBloq(p)?p.qb:""],["Status (ajustado)",p=>statusReal(p)],["Status (planilha)",p=>p.st],
       ["Status do pedido (ajustado)",p=>situacao(p)],["Status Pedido (coluna Q)",p=>p.sp],["Analisado",p=>analisado(p.k)?"Sim":"Não"],["Tipo",p=>p.tp],["Agenda",p=>p.ag],["Cidade",p=>p.ci],["Bairro",p=>p.ba],["CEP",p=>p.cep],
       ["Telefones",p=>p.t.join(" / ")],["Itens",p=>p.it.length||p.ipv],["Qtd",p=>qtdTotal(p)],["Valor",p=>p.v],["Cubagem",p=>p.cu],["Observações",p=>p.ob],
-      ["Classificação",p=>ab(p)?tr(p).dados.classe:""],["Motivo",p=>ab(p)?tr(p).dados.motivo:""],["Pendente com",p=>ab(p)?setorPor(tr(p).dados.setor).nome:""],["Dias com o setor",p=>ab(p)?diasComSetor(tr(p)):""]],linhas:lst},
+      ["Classificação",p=>ab(p)?tr(p).dados.classe:""],["Motivo",p=>ab(p)?tr(p).dados.motivo:""],["Pendente com",p=>ab(p)?setoresDe(tr(p)).map(i=>setorPor(i).nome).join(" + "):""],["Dias com o setor",p=>ab(p)?diasComSetor(tr(p)):""]],linhas:lst},
     {nome:"Itens",cols:[["Loja",x=>x.p.l],["Pedido",x=>x.p.p],["Cliente",x=>x.p.n],["Item",x=>x.i[IT.item]],["Produto",x=>x.i[IT.prod]],["Descrição",x=>x.i[IT.desc]],["Grupo",x=>x.i[IT.grupo]],["Local",x=>x.i[IT.local]],
       ["Qtd",x=>x.i[IT.qtd]],["Total",x=>x.i[IT.total]],["Status",x=>x.i[IT.st]],["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Prazo",x=>prazo(x.p).rot]],linhas:lst.flatMap(p=>p.it.map(i=>({p,i})))}]);
 }
@@ -1033,7 +1096,7 @@ async function iniciar(){
       if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
   $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
   try{
-    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas()]);
+    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas()]);
     CFG=cf.j&&cf.j.id?cf.j:null; CFG_DADOS=cfg(); DIAS=dias.j||[];
     if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; }
     else if(NIVEL>=3) secao="importar";
