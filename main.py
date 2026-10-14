@@ -1305,6 +1305,19 @@ def cart_dia_gravar(data: str, payload: CarteiraDia, request: Request):
         raise HTTPException(status_code=409, detail=str(e))
 
 
+@app.delete("/api/carteira/dias/{data}")
+def cart_dia_excluir(data: str, request: Request):
+    """[v4.2] Excluir uma importação errada — só administrador."""
+    u = usuario_atual(request)
+    if u.get("papel") != "admin":
+        raise HTTPException(status_code=403, detail="Só o administrador pode excluir uma carteira importada.")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data):
+        raise HTTPException(status_code=400, detail="Data inválida.")
+    if not db.cart_dia_excluir(data):
+        raise HTTPException(status_code=404, detail="Não há carteira importada nesse dia.")
+    return {"ok": True, "excluido": data, "por": _nome_de(request)}
+
+
 @app.get("/api/carteira/tratativas")
 def cart_tratativas(request: Request):
     return db.docs_listar(db.COLECAO_CART_TRATATIVAS)
