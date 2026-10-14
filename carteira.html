@@ -228,6 +228,7 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 <body>
 <div class="bar"><div class="bar-in">
   <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <button type="button" id="btRelatorio" hidden title="Excel com as duas planilhas do BI unidas + tudo o que foi digitado no sistema">⬇️ Relatório completo</button>
   <button type="button" id="btImportar" class="primary" hidden>⤒ Importar a carteira do dia</button>
 </div></div>
 <div class="wrap">
@@ -315,7 +316,7 @@ function montarFoto(itens, pedidos){
     if(P.has(k)) conflitos.push(k);
     P.set(k,{k,p:ped,l:loja,ln:campo(r,"Nome"),c:campo(r,"Codigo"),n:campo(r,"Cliente"),em:dataBI(campo(r,"Emissao","Emissão")),en:dataBI(campo(r,"Entrega")),
       st:campo(r,"Status"),tp:campo(r,"Tipo Pedido"),sp:"",ag:campo(r,"Agenda"),ci:campo(r,"Cidade"),ba:campo(r,"Bairro"),cep:campo(r,"CEP"),
-      t:[...new Set([campo(r,"Tel"),campo(r,"Tel2"),campo(r,"Tel3")].filter(Boolean))],ob:campo(r,"Observações","Observacoes"),de:campo(r,"Desp. Aces."),
+      t:[campo(r,"Tel"),campo(r,"Tel2"),campo(r,"Tel3")],ob:campo(r,"Observações","Observacoes"),de:campo(r,"Desp. Aces."),
       cu:numBR(campo(r,"Cubagem")),v:numBR(campo(r,"Valor")),ipv:Number(campo(r,"Itens PV"))||0,qpv:Number(campo(r,"Qtd PV"))||0,qb:numBR(campo(r,"Qtd Bloq")),fo:"pedidos",it:[]}); });
   itens.forEach(r=>{ const ped=campo(r,"Pedido"); if(!ped) return; const fo=campo(r,"Filial Origem"), loja=fo.split(" - ")[0].trim(), k=`${loja}-${ped}`;
     let x=P.get(k);
@@ -323,11 +324,12 @@ function montarFoto(itens, pedidos){
       st:"",tp:campo(r,"Tipo Pedido"),sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:null,fo:"itens",it:[]}; P.set(k,x); }
     else if(x.fo==="pedidos") x.fo="ambas";
     if(!x.sp) x.sp=campo(r,"Status Pedido");
-    x.it.push([campo(r,"Item"),campo(r,"Produto"),campo(r,"Descrição","Descricao"),campo(r,"Grupo Produto"),campo(r,"Local"),numBR(campo(r,"QTD")),numBR(campo(r,"Total")),campo(r,"Status")]); });
+    x.it.push([campo(r,"Item"),campo(r,"Produto"),campo(r,"Descrição","Descricao"),campo(r,"Grupo Produto"),campo(r,"Local"),numBR(campo(r,"QTD")),numBR(campo(r,"Total")),campo(r,"Status"),campo(r,"Filial")]); });
   return {pedidos:[...P.values()],conflitos};
 }
 // índices do item: [item, produto, descrição, grupo, local, qtd, total, status]
-const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7};
+const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7,fil:8};   // fil = coluna "Filial" da planilha de itens
+function tels(p){ return [...new Set((p.t||[]).filter(Boolean))]; }
 
 // ═══ regras ═══
 let CFG_DADOS={ano_ficticio:2030,dias_alerta:4};
@@ -704,7 +706,7 @@ function renderCarteira(c){
 // ═══════════════════════════════════════════════════════════════════
 function renderItens(c){
   c.innerHTML=`<section><header><h2>Itens</h2><p>Quanto de cada produto está na carteira — com os mesmos filtros da Carteira. Clique num produto para ver os pedidos.</p>
-      <span class="direita"><button type="button" class="peq" id="itXls">⬇️ Excel</button></span></header><div id="itF"></div><div id="itT"></div></section>`;
+      <span class="direita"><button type="button" class="peq" id="itXls">⬇️ Excel (resumo por produto)</button><button type="button" class="peq" id="itRel">⬇️ Relatório completo (com os filtros)</button></span></header><div id="itF"></div><div id="itT"></div></section>`;
   $("#itF",c).appendChild(painelFiltros(()=>render()));
   const ag=new Map();
   FOTO.pedidos.filter(p=>passa(p,true)).forEach(p=>{ const pz=prazo(p).cls; p.it.filter(itemPassa).forEach(i=>{ const k=i[IT.prod];
@@ -716,6 +718,7 @@ function renderItens(c){
     lst.slice(0,500).map(x=>`<tr class="clic" data-p="${esc(x.prod)}"><td><b>${esc(x.prod)}</b></td><td>${esc(x.desc)}</td><td>${esc(x.grupo)}</td><td>${esc([...x.locais].join(", "))}</td>
       <td class="num"><b>${int(x.qtd)}</b></td><td class="num">${x.bloq?`<span class="pill p-warn">${int(x.bloq)}</span>`:"—"}</td><td class="num">${int(x.ped.size)}</td><td class="num">${x.atr.size?`<span class="pill p-bad">${int(x.atr.size)}</span>`:"—"}</td><td class="num">${moeda(x.valor)}</td></tr>`).join("")||'<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">Nenhum item com esses filtros.</td></tr>'}</tbody></table></div>`;
   $("#itT",c).querySelectorAll("tr[data-p]").forEach(tr=>tr.onclick=()=>{ F.produto=tr.dataset.p; ir("carteira"); });
+  $("#itRel",c).onclick=()=>exportarRelatorio("relatorio_itens",FOTO.pedidos.filter(p=>passa(p)));
   $("#itXls",c).onclick=()=>exportarXlsx("itens_carteira",[{nome:"Itens",cols:[["Produto",x=>x.prod],["Descrição",x=>x.desc],["Grupo",x=>x.grupo],["Local",x=>[...x.locais].join(", ")],["Qtd",x=>x.qtd],["Qtd bloqueada",x=>x.bloq],["Pedidos",x=>x.ped.size],["Pedidos atrasados",x=>x.atr.size],["Valor",x=>x.valor]],linhas:lst}]);
 }
 
@@ -741,7 +744,7 @@ function montarPainelPedido(box,p,modo,aoFim){
       ${corrigidoPelaQtdBloq(p)?`<p class="cap" style="margin:4px 0 0">⛔ Bloqueado pela <b>Qtd Bloq = 1</b> (coluna L) — o Status na planilha diz “${esc(p.st)}”.</p>`:""}
       <div class="info" style="margin-top:8px">
         <div><small>Código do cliente</small><b>${esc(p.c||"—")}</b></div><div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div>
-        <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>Telefones</small>${p.t.length?p.t.map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join(" · "):"—"}</div>
+        <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>Telefones</small>${tels(p).length?tels(p).map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join(" · "):"—"}</div>
         <div><small>Valor</small>${moeda(p.v)}</div><div><small>Qtd Bloq</small>${temQtdBloq(p)?esc(p.qb):"—"}</div>${p.ob?`<div style="grid-column:1/-1"><small>Observações</small>${esc(p.ob)}</div>`:""}</div>
       ${p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th><th>Status</th></tr></thead><tbody>${
         p.it.map(i=>`<tr><td>${esc(i[IT.prod])}</td><td>${esc(i[IT.desc])}</td><td>${esc(i[IT.grupo])}</td><td>${esc(i[IT.local])}</td><td class="num">${int(i[IT.qtd])}</td><td>${nrm(i[IT.st])==="bloqueado"?'<span class="pill p-warn">Bloqueado</span>':esc(i[IT.st])}</td></tr>`).join("")}</tbody></table></div>`
@@ -1026,7 +1029,7 @@ function renderImportar(c){
           else if(x.tipo==="desbloqueou"){ await gravarTratativa(x.p,{acao:"auto",situacao:x.para,nota:`Status do pedido: ${x.de} → ${x.para} (${quando})`}); fechadas++; }
           else { await gravarTratativa(x.p,{acao:"status",situacao:x.para,nota:`Status do pedido: ${x.de} → ${x.para} (${quando})`}); mudaram++; } }catch(_){}
         m.textContent=`Atualizando pendências… ${fechadas+mudaram} de ${U.length}`; }
-      setStatus("ok"); imp.itens=imp.pedidos=imp.previa=null; ir("painel");
+      setStatus("ok"); imp.itens=imp.pedidos=imp.previa=null; $("#btRelatorio").hidden=false; ir("painel");
       toast(`✓ Carteira de ${dataBR(imp.data)} gravada (${int(pv.resumo.pedidos)} pedidos).${fechadas?` ${fechadas} pendência(s) encerrada(s) pela planilha.`:""}${mudaram?` ${mudaram} mudaram de status.`:""}`);
     }catch(e){ setStatus("erro",e.message); m.className="msg erro"; m.textContent=e.message; b.disabled=false; } };
 }
@@ -1083,9 +1086,10 @@ function excelJS(){ if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
 async function exportarXlsx(nome,abas){
   try{ const X=await excelJS(), wb=new X.Workbook();
     abas.forEach(a=>{ const ws=wb.addWorksheet(a.nome.slice(0,31)); ws.addRow(a.cols.map(c=>c[0]));
-      ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
+      ws.getRow(1).eachCell((c,n)=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:(a.cols[n-1]&&a.cols[n-1][2])||"FF2E4A7A"}}; c.alignment={vertical:"middle",wrapText:true}; });
+      ws.getRow(1).height=32;
       a.linhas.forEach(l=>ws.addRow(a.cols.map(c=>c[1](l))));
-      a.cols.forEach((c,i)=>ws.getColumn(i+1).width=Math.max(10,Math.min(48,c[0].length+6))); ws.views=[{state:"frozen",ySplit:1}];
+      a.cols.forEach((c,i)=>ws.getColumn(i+1).width=Math.max(10,Math.min(48,Math.max(c[0].length+4,...a.linhas.slice(0,200).map(l=>String(c[1](l)??"").length+2))))); ws.views=[{state:"frozen",xSplit:5,ySplit:1}];
       if(a.linhas.length) ws.autoFilter={from:{row:1,column:1},to:{row:1,column:a.cols.length}}; });
     baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),`${nome}_${FOTO_DATA||hojeISO()}.xlsx`);
   }catch(e){ alert(e.message); } }
@@ -1098,38 +1102,45 @@ function exportarCarteira(lst){ return exportarRelatorio("carteira",lst); }
 // uma linha por pedido. Aba "Histórico": cada movimentação da tratativa.
 // ═══════════════════════════════════════════════════════════════════
 function foraDeLinha(i){ const g=nrm(i[IT.grupo]); return g.startsWith("9999")||g.includes("fora de linha"); }
-function colunasPedido(){
-  const tr=p=>tratDe(p.k), d=p=>(tr(p)||{}).dados||{}, hist=p=>d(p).historico||[], ult=(p,f)=>{ const h=[...hist(p)].reverse().find(f); return h; };
+// cores do cabeçalho: de onde vem cada coluna
+const COR_ITENS="FF2B63B0", COR_PV="FF2F7D4F", COR_SIS="FFC98A0B";
+// colunas da planilha de ITENS — mesmos nomes e mesma ordem do BI
+const COLS_BI_ITENS=[["Filial",x=>x.i?x.i[IT.fil]||"":""],["Filial Origem",x=>`${x.p.l}${x.p.ln?" - "+x.p.ln:""}`],["Codigo",x=>x.p.c],["Cliente",x=>x.p.n],["Pedido",x=>x.p.p],
+  ["Emissão",x=>x.p.em?dataBR(x.p.em):""],["Item",x=>x.i?x.i[IT.item]:""],["Produto",x=>x.i?x.i[IT.prod]:""],["Descrição",x=>x.i?x.i[IT.desc]:""],["Grupo Produto",x=>x.i?x.i[IT.grupo]:""],
+  ["Local",x=>x.i?x.i[IT.local]:""],["QTD",x=>x.i?x.i[IT.qtd]:""],["Total",x=>x.i?x.i[IT.total]:""],["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Status",x=>x.i?x.i[IT.st]:""],
+  ["Tipo Pedido",x=>x.p.tp],["Status Pedido",x=>x.p.sp]].map(c=>[c[0],c[1],COR_ITENS]);
+// colunas da planilha de PEDIDOS (PV) — mesmos nomes do BI; as que repetem nome levam "(PV)"
+const COLS_BI_PV=[["Filial (PV)",x=>x.p.l],["Nome",x=>x.p.ln],["Itens PV",x=>x.p.ipv||""],["Qtd PV",x=>x.p.qpv||""],["Status (PV)",x=>x.p.st],["Qtd Bloq",x=>temQtdBloq(x.p)?x.p.qb:""],
+  ["Agenda",x=>x.p.ag],["Cidade",x=>x.p.ci],["Bairro",x=>x.p.ba],["CEP",x=>x.p.cep],["Tel",x=>(x.p.t||[])[0]||""],["Tel2",x=>(x.p.t||[])[1]||""],["Tel3",x=>(x.p.t||[])[2]||""],
+  ["Observações",x=>x.p.ob],["Desp. Aces.",x=>x.p.de],["Cubagem",x=>x.p.cu||""],["Valor",x=>x.p.v||""]].map(c=>[c[0],c[1],COR_PV]);
+// colunas do SISTEMA — regras aplicadas e tudo o que foi digitado
+function colunasSistema(){
+  const tr=p=>tratDe(p.k), d=p=>(tr(p)||{}).dados||{}, hist=p=>d(p).historico||[];
   const naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(x=>x.k));
   return [
-    ["Loja",p=>p.l],["Nome da loja",p=>p.ln],["Pedido",p=>p.p],["Código do cliente",p=>p.c],["Cliente",p=>p.n],
-    ["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],["Prazo",p=>p.fora?"":prazo(p).rot],["Etapa da triagem",p=>p.fora?"":({vencidos:"1ª · Vencido",emdia:"2ª · Em dia",semdata:"Sem data"})[etapaDe(p)]],
-    ["Bloqueado",p=>p.fora?"":bloqueado(p)?"Sim":"Não"],["Qtd Bloq (col. L)",p=>temQtdBloq(p)?p.qb:""],["Status (ajustado)",p=>p.fora?"":statusReal(p)],["Status (planilha, col. J)",p=>p.st],
-    ["Status do pedido (ajustado)",p=>p.fora?(d(p).situacao||""):situacao(p)],["Status Pedido (col. Q)",p=>p.sp],["Tipo do pedido",p=>p.tp],["Agenda",p=>p.ag],
-    ["Cidade",p=>p.ci],["Bairro",p=>p.ba],["CEP",p=>p.cep],["Telefone 1",p=>p.t[0]||""],["Telefone 2",p=>p.t[1]||""],["Telefone 3",p=>p.t[2]||""],
-    ["Observações",p=>p.ob],["Desp. aces.",p=>p.de],["Cubagem",p=>p.cu||""],["Valor do pedido",p=>p.v||""],["Itens PV",p=>p.ipv||""],["Qtd PV",p=>p.qpv||""],
-    ["Origem dos dados",p=>p.fora?"fora da carteira atual":({ambas:"as duas planilhas",pedidos:"só planilha de pedidos",itens:"só planilha de itens"})[p.fo]||""],
-    ["Na carteira atual",p=>naFoto.has(p.k)?"Sim":"Saiu"],
+    ["Bloqueado (regra Qtd Bloq)",p=>p.fora?"":bloqueado(p)?"Sim":"Não"],["Status ajustado",p=>p.fora?"":statusReal(p)],["Status do pedido ajustado",p=>p.fora?(d(p).situacao||""):situacao(p)],
+    ["Prazo",p=>p.fora?"":prazo(p).rot],["Etapa da triagem",p=>p.fora?"":({vencidos:"1ª · Vencido",emdia:"2ª · Em dia",semdata:"Sem data"})[etapaDe(p)]],
+    ["Origem dos dados",p=>p.fora?"fora da carteira atual":({ambas:"as duas planilhas",pedidos:"só planilha de pedidos",itens:"só planilha de itens"})[p.fo]||""],["Na carteira atual",p=>naFoto.has(p.k)?"Sim":"Saiu"],
     ["Analisado",p=>tr(p)?"Sim":"Não"],["Situação da tratativa",p=>({aberta:"Aberta",resolvida:"Resolvida",ok:"Analisado — sem pendência"})[d(p).status]||""],
     ["Classificação",p=>d(p).classe||""],["Motivo(s)",p=>d(p).motivo||""],["Setor(es)",p=>setoresDe(tr(p)).map(i=>setorPor(i).nome).join(" + ")],
     ["Dias com o setor",p=>aberta(tr(p))?diasComSetor(tr(p)):""],["Fora do prazo do setor",p=>aberta(tr(p))&&foraDoPrazo(tr(p))?`Sim (prazo ${foraDoPrazo(tr(p))} d)`:""],
     ["Aberta em",p=>d(p).aberta_em?dataHoraBR(d(p).aberta_em):""],["Classificado por",p=>(hist(p).find(h=>h.acao==="classificar"||h.acao==="ok")||{}).por||""],
-    ["Última nota",p=>(ult(p,h=>h.nota)||{}).nota||""],["Última movimentação",p=>{ const h=hist(p)[hist(p).length-1]; return h?`${dataHoraBR(h.em)} · ${h.por||""}`:""; }],
+    ["Última nota",p=>([...hist(p)].reverse().find(h=>h.nota)||{}).nota||""],["Última movimentação",p=>{ const h=hist(p)[hist(p).length-1]; return h?`${dataHoraBR(h.em)} · ${h.por||""}`:""; }],
     ["Resolvida em",p=>d(p).resolvida_em?dataHoraBR(d(p).resolvida_em):""],["Em análise agora por",p=>{ const r=RESERVAS.get(p.k); return r&&String(r.expira)>new Date().toISOString()?(r.por||r.email):""; }],
-    ["Histórico",p=>hist(p).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${textoHist(h).replace(/<[^>]+>/g,"")}${h.nota?` — “${h.nota}”`:""}`).join(" | ")]];
+    ["Histórico",p=>hist(p).map(h=>`${dataHoraBR(h.em)} ${h.por||""}: ${textoHist(h).replace(/<[^>]+>/g,"")}${h.nota?` — “${h.nota}”`:""}`).join(" | ")]].map(c=>[c[0],c[1],COR_SIS]);
 }
-const COLS_ITEM=[["Item",x=>x.i?x.i[IT.item]:""],["Produto",x=>x.i?x.i[IT.prod]:""],["Descrição da peça",x=>x.i?x.i[IT.desc]:""],["Grupo do produto",x=>x.i?x.i[IT.grupo]:""],
-  ["Fora de linha",x=>x.i?(foraDeLinha(x.i)?"Sim":"Não"):""],["Local",x=>x.i?x.i[IT.local]:""],["Qtd do item",x=>x.i?x.i[IT.qtd]:""],["Total do item",x=>x.i?x.i[IT.total]:""],["Status do item",x=>x.i?x.i[IT.st]:""]];
 function linhasRelatorio(lst){
-  const cp=colunasPedido(), POS=5;   // as colunas da peça entram logo depois do cliente
-  const colsItens=[...cp.slice(0,POS).map(([r,f])=>[r,x=>f(x.p)]),...COLS_ITEM,...cp.slice(POS).map(([r,f])=>[r,x=>f(x.p)])];
+  const sis=colunasSistema(), comP=cols=>cols.map(([r,f,c])=>[r,x=>f(x.p),c]);
   const itens=lst.flatMap(p=>p.it.length?p.it.map(i=>({p,i})):[{p,i:null}]);
   const hist=lst.flatMap(p=>{ const t=tratDe(p.k); return t?(t.dados.historico||[]).map(h=>({p,h})):[]; });
+  const pvPedidos=[["Filial",x=>x.p.l],["Nome",x=>x.p.ln],["Codigo",x=>x.p.c],["Cliente",x=>x.p.n],["Pedido",x=>x.p.p],["Emissao",x=>x.p.em?dataBR(x.p.em):""],["Itens PV",x=>x.p.ipv||""],["Qtd PV",x=>x.p.qpv||""],
+    ["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Status",x=>x.p.st],["Tipo Pedido",x=>x.p.tp],["Qtd Bloq",x=>temQtdBloq(x.p)?x.p.qb:""],["Agenda",x=>x.p.ag],["Cidade",x=>x.p.ci],["Bairro",x=>x.p.ba],["CEP",x=>x.p.cep],
+    ["Tel",x=>(x.p.t||[])[0]||""],["Tel2",x=>(x.p.t||[])[1]||""],["Tel3",x=>(x.p.t||[])[2]||""],["Observações",x=>x.p.ob],["Desp. Aces.",x=>x.p.de],["Cubagem",x=>x.p.cu||""],["Valor",x=>x.p.v||""]].map(c=>[c[0],c[1],COR_PV]);
   return [
-    {nome:"Itens",cols:colsItens,linhas:itens},
-    {nome:"Pedidos",cols:[...cp.slice(0,POS),["Itens na planilha",p=>p.it.length],["Peças",p=>p.it.map(i=>`${i[IT.qtd]}x ${i[IT.desc]}`).join(" | ")],["Qtd total",p=>qtdTotal(p)],["Itens bloqueados",p=>p.it.filter(i=>nrm(i[IT.st])==="bloqueado").length],["Tem item fora de linha",p=>p.it.some(foraDeLinha)?"Sim":"Não"],...cp.slice(POS)],linhas:lst},
-    {nome:"Histórico",cols:[["Loja",x=>x.p.l],["Pedido",x=>x.p.p],["Código do cliente",x=>x.p.c],["Cliente",x=>x.p.n],["Data e hora",x=>dataHoraBR(x.h.em)],["Por",x=>x.h.por||""],
-      ["Ação",x=>textoHist(x.h).replace(/<[^>]+>/g,"")],["Setor(es)",x=>(x.h.setores||(x.h.setor?[x.h.setor]:[])).map(i=>setorPor(i).nome).join(" + ")],["Classificação",x=>x.h.classe||""],["Motivo",x=>x.h.motivo||""],["Nota",x=>x.h.nota||""]],linhas:hist}];
+    {nome:"Relatório completo",cols:[...COLS_BI_ITENS,...COLS_BI_PV,...comP(sis)],linhas:itens},
+    {nome:"Pedidos",cols:[...pvPedidos,["Peças (planilha de itens)",x=>x.p.it.map(i=>`${i[IT.qtd]}x ${i[IT.prod]} ${i[IT.desc]}`).join(" | "),COR_ITENS],["Status Pedido",x=>x.p.sp,COR_ITENS],...comP(sis)],linhas:lst.map(p=>({p}))},
+    {nome:"Histórico",cols:[["Filial Origem",x=>`${x.p.l}${x.p.ln?" - "+x.p.ln:""}`],["Pedido",x=>x.p.p],["Codigo",x=>x.p.c],["Cliente",x=>x.p.n],["Data e hora",x=>dataHoraBR(x.h.em)],["Por",x=>x.h.por||""],
+      ["Ação",x=>textoHist(x.h).replace(/<[^>]+>/g,"")],["Setor(es)",x=>(x.h.setores||(x.h.setor?[x.h.setor]:[])).map(i=>setorPor(i).nome).join(" + ")],["Classificação",x=>x.h.classe||""],["Motivo",x=>x.h.motivo||""],["Nota",x=>x.h.nota||""]].map(c=>[c[0],c[1],COR_SIS]),linhas:hist}];
 }
 function exportarRelatorio(nome,lst){ if(!lst.length) return alert("Nada para exportar com esses filtros."); return exportarXlsx(nome,linhasRelatorio(lst)); }
 
@@ -1142,11 +1153,13 @@ async function iniciar(){
       const deps=u.departamentos||[];
       if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
   $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
+  $("#btRelatorio").onclick=()=>{ if(!FOTO) return alert("Nenhuma carteira importada ainda."); exportarRelatorio("relatorio_completo",FOTO.pedidos); };
   try{
     const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas()]);
     CFG=cf.j&&cf.j.id?cf.j:null; CFG_DADOS=cfg(); DIAS=dias.j||[];
     if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; }
     else if(NIVEL>=3) secao="importar";
+    $("#btRelatorio").hidden=!FOTO;
     setStatus("ok"); render();
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar a carteira.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
