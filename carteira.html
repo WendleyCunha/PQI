@@ -185,6 +185,14 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .tri-prog{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--prog);border-radius:10px;padding:12px 16px;margin:0 0 12px;font-size:15px}
 .tri-prog b{font:700 26px "IBM Plex Sans Condensed",sans-serif;color:var(--prog)}
 .tri-prog .track{height:8px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:8px}.tri-prog .track i{display:block;height:100%;background:var(--ok)}
+.etapas-tri{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.etapa-b{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--sheet);border:1px solid var(--rule);border-top:5px solid var(--ec);border-radius:10px;padding:10px 14px;font:inherit;color:inherit}
+.etapa-b span{font:700 14px "IBM Plex Sans Condensed",sans-serif;color:var(--ec);text-transform:uppercase;letter-spacing:.03em}
+.etapa-b b{font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif}
+.etapa-b small{font-size:12px;color:var(--ink-3)}
+.etapa-b:hover{border-color:var(--ec)} .etapa-b.ativo{background:color-mix(in srgb,var(--ec) 10%,var(--sheet));box-shadow:inset 0 0 0 2px var(--ec)}
+.et-vencidos{--ec:var(--bad)} .et-emdia{--ec:var(--ok)} .et-semdata{--ec:var(--idle)} .et-todos{--ec:var(--steel)}
+@media (max-width:860px){ .etapas-tri{grid-template-columns:1fr 1fr} }
 .esteira{display:flex;flex-direction:column;gap:6px}
 .est-item{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:hidden;transition:opacity .3s,transform .3s,max-height .3s}
 .est-item.aberto{border-color:var(--steel);box-shadow:0 4px 16px rgba(20,30,50,.08)}
@@ -824,7 +832,7 @@ function renderFilas(c){
 // Pedido analisado em qualquer dia anterior não volta (a tratativa é por
 // loja + pedido e atravessa as importações).
 // ═══════════════════════════════════════════════════════════════════
-const estT={escopo:"bloq",busca:"",loja:"",sit:"",aberto:"",reservado:"",reservando:"",preferir:"",limite:40};
+const estT={etapa:"vencidos",bloq:"bloq",busca:"",loja:"",sit:"",aberto:"",reservado:"",reservando:"",preferir:"",limite:40};
 // abre o pedido para quem está logado: só abre se conseguir a reserva no servidor
 async function abrirNaTriagem(k){
   if(estT.reservado&&estT.reservado!==k){ liberar(estT.reservado); estT.reservado=""; }
@@ -836,12 +844,16 @@ setInterval(async()=>{ if(secao!=="triagem"||!FOTO) return; await carregarReserv
   if(!document.activeElement||!document.activeElement.closest(".pp")) render(); },20000);                    // vê quem pegou o quê
 setInterval(()=>{ if(estT.reservado) reservar(estT.reservado); },5*60000);                                    // mantém a sua reserva viva
 window.addEventListener("pagehide",()=>{ if(estT.reservado) liberar(estT.reservado); });
-function escopoTriagem(p){ return estT.escopo==="todos"?true:estT.escopo==="atrasados"?bloqueado(p)&&prazo(p).cls==="atrasado":bloqueado(p); }
+// [v4.5] triagem em duas etapas: 1ª VENCIDOS (entrega já passou) · 2ª EM DIA · e à parte os sem data
+const ETAPAS=[["vencidos","1ª etapa · Vencidos","entrega já passou"],["emdia","2ª etapa · Em dia","entrega hoje ou depois"],["semdata","Sem data","data fictícia"],["todos","Todos","todas as etapas"]];
+function etapaDe(p){ const pz=prazo(p); return pz.cls==="semdata"?"semdata":pz.n<0?"vencidos":"emdia"; }
+function noBloqueio(p){ return estT.bloq==="todos"||bloqueado(p); }
+function escopoTriagem(p,etapa){ const e=etapa||estT.etapa; return noBloqueio(p)&&(e==="todos"||etapaDe(p)===e); }
 function faltaTriar(){ return FOTO?FOTO.pedidos.filter(p=>escopoTriagem(p)&&!analisado(p.k)):[]; }
 function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atrasado"?0:x.cls==="emdia"?1:2;
   return r(pa)-r(pb)||((pa.n??9999)-(pb.n??9999))||((b.v||0)-(a.v||0)); }
 function renderTriagem(c){
-  const doEscopo=FOTO.pedidos.filter(escopoTriagem), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
+  const doEscopo=FOTO.pedidos.filter(p=>escopoTriagem(p)), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
   const hoje=hojeISO(), hojeN=[...TRAT.values()].filter(x=>String(((x.dados.historico||[])[0]||{}).em||"").slice(0,10)===hoje).length;
   const fila=faltaTriar().filter(p=>(!estT.loja||p.l===estT.loja)&&(!estT.sit||situacao(p)===estT.sit)&&(!t||[p.p,p.n,p.c,...p.it.map(i=>i[IT.desc])].some(x=>nrm(x).includes(t)))).sort(ordemUrgencia);
   const livres=fila.filter(p=>!reservaDeOutro(p.k)), comOutros=fila.length-livres.length;
@@ -851,8 +863,10 @@ function renderTriagem(c){
   c.innerHTML=`<section><header><h2>Triagem</h2><p>Esteira: classifique e o pedido sai da lista. O que já foi analisado em qualquer dia não volta.</p></header>
     <div class="tri-prog"><div><b>${int(fila.length)}</b> para analisar <span class="muted">· ${int(feitos)} de ${int(total)} já analisados (${pct}%) · ${int(hojeN)} analisados hoje${comOutros?` · <span style="color:var(--block)">🔒 ${int(comOutros)} em análise por outras pessoas</span>`:""}</span></div>
       <div class="track"><i style="width:${pct}%"></i></div></div>
+    <div class="etapas-tri" role="tablist" aria-label="Etapa da triagem">${ETAPAS.map(([id,rot,dica])=>{ const doE=FOTO.pedidos.filter(p=>escopoTriagem(p,id)), falta=doE.filter(p=>!analisado(p.k)).length;
+      return `<button type="button" role="tab" aria-selected="${estT.etapa===id}" class="etapa-b et-${id}${estT.etapa===id?" ativo":""}" data-etapa="${id}"><span>${rot}</span><b>${int(falta)}</b><small>${falta?"para analisar":"✓ tudo analisado"} · ${dica}${doE.length?` · ${int(doE.length-falta)}/${int(doE.length)} feitos`:""}</small></button>`; }).join("")}</div>
     <div class="filtros" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
-      <select id="trEsc" aria-label="O que triar"><option value="bloq"${estT.escopo==="bloq"?" selected":""}>Bloqueados (Qtd Bloq = 1)</option><option value="atrasados"${estT.escopo==="atrasados"?" selected":""}>Bloqueados e atrasados</option><option value="todos"${estT.escopo==="todos"?" selected":""}>Todos os pedidos da carteira</option></select>
+      <select id="trBloq" aria-label="Bloqueio"><option value="bloq"${estT.bloq==="bloq"?" selected":""}>Só bloqueados (Qtd Bloq = 1)</option><option value="todos"${estT.bloq==="todos"?" selected":""}>Todos os pedidos (bloqueados ou não)</option></select>
       <select id="trLoja" aria-label="Loja"><option value="">Loja: todas</option>${lojas.map(([l,n])=>`<option value="${esc(l)}"${l===estT.loja?" selected":""}>${esc(l)}${n?" · "+esc(n):""}</option>`).join("")}</select>
       <select id="trSit" aria-label="Status do pedido"><option value="">Status do pedido: todos</option>${[...new Set(faltaTriar().map(situacao))].sort().map(x=>`<option${x===estT.sit?" selected":""}>${esc(x)}</option>`).join("")}</select>
       <input id="trBusca" placeholder="Buscar pedido, cliente, produto..." value="${esc(estT.busca)}"></div>
@@ -863,9 +877,11 @@ function renderTriagem(c){
         <span>${outro?`<span class="pill p-roxo">🔒 em análise por ${esc(outro.por||outro.email)}</span>`:meu?'<span class="pill p-azul">👤 com você</span>':""}</span>
         <span class="pill ${pz.pill}">${pz.rot}</span><span class="pill" style="background:color-mix(in srgb,${corSituacao(si)} 14%,transparent);color:${corSituacao(si)}">${esc(si)}</span><span class="est-v">${moeda(p.v)}</span></div>
         ${p.k===estT.aberto?(meu?`<div data-pp="${esc(p.k)}"></div>`:'<p class="cap" style="padding:14px 16px;margin:0">⏳ Separando este pedido para você…</p>'):""}</div>`; }).join("")
-      :`<div class="vazio-tri">${total?"✅ Tudo analisado"+(estT.loja||estT.sit||t?" com esses filtros":"")+". Quando a próxima planilha subir, só os pedidos novos aparecem aqui.":"Nada para triar neste escopo."}</div>`}</div>
+      :`<div class="vazio-tri">${total?"✅ Tudo analisado nesta etapa"+(estT.loja||estT.sit||t?" com esses filtros":"")+(estT.etapa==="vencidos"?". Pode seguir para a <b>2ª etapa · Em dia</b>.":". Quando a próxima planilha subir, só os pedidos novos aparecem aqui."):"Nada para triar nesta etapa."}</div>`}</div>
     ${fila.length>estT.limite?`<div class="mais"><button type="button" id="trMais">Mostrar mais ${Math.min(40,fila.length-estT.limite)}</button></div>`:""}</section>`;
-  $("#trEsc",c).onchange=e=>{ estT.escopo=e.target.value; estT.aberto=""; render(); };
+  const trocar=fn=>{ if(estT.reservado){ liberar(estT.reservado); estT.reservado=""; } estT.aberto=""; fn(); render(); };
+  c.querySelectorAll("[data-etapa]").forEach(b=>b.onclick=()=>trocar(()=>{ estT.etapa=b.dataset.etapa; }));
+  $("#trBloq",c).onchange=e=>trocar(()=>{ estT.bloq=e.target.value; });
   $("#trLoja",c).onchange=e=>{ estT.loja=e.target.value; estT.aberto=""; render(); };
   $("#trSit",c).onchange=e=>{ estT.sit=e.target.value; estT.aberto=""; render(); };
   $("#trBusca",c).oninput=e=>{ estT.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#trBusca"); n.focus(); n.setSelectionRange(pos,pos); },300); };
