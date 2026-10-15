@@ -205,6 +205,14 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .est-v{text-align:right;font-variant-numeric:tabular-nums}
 .est-item > .pp{padding:14px 16px;border-top:1px solid var(--rule)}
 .vazio-tri{text-align:center;padding:40px 16px;background:var(--ok-soft);border-radius:10px;font-size:16px}
+/* [v4.7] encerramento indevido: pedido marcado como resolvido que voltou bloqueado na planilha seguinte */
+.est-item.indevido{border-color:var(--bad);border-left:6px solid var(--bad);background:var(--bad-soft)}
+.est-item.indevido .est-linha:hover{background:color-mix(in srgb,var(--bad) 12%,var(--bad-soft))}
+.indev-faixa{padding:6px 14px;background:var(--bad);color:#fff;font:600 13px/1.35 "IBM Plex Sans",sans-serif;letter-spacing:.01em}
+.indev-aviso{margin:0 0 10px;padding:10px 12px;border-radius:8px;background:var(--bad-soft);border-left:5px solid var(--bad);font-size:14px;color:var(--ink)}
+.indev-aviso b{color:var(--bad)}
+tr.indev td{background:color-mix(in srgb,var(--bad-soft) 75%,var(--sheet))}
+tr.indev td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
 /* status do pedido */
 .sit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:0 0 12px}
 .sit-grid.peq{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
@@ -243,7 +251,7 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 <script>
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
-// CARTEIRA DE ENCOMENDAS  [v4.0]
+// CARTEIRA DE ENCOMENDAS  [v4.0] · [v4.7] encerramento indevido (resolvido que voltou bloqueado)
 // Todo dia: importar as duas planilhas do BI (itens e pedidos) → unir por
 // LOJA + PEDIDO → gravar a "foto do dia" (compactada). O histórico é a
 // sequência de fotos. Cada pedido pode receber uma TRATATIVA: motivo →
@@ -255,7 +263,7 @@ const $=(s,r=document)=>r.querySelector(s);
 function el(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function tx(v){ return String(v==null?"":v).trim(); }
-const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
+const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ");
 function pad(n){ return String(n).padStart(2,"0"); }
 function iso(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function hojeISO(){ return iso(new Date()); }
@@ -276,7 +284,7 @@ function dataBI(s){ const m=tx(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if
 // Decodifica byte a byte: sequência UTF-8 válida vira UTF-8; byte solto vira Windows-1252.
 async function lerTexto(file){
   const u=new Uint8Array(await file.arrayBuffer());
-  try{ return new TextDecoder("utf-8",{fatal:true}).decode(u).replace(/^\uFEFF/,""); }catch(_){}
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(u).replace(/^﻿/,""); }catch(_){}
   const utf8=new TextDecoder("utf-8"), w1252=new TextDecoder("windows-1252"), partes=[]; let i=0, ini=0;
   const corte=()=>{ if(i>ini) partes.push(utf8.decode(u.subarray(ini,i))); };
   while(i<u.length){ const b=u[i];
@@ -285,7 +293,7 @@ async function lerTexto(file){
     let ok=n>0&&i+n<=u.length; for(let k=1;ok&&k<n;k++) if((u[i+k]&0xC0)!==0x80) ok=false;
     if(ok){ i+=n; continue; }
     corte(); partes.push(w1252.decode(u.subarray(i,i+1))); i++; ini=i; }
-  corte(); return partes.join("").replace(/^\uFEFF/,"");
+  corte(); return partes.join("").replace(/^﻿/,"");
 }
 function tabelaDoHTML(texto){
   const doc=new DOMParser().parseFromString(texto,"text/html");
@@ -476,7 +484,17 @@ const ROT_CORRECAO="Correção da Pendência";
 function corrigido(t){ return !!(t&&t.dados.status==="ok"); }
 function notaCorrecao(t){ if(!t) return ""; const h=[...(t.dados.historico||[])].reverse().find(x=>x.acao==="ok"); return (h&&h.nota)||""; }
 function infoCorrecao(t){ const h=[...((t&&t.dados.historico)||[])].reverse().find(x=>x.acao==="ok")||{}; return {nota:h.nota||"",por:h.por||"",em:h.em||t.dados.resolvida_em||""}; }
-function analisado(k){ return TRAT.has(k); }   // qualquer tratativa (aberta, resolvida ou "sem pendência") = já passou pela triagem
+// [v4.7] ENCERRAMENTO INDEVIDO: alguém marcou "Correção da Pendência" ou "Resolver", mas o pedido voltou
+// BLOQUEADO na planilha seguinte. O pedido volta para a Triagem em vermelho com o nome de quem encerrou,
+// e cada ocorrência fica guardada em dados.indevidos (é o que o Painel conta).
+const ROT_TIPO_ENC={ok:ROT_CORRECAO,resolver:"Resolver"};
+function indevidosDe(t){ return (t&&t.dados&&t.dados.indevidos)||[]; }
+function ultIndevido(t){ const l=indevidosDe(t); return l[l.length-1]||null; }
+function pendenteIndevido(t){ return !!(t&&t.dados.status==="indevido"); }
+// último encerramento feito por uma PESSOA (o encerramento automático pela planilha não conta)
+function encerramentoManual(t){ const h=[...((t&&t.dados.historico)||[])].reverse().find(x=>["ok","resolver","auto"].includes(x.acao));
+  return h&&h.acao!=="auto"?{por:h.por||"",em:h.em||"",acao:h.acao}:null; }
+function analisado(k){ const t=TRAT.get(k); return !!t&&t.dados.status!=="indevido"; }   // qualquer tratativa (aberta, resolvida ou "sem pendência") = já passou pela triagem · encerrado indevidamente volta para a triagem
 function diasComSetor(t){ const h=(t.dados.historico||[]).filter(x=>x.setor); const ult=h[h.length-1]; return ult?Math.max(0,diasEntre(String(ult.em).slice(0,10),hojeISO())):0; }
 async function gravarTratativa(p, mudar){
   // mudar: {acao:"classificar"|"nota"|"resolver"|"reabrir", motivo_id, nota}
@@ -496,6 +514,9 @@ async function gravarTratativa(p, mudar){
   else if(mudar.acao==="auto"){ dados.status="resolvida"; dados.resolvida_em=agora; reg.setor_atual=dados.setor; if(mudar.situacao!=null) dados.situacao=mudar.situacao; }
   else if(mudar.acao==="ok"){ Object.assign(dados,{status:"ok",motivo_id:"",motivo:ROT_CORRECAO+(reg.nota?" — "+reg.nota:""),classe:ROT_CORRECAO,setor:"",motivos:[],setores:[],resolvida_em:agora}); reg.motivo=dados.motivo; }
   else if(mudar.acao==="status"){ dados.situacao=mudar.situacao; }
+  else if(mudar.acao==="indevido"){ const e=mudar.enc||{};
+    dados.indevidos=[...(dados.indevidos||[]),{por:e.por||"",em:e.em||"",acao:e.acao||"",foto:mudar.foto||"",detectado_em:agora}];
+    dados.status="indevido"; dados.indevido_por=e.por||""; reg.indevido_por=e.por||""; reg.tipo_enc=e.acao||""; dados.situacao=situacao(p)||dados.situacao||""; }
   else if(!reg.nota) throw new Error("Escreva a nota.");
   if(mudar.acao==="classificar"||mudar.acao==="ok") dados.situacao=situacao(p)||dados.situacao||"";
   dados.historico.push(reg); dados.cliente=p.n||dados.cliente;
@@ -561,7 +582,8 @@ function passa(p,ignorarItem){
   if(F.bloq==="sim"&&!bloqueado(p)) return false; if(F.bloq==="nao"&&bloqueado(p)) return false;
   const tr=tratDe(p.k);
   if(F.trat==="sem"&&aberta(tr)) return false; if(F.trat==="aberta"&&!aberta(tr)) return false; if(F.trat==="resolvida"&&!(tr&&tr.dados.status==="resolvida")) return false;
-  if(F.trat==="ok"&&!(tr&&tr.dados.status==="ok")) return false; if(F.trat==="naoanalisado"&&tr) return false;
+  if(F.trat==="ok"&&!(tr&&tr.dados.status==="ok")) return false; if(F.trat==="naoanalisado"&&analisado(p.k)) return false;
+  if(F.trat==="indevido"&&!indevidosDe(tr).length) return false; if(F.trat==="indevido_pend"&&!pendenteIndevido(tr)) return false;
   if(F.setor&&!(aberta(tr)&&setoresDe(tr).includes(F.setor))) return false; if(F.motivo==="__correcao"){ if(!corrigido(tr)) return false; } else if(F.motivo&&!(aberta(tr)&&motivosDe(tr).some(m=>m.id===F.motivo))) return false;
   if(F.novo&&!novos().has(p.k)) return false;
   if(!ignorarItem&&(F.grupo||F.local||F.produto)&&!p.it.some(i=>itemPassa(i))) return false;
@@ -576,7 +598,7 @@ function painelFiltros(onMudar){
   box.innerHTML=`<div class="filtros"><input class="busca" data-f="busca" placeholder="Buscar pedido, cliente, código, produto, cidade..." value="${esc(F.busca)}" aria-label="Buscar">
     ${sel("prazo","Prazo",[["atrasado","🔴 Atrasado (≤ "+cfg().dias_alerta+" dias ou vencido)"],["emdia","🟢 Em dia"],["semdata","⚪ Sem data"]],F.prazo)}
     ${sel("bloq","Bloqueio",[["sim","Só bloqueados"],["nao","Só não bloqueados"]],F.bloq)}
-    ${sel("trat","Tratativa",[["naoanalisado","Ainda não analisado (triagem)"],["sem","Sem tratativa aberta"],["aberta","Com tratativa aberta"],["resolvida","Resolvida"],["ok","✓ Correção da Pendência"]],F.trat)}
+    ${sel("trat","Tratativa",[["naoanalisado","Ainda não analisado (triagem)"],["sem","Sem tratativa aberta"],["aberta","Com tratativa aberta"],["resolvida","Resolvida"],["ok","✓ Correção da Pendência"],["indevido_pend","⚠ Resolvido indevidamente — aguardando nova triagem"],["indevido","⚠ Já teve encerramento indevido (todos)"]],F.trat)}
     ${sel("setor","Pendente com",cfg().setores.map(s=>[s.id,s.nome]),F.setor)}
     ${sel("motivo","Motivo",[["__correcao","✓ Correção da Pendência (resolvido na fonte)"],...cfg().motivos.map(m=>[m.id,`${m.classe} · ${m.motivo}`])],F.motivo)}
     ${sel("sit","Status do pedido",[...new Set(FOTO.pedidos.map(situacao))].sort(),F.sit)}
@@ -615,6 +637,11 @@ function renderPainel(c){
   const abertas=tr.filter(aberta), semTrat=P.filter(p=>bloqueado(p)&&!aberta(tratDe(p.k))).length, atrasBloqSem=P.filter(p=>bloqueado(p)&&prazo(p).cls==="atrasado"&&!aberta(tratDe(p.k))).length;
   const chavesFoto=new Set(P.map(p=>p.k));
   const corr=tr.filter(corrigido).sort((a,b)=>String(infoCorrecao(b).em).localeCompare(String(infoCorrecao(a).em))), corrFoto=corr.filter(t=>chavesFoto.has(t.dados.chave)).length;
+  // [v4.7] encerramentos indevidos: cada vez que um pedido encerrado voltou bloqueado conta 1
+  const indev=tr.flatMap(t=>indevidosDe(t).map(x=>({t,x}))).sort((a,b)=>String(b.x.detectado_em).localeCompare(String(a.x.detectado_em)));
+  const indevPend=tr.filter(pendenteIndevido).length, porUsuIndev=new Map();
+  indev.forEach(({x})=>{ const k=x.por||"—"; porUsuIndev.set(k,(porUsuIndev.get(k)||0)+1); });
+  const rankIndev=[...porUsuIndev.entries()].sort((a,b)=>b[1]-a[1]);
   c.innerHTML=`<header class="doc-head"><div><h1>Carteira de ${dataBR(FOTO_DATA)}</h1>
       <p class="obj">${int(R.pedidos)} pedidos · ${int(R.itens)} itens · ${int(R.unidades)} unidades · ${moeda(R.valor)} em carteira</p>
       <p class="cap" style="margin:6px 0 0">Prazo: entrega a ${cfg().dias_alerta} dias ou menos (ou vencida) = <b>atrasado</b>; ano a partir de ${cfg().ano_ficticio} = <b>sem data</b>. Pode vender sem estoque — o que não pode é furar a data de entrega.</p></div>
@@ -628,21 +655,34 @@ function renderPainel(c){
       <button type="button" class="kpi k-azul" data-k="aberta"><span>📌 Pendências abertas</span><b>${int(abertas.length)}</b><small>com algum setor</small></button>
       <button type="button" class="kpi k-azul" data-k="triagem"><span>🔎 Falta triar</span><b>${int(faltaTriar().length)}</b><small>${int(FOTO.pedidos.filter(p=>analisado(p.k)&&escopoTriagem(p)).length)} já analisados</small></button>
       <button type="button" class="kpi k-ok" data-k="correcao"><span>✅ ${ROT_CORRECAO}</span><b>${int(corr.length)}</b><small>resolvidos na fonte · ${int(corrFoto)} na carteira atual</small></button>
+      <button type="button" class="kpi k-bad" data-k="indevido" title="Pedidos marcados como Correção da Pendência ou Resolver que voltaram bloqueados na planilha seguinte"><span>⚠ Encerramentos indevidos</span><b style="color:${indev.length?"var(--bad)":"inherit"}">${int(indev.length)}</b><small>${int(indevPend)} aguardando nova triagem${rankIndev.length?` · mais: ${esc(rankIndev[0][0])} (${int(rankIndev[0][1])})`:""}</small></button>
       <button type="button" class="kpi k-roxo" data-k="novo"><span>🆕 Entraram nesta foto</span><b>${int((m.novos||[]).length)}</b><small>${int((m.sairam||[]).length)} saíram</small></button></div>
     <h3>Pendências por setor</h3><div class="setores" id="pnSet"></div>
     <div class="box"><b>✅ ${ROT_CORRECAO} — resolvidos na fonte, sem tocar a bola</b><p class="cap" style="margin:2px 0 8px">${int(corr.length)} caso(s) · os mais recentes primeiro · clique no pedido para abrir na Carteira.</p><div id="pnCorr"></div></div>
+    <div class="box" style="border-left:6px solid var(--bad)"><b>⚠ Encerramentos indevidos — marcados como resolvidos, mas voltaram bloqueados na planilha seguinte</b>
+      <p class="cap" style="margin:2px 0 8px">${int(indev.length)} ocorrência(s) · ${int(indevPend)} ainda aguardando nova triagem · os mais recentes primeiro.</p>
+      ${indev.length?`<div class="grid2" style="grid-template-columns:minmax(300px,.8fr) minmax(0,2fr)"><div><b style="font-size:13px">Por usuário que encerrou</b><div style="margin-top:6px">${barras(rankIndev.map(([k,v])=>({rot:k,v,cor:"#B83232"})),indev.length)}</div></div><div id="pnIndev"></div></div>`
+        :'<p class="cap">Nenhum caso. 👌 Quando um pedido encerrado voltar bloqueado na importação, ele aparece aqui e volta para a Triagem em vermelho.</p>'}</div>
     <div class="grid2">
       <div class="box" style="margin:0"><b>Evolução da carteira</b><p class="cap" style="margin:2px 0 8px">Uma linha por importação (últimas 30).</p><div class="graf" id="pnGraf"></div></div>
       <div class="box" style="margin:0"><b>Itens mais bloqueados</b><p class="cap" style="margin:2px 0 8px">Unidades bloqueadas por produto — clique para ver os pedidos.</p><div id="pnTop"></div></div>
       <div class="box" style="margin:0"><b>Bloqueados por loja</b><p class="cap" style="margin:2px 0 8px">Pedidos bloqueados, por loja de origem.</p><div id="pnLoja"></div></div>
       <div class="box" style="margin:0"><b>Por tipo de pedido</b><p class="cap" style="margin:2px 0 8px">Pedidos na carteira.</p><div id="pnTipo"></div></div></div>`;
   c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==="triagem") return ir("triagem"); if(k==="correcao") return irCarteira({motivo:"__correcao"});
+    if(k==="indevido") return irCarteira({trat:"indevido"});
     irCarteira(k==="atrasado"?{prazo:"atrasado"}:k==="bloq"?{bloq:"sim"}:k==="critico"?{bloq:"sim",prazo:"atrasado",trat:"sem"}:k==="semdata"?{prazo:"semdata"}:k==="aberta"?{trat:"aberta"}:{novo:true}); });
   $("#pnCorr",c).innerHTML=corr.length?`<div class="tbl-wrap" style="max-height:340px"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Loja</th><th>Nota (o que foi feito)</th><th>Por</th><th>Quando</th></tr></thead><tbody>${
       corr.map(t=>{ const d=t.dados, i=infoCorrecao(t), fora=!chavesFoto.has(d.chave);
         return `<tr><td><a href="#" data-cped="${esc(d.pedido)}">${esc(d.pedido)}</a>${fora?'<span class="sub">saiu da carteira</span>':""}</td><td>${esc(d.cliente||"—")}</td><td>${esc(d.loja||"")}</td><td style="white-space:normal">${i.nota?esc(i.nota):'<span class="muted">—</span>'}</td><td>${esc(i.por||"—")}</td><td>${i.em?dataHoraBR(i.em):"—"}</td></tr>`; }).join("")}</tbody></table></div>`
     :'<p class="cap">Nenhum caso ainda. Na Triagem, use “✓ Correção da Pendência” quando resolver na hora.</p>';
   $("#pnCorr",c).querySelectorAll("[data-cped]").forEach(a=>a.onclick=e=>{ e.preventDefault(); irCarteira({motivo:"__correcao",busca:a.dataset.cped}); });
+  const pi=$("#pnIndev",c);
+  if(pi){ pi.innerHTML=`<div class="tbl-wrap" style="max-height:340px"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Encerrado indevidamente por</th><th>Como</th><th>Encerrado em</th><th>Voltou na planilha de</th><th>Situação agora</th></tr></thead><tbody>${
+      indev.map(({t,x})=>{ const d=t.dados, pend=pendenteIndevido(t)&&ultIndevido(t)===x;
+        return `<tr><td><a href="#" data-iped="${esc(d.pedido)}">${esc(d.pedido)}</a><span class="sub">loja ${esc(d.loja||"")}</span></td><td>${esc(d.cliente||"—")}</td><td><b style="color:var(--bad)">${esc(x.por||"—")}</b></td>
+          <td>${esc(ROT_TIPO_ENC[x.acao]||x.acao||"—")}</td><td>${x.em?dataHoraBR(x.em):"—"}</td><td>${x.foto?dataBR(x.foto):"—"}</td>
+          <td>${pend?'<span class="pill p-bad">aguardando triagem</span>':d.status==="aberta"?'<span class="pill p-azul">reclassificado</span>':d.status==="indevido"?'<span class="pill p-bad">aguardando</span>':'<span class="pill p-cinza">encerrado de novo</span>'}</td></tr>`; }).join("")}</tbody></table></div>`;
+    pi.querySelectorAll("[data-iped]").forEach(a=>a.onclick=e=>{ e.preventDefault(); irCarteira({trat:"indevido",busca:a.dataset.iped}); }); }
   const ps=$("#pnSet",c);
   ps.innerHTML=cfg().setores.map(s=>{ const l=abertas.filter(t=>setoresDe(t).includes(s.id)), est=l.filter(foraDoPrazo).length,
       velho=l.reduce((a,t)=>Math.max(a,diasComSetor(t)),0), fora=l.filter(t=>!chavesFoto.has(t.dados.chave)).length;
@@ -668,10 +708,12 @@ function renderPainel(c){
 const estC={limite:150,ord:"entrega",dir:1,sel:new Set(),aberto:""};
 function celTrat(p){ const t=tratDe(p.k); if(!t) return '<span class="muted">—</span>';
   const d=t.dados, s=setorPor(setoresDe(t)[0]);
-  if(d.status==="ok"){ const nt=notaCorrecao(t); return `<span class="pill p-ok">✓ ${ROT_CORRECAO}</span>${nt?`<span class="sub" style="white-space:normal">“${esc(nt)}”</span>`:""}`; }
-  if(d.status!=="aberta") return `<span class="pill p-ok">✓ resolvida</span>`;
+  if(d.status==="indevido"){ const u=ultIndevido(t)||{}; return `<span class="pill p-bad">⚠ Resolvido indevidamente</span><span class="sub" style="white-space:normal;color:var(--bad)">por <b>${esc(u.por||"—")}</b> · ${esc(ROT_TIPO_ENC[u.acao]||"")} em ${u.em?dataBR(u.em):"—"} · voltou na planilha</span>`; }
+  const ni=indevidosDe(t).length, extra=ni?`<span class="sub" style="color:var(--bad)">⚠ ${ni} encerramento(s) indevido(s) antes</span>`:"";
+  if(d.status==="ok"){ const nt=notaCorrecao(t); return `<span class="pill p-ok">✓ ${ROT_CORRECAO}</span>${nt?`<span class="sub" style="white-space:normal">“${esc(nt)}”</span>`:""}${extra}`; }
+  if(d.status!=="aberta") return `<span class="pill p-ok">✓ resolvida</span>${extra}`;
   const est=foraDoPrazo(t);
-  return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(setoresDe(t).map(x=>setorPor(x).nome).join(" + "))} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>`; }
+  return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(setoresDe(t).map(x=>setorPor(x).nome).join(" + "))} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>${extra}`; }
 function linhasOrdenadas(lst){
   const k=estC.ord, d=estC.dir, v=p=>k==="entrega"?(p.en||"9999"):k==="valor"?p.v:k==="emissao"?(p.em||""):k==="cliente"?nrm(p.n):k==="trat"?(aberta(tratDe(p.k))?diasComSetor(tratDe(p.k)):-1):k==="qtd"?qtdTotal(p):p.k;
   return lst.slice().sort((a,b)=>{ const x=v(a), y=v(b); return (x<y?-1:x>y?1:0)*d; });
@@ -693,7 +735,7 @@ function renderCarteira(c){
       <div class="tbl-wrap"><table><thead><tr>${NIVEL>=2?`<th><input type="checkbox" id="ctTodos" title="Selecionar os ${vis.length} visíveis" ${vis.length&&vis.every(p=>estC.sel.has(p.k))?"checked":""}></th>`:""}
         ${th("k","Pedido")}${th("cliente","Cliente")}<th>Loja</th>${th("entrega","Entrega / prazo")}<th>Status</th><th>Tipo</th>${th("qtd","Itens","num")}${th("valor","Valor","num")}${th("trat","Tratativa")}</tr></thead><tbody>${
       vis.map(p=>{ const pz=prazo(p), b=bloqueado(p), nb=p.it.filter(i=>nrm(i[IT.st])==="bloqueado").length;
-        return `<tr class="clic${estC.sel.has(p.k)?" sel":""}" data-k="${esc(p.k)}">${NIVEL>=2?`<td><input type="checkbox" data-sel="${esc(p.k)}" ${estC.sel.has(p.k)?"checked":""} aria-label="Selecionar ${esc(p.p)}"></td>`:""}
+        return `<tr class="clic${estC.sel.has(p.k)?" sel":""}${pendenteIndevido(tratDe(p.k))?" indev":""}" data-k="${esc(p.k)}">${NIVEL>=2?`<td><input type="checkbox" data-sel="${esc(p.k)}" ${estC.sel.has(p.k)?"checked":""} aria-label="Selecionar ${esc(p.p)}"></td>`:""}
           <td><b>${esc(p.p)}</b>${nv.has(p.k)?'<span class="novo">NOVO</span>':""}<span class="sub">${esc(p.em?dataBR(p.em):"")}</span></td>
           <td>${esc(p.n||"—")}<span class="sub">${esc(p.c)}${p.ci?" · "+esc(p.ci):""}</span></td><td>${esc(p.l)}<span class="sub">${esc(p.ln)}</span></td>
           <td>${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span></td>
@@ -745,9 +787,10 @@ function opcoesMotivo(atual){
 }
 function textoHist(h){ const nomes=a=>(a||[]).map(x=>setorPor(x).nome).join(" + "), para=nomes(h.setores||(h.setor?[h.setor]:[])), de=nomes(h.de_setores||(h.de_setor?[h.de_setor]:[]));
   return h.acao==="classificar"?(de&&de!==para?`Tocou de <b>${esc(de)}</b> para <b>${esc(para)}</b>`:`Classificou → <b>${esc(para)}</b>`)+` · ${esc(h.classe||"")} — ${esc(h.motivo||"")}`
+    :h.acao==="indevido"?`⚠ Voltou bloqueado na planilha — <b>resolvido indevidamente por ${esc(h.indevido_por||"—")}</b>${h.tipo_enc?` (${esc(ROT_TIPO_ENC[h.tipo_enc]||h.tipo_enc)})`:""}`
     :h.acao==="ok"?`✓ ${ROT_CORRECAO}`:h.acao==="resolver"?"✓ Resolveu":h.acao==="reabrir"?"↺ Reabriu":h.acao==="auto"?"⚙ Atualizado pela planilha — encerrado":h.acao==="status"?"⚙ Status do pedido mudou na planilha":"Nota"; }
 function montarPainelPedido(box,p,modo,aoFim){
-  const t=tratDe(p.k), d=t&&t.dados, pz=prazo(p), ativos=cfg().motivos.filter(m=>m.ativo!==false), aberta_=d&&d.status==="aberta";
+  const t=tratDe(p.k), d=t&&t.dados, pz=prazo(p), ativos=cfg().motivos.filter(m=>m.ativo!==false), aberta_=d&&d.status==="aberta", indev_=pendenteIndevido(t), ui=ultIndevido(t);
   const classes=[...new Set(ativos.map(m=>m.classe))], outro=reservaDeOutro(p.k);
   const marcados=new Set(aberta_?motivosDe(t).map(m=>m.id):[]);
   box.className="pp"+(modo==="triagem"?" pp-tri":"");
@@ -764,18 +807,20 @@ function montarPainelPedido(box,p,modo,aoFim){
         :`<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":`Fora da planilha de itens (${p.ipv} item(ns), ${p.qpv} unidade(s) segundo a planilha de pedidos).`}</p>`}
     </div>
     <div class="pp-trat">
-      ${d?(aberta_?`<p style="margin:0">📌 Pendente com ${pillsSetores(t)} há ${diasComSetor(t)} dia(s) · <b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`
+      ${indev_&&ui?`<div class="indev-aviso">⚠ <b>RESOLVIDO INDEVIDAMENTE POR: ${esc(ui.por||"—")}</b><br>Marcou “${esc(ROT_TIPO_ENC[ui.acao]||ui.acao||"—")}” em ${ui.em?dataHoraBR(ui.em):"—"}, mas o pedido voltou <b>bloqueado</b> na planilha de ${ui.foto?dataBR(ui.foto):"—"}. Trate de novo: classifique o motivo ou use “✓ Correção da Pendência”.</div>`
+        :indevidosDe(t).length?`<p class="cap" style="margin:0 0 6px;color:var(--bad)">⚠ Este pedido já teve ${indevidosDe(t).length} encerramento(s) indevido(s).</p>`:""}
+      ${d&&!indev_?(aberta_?`<p style="margin:0">📌 Pendente com ${pillsSetores(t)} há ${diasComSetor(t)} dia(s) · <b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`
           :d.status==="ok"?`<p style="margin:0"><span class="pill p-ok">✓ ${ROT_CORRECAO}</span>${notaCorrecao(t)?` “${esc(notaCorrecao(t))}”`:""}</p>`:`<p style="margin:0"><span class="pill p-ok">✓ Resolvida</span> ${esc(d.classe)} — ${esc(d.motivo)}</p>`)
-        :`<p style="margin:0"><span class="pill p-azul">🔎 Ainda não analisado</span></p>`}
+        :indev_?"":`<p style="margin:0"><span class="pill p-azul">🔎 Ainda não analisado</span></p>`}
       ${outro?`<div class="trava">🔒 <b>Em análise por ${esc(outro.por||outro.email)}</b> agora — para não tratarem o mesmo pedido em dobro, só essa pessoa pode classificar até terminar (ou a reserva vencer).</div>`
       :NIVEL>=2?`<div class="grupos-mot">${classes.map(cl=>{ const ms=ativos.filter(m=>m.classe===cl), sets=[...new Set(ms.map(m=>m.setor))];
           return `<div class="grupo-mot" style="--sc:${setorPor(sets[0]).cor}"><div class="gm-cab"><b>${esc(cl)}</b><span>${esc(sets.map(x=>setorPor(x).nome).join(" · "))}</span></div>
             ${ms.map(m=>`<button type="button" class="chip-m${marcados.has(m.id)?" marcado":""}" style="--sc:${setorPor(m.setor).cor}" data-mot="${m.id}" aria-pressed="${marcados.has(m.id)}"><i></i><span>${esc(m.motivo)}${sets.length>1?`<small>→ ${esc(setorPor(m.setor).nome)}</small>`:""}</span></button>`).join("")}</div>`; }).join("")}</div>
         <div class="pp-conf"><input data-nota placeholder="Nota (opcional) — o que foi visto, combinado com quem">
           <button type="button" class="primary" data-conf disabled>Marque um ou mais motivos</button>
-          ${!d||aberta_?'<button type="button" data-ok title="Resolvi na hora, sem passar para outro setor">✓ Correção da Pendência</button>':""}${aberta_?'<button type="button" data-res>✓ Resolver</button>':""}${d&&!aberta_?'<button type="button" data-reab>↺ Reabrir</button>':""}${d?'<button type="button" data-nt>Só a nota</button>':""}
+          ${!d||aberta_||indev_?'<button type="button" data-ok title="Resolvi na hora, sem passar para outro setor">✓ Correção da Pendência</button>':""}${aberta_?'<button type="button" data-res>✓ Resolver</button>':""}${d&&!aberta_&&!indev_?'<button type="button" data-reab>↺ Reabrir</button>':""}${d?'<button type="button" data-nt>Só a nota</button>':""}
           <span class="msg" data-msg></span></div>`:""}
-      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
+      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${h.acao==="indevido"?"var(--bad)":(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
     </div>`;
   const nota=()=>{ const i=box.querySelector("[data-nota]"); return i?i.value:""; }, conf=box.querySelector("[data-conf]");
   const atualizarConf=()=>{ if(!conf) return; const ms=[...marcados].map(motivoPor).filter(Boolean), st=[...new Set(ms.map(m=>setorPor(m.setor).nome))];
@@ -803,7 +848,24 @@ async function classificarLote(lst,depois){
 // ═══════════════════════════════════════════════════════════════════
 // PENDÊNCIAS POR SETOR — a fila de cada setor
 // ═══════════════════════════════════════════════════════════════════
-const estFila={setor:"",status:"aberta",aberto:""};
+// [v4.8] busca completa + filtro por motivo cadastrado + ordenar A–Z / Z–A em todas as colunas
+const estFila={setor:"",status:"aberta",aberto:"",busca:"",motivo:"",ord:"dias",dir:-1};
+const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["entrega","Entrega / prazo"],["situacao","Status do pedido"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"],["nafoto","Na carteira?"]];
+function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, nota=[...(d.historico||[])].reverse().find(h=>h.nota);
+  switch(estFila.ord){
+    case "pedido": return Number(d.pedido)||nrm(d.pedido);
+    case "cliente": return nrm(d.cliente||p.n);
+    case "entrega": return p.fora||!p.en||prazo(p).cls==="semdata"?"9999-99-99":p.en;
+    case "situacao": return nrm(p.fora?d.situacao:situacao(p));
+    case "classe": return nrm(`${d.classe} ${d.motivo}`);
+    case "setor": return nrm(setoresDe(t).map(x=>setorPor(x).nome).join(" + "));
+    case "dias": return diasComSetor(t);
+    case "nota": return nota?nrm(nota.nota):"￿";
+    case "nafoto": return naFoto.has(d.chave)?0:1;
+    default: return 0; } }
+function buscaFila(o,q){ if(!q) return true; const {t,p}=o, d=t.dados;
+  return [d.pedido,d.chave,d.loja,d.cliente,p.n,p.c,p.ci,d.classe,d.motivo,d.situacao,...motivosDe(t).map(m=>m.motivo),
+    ...p.it.flatMap(i=>[i[IT.prod],i[IT.desc]]),...(d.historico||[]).map(h=>h.nota)].some(x=>nrm(x).includes(q)); }
 function pedidoDaTrat(t){ const d=t.dados; return (FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos.find(p=>p.k===d.chave))||
   {k:d.chave,p:d.pedido,l:d.loja,ln:"",c:"",n:d.cliente,em:"",en:"",st:"",tp:"",sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:0,it:[],fora:true}; }
 function renderFilas(c){
@@ -814,26 +876,39 @@ function renderFilas(c){
     <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>setoresDe(t).includes(s.id));
       const est=l.filter(foraDoPrazo).length;
       return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small></button>`; }).join("")}</div>
-    <div class="acoes" style="margin-top:0"><select id="flSt" style="width:auto"><option value="aberta"${estFila.status==="aberta"?" selected":""}>Abertas</option><option value="resolvida"${estFila.status==="resolvida"?" selected":""}>Resolvidas (últimos 30 dias)</option></select></div>
+    <div class="filtros" style="grid-template-columns:minmax(170px,220px) minmax(220px,1fr) minmax(260px,2fr)">
+      <select id="flSt" aria-label="Situação"><option value="aberta"${estFila.status==="aberta"?" selected":""}>Abertas</option><option value="resolvida"${estFila.status==="resolvida"?" selected":""}>Resolvidas (últimos 30 dias)</option></select>
+      <select id="flMot" aria-label="Motivo"><option value="">Motivo: todos</option>${[...new Set(cfg().motivos.map(m=>m.classe))].map(cl=>`<optgroup label="${esc(cl)}">${cfg().motivos.filter(m=>m.classe===cl).map(m=>`<option value="${esc(m.id)}"${m.id===estFila.motivo?" selected":""}>${esc(m.motivo)} → ${esc(setorPor(m.setor).nome)}${m.ativo===false?" (inativo)":""}</option>`).join("")}</optgroup>`).join("")}</select>
+      <input id="flBusca" placeholder="Buscar código, pedido, nome, produto, descrição, motivo, nota..." value="${esc(estFila.busca)}" aria-label="Buscar"></div>
+    ${estFila.busca||estFila.motivo?`<div class="filtros-rodape">Filtros: ${estFila.motivo?`<span class="chip-f">Motivo: ${esc((motivoPor(estFila.motivo)||{}).motivo||estFila.motivo)}<button type="button" data-tiraf="motivo" title="Tirar">✕</button></span>`:""}${estFila.busca?`<span class="chip-f">“${esc(estFila.busca)}”<button type="button" data-tiraf="busca" title="Tirar">✕</button></span>`:""}</div>`:""}
     <div id="flT"></div></section>`;
   c.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ estFila.setor=b.dataset.set; render(); });
   $("#flSt",c).onchange=e=>{ estFila.status=e.target.value; render(); };
+  $("#flMot",c).onchange=e=>{ estFila.motivo=e.target.value; estFila.aberto=""; render(); };
+  c.querySelectorAll("[data-tiraf]").forEach(b=>b.onclick=()=>{ estFila[b.dataset.tiraf]=""; render(); });
+  $("#flBusca",c).oninput=e=>{ estFila.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#flBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
   const lim30=new Date(Date.now()-30*864e5).toISOString();
   const lst=todas.filter(t=>estFila.status==="aberta"?aberta(t):(t.dados.status==="resolvida"&&String(t.dados.resolvida_em||"")>=lim30))
     .filter(t=>estFila.setor==="__todos"||setoresDe(t).includes(estFila.setor))
-    .sort((a,b)=>diasComSetor(b)-diasComSetor(a));
-  const linhas=lst.map(t=>({t,p:pedidoDaTrat(t)}));
-  $("#flT",c).innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / prazo</th><th>Status do pedido</th><th>Classificação · motivo</th><th>Setor</th><th class="num">Com o setor há</th><th>Última nota</th><th>Na carteira?</th><th></th></tr></thead><tbody>${
+    .filter(t=>!estFila.motivo||motivosDe(t).some(m=>m.id===estFila.motivo));
+  const q=nrm(estFila.busca);
+  const linhas=lst.map(t=>({t,p:pedidoDaTrat(t)})).filter(o=>buscaFila(o,q))
+    .map(o=>({...o,_k:chaveOrdemFila(o,naFoto)}))
+    .sort((a,b)=>{ const x=a._k, y=b._k; const r=typeof x==="number"&&typeof y==="number"?x-y:String(x).localeCompare(String(y),"pt-BR",{numeric:true}); return r*estFila.dir||(diasComSetor(b.t)-diasComSetor(a.t)); });
+  const thF=([k,r,cls])=>`<th class="ord ${cls||""}" data-of="${k}" title="Clique para ordenar ${estFila.ord===k&&estFila.dir>0?"Z–A":"A–Z"}">${r}${estFila.ord===k?(estFila.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`;
+  $("#flT",c).innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(linhas.length)}</b> pendência(s)${q||estFila.motivo?" com esses filtros":""} · ordenado por <b>${esc((COLS_FILA.find(x=>x[0]===estFila.ord)||[,""])[1])}</b> ${estFila.dir>0?"(A–Z / menor → maior)":"(Z–A / maior → menor)"} — clique no título da coluna para inverter.</p>
+    <div class="tbl-wrap"><table><thead><tr>${COLS_FILA.map(thF).join("")}<th></th></tr></thead><tbody>${
     linhas.map(({t,p})=>{ const d=t.dados, dias=diasComSetor(t), sla=foraDoPrazo(t), est=!!sla, m={sla}, pz=p.fora?null:prazo(p);
       const nota=[...(d.historico||[])].reverse().find(h=>h.nota);
-      return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||"—")}</td>
+      return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||p.n||"—")}${p.c?`<span class="sub">cód. ${esc(p.c)}</span>`:""}</td>
         <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span>`:"—"}</td>
         <td>${p.fora?`<span class="muted">${esc(d.situacao||"—")}</span>`:`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`}</td>
         <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
         <td class="num">${est?`<span class="pill p-bad">${dias} d · prazo ${m.sla} d</span>`:`${dias} d`}</td><td style="max-width:280px">${nota?`“${esc(nota.nota.slice(0,120))}${nota.nota.length>120?"…":""}”<span class="sub">${esc(nota.por||"")} · ${dataHoraBR(nota.em)}</span>`:'<span class="muted">—</span>'}</td>
         <td>${naFoto.has(d.chave)?'<span class="pill p-cinza">sim</span>':'<span class="pill p-ok">saiu</span>'}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
-        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="10"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">${estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
+        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="10"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
+  $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
   $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
   const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"normal",()=>render());
   $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
@@ -869,13 +944,14 @@ function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atras
 function renderTriagem(c){
   const doEscopo=FOTO.pedidos.filter(p=>escopoTriagem(p)), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
   const hoje=hojeISO(), hojeN=[...TRAT.values()].filter(x=>String(((x.dados.historico||[])[0]||{}).em||"").slice(0,10)===hoje).length;
-  const fila=faltaTriar().filter(p=>(!estT.loja||p.l===estT.loja)&&(!estT.sit||situacao(p)===estT.sit)&&(!t||[p.p,p.n,p.c,...p.it.map(i=>i[IT.desc])].some(x=>nrm(x).includes(t)))).sort(ordemUrgencia);
+  const fila=faltaTriar().filter(p=>(!estT.loja||p.l===estT.loja)&&(!estT.sit||situacao(p)===estT.sit)&&(!t||[p.p,p.n,p.c,...p.it.map(i=>i[IT.desc])].some(x=>nrm(x).includes(t)))).sort((a,b)=>(pendenteIndevido(tratDe(b.k))-pendenteIndevido(tratDe(a.k)))||ordemUrgencia(a,b));   // encerrados indevidamente primeiro
+  const nIndev=fila.filter(p=>pendenteIndevido(tratDe(p.k))).length;
   const livres=fila.filter(p=>!reservaDeOutro(p.k)), comOutros=fila.length-livres.length;
   if(estT.aberto&&(!fila.some(p=>p.k===estT.aberto)||reservaDeOutro(estT.aberto))) estT.aberto="";
   if(!estT.aberto&&!estT.reservando&&livres.length){ const alvo=livres.find(p=>p.k===estT.preferir)||livres[0]; estT.preferir=""; estT.aberto=alvo.k; setTimeout(()=>abrirNaTriagem(alvo.k),0); }
   const lojas=[...new Map(faltaTriar().map(p=>[p.l,p.ln])).entries()].sort((a,b)=>a[0].localeCompare(b[0],"pt-BR",{numeric:true}));
   c.innerHTML=`<section><header><h2>Triagem</h2><p>Esteira: classifique e o pedido sai da lista. O que já foi analisado em qualquer dia não volta.</p></header>
-    <div class="tri-prog"><div><b>${int(fila.length)}</b> para analisar <span class="muted">· ${int(feitos)} de ${int(total)} já analisados (${pct}%) · ${int(hojeN)} analisados hoje${comOutros?` · <span style="color:var(--block)">🔒 ${int(comOutros)} em análise por outras pessoas</span>`:""}</span></div>
+    <div class="tri-prog"><div><b>${int(fila.length)}</b> para analisar <span class="muted">· ${int(feitos)} de ${int(total)} já analisados (${pct}%) · ${int(hojeN)} analisados hoje${nIndev?` · <span style="color:var(--bad);font-weight:600">⚠ ${int(nIndev)} voltaram (resolvidos indevidamente)</span>`:""}${comOutros?` · <span style="color:var(--block)">🔒 ${int(comOutros)} em análise por outras pessoas</span>`:""}</span></div>
       <div class="track"><i style="width:${pct}%"></i></div></div>
     <div class="etapas-tri" role="tablist" aria-label="Etapa da triagem">${ETAPAS.map(([id,rot,dica])=>{ const doE=FOTO.pedidos.filter(p=>escopoTriagem(p,id)), falta=doE.filter(p=>!analisado(p.k)).length;
       return `<button type="button" role="tab" aria-selected="${estT.etapa===id}" class="etapa-b et-${id}${estT.etapa===id?" ativo":""}" data-etapa="${id}"><span>${rot}</span><b>${int(falta)}</b><small>${falta?"para analisar":"✓ tudo analisado"} · ${dica}${doE.length?` · ${int(doE.length-falta)}/${int(doE.length)} feitos`:""}</small></button>`; }).join("")}</div>
@@ -884,8 +960,8 @@ function renderTriagem(c){
       <select id="trLoja" aria-label="Loja"><option value="">Loja: todas</option>${lojas.map(([l,n])=>`<option value="${esc(l)}"${l===estT.loja?" selected":""}>${esc(l)}${n?" · "+esc(n):""}</option>`).join("")}</select>
       <select id="trSit" aria-label="Status do pedido"><option value="">Status do pedido: todos</option>${[...new Set(faltaTriar().map(situacao))].sort().map(x=>`<option${x===estT.sit?" selected":""}>${esc(x)}</option>`).join("")}</select>
       <input id="trBusca" placeholder="Buscar pedido, cliente, produto..." value="${esc(estT.busca)}"></div>
-    <div class="esteira" id="trLista">${fila.length?fila.slice(0,estT.limite).map(p=>{ const pz=prazo(p), si=situacao(p), outro=reservaDeOutro(p.k), meu=p.k===estT.reservado;
-      return `<div class="est-item${p.k===estT.aberto?" aberto":""}${outro?" travado":""}" data-k="${esc(p.k)}"><div class="est-linha" role="button" tabindex="0">
+    <div class="esteira" id="trLista">${fila.length?fila.slice(0,estT.limite).map(p=>{ const pz=prazo(p), si=situacao(p), outro=reservaDeOutro(p.k), meu=p.k===estT.reservado, ti=tratDe(p.k), ind=pendenteIndevido(ti)?(ultIndevido(ti)||{}):null;
+      return `<div class="est-item${p.k===estT.aberto?" aberto":""}${outro?" travado":""}${ind?" indevido":""}" data-k="${esc(p.k)}">${ind?`<div class="indev-faixa">⚠ RESOLVIDO INDEVIDAMENTE POR: <b>${esc(ind.por||"—")}</b> · marcou “${esc(ROT_TIPO_ENC[ind.acao]||ind.acao||"—")}” em ${ind.em?dataHoraBR(ind.em):"—"} · voltou bloqueado na planilha de ${ind.foto?dataBR(ind.foto):"—"}</div>`:""}<div class="est-linha" role="button" tabindex="0">
         <span class="est-ped"><b>${esc(p.p)}</b><small>loja ${esc(p.l)} ${esc(p.ln)}</small></span>
         <span class="est-cli">${esc(p.n||"—")} <span class="cod-cli">cód. ${esc(p.c||"—")}</span><small>${esc(p.it.slice(0,2).map(i=>i[IT.desc]).join(" · ")||p.tp)}</small></span>
         <span>${outro?`<span class="pill p-roxo">🔒 em análise por ${esc(outro.por||outro.email)}</span>`:meu?'<span class="pill p-azul">👤 com você</span>':""}</span>
@@ -985,7 +1061,13 @@ async function calcularPrevia(){
     if(!np) return upd.push({t,tipo:"saiu"});
     const de=t.dados.situacao||"", para=situacao(np);
     if(de&&para!==de) upd.push({t,p:np,de,para,tipo:de.startsWith("BLOQUEADO")&&!bloqueado(np)?"desbloqueou":"mudou"}); });
-  imp.previa={...m,resumo:resumoDaFoto(m.pedidos),novos:novosK,sairam:sairamK,primeira,anterior:ant&&ant.data,atualizacoes:upd,
+  // [v4.7] encerrado por alguém (Correção da Pendência / Resolver) ANTES do dia desta planilha e que voltou BLOQUEADO → encerramento indevido
+  const indev=[];
+  if(atual) [...TRAT.values()].filter(t=>["ok","resolvida"].includes(t.dados.status)).forEach(t=>{ const np=porK.get(t.dados.chave);
+    if(!np||!bloqueado(np)) return; const e=encerramentoManual(t);
+    if(!e||!e.em||String(e.em).slice(0,10)>=imp.data) return;   // encerrado no mesmo dia da planilha (ou depois) não conta
+    indev.push({t,p:np,enc:e}); });
+  imp.previa={...m,resumo:resumoDaFoto(m.pedidos),novos:novosK,sairam:sairamK,primeira,anterior:ant&&ant.data,atualizacoes:upd,indevidos:indev,
     ambas:m.pedidos.filter(p=>p.fo==="ambas").length,soPed:m.pedidos.filter(p=>p.fo==="pedidos").length,soIt:m.pedidos.filter(p=>p.fo==="itens").length};
 }
 function renderImportar(c){
@@ -1022,6 +1104,10 @@ function renderImportar(c){
     ${r.corrigidos_qtd_bloq?`<p class="aviso">⛔ <b>${int(r.corrigidos_qtd_bloq)}</b> pedido(s) com <b>Qtd Bloq = 1</b> estavam como LIBERADO/CARTEIRA no Status e foram considerados <b>BLOQUEADO</b>.</p>`:""}
     ${U.length?`<div class="aviso"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="impFechar" ${imp.fechar?"checked":""} style="width:16px;height:16px;margin-top:3px"><span><b>Atualizar automaticamente ${U.length} pendência(s) aberta(s) pela planilha:</b><br>
       ${nSaiu?`• ${nSaiu} saíram da carteira → encerradas<br>`:""}${nDesb?`• ${nDesb} desbloquearam (Status Pedido saiu de bloqueado) → encerradas<br>`:""}${nMud?`• ${nMud} mudaram de Status Pedido → registrado no histórico, continuam com o setor`:""}</span></label></div>`:""}
+    ${(pv.indevidos||[]).length?(()=>{ const pu=new Map(); pv.indevidos.forEach(x=>pu.set(x.enc.por||"—",(pu.get(x.enc.por||"—")||0)+1));
+      return `<div class="indev-aviso">⚠ <b>${int(pv.indevidos.length)} pedido(s) marcados como resolvidos voltaram BLOQUEADOS nesta planilha.</b> Ao gravar, eles ficam como <b>RESOLVIDO INDEVIDAMENTE</b> e voltam para a Triagem em vermelho.<br>
+        Encerrados por: ${[...pu.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<b>${esc(k)}</b> (${int(v)})`).join(" · ")}<br>
+        <span class="muted">Pedidos: ${pv.indevidos.slice(0,15).map(x=>esc(x.p.p)).join(", ")}${pv.indevidos.length>15?"…":""}</span></div>`; })():""}
     <div class="acoes"><button type="button" class="primary" id="impGravar">✓ Gravar a carteira de ${dataBR(imp.data)}</button><span class="msg" id="impMsg2"></span></div></div>`;
   const fx=$("#impFechar",c); if(fx) fx.onchange=()=>{ imp.fechar=fx.checked; };
   $("#impGravar",c).onclick=async()=>{ const b=$("#impGravar"), m=$("#impMsg2");
@@ -1042,8 +1128,12 @@ function renderImportar(c){
           else if(x.tipo==="desbloqueou"){ await gravarTratativa(x.p,{acao:"auto",situacao:x.para,nota:`Status do pedido: ${x.de} → ${x.para} (${quando})`}); fechadas++; }
           else { await gravarTratativa(x.p,{acao:"status",situacao:x.para,nota:`Status do pedido: ${x.de} → ${x.para} (${quando})`}); mudaram++; } }catch(_){}
         m.textContent=`Atualizando pendências… ${fechadas+mudaram} de ${U.length}`; }
+      let indevN=0; const IV=pv.indevidos||[];
+      for(const x of IV){ try{ await gravarTratativa(x.p,{acao:"indevido",enc:x.enc,foto:imp.data,
+          nota:`Voltou bloqueado na foto de ${dataBR(imp.data)} — tinha sido encerrado como “${ROT_TIPO_ENC[x.enc.acao]||x.enc.acao}” por ${x.enc.por||"—"} em ${dataHoraBR(x.enc.em)}`}); indevN++; }catch(_){}
+        m.textContent=`Marcando encerramentos indevidos… ${indevN} de ${IV.length}`; }
       setStatus("ok"); imp.itens=imp.pedidos=imp.previa=null; $("#btRelatorio").hidden=false; ir("painel");
-      toast(`✓ Carteira de ${dataBR(imp.data)} gravada (${int(pv.resumo.pedidos)} pedidos).${fechadas?` ${fechadas} pendência(s) encerrada(s) pela planilha.`:""}${mudaram?` ${mudaram} mudaram de status.`:""}`);
+      toast(`✓ Carteira de ${dataBR(imp.data)} gravada (${int(pv.resumo.pedidos)} pedidos).${fechadas?` ${fechadas} pendência(s) encerrada(s) pela planilha.`:""}${mudaram?` ${mudaram} mudaram de status.`:""}${indevN?` ⚠ ${indevN} encerramento(s) indevido(s) — voltaram para a Triagem.`:""}`);
     }catch(e){ setStatus("erro",e.message); m.className="msg erro"; m.textContent=e.message; b.disabled=false; } };
 }
 
@@ -1134,7 +1224,8 @@ function colunasSistema(){
     ["Bloqueado (regra Qtd Bloq)",p=>p.fora?"":bloqueado(p)?"Sim":"Não"],["Status ajustado",p=>p.fora?"":statusReal(p)],["Status do pedido ajustado",p=>p.fora?(d(p).situacao||""):situacao(p)],
     ["Prazo",p=>p.fora?"":prazo(p).rot],["Etapa da triagem",p=>p.fora?"":({vencidos:"1ª · Vencido",emdia:"2ª · Em dia",semdata:"Sem data"})[etapaDe(p)]],
     ["Origem dos dados",p=>p.fora?"fora da carteira atual":({ambas:"as duas planilhas",pedidos:"só planilha de pedidos",itens:"só planilha de itens"})[p.fo]||""],["Na carteira atual",p=>naFoto.has(p.k)?"Sim":"Saiu"],
-    ["Analisado",p=>tr(p)?"Sim":"Não"],["Situação da tratativa",p=>({aberta:"Aberta",resolvida:"Resolvida",ok:ROT_CORRECAO})[d(p).status]||""],
+    ["Analisado",p=>analisado(p.k)?"Sim":"Não"],["Situação da tratativa",p=>({aberta:"Aberta",resolvida:"Resolvida",ok:ROT_CORRECAO,indevido:"Resolvido indevidamente (voltou bloqueado)"})[d(p).status]||""],
+    ["Encerramentos indevidos",p=>indevidosDe(tr(p)).length||""],["Último encerramento indevido por",p=>{ const u=ultIndevido(tr(p)); return u?`${u.por||"—"} · ${ROT_TIPO_ENC[u.acao]||u.acao||""} em ${dataHoraBR(u.em)} · voltou em ${dataBR(u.foto)}`:""; }],
     ["Classificação",p=>d(p).status==="ok"?ROT_CORRECAO:d(p).classe||""],["Motivo(s)",p=>d(p).status==="ok"?ROT_CORRECAO+(notaCorrecao(tr(p))?" — "+notaCorrecao(tr(p)):""):d(p).motivo||""],["Setor(es)",p=>setoresDe(tr(p)).map(i=>setorPor(i).nome).join(" + ")],
     ["Dias com o setor",p=>aberta(tr(p))?diasComSetor(tr(p)):""],["Fora do prazo do setor",p=>aberta(tr(p))&&foraDoPrazo(tr(p))?`Sim (prazo ${foraDoPrazo(tr(p))} d)`:""],
     ["Aberta em",p=>d(p).aberta_em?dataHoraBR(d(p).aberta_em):""],["Classificado por",p=>(hist(p).find(h=>h.acao==="classificar"||h.acao==="ok")||{}).por||""],
