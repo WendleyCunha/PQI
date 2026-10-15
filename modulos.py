@@ -121,6 +121,7 @@ PAPEIS = {
 }
 
 IDS_VALIDOS = {m["id"] for m in MODULOS}
+POR_ID = {m["id"]: m for m in MODULOS}
 
 
 def so_acesso(modulo: dict) -> bool:
@@ -131,8 +132,16 @@ def so_acesso(modulo: dict) -> bool:
 IDS_SO_ACESSO = {m["id"] for m in MODULOS if so_acesso(m)}
 
 
-def niveis_do_usuario(usuario: dict, perfil) -> dict:
-    """Nível (0–3) de cada sistema para esta pessoa.
+def _ajustar(m: dict, n) -> int:
+    try:
+        n = max(0, min(3, int(n or 0)))
+    except (TypeError, ValueError):
+        n = 0
+    return min(n, 1) if so_acesso(m) else n
+
+
+def niveis_do_perfil(usuario: dict, perfil) -> dict:
+    """Nível que vem SÓ do perfil (sem as exceções individuais).
     admin → tudo 3 · com perfil → o do perfil · sem perfil (cadastro antigo) →
     3 nos módulos que estavam marcados, como era antes dos perfis."""
     if usuario.get("papel") == "admin":
@@ -140,11 +149,48 @@ def niveis_do_usuario(usuario: dict, perfil) -> dict:
     saida = {}
     for m in MODULOS:
         if perfil is not None:
-            n = int((perfil.get("niveis") or {}).get(m["id"], 0) or 0)
+            n = (perfil.get("niveis") or {}).get(m["id"], 0)
         else:
             n = 3 if m["id"] in (usuario.get("modulos") or []) else 0
-        n = max(0, min(3, n))
-        saida[m["id"]] = min(n, 1) if so_acesso(m) else n
+        saida[m["id"]] = _ajustar(m, n)
+    return saida
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.9] ACESSO INDIVIDUAL POR SISTEMA (aba Permissões → clicar no sistema)
+# No cadastro do usuário, "acessos" guarda SÓ as exceções:
+#   {"carteira": 3}               → nível fixo neste sistema (0–3)
+#   {"mapa": "perfil:gestor"}     → neste sistema, vale como o perfil Gestor
+#                                    (acompanha se o perfil Gestor mudar)
+# Sistema sem exceção → segue o perfil da pessoa. Admin ignora exceções.
+# ──────────────────────────────────────────────────────────────────────────
+def resolver_excecao(m: dict, valor, perfis: dict):
+    """Nível (0–3) de uma exceção, ou None se ela não vale (perfil apagado, valor inválido)."""
+    if isinstance(valor, str) and valor.startswith("perfil:"):
+        p = (perfis or {}).get(valor[7:])
+        if not p:
+            return None
+        return _ajustar(m, (p.get("niveis") or {}).get(m["id"], 0))
+    if isinstance(valor, bool) or valor is None:
+        return None
+    if isinstance(valor, (int, float)) or (isinstance(valor, str) and valor.strip().isdigit()):
+        return _ajustar(m, valor)
+    return None
+
+
+def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
+    """Nível (0–3) de cada sistema para esta pessoa: o do perfil, trocado pela
+    exceção individual quando houver (ver acima)."""
+    saida = niveis_do_perfil(usuario, perfil)
+    if usuario.get("papel") == "admin":
+        return saida
+    for mid, valor in (usuario.get("acessos") or {}).items():
+        m = POR_ID.get(mid)
+        if not m:
+            continue
+        n = resolver_excecao(m, valor, perfis)
+        if n is not None:
+            saida[mid] = n
     return saida
 
 
