@@ -32,6 +32,15 @@ MODULOS = [
         "apis": ["/api/carteira"],
     },
     {
+        # [v4.1] Veio do Streamlit (cartas.py) para o Painel.
+        "id": "cartas",
+        "nome": "Cartas de Débito",
+        "descricao": "Carta de apuração para desconto salarial: gera o Word, recebe a carta assinada, fecha o lote e guarda o histórico.",
+        "url": "/cartas", "icone": "📑", "tipo": "nuvem",
+        "paginas": ["/cartas"],
+        "apis": ["/api/cartas"],
+    },
+    {
         "id": "rg",
         "nome": "RG do Pedido — Acompanhamento",
         "descricao": "Rastreabilidade do item do pedido origem ao reenvio: cronograma, cenários de teste e GAPs.",
