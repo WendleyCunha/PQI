@@ -1477,6 +1477,294 @@ def cart_config_salvar(item_id: str, payload: ProcessoEntrada, request: Request)
     return registro
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.1] CARTAS DE DÉBITO (veio do Streamlit — cartas.py)
+#  · carta: NOME, CPF, COD_CLI, VALOR, LOJA, DATA, MOTIVO, status, id_lote, anexo
+#    status: "Aguardando Assinatura" → "CARTA RECEBIDA" (subiu a assinada) → "LOTE_FECHADO"
+#  · o Word é preenchido NO NAVEGADOR a partir do modelo carta_preenchida.docx
+#  · a carta assinada fica no banco de arquivos (db.arquivos_salvar)
+# Níveis: Visualizar = consulta e baixa o Word · Adicionar = cria carta, cadastra
+# colaborador, sobe a assinada e edita a carta que ele mesmo criou ·
+# Editar = edita/exclui qualquer carta, fecha lote, exporta, reabre, apaga anexos.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_CARTAS = "cartas_debito"
+COLECAO_CARTAS_COLAB = "cartas_colaboradores"
+COLECAO_CARTAS_LOTES = "cartas_lotes"
+CARTA_AGUARDANDO, CARTA_RECEBIDA, CARTA_FECHADA = "Aguardando Assinatura", "CARTA RECEBIDA", "LOTE_FECHADO"
+MODELO_CARTA = "carta_preenchida.docx"
+
+
+class CartaEntrada(BaseModel):
+    NOME: str
+    CPF: str
+    COD_CLI: str
+    VALOR: float = 0
+    LOJA: str = ""
+    DATA: str = ""
+    MOTIVO: str = ""
+    versao: Optional[int] = None
+
+
+class ColaboradorCarta(BaseModel):
+    nome: str
+    cpf: str
+
+
+class ColaboradoresImportar(BaseModel):
+    linhas: List[ColaboradorCarta]
+
+
+class LoteFechar(BaseModel):
+    ids: List[str]
+
+
+def _nivel_cartas(request: Request) -> int:
+    return _niveis(usuario_atual(request)).get("cartas", 0)
+
+
+def _exigir_editar_cartas(request: Request, acao: str) -> None:
+    if _nivel_cartas(request) < perm.EDITAR:
+        raise HTTPException(status_code=403, detail=f"{acao} exige o perfil “Editar” no módulo Cartas de Débito.")
+
+
+def _limpa_carta(p: CartaEntrada) -> dict:
+    nome, cpf, cod = " ".join(p.NOME.upper().split()), p.CPF.strip(), p.COD_CLI.strip()
+    if not nome or not cpf or not cod:
+        raise HTTPException(status_code=400, detail="Preencha Nome, CPF e Código do Cliente.")
+    if not re.fullmatch(r"(\d{2}/\d{2}/\d{4})?", p.DATA.strip()):
+        raise HTTPException(status_code=400, detail="Data inválida (use dd/mm/aaaa).")
+    if p.VALOR < 0 or p.VALOR > 10_000_000:
+        raise HTTPException(status_code=400, detail="Valor inválido.")
+    return {"NOME": nome, "CPF": cpf, "COD_CLI": cod, "VALOR": round(float(p.VALOR), 2),
+            "LOJA": " ".join(p.LOJA.upper().split()), "DATA": p.DATA.strip(), "MOTIVO": p.MOTIVO.strip().upper()[:2000]}
+
+
+def _carta_ou_erro(carta_id: str) -> dict:
+    c = db.docs_ler(COLECAO_CARTAS, carta_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Carta não encontrada (pode ter sido excluída).")
+    c.setdefault("id", carta_id)
+    return c
+
+
+def _salvar_carta(request: Request, c: dict, dados: dict, evento: str):
+    """Grava a carta inteira (com o evento no histórico); 409 se outra pessoa mexeu antes."""
+    dados = dict(dados)
+    dados["historico"] = list(dados.get("historico") or [])[-40:] + [{"em": datetime.now().isoformat(), "por": _nome_de(request), "acao": evento}]
+    resultado, registro = db.docs_salvar(COLECAO_CARTAS, c["id"], dados, c.get("versao"), _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Carta não encontrada (pode ter sido excluída).")
+    if resultado == "conflito":
+        raise HTTPException(status_code=409, detail="Outra pessoa alterou esta carta agora — a tela vai recarregar, confira e repita.")
+    return registro
+
+
+def _upsert_colaborador(request: Request, nome: str, cpf: str, base: Optional[dict] = None) -> str:
+    """Cadastra o colaborador (ou atualiza o CPF). `base` = {NOME: doc} já lido, para importar em lote sem reler o banco."""
+    nome, cpf = " ".join((nome or "").upper().split()), (cpf or "").strip()
+    if not nome or not cpf:
+        return "ignorado"
+    if base is None:
+        base = {((d.get("dados") or {}).get("nome") or "").upper(): d for d in db.docs_listar(COLECAO_CARTAS_COLAB)}
+    d = base.get(nome)
+    if d:
+        dados = d.get("dados") or {}
+        if dados.get("cpf") == cpf:
+            return "igual"
+        resultado, reg = db.docs_salvar(COLECAO_CARTAS_COLAB, d["id"], {**dados, "cpf": cpf}, d.get("versao"), _nome_de(request))
+        if isinstance(reg, dict):
+            base[nome] = reg
+        return "atualizado"
+    reg = db.docs_criar(COLECAO_CARTAS_COLAB, {"nome": nome, "cpf": cpf}, _nome_de(request), _email(request))
+    base[nome] = reg if isinstance(reg, dict) else {"id": "", "dados": {"nome": nome, "cpf": cpf}}
+    return "novo"
+
+
+def _apagar_arquivo(arquivo_id: str) -> None:
+    """Apaga o arquivo da carta assinada do banco de arquivos (se o db_diario tiver a função)."""
+    for nome in ("arquivos_excluir", "arquivos_apagar", "arquivos_deletar"):
+        f = getattr(db, nome, None)
+        if f and arquivo_id:
+            try:
+                f(arquivo_id)
+            except Exception as e:
+                print(f"[AVISO] não consegui apagar o arquivo {arquivo_id}: {e!r}")
+            return
+
+
+@app.get("/api/cartas")
+def cartas_tudo(request: Request):
+    return {"cartas": db.docs_listar(COLECAO_CARTAS), "colaboradores": db.docs_listar(COLECAO_CARTAS_COLAB),
+            "lotes": db.docs_listar(COLECAO_CARTAS_LOTES), "nivel": _nivel_cartas(request),
+            "limite_arquivo": db.LIMITE_ARQUIVO_BYTES}
+
+
+@app.get("/api/cartas/modelo", include_in_schema=False)
+def cartas_modelo():
+    caminho = os.path.join(BASE_DIR, MODELO_CARTA)
+    if not os.path.exists(caminho):
+        raise HTTPException(status_code=404, detail=f"Modelo {MODELO_CARTA} não encontrado no repositório (mesma pasta do main.py).")
+    return FileResponse(caminho, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/cartas")
+def cartas_criar(payload: CartaEntrada, request: Request):
+    dados = _limpa_carta(payload)
+    dados.update(status=CARTA_AGUARDANDO, id_lote="", anexo=None,
+                 historico=[{"em": datetime.now().isoformat(), "por": _nome_de(request), "acao": "Carta registrada"}])
+    _upsert_colaborador(request, dados["NOME"], dados["CPF"])
+    return db.docs_criar(COLECAO_CARTAS, dados, _nome_de(request), _email(request))
+
+
+@app.put("/api/cartas/{carta_id}")
+def cartas_editar(carta_id: str, payload: CartaEntrada, request: Request):
+    c = _carta_ou_erro(carta_id)
+    _exigir_editar_ou_dono(request, "cartas", c.get("criado_por_email"))
+    atual = c.get("dados") or {}
+    if atual.get("status") == CARTA_FECHADA:
+        raise HTTPException(status_code=400, detail="Esta carta já está num lote fechado. Reabra antes de editar.")
+    if payload.versao is not None:
+        c["versao"] = payload.versao
+    novos = _limpa_carta(payload)
+    mudou = [k for k, v in novos.items() if atual.get(k) != v]
+    _upsert_colaborador(request, novos["NOME"], novos["CPF"])
+    return _salvar_carta(request, c, {**atual, **novos}, "Editou: " + (", ".join(mudou) if mudou else "sem mudanças"))
+
+
+@app.delete("/api/cartas/{carta_id}")
+def cartas_excluir(carta_id: str, request: Request):
+    c = _carta_ou_erro(carta_id)
+    if (c.get("dados") or {}).get("status") == CARTA_FECHADA:
+        raise HTTPException(status_code=400, detail="Carta de lote fechado não pode ser excluída — reabra antes.")
+    _apagar_arquivo(((c.get("dados") or {}).get("anexo") or {}).get("arquivo_id"))
+    db.docs_excluir(COLECAO_CARTAS, carta_id, _nome_de(request))
+    return {"sucesso": True}
+
+
+@app.post("/api/cartas/{carta_id}/assinatura")
+async def cartas_assinatura(carta_id: str, request: Request, arquivo: UploadFile = File(...)):
+    conteudo = await arquivo.read()
+    if not conteudo:
+        raise HTTPException(status_code=400, detail="Arquivo vazio.")
+    if len(conteudo) > db.LIMITE_ARQUIVO_BYTES:
+        raise HTTPException(status_code=413, detail=f"Arquivo de {len(conteudo)//1024} KB passa do limite de {db.LIMITE_ARQUIVO_BYTES//1024} KB. "
+                                                    "Foto: a tela reduz sozinha; PDF: salve em qualidade menor.")
+
+    def gravar():
+        c = _carta_ou_erro(carta_id)
+        dados = dict(c.get("dados") or {})
+        if dados.get("status") == CARTA_FECHADA:
+            raise HTTPException(status_code=400, detail="Esta carta já está num lote fechado.")
+        antigo = (dados.get("anexo") or {}).get("arquivo_id")
+        novo_id = db.arquivos_salvar(arquivo.filename or "carta_assinada", arquivo.content_type, conteudo)
+        dados["anexo"] = {"arquivo_id": novo_id, "nome": arquivo.filename or "carta_assinada", "tipo": arquivo.content_type,
+                          "tamanho": len(conteudo), "por": _nome_de(request), "em": datetime.now().isoformat()}
+        dados["status"] = CARTA_RECEBIDA
+        dados["recebida_em"] = datetime.now().isoformat()
+        reg = _salvar_carta(request, c, dados, f"Carta assinada recebida ({arquivo.filename})")
+        if antigo and antigo != novo_id:
+            _apagar_arquivo(antigo)
+        return reg
+    return await run_in_threadpool(gravar)
+
+
+@app.get("/api/cartas/{carta_id}/assinatura")
+def cartas_assinatura_baixar(carta_id: str):
+    c = _carta_ou_erro(carta_id)
+    anexo = (c.get("dados") or {}).get("anexo") or {}
+    arq = db.arquivos_ler(anexo.get("arquivo_id")) if anexo.get("arquivo_id") and not anexo.get("removido") else None
+    if not arq:
+        raise HTTPException(status_code=404, detail="Esta carta não tem o arquivo assinado guardado.")
+    nome = (anexo.get("nome") or arq.get("nome") or "carta_assinada").replace('"', "")
+    return Response(content=bytes(arq.get("conteudo") or b""), media_type=arq.get("tipo") or "application/octet-stream",
+                    headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+@app.post("/api/cartas/{carta_id}/reabrir")
+def cartas_reabrir(carta_id: str, request: Request):
+    _exigir_editar_cartas(request, "Reabrir carta")
+    c = _carta_ou_erro(carta_id)
+    dados = dict(c.get("dados") or {})
+    lote_ant = dados.get("id_lote") or ""
+    dados.update(status=CARTA_AGUARDANDO, id_lote="")
+    return _salvar_carta(request, c, dados, f"Reaberta (estava no lote {lote_ant or '—'})")
+
+
+@app.post("/api/cartas/lotes")
+def cartas_fechar_lote(payload: LoteFechar, request: Request):
+    _exigir_editar_cartas(request, "Fechar o lote")
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="Nenhuma carta para fechar.")
+    cartas = []
+    for cid in dict.fromkeys(payload.ids):
+        c = _carta_ou_erro(cid)
+        if (c.get("dados") or {}).get("status") != CARTA_RECEBIDA:
+            raise HTTPException(status_code=409, detail=f"A carta de {(c.get('dados') or {}).get('NOME', cid)} não está mais como “CARTA RECEBIDA”. Recarregue a tela.")
+        cartas.append(c)
+    agora = datetime.now()
+    codigo = agora.strftime("L%Y%m%d-%H%M%S")
+    lote = db.docs_criar(COLECAO_CARTAS_LOTES, {
+        "codigo": codigo, "data": agora.strftime("%d/%m/%Y %H:%M"), "fechado_em": agora.isoformat(),
+        "fechado_por": _nome_de(request), "total": len(cartas),
+        "valor_total": round(sum(float((c.get("dados") or {}).get("VALOR") or 0) for c in cartas), 2),
+        "ids_cartas": [c["id"] for c in cartas]}, _nome_de(request), _email(request))
+    for c in cartas:
+        dados = dict(c.get("dados") or {})
+        dados.update(status=CARTA_FECHADA, id_lote=codigo)
+        _salvar_carta(request, c, dados, f"Lote {codigo} fechado")
+    return {"sucesso": True, "codigo": codigo, "lote": lote}
+
+
+@app.post("/api/cartas/lotes/{lote_id}/limpar-anexos")
+def cartas_limpar_anexos(lote_id: str, request: Request):
+    _exigir_editar_cartas(request, "Excluir os arquivos do lote")
+    lote = db.docs_ler(COLECAO_CARTAS_LOTES, lote_id)
+    if not lote:
+        raise HTTPException(status_code=404, detail="Lote não encontrado.")
+    limpas = 0
+    for cid in (lote.get("dados") or {}).get("ids_cartas") or []:
+        c = db.docs_ler(COLECAO_CARTAS, cid)
+        anexo = ((c or {}).get("dados") or {}).get("anexo") or {}
+        if not c or not anexo.get("arquivo_id") or anexo.get("removido"):
+            continue
+        c.setdefault("id", cid)
+        _apagar_arquivo(anexo["arquivo_id"])
+        dados = dict(c.get("dados") or {})
+        dados["anexo"] = {**anexo, "removido": True, "removido_em": datetime.now().isoformat(), "removido_por": _nome_de(request)}
+        _salvar_carta(request, c, dados, "Arquivo assinado excluído do banco (o registro continua)")
+        limpas += 1
+    return {"sucesso": True, "limpas": limpas}
+
+
+@app.post("/api/cartas/colaboradores")
+def cartas_colab_salvar(payload: ColaboradorCarta, request: Request):
+    r = _upsert_colaborador(request, payload.nome, payload.cpf)
+    if r == "ignorado":
+        raise HTTPException(status_code=400, detail="Preencha nome e CPF.")
+    return {"sucesso": True, "resultado": r}
+
+
+@app.post("/api/cartas/colaboradores/importar")
+def cartas_colab_importar(payload: ColaboradoresImportar, request: Request):
+    _exigir_editar_cartas(request, "Importar colaboradores")
+    if len(payload.linhas) > 5000:
+        raise HTTPException(status_code=400, detail="Máximo de 5.000 linhas por importação.")
+    cont: dict = {}
+    base = {((d.get("dados") or {}).get("nome") or "").upper(): d for d in db.docs_listar(COLECAO_CARTAS_COLAB)}
+    for l in payload.linhas:
+        r = _upsert_colaborador(request, l.nome, l.cpf, base)
+        cont[r] = cont.get(r, 0) + 1
+    return {"sucesso": True, **cont}
+
+
+@app.delete("/api/cartas/colaboradores/{colab_id}")
+def cartas_colab_excluir(colab_id: str, request: Request):
+    if not db.docs_excluir(COLECAO_CARTAS_COLAB, colab_id, _nome_de(request)):
+        raise HTTPException(status_code=404, detail="Colaborador não encontrado.")
+    return {"sucesso": True}
+
+
 @app.get("/api/mapa/processos")
 def mapa_listar():
     return db.mapa_listar()
@@ -1639,6 +1927,7 @@ PAGINAS = {
     "/diario": "diario.html",                                            # Diário de gestão [v3.7]
     "/ata": "ata.html",                                                  # Gerador de ATA King Star
     "/carteira": "carteira.html",                                        # Carteira de Encomendas [v4.0]
+    "/cartas": "cartas.html",                                            # Cartas de Débito [v4.1]
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
