@@ -791,6 +791,15 @@ function textoHist(h){ const nomes=a=>(a||[]).map(x=>setorPor(x).nome).join(" + 
     :h.acao==="ok"?`✓ ${ROT_CORRECAO}`:h.acao==="resolver"?"✓ Resolveu":h.acao==="reabrir"?"↺ Reabriu":h.acao==="auto"?"⚙ Atualizado pela planilha — encerrado":h.acao==="status"?"⚙ Status do pedido mudou na planilha":"Nota"; }
 // [v4.9] Pendências por setor: no card do pedido, só os itens BLOQUEADOS (Status · Produto · Descrição)
 // e só a ÚLTIMA classificação (o histórico completo fica num "ver tudo" recolhido)
+function itensBloqueados(p){ return (p.it||[]).filter(i=>nrm(i[IT.st])==="bloqueado"); }
+// [v4.9] coluna da lista em Pendências por setor: só os itens BLOQUEADOS do pedido
+function celBloqueados(p){
+  if(p.fora) return '<span class="muted">fora da carteira atual</span>';
+  if(!p.it.length) return '<span class="muted">fora da planilha de itens</span>';
+  const bl=itensBloqueados(p);
+  if(!bl.length) return '<span class="muted">nenhum item bloqueado</span>';
+  return bl.map(i=>`<div style="display:flex;gap:6px;align-items:baseline;margin:1px 0"><span class="pill p-warn">Bloqueado</span><span><b>${esc(i[IT.prod])}</b> · ${esc(i[IT.desc])}</span></div>`).join("");
+}
 function tabelaBloqueados(p){
   if(!p.it.length) return `<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":"Fora da planilha de itens — sem detalhe dos produtos."}</p>`;
   const bl=p.it.filter(i=>nrm(i[IT.st])==="bloqueado");
@@ -818,7 +827,7 @@ function montarPainelPedido(box,p,modo,aoFim){
         <div><small>Código do cliente</small><b>${esc(p.c||"—")}</b></div><div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div>
         <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>Telefones</small>${tels(p).length?tels(p).map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join(" · "):"—"}</div>
         <div><small>Valor</small>${moeda(p.v)}</div><div><small>Qtd Bloq</small>${temQtdBloq(p)?esc(p.qb):"—"}</div>${p.ob?`<div style="grid-column:1/-1"><small>Observações</small>${esc(p.ob)}</div>`:""}</div>
-      ${modo==="fila"?tabelaBloqueados(p):p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Status</th><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th></tr></thead><tbody>${
+      ${p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Status</th><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th></tr></thead><tbody>${
         p.it.map(i=>`<tr><td>${nrm(i[IT.st])==="bloqueado"?'<span class="pill p-warn">Bloqueado</span>':esc(i[IT.st])}</td><td>${esc(i[IT.prod])}</td><td>${esc(i[IT.desc])}</td><td>${esc(i[IT.grupo])}</td><td>${esc(i[IT.local])}</td><td class="num">${int(i[IT.qtd])}</td></tr>`).join("")}</tbody></table></div>`
         :`<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":`Fora da planilha de itens (${p.ipv} item(ns), ${p.qpv} unidade(s) segundo a planilha de pedidos).`}</p>`}
     </div>
@@ -866,13 +875,14 @@ async function classificarLote(lst,depois){
 // ═══════════════════════════════════════════════════════════════════
 // [v4.8] busca completa + filtro por motivo cadastrado + ordenar A–Z / Z–A em todas as colunas
 const estFila={setor:"",status:"aberta",aberto:"",busca:"",motivo:"",ord:"dias",dir:-1};
-const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["entrega","Entrega / prazo"],["situacao","Status do pedido"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"],["nafoto","Na carteira?"]];
+const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["entrega","Entrega / prazo"],["situacao","Status do pedido"],["itbloq","Item bloqueado (Status · Produto · Descrição)"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"],["nafoto","Na carteira?"]];
 function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, nota=[...(d.historico||[])].reverse().find(h=>h.nota);
   switch(estFila.ord){
     case "pedido": return Number(d.pedido)||nrm(d.pedido);
     case "cliente": return nrm(d.cliente||p.n);
     case "entrega": return p.fora||!p.en||prazo(p).cls==="semdata"?"9999-99-99":p.en;
     case "situacao": return nrm(p.fora?d.situacao:situacao(p));
+    case "itbloq": { const b=itensBloqueados(p)[0]; return b?nrm(`${b[IT.desc]} ${b[IT.prod]}`):"\uffff"; }
     case "classe": return nrm(`${d.classe} ${d.motivo}`);
     case "setor": return nrm(setoresDe(t).map(x=>setorPor(x).nome).join(" + "));
     case "dias": return diasComSetor(t);
@@ -919,11 +929,12 @@ function renderFilas(c){
       return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||p.n||"—")}${p.c?`<span class="sub">cód. ${esc(p.c)}</span>`:""}</td>
         <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span>`:"—"}</td>
         <td>${p.fora?`<span class="muted">${esc(d.situacao||"—")}</span>`:`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`}</td>
+        <td style="min-width:260px">${celBloqueados(p)}</td>
         <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
         <td class="num">${est?`<span class="pill p-bad">${dias} d · prazo ${m.sla} d</span>`:`${dias} d`}</td><td style="max-width:280px">${nota?`“${esc(nota.nota.slice(0,120))}${nota.nota.length>120?"…":""}”<span class="sub">${esc(nota.por||"")} · ${dataHoraBR(nota.em)}</span>`:'<span class="muted">—</span>'}</td>
         <td>${naFoto.has(d.chave)?'<span class="pill p-cinza">sim</span>':'<span class="pill p-ok">saiu</span>'}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
-        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="10"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
+        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="11"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
   $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
   $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
   const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"fila",()=>render());
