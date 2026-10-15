@@ -204,6 +204,8 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .est-cli{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .est-v{text-align:right;font-variant-numeric:tabular-nums}
 .est-item > .pp{padding:14px 16px;border-top:1px solid var(--rule)}
+table.uma-linha td{white-space:nowrap;vertical-align:middle}
+table.uma-linha .corta{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .vazio-tri{text-align:center;padding:40px 16px;background:var(--ok-soft);border-radius:10px;font-size:16px}
 /* [v4.7] encerramento indevido: pedido marcado como resolvido que voltou bloqueado na planilha seguinte */
 .est-item.indevido{border-color:var(--bad);border-left:6px solid var(--bad);background:var(--bad-soft)}
@@ -875,19 +877,27 @@ async function classificarLote(lst,depois){
 // ═══════════════════════════════════════════════════════════════════
 // [v4.8] busca completa + filtro por motivo cadastrado + ordenar A–Z / Z–A em todas as colunas
 const estFila={setor:"",status:"aberta",aberto:"",busca:"",motivo:"",ord:"dias",dir:-1};
-const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["entrega","Entrega / prazo"],["situacao","Status do pedido"],["itbloq","Item bloqueado (Status · Produto · Descrição)"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"],["nafoto","Na carteira?"]];
-function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, nota=[...(d.historico||[])].reverse().find(h=>h.nota);
+// [v4.10] lista em UMA LINHA por pedido: Pedido · Cliente · Código · Entrega/prazo · Status · Produto·Descrição ·
+// Classificação·motivo · Setor · Com o setor há · Última nota (última ação de uma PESSOA — ignora as automáticas)
+const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["codigo","Código"],["entrega","Entrega / prazo"],["status","Status"],["produto","Produto · Descrição"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"]];
+const ACOES_PESSOA=["classificar","nota","resolver","reabrir","ok"];
+function ultimaAcaoPessoa(d){ return [...((d&&d.historico)||[])].reverse().find(h=>ACOES_PESSOA.includes(h.acao))||null; }
+function nomeCurto(n){ return tx(n).split(/\s+/).filter(Boolean).slice(0,2).join(" ")||"—"; }
+function dataHoraCurta(v){ if(!v) return ""; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",",""); }
+function textoUltimaAcao(h){ if(!h) return ""; const a=textoHist(h).replace(/<[^>]+>/g,"");   // já vem escapado
+  return `${a}${h.nota?` — “${esc(h.nota)}”`:""} · ${esc(h.por||"—")} · ${dataHoraCurta(h.em)}`; }
+function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, b=itensBloqueados(p)[0], u=ultimaAcaoPessoa(d);
   switch(estFila.ord){
     case "pedido": return Number(d.pedido)||nrm(d.pedido);
     case "cliente": return nrm(d.cliente||p.n);
+    case "codigo": return nrm(p.c)||"￿";
     case "entrega": return p.fora||!p.en||prazo(p).cls==="semdata"?"9999-99-99":p.en;
-    case "situacao": return nrm(p.fora?d.situacao:situacao(p));
-    case "itbloq": { const b=itensBloqueados(p)[0]; return b?nrm(`${b[IT.desc]} ${b[IT.prod]}`):"\uffff"; }
+    case "status": return p.fora?2:bloqueado(p)?0:1;
+    case "produto": return b?nrm(`${b[IT.prod]} ${b[IT.desc]}`):"￿";
     case "classe": return nrm(`${d.classe} ${d.motivo}`);
     case "setor": return nrm(setoresDe(t).map(x=>setorPor(x).nome).join(" + "));
     case "dias": return diasComSetor(t);
-    case "nota": return nota?nrm(nota.nota):"￿";
-    case "nafoto": return naFoto.has(d.chave)?0:1;
+    case "nota": return u?String(u.em||""):"";
     default: return 0; } }
 function buscaFila(o,q){ if(!q) return true; const {t,p}=o, d=t.dados;
   return [d.pedido,d.chave,d.loja,d.cliente,p.n,p.c,p.ci,d.classe,d.motivo,d.situacao,...motivosDe(t).map(m=>m.motivo),
@@ -923,16 +933,17 @@ function renderFilas(c){
     .sort((a,b)=>{ const x=a._k, y=b._k; const r=typeof x==="number"&&typeof y==="number"?x-y:String(x).localeCompare(String(y),"pt-BR",{numeric:true}); return r*estFila.dir||(diasComSetor(b.t)-diasComSetor(a.t)); });
   const thF=([k,r,cls])=>`<th class="ord ${cls||""}" data-of="${k}" title="Clique para ordenar ${estFila.ord===k&&estFila.dir>0?"Z–A":"A–Z"}">${r}${estFila.ord===k?(estFila.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`;
   $("#flT",c).innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(linhas.length)}</b> pendência(s)${q||estFila.motivo?" com esses filtros":""} · ordenado por <b>${esc((COLS_FILA.find(x=>x[0]===estFila.ord)||[,""])[1])}</b> ${estFila.dir>0?"(A–Z / menor → maior)":"(Z–A / maior → menor)"} — clique no título da coluna para inverter.</p>
-    <div class="tbl-wrap"><table><thead><tr>${COLS_FILA.map(thF).join("")}<th></th></tr></thead><tbody>${
-    linhas.map(({t,p})=>{ const d=t.dados, dias=diasComSetor(t), sla=foraDoPrazo(t), est=!!sla, m={sla}, pz=p.fora?null:prazo(p);
-      const nota=[...(d.historico||[])].reverse().find(h=>h.nota);
-      return `<tr class="clic" data-k="${esc(d.chave)}"><td><b>${esc(d.pedido)}</b><span class="sub">loja ${esc(d.loja)}</span></td><td>${esc(d.cliente||p.n||"—")}${p.c?`<span class="sub">cód. ${esc(p.c)}</span>`:""}</td>
-        <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span>`:"—"}</td>
-        <td>${p.fora?`<span class="muted">${esc(d.situacao||"—")}</span>`:`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`}</td>
-        <td style="min-width:260px">${celBloqueados(p)}</td>
-        <td><b>${esc(d.classe)}</b><span class="sub">${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
-        <td class="num">${est?`<span class="pill p-bad">${dias} d · prazo ${m.sla} d</span>`:`${dias} d`}</td><td style="max-width:280px">${nota?`“${esc(nota.nota.slice(0,120))}${nota.nota.length>120?"…":""}”<span class="sub">${esc(nota.por||"")} · ${dataHoraBR(nota.em)}</span>`:'<span class="muted">—</span>'}</td>
-        <td>${naFoto.has(d.chave)?'<span class="pill p-cinza">sim</span>':'<span class="pill p-ok">saiu</span>'}</td>
+    <div class="tbl-wrap"><table class="uma-linha"><thead><tr>${COLS_FILA.map(thF).join("")}<th></th></tr></thead><tbody>${
+    linhas.map(({t,p})=>{ const d=t.dados, dias=diasComSetor(t), sla=foraDoPrazo(t), pz=p.fora?null:prazo(p), bl=itensBloqueados(p), u=ultimaAcaoPessoa(d), ua=textoUltimaAcao(u);
+      const prod=bl.length?`${esc(bl[0][IT.prod])} · ${esc(bl[0][IT.desc])}`:"", todos=bl.map(i=>`${i[IT.prod]} · ${i[IT.desc]}`).join("\n");
+      return `<tr class="clic" data-k="${esc(d.chave)}"><td title="Loja ${esc(d.loja)}"><b>${esc(d.pedido)}</b></td>
+        <td title="${esc(d.cliente||p.n||"")}">${esc(nomeCurto(d.cliente||p.n))}</td><td>${esc(p.c||"—")}</td>
+        <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"} <span class="pill ${pz.pill}">${pz.rot}</span>`:"—"}</td>
+        <td>${p.fora?'<span class="pill p-cinza">Saiu da carteira</span>':bloqueado(p)?'<span class="pill p-warn">Bloqueado</span>':'<span class="pill p-ok">Liberado</span>'}</td>
+        <td title="${esc(todos)}">${prod?`<span class="corta" style="max-width:300px">${prod}</span>${bl.length>1?` <span class="pill p-cinza">+${bl.length-1}</span>`:""}`:'<span class="muted">—</span>'}</td>
+        <td title="${esc(`${d.classe||""} · ${d.motivo||""}`)}"><span class="corta" style="max-width:280px"><b>${esc(d.classe)}</b> · ${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
+        <td class="num">${sla?`<span class="pill p-bad">${dias} d · prazo ${sla} d</span>`:`${dias} d`}</td>
+        <td title="${ua.replace(/"/g,"&quot;")}">${u?`<span class="corta" style="max-width:380px">${ua}</span>`:'<span class="muted">—</span>'}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
         ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="11"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
   $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
