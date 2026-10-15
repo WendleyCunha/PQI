@@ -130,8 +130,9 @@ def _perfil_do(u: dict) -> Optional[dict]:
 
 
 def _niveis(u: dict) -> dict:
-    """Nível (0–3) da pessoa em cada sistema — ver permissoes.py."""
-    return mods.niveis_do_usuario(u, _perfil_do(u))
+    """Nível (0–3) da pessoa em cada sistema — ver permissoes.py.
+    [v3.9] já inclui as exceções individuais (u["acessos"]) — ver modulos.py."""
+    return mods.niveis_do_usuario(u, _perfil_do(u), _perfis())
 
 
 def _nome_perfil(u: dict) -> str:
@@ -232,7 +233,8 @@ def usuario_atual(request: Request) -> dict:
 
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
-                                   "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos")}
+                                   "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos",
+                                   "acessos", "acessos_info")}
 
 
 def _sessao_publica(u: dict) -> dict:
@@ -602,6 +604,72 @@ def admin_perfil_arquivar(perfil_id: str, payload: PerfilArquivar, request: Requ
     _esquecer_perfis()
     _log(request, "perfil", atual.get("nome"), "Perfil arquivado" if payload.arquivado else "Perfil reativado")
     return {"sucesso": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v3.9] ACESSO INDIVIDUAL POR SISTEMA (aba Permissões → clicar no sistema)
+# Grava no usuário só a EXCEÇÃO daquele sistema; sem exceção = segue o perfil.
+#   nivel: 0–3 → nível fixo · perfil: "gestor" → vale como aquele perfil
+#   nenhum dos dois → volta a seguir o perfil da pessoa
+# ──────────────────────────────────────────────────────────────────────────
+class AcessoIndividual(BaseModel):
+    nivel: Optional[int] = None
+    perfil: Optional[str] = None
+
+
+def _texto_acesso(m: dict, valor) -> str:
+    if valor is None:
+        return "Segue o perfil"
+    if isinstance(valor, str) and valor.startswith("perfil:"):
+        p = _perfis().get(valor[7:]) or {}
+        n = mods.resolver_excecao(m, valor, _perfis())
+        return f"Como {p.get('nome', valor[7:])} ({perm.NIVEIS.get(n, '?') if n is not None else '?'})"
+    n = mods.resolver_excecao(m, valor, _perfis())
+    return ("Acessa" if n else "Sem acesso") if mods.so_acesso(m) else perm.NIVEIS.get(n, str(valor))
+
+
+@app.put("/api/admin/acessos/{modulo_id}/{email}")
+def admin_acesso_individual(modulo_id: str, email: str, payload: AcessoIndividual, request: Request):
+    m = mods.POR_ID.get(modulo_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Sistema inexistente.")
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if alvo.get("papel") == "admin":
+        raise HTTPException(status_code=400, detail="Administrador já tem acesso total — não precisa de acesso individual.")
+    if payload.nivel is not None and payload.perfil:
+        raise HTTPException(status_code=400, detail="Escolha um nível OU um perfil, não os dois.")
+    if payload.perfil:
+        p = _perfis().get(payload.perfil)
+        if not p or p.get("arquivado"):
+            raise HTTPException(status_code=400, detail="Perfil inválido ou arquivado.")
+        novo = f"perfil:{payload.perfil}"
+    elif payload.nivel is not None:
+        if not 0 <= int(payload.nivel) <= 3:
+            raise HTTPException(status_code=400, detail="Nível inválido (0 a 3).")
+        novo = min(int(payload.nivel), 1) if mods.so_acesso(m) else int(payload.nivel)
+    else:
+        novo = None
+    acessos = dict(alvo.get("acessos") or {})
+    info = dict(alvo.get("acessos_info") or {})
+    antes = acessos.get(modulo_id)
+    if antes == novo:
+        return {"sucesso": True, "niveis": _niveis(alvo)}
+    if novo is None:
+        # grava null (e não apaga a chave): funciona igual se o db fizer update ou set(merge=True)
+        acessos[modulo_id] = None
+        info[modulo_id] = None
+    else:
+        acessos[modulo_id] = novo
+        info[modulo_id] = {"por": _email(request), "por_nome": _nome_de(request), "em": datetime.now().isoformat()}
+    db.usuario_atualizar(email, {"acessos": acessos, "acessos_info": info,
+                                 "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+    _esquecer_cache(email)
+    _log(request, "acesso", f"{alvo.get('nome') or email} · {m['nome']}", "Acesso individual no sistema",
+         _texto_acesso(m, antes), _texto_acesso(m, novo))
+    return {"sucesso": True, "niveis": _niveis({**alvo, "acessos": acessos})}
 
 
 @app.get("/api/admin/permissoes-log")
