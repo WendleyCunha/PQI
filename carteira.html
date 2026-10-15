@@ -789,6 +789,22 @@ function textoHist(h){ const nomes=a=>(a||[]).map(x=>setorPor(x).nome).join(" + 
   return h.acao==="classificar"?(de&&de!==para?`Tocou de <b>${esc(de)}</b> para <b>${esc(para)}</b>`:`Classificou → <b>${esc(para)}</b>`)+` · ${esc(h.classe||"")} — ${esc(h.motivo||"")}`
     :h.acao==="indevido"?`⚠ Voltou bloqueado na planilha — <b>resolvido indevidamente por ${esc(h.indevido_por||"—")}</b>${h.tipo_enc?` (${esc(ROT_TIPO_ENC[h.tipo_enc]||h.tipo_enc)})`:""}`
     :h.acao==="ok"?`✓ ${ROT_CORRECAO}`:h.acao==="resolver"?"✓ Resolveu":h.acao==="reabrir"?"↺ Reabriu":h.acao==="auto"?"⚙ Atualizado pela planilha — encerrado":h.acao==="status"?"⚙ Status do pedido mudou na planilha":"Nota"; }
+// [v4.9] Pendências por setor: no card do pedido, só os itens BLOQUEADOS (Status · Produto · Descrição)
+// e só a ÚLTIMA classificação (o histórico completo fica num "ver tudo" recolhido)
+function tabelaBloqueados(p){
+  if(!p.it.length) return `<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":"Fora da planilha de itens — sem detalhe dos produtos."}</p>`;
+  const bl=p.it.filter(i=>nrm(i[IT.st])==="bloqueado");
+  if(!bl.length) return '<p class="cap" style="margin:8px 0 0">✓ Nenhum item bloqueado na planilha de itens.</p>';
+  return `<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Status</th><th>Produto</th><th>Descrição</th></tr></thead><tbody>${
+    bl.map(i=>`<tr><td><span class="pill p-warn">Bloqueado</span></td><td>${esc(i[IT.prod])}</td><td>${esc(i[IT.desc])}</td></tr>`).join("")}</tbody></table></div>
+    <p class="cap" style="margin:4px 0 0">${bl.length} item(ns) bloqueado(s)${p.it.length>bl.length?` · ${p.it.length-bl.length} liberado(s) não exibido(s)`:""}</p>`;
+}
+function liHist(h){ return `<li style="--sc:${h.acao==="indevido"?"var(--bad)":(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`; }
+function ultimaClassificacao(d){
+  const hs=d.historico||[], ult=[...hs].reverse().find(h=>h.acao==="classificar");
+  if(!ult) return hs.length?`<ul class="hist">${liHist(hs[hs.length-1])}</ul>`:"";
+  return `<ul class="hist">${liHist(ult)}</ul>${hs.length>1?`<details style="margin-top:4px;font-size:13px"><summary class="muted" style="cursor:pointer">ver histórico completo (${hs.length})</summary><ul class="hist">${hs.slice().reverse().map(liHist).join("")}</ul></details>`:""}`;
+}
 function montarPainelPedido(box,p,modo,aoFim){
   const t=tratDe(p.k), d=t&&t.dados, pz=prazo(p), ativos=cfg().motivos.filter(m=>m.ativo!==false), aberta_=d&&d.status==="aberta", indev_=pendenteIndevido(t), ui=ultIndevido(t);
   const classes=[...new Set(ativos.map(m=>m.classe))], outro=reservaDeOutro(p.k);
@@ -802,7 +818,7 @@ function montarPainelPedido(box,p,modo,aoFim){
         <div><small>Código do cliente</small><b>${esc(p.c||"—")}</b></div><div><small>Entrega</small>${p.en?dataBR(p.en):"—"}</div><div><small>Emissão</small>${p.em?dataBR(p.em):"—"}</div><div><small>Tipo</small>${esc(p.tp||"—")}</div><div><small>Agenda</small>${esc(p.ag||"—")}</div>
         <div><small>Cidade / bairro</small>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</div><div><small>Telefones</small>${tels(p).length?tels(p).map(x=>`<a href="tel:${esc(x)}">${esc(x)}</a>`).join(" · "):"—"}</div>
         <div><small>Valor</small>${moeda(p.v)}</div><div><small>Qtd Bloq</small>${temQtdBloq(p)?esc(p.qb):"—"}</div>${p.ob?`<div style="grid-column:1/-1"><small>Observações</small>${esc(p.ob)}</div>`:""}</div>
-      ${p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Status</th><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th></tr></thead><tbody>${
+      ${modo==="fila"?tabelaBloqueados(p):p.it.length?`<div class="tbl-wrap" style="max-height:220px;margin-top:8px"><table><thead><tr><th>Status</th><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th></tr></thead><tbody>${
         p.it.map(i=>`<tr><td>${nrm(i[IT.st])==="bloqueado"?'<span class="pill p-warn">Bloqueado</span>':esc(i[IT.st])}</td><td>${esc(i[IT.prod])}</td><td>${esc(i[IT.desc])}</td><td>${esc(i[IT.grupo])}</td><td>${esc(i[IT.local])}</td><td class="num">${int(i[IT.qtd])}</td></tr>`).join("")}</tbody></table></div>`
         :`<p class="cap" style="margin:8px 0 0">${p.fora?"Este pedido não está na carteira atual.":`Fora da planilha de itens (${p.ipv} item(ns), ${p.qpv} unidade(s) segundo a planilha de pedidos).`}</p>`}
     </div>
@@ -820,7 +836,7 @@ function montarPainelPedido(box,p,modo,aoFim){
           <button type="button" class="primary" data-conf disabled>Marque um ou mais motivos</button>
           ${!d||aberta_||indev_?'<button type="button" data-ok title="Resolvi na hora, sem passar para outro setor">✓ Correção da Pendência</button>':""}${aberta_?'<button type="button" data-res>✓ Resolver</button>':""}${d&&!aberta_&&!indev_?'<button type="button" data-reab>↺ Reabrir</button>':""}${d?'<button type="button" data-nt>Só a nota</button>':""}
           <span class="msg" data-msg></span></div>`:""}
-      ${d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${h.acao==="indevido"?"var(--bad)":(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
+      ${modo==="fila"&&d?ultimaClassificacao(d):d&&d.historico&&d.historico.length?`<ul class="hist">${d.historico.slice().reverse().map(h=>`<li style="--sc:${h.acao==="indevido"?"var(--bad)":(h.setores&&h.setores[0])||h.setor?setorPor((h.setores&&h.setores[0])||h.setor).cor:"var(--idle)"}">${textoHist(h)}${h.nota?`<br>“${esc(h.nota)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por||"—")}</small></li>`).join("")}</ul>`:""}
     </div>`;
   const nota=()=>{ const i=box.querySelector("[data-nota]"); return i?i.value:""; }, conf=box.querySelector("[data-conf]");
   const atualizarConf=()=>{ if(!conf) return; const ms=[...marcados].map(motivoPor).filter(Boolean), st=[...new Set(ms.map(m=>setorPor(m.setor).nome))];
@@ -910,7 +926,7 @@ function renderFilas(c){
         ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="10"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
   $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
   $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
-  const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"normal",()=>render());
+  const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"fila",()=>render());
   $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
     try{ await gravarTratativa(pedidoDaTrat(TRAT.get(b.dataset.res)),{acao:"resolver",nota}); render(); toast("✓ Resolvida."); }catch(e){ alert(e.message); } });
   $("#flXls",c).onclick=()=>exportarRelatorio(`pendencias_${estFila.setor==="__todos"?"todos_setores":nrm(setorPor(estFila.setor).nome).replace(/\W+/g,"_")}`,linhas.map(x=>x.p));
