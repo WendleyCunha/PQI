@@ -180,6 +180,29 @@ table.matriz td{text-align:center}
 .dep .links a{font-size:13px;text-decoration:none;border:1px solid var(--rule);border-radius:6px;padding:6px 10px;color:var(--ink)}
 .dep .links a:hover{border-color:var(--steel);color:var(--steel)}
 .track{height:7px;background:var(--rule-2);border-radius:4px;overflow:hidden;margin-top:8px} .track i{display:block;height:100%;background:var(--ok)}
+/* [v3.9] acesso individual por sistema */
+.sis-btn{all:unset;cursor:pointer;display:block;width:100%;border-radius:6px}
+.sis-btn:hover b,.sis-btn:focus-visible b{color:var(--steel);text-decoration:underline}
+.sis-btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.sis-btn .ver{display:inline-block;margin-top:4px;font-size:12px;font-weight:600;color:var(--steel)}
+table.matriz tr.sis-ativo th,table.matriz tr.sis-ativo td{background:var(--steel-soft)}
+.sis-painel{background:var(--sheet);border:1px solid var(--steel);border-left:6px solid var(--steel);border-radius:10px;padding:16px 18px;margin:16px 0}
+.sis-cab{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.sis-cab h3{margin:0;font-size:20px}
+.sis-cab .btn{margin-left:auto}
+.chips-perfil{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}
+.chip-perfil{all:unset;cursor:pointer;background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.chip-perfil b{font:700 14px "IBM Plex Sans Condensed",sans-serif;color:var(--ink)}
+.chip-perfil span{font-size:12px;color:var(--ink-3)}
+.chip-perfil small{font-size:11.5px;color:var(--ink-2)}
+.chip-perfil:hover{border-color:var(--steel)}
+.chip-perfil.ativo{background:var(--steel-soft);border-color:var(--steel);box-shadow:inset 0 0 0 1px var(--steel)}
+.chip-perfil:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+table.lista select.sel-acesso{font:inherit;font-size:13.5px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:6px 8px;min-width:230px;max-width:100%}
+table.lista tr.pers td{background:color-mix(in srgb,var(--amber-soft) 45%,var(--sheet))}
+table.lista select.sel-acesso.pers{border-color:var(--amber);font-weight:600}
+.tag-pers{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:var(--amber);color:#fff;vertical-align:1px}
+.chip-perfil .tag-pers{color:#fff;margin:2px 0 0;align-self:flex-start}
 </style>
 </head>
 <body>
@@ -235,9 +258,9 @@ async function carregar(){
 const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
 const ABAS=[["usuarios","Usuários",SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',renderUsuarios],
   ["permissoes","Permissões",SV+'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',renderPermissoes],
-  ["departamentos","Departa\u00admentos",SV+'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>',renderDepartamentos],
+  ["departamentos","Departa­mentos",SV+'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>',renderDepartamentos],
   ["historico","Histórico",SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',renderHistorico]];
-function montarMenu(){ const m=$("#menu"); m.innerHTML=ABAS.map(([id,nome,ico])=>`<button type="button" class="side-btn${id===aba?" ativa":""}" data-a="${id}" title="${nome.replace(/\u00ad/g,"")}">${ico}<span>${nome}</span></button>`).join("");
+function montarMenu(){ const m=$("#menu"); m.innerHTML=ABAS.map(([id,nome,ico])=>`<button type="button" class="side-btn${id===aba?" ativa":""}" data-a="${id}" title="${nome.replace(/­/g,"")}">${ico}<span>${nome}</span></button>`).join("");
   m.querySelectorAll("button").forEach(b=>b.onclick=()=>{ aba=b.dataset.a; try{ sessionStorage.setItem("seg_aba",aba); }catch(_){} render(); }); }
 function render(){ montarMenu(); const c=$("#conteudo"); c.innerHTML=""; (ABAS.find(a=>a[0]===aba)||ABAS[0])[3](c); }
 
@@ -249,9 +272,21 @@ function niveisDe(u, perfilId){
     if(u.papel==="admin") n=3;
     else if(perfil) n=Number((perfil.niveis||{})[m.id]||0);
     else n=(u.modulos||[]).includes(m.id)?3:0;
-    out[m.id]=m.so_acesso?Math.min(n,1):n; });
+    out[m.id]=m.so_acesso?Math.min(n,1):n;
+    if(u.papel!=="admin"){ const x=resolverExcecao(m,excecaoDe(u,m.id)); if(x!=null) out[m.id]=x; } });   // [v3.9] acesso individual
   return out;
 }
+// ─── [v3.9] ACESSO INDIVIDUAL: exceção gravada no usuário (u.acessos[sistema]) ───
+//   número 0–3 → nível fixo · "perfil:gestor" → vale como aquele perfil · null/ausente → segue o perfil
+function excecaoDe(u,mid){ const v=(u.acessos||{})[mid]; return v===undefined?null:v; }
+function resolverExcecao(m,v){
+  if(v==null||typeof v==="boolean") return null;
+  let n;
+  if(typeof v==="string"&&v.startsWith("perfil:")){ const p=D.perfis.find(x=>x.id===v.slice(7)); if(!p) return null; n=Number((p.niveis||{})[m.id]||0); }
+  else { n=Number(v); if(isNaN(n)) return null; }
+  n=Math.max(0,Math.min(3,n)); return m.so_acesso?Math.min(n,1):n;
+}
+function temExcecao(u,mid){ return u.papel!=="admin"&&resolverExcecao(D.modulos.find(m=>m.id===mid)||{},excecaoDe(u,mid))!=null; }
 function rotuloNivel(m,n){ return m.so_acesso ? (n?"Acessa":"Sem acesso") : D.niveis[n]; }
 function pillNivel(m,n){ const cls=n===0?"p-cinza":m.so_acesso?"p-ok":n===1?"p-azul":n===2?"p-amb":"p-ok"; return `<span class="pill ${cls}">${SIMBOLO[m.so_acesso&&n?3:n]==="✎"&&m.so_acesso?"✓":SIMBOLO[n]} ${esc(rotuloNivel(m,n))}</span>`; }
 
@@ -289,7 +324,8 @@ function desenharGaveta(){
     <label class="f">Papel<select id="fPapel">${Object.entries(D.papeis).map(([k,v])=>`<option value="${k}"${k===u.papel?" selected":""}>${esc(v)}</option>`).join("")}</select></label>
     ${u.papel==="admin"?'<p class="aviso">Administrador tem <b>acesso total</b> a todos os sistemas e departamentos, e gerencia a Segurança.</p>':`
     <label class="f">Perfil de acesso<select id="fPerfil">${!u.perfil?'<option value="">— sem perfil (módulos marcados, cadastro antigo) —</option>':""}${perfisAtivos.map(p=>`<option value="${p.id}"${p.id===u.perfil?" selected":""}>${esc(p.nome)}</option>`).join("")}</select></label>
-    <div><div class="cap" style="margin:0 0 4px">Acesso resultante</div><div class="resultado-acesso">${D.modulos.map(m=>`<span>${m.icone} ${esc(m.nome)}</span>${pillNivel(m,nv[m.id])}`).join("")}</div></div>
+    <div><div class="cap" style="margin:0 0 4px">Acesso resultante</div><div class="resultado-acesso">${D.modulos.map(m=>`<span>${m.icone} ${esc(m.nome)}${temExcecao(u,m.id)?'<span class="tag-pers" title="Acesso individual neste sistema (aba Permissões → clique no sistema)">PERSONALIZADO</span>':""}</span>${pillNivel(m,nv[m.id])}`).join("")}</div>
+      ${D.modulos.some(m=>temExcecao(u,m.id))?'<div class="cap" style="margin:4px 0 0">Os sistemas marcados como <b>PERSONALIZADO</b> não seguem o perfil — ajuste em <b>Permissões → clique no sistema</b>.</div>':""}</div>
     <div><div class="cap" style="margin:0 0 4px">Departamentos que enxerga (Diagnóstico e Organograma)</div>
       <div class="radio"><label><input type="radio" name="fDepModo" value="todos" ${!restrito?"checked":""}> Todos</label><label><input type="radio" name="fDepModo" value="alguns" ${restrito?"checked":""}> Somente estes:</label></div>
       ${restrito?`<div class="multi" style="margin-top:6px">${D.departamentos.map(d=>`<label><input type="checkbox" data-dep="${d.id}" ${(u.departamentos||[]).includes(d.id)?"checked":""}> ${esc(d.nome)}</label>`).join("")||'<span class="cap">Nenhum departamento cadastrado ainda.</span>'}</div>`:""}</div>`}
@@ -325,14 +361,18 @@ $("#dwSalvar").onclick=async()=>{
 // ═══ PERMISSÕES (matriz perfis × sistemas) ═══
 function renderPermissoes(c){
   const ativos=D.perfis.filter(p=>!p.arquivado), arquivados=D.perfis.filter(p=>p.arquivado);
-  c.innerHTML=`<h2>Permissões</h2><p class="cap">O que cada <b>perfil</b> pode fazer em cada sistema. Vale para todas as pessoas com aquele perfil. Clique numa célula para girar entre os níveis — a mudança é gravada na hora e fica no Histórico. Perfil novo nasce <b>sem nenhuma permissão</b>.</p>
+  c.innerHTML=`<h2>Permissões</h2><p class="cap">O que cada <b>perfil</b> pode fazer em cada sistema. Vale para todas as pessoas com aquele perfil. Clique numa célula para girar entre os níveis — a mudança é gravada na hora e fica no Histórico. Perfil novo nasce <b>sem nenhuma permissão</b>.
+      <br>👤 <b>Acesso individual:</b> clique no <b>nome do sistema</b> para ver todos os colaboradores e definir, pessoa por pessoa, como cada um entra naquele sistema.</p>
     <div class="legenda-n"><span><button class="nv" data-n="0" tabindex="-1">✕</button>Sem acesso</span><span><button class="nv" data-n="1" tabindex="-1">👁</button>Visualizar — consulta, não grava</span>
       <span><button class="nv" data-n="2" tabindex="-1">＋</button>Adicionar — inclui e completa campos vazios; não altera o que é de outra pessoa</span><span><button class="nv" data-n="3" tabindex="-1">✎</button>Editar — tudo, inclusive excluir</span></div>
     ${ativos.length?`<div class="matriz-wrap"><table class="matriz"><thead><tr><th>Sistema</th>${ativos.map(p=>`<th><div class="th-perfil"><b>${esc(p.nome)}</b><small>${USO[p.id]||0} pessoa(s)</small></div></th>`).join("")}</tr></thead><tbody>${
-      D.modulos.map(m=>`<tr><th>${m.icone} ${esc(m.nome)}<small>${m.so_acesso?"Só “acessa ou não” — "+(m.tipo==="externo"?"sistema externo, com login próprio.":"os dados ficam no navegador de cada pessoa."):esc(m.descricao||"")}</small></th>${
+      D.modulos.map(m=>{ const np=D.usuarios.filter(u=>temExcecao(u,m.id)).length;
+        return `<tr${estSis.mod===m.id?' class="sis-ativo"':""}><th><button type="button" class="sis-btn" data-sis="${m.id}" aria-expanded="${estSis.mod===m.id}" title="Ver todos os colaboradores e dar acesso individual neste sistema"><b>${m.icone} ${esc(m.nome)}</b><small>${m.so_acesso?"Só “acessa ou não” — "+(m.tipo==="externo"?"sistema externo, com login próprio.":"os dados ficam no navegador de cada pessoa."):esc(m.descricao||"")}</small>
+          <span class="ver">${estSis.mod===m.id?"▾ fechar a lista de pessoas":"👤 ver pessoas"}${np?` · <span class="tag-pers">${np} personalizado(s)</span>`:""}</span></button></th>${
         ativos.map(p=>{ const n=Number((p.niveis||{})[m.id]||0), nn=m.so_acesso?Math.min(n,1):n;
-          return `<td><button type="button" class="nv${m.so_acesso?" so":""}" data-p="${p.id}" data-m="${m.id}" data-n="${nn}" title="${esc(p.nome)} · ${esc(m.nome)}: ${esc(rotuloNivel(m,nn))} — clique para mudar">${m.so_acesso?(nn?"✓":"✕"):SIMBOLO[nn]}</button></td>`; }).join("")}</tr>`).join("")}
+          return `<td><button type="button" class="nv${m.so_acesso?" so":""}" data-p="${p.id}" data-m="${m.id}" data-n="${nn}" title="${esc(p.nome)} · ${esc(m.nome)}: ${esc(rotuloNivel(m,nn))} — clique para mudar">${m.so_acesso?(nn?"✓":"✕"):SIMBOLO[nn]}</button></td>`; }).join("")}</tr>`; }).join("")}
       <tr><th>🔐 Segurança<small>Só administradores (papel), nunca por perfil.</small></th>${ativos.map(()=>"<td><span class='cap'>—</span></td>").join("")}</tr></tbody></table></div>`:'<p class="aviso">Nenhum perfil ativo. Crie um abaixo.</p>'}
+    <div id="sisPainel"></div>
     <section><header><h2>Novo perfil</h2><p>Nasce sem nenhuma permissão; depois marque na matriz o que ele pode.</p></header>
       <div class="grade" style="max-width:720px"><label class="f">Nome<input class="inp" id="pNome" placeholder="Ex.: Auditor, Líder de turno, RH"></label><label class="f">Descrição (opcional)<input class="inp" id="pDesc"></label></div>
       <div class="acoes"><button type="button" class="btn primary" id="pCriar">Criar perfil</button><span class="msg" id="pMsg"></span></div></section>
@@ -345,13 +385,74 @@ function renderPermissoes(c){
     const prox=m.so_acesso?(atual?0:1):(atual+1)%4;
     b.dataset.n=prox; b.textContent=m.so_acesso?(prox?"✓":"✕"):SIMBOLO[prox]; status("Salvando…","salvando");
     try{ await api(`/api/admin/perfis/${p.id}`,{method:"PUT",body:JSON.stringify({niveis:{[m.id]:prox}})}); p.niveis={...(p.niveis||{}),[m.id]:prox};
-      b.title=`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — clique para mudar`; status(`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — gravado`); }
+      b.title=`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — clique para mudar`; status(`${p.nome} · ${m.nome}: ${rotuloNivel(m,prox)} — gravado`);
+      if(estSis.mod) desenharSistema(); }
     catch(e){ b.dataset.n=atual; b.textContent=m.so_acesso?(atual?"✓":"✕"):SIMBOLO[atual]; status("Erro: "+e.message,"erro"); }
   });
   $("#pCriar",c).onclick=async()=>{ const m=$("#pMsg"); try{ await api("/api/admin/perfis",{method:"POST",body:JSON.stringify({nome:$("#pNome").value,descricao:$("#pDesc").value})}); await carregar(); render(); status("Perfil criado — marque as permissões na matriz"); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
   c.querySelectorAll("[data-nome]").forEach(i=>i.onchange=async()=>{ try{ await api(`/api/admin/perfis/${i.dataset.nome}`,{method:"PUT",body:JSON.stringify({nome:i.value})}); await carregar(); render(); }catch(e){ alert(e.message); render(); } });
   c.querySelectorAll("[data-desc]").forEach(i=>i.onchange=async()=>{ try{ await api(`/api/admin/perfis/${i.dataset.desc}`,{method:"PUT",body:JSON.stringify({descricao:i.value})}); await carregar(); status("Descrição gravada"); }catch(e){ alert(e.message); } });
   c.querySelectorAll("[data-arq]").forEach(b=>b.onclick=async()=>{ try{ await api(`/api/admin/perfis/${b.dataset.arq}/arquivar`,{method:"POST",body:JSON.stringify({arquivado:b.dataset.v==="1"})}); await carregar(); render(); }catch(e){ alert(e.message); } });
+  c.querySelectorAll("[data-sis]").forEach(b=>b.onclick=()=>{ const abrir=estSis.mod!==b.dataset.sis;
+    estSis.mod=abrir?b.dataset.sis:""; estSis.perfil="__todos"; estSis.busca=""; estSis.soPers=false; render();
+    if(abrir){ const p=$("#sisPainel"); if(p) p.scrollIntoView({behavior:"smooth",block:"start"}); } });
+  if(estSis.mod) desenharSistema();
+}
+
+// ═══ [v3.9] ACESSO INDIVIDUAL — todos os colaboradores de UM sistema ═══
+// Cada pessoa: "Seguir o perfil" (padrão) · "Como o perfil X" (vale o nível que o perfil X tem neste
+// sistema e acompanha se o perfil mudar) · ou um nível fixo. Gravado na hora e registrado no Histórico.
+const estSis={mod:"",perfil:"__todos",busca:"",soPers:false};
+const nrmS=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+function grupoDe(u){ return u.papel==="admin"?"__admin":(u.perfil||"__sem"); }
+function nomeGrupo(g){ return g==="__admin"?"Administrador":g==="__sem"?"Sem perfil":((D.perfis.find(p=>p.id===g)||{}).nome||g); }
+function valorSelect(u,mid){ const v=excecaoDe(u,mid); if(v==null) return ""; return typeof v==="string"&&v.startsWith("perfil:")?"p:"+v.slice(7):"n:"+Number(v); }
+function opcoesAcesso(m,u){
+  const base=niveisDe({...u,acessos:{}},u.perfil)[m.id], atual=valorSelect(u,m.id), ativos=D.perfis.filter(p=>!p.arquivado);
+  const op=(v,t)=>`<option value="${v}"${v===atual?" selected":""}>${esc(t)}</option>`;
+  const niveis=m.so_acesso?[[0,"Sem acesso"],[1,"Acessa"]]:[0,1,2,3].map(n=>[n,`${SIMBOLO[n]} ${D.niveis[n]}`]);
+  return op("",`Seguir o perfil (${u.perfil?nomeGrupo(u.perfil)+" → ":""}${rotuloNivel(m,base)})`)
+    +`<optgroup label="Como o perfil… (acompanha se o perfil mudar)">${ativos.map(p=>op("p:"+p.id,`Como ${p.nome} → ${rotuloNivel(m,resolverExcecao(m,"perfil:"+p.id))}`)).join("")}</optgroup>`
+    +`<optgroup label="Nível fixo neste sistema">${niveis.map(([n,t])=>op("n:"+n,t)).join("")}</optgroup>`;
+}
+function desenharSistema(){
+  const box=$("#sisPainel"); if(!box) return;
+  const m=D.modulos.find(x=>x.id===estSis.mod); if(!m){ box.innerHTML=""; return; }
+  const todos=D.usuarios.slice().sort((a,b)=>String(a.nome||a.email).localeCompare(String(b.nome||b.email),"pt-BR"));
+  const grupos=[...D.perfis.filter(p=>!p.arquivado||todos.some(u=>u.perfil===p.id)).map(p=>p.id),"__sem","__admin"].filter(g=>g!=="__sem"&&g!=="__admin"||todos.some(u=>grupoDe(u)===g));
+  const pers=todos.filter(u=>temExcecao(u,m.id)), q=nrmS(estSis.busca);
+  const lst=todos.filter(u=>(estSis.perfil==="__todos"||grupoDe(u)===estSis.perfil)&&(!estSis.soPers||temExcecao(u,m.id))&&(!q||[u.nome,u.email,nomeGrupo(grupoDe(u))].some(x=>nrmS(x).includes(q))));
+  const chip=(g,rot,n,sub)=>`<button type="button" class="chip-perfil${estSis.perfil===g?" ativo":""}" data-g="${g}"><b>${esc(rot)}</b><span>${n} pessoa(s)</span>${sub?`<small>${sub}</small>`:""}</button>`;
+  box.innerHTML=`<div class="sis-painel"><div class="sis-cab"><div><h3>${m.icone} ${esc(m.nome)} — acesso por pessoa</h3>
+      <p class="cap" style="margin:4px 0 0">Cada pessoa segue o nível do perfil dela neste sistema, a não ser que você defina aqui um acesso individual. Vale só para <b>${esc(m.nome)}</b>; os outros sistemas continuam seguindo o perfil. Grava na hora e fica no Histórico.</p></div>
+      <button type="button" class="btn" id="sisFechar">✕ Fechar</button></div>
+    <div class="chips-perfil">${chip("__todos","Todos",todos.length,pers.length?`<span class="tag-pers">${pers.length} personalizado(s)</span>`:"")}${grupos.map(g=>{ const us=todos.filter(u=>grupoDe(u)===g), p=D.perfis.find(x=>x.id===g);
+        return chip(g,nomeGrupo(g),us.length,g==="__admin"?"acesso total":p?`neste sistema: ${esc(rotuloNivel(m,resolverExcecao(m,"perfil:"+g)))}`:"módulos marcados (antigo)"); }).join("")}</div>
+    <div class="ferr"><input class="inp" id="sisBusca" placeholder="Buscar colaborador por nome, e-mail ou perfil..." value="${esc(estSis.busca)}">
+      <label class="chk" style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" id="sisPers" ${estSis.soPers?"checked":""}> Só quem tem acesso personalizado (${pers.length})</label></div>
+    <div class="tbl-wrap" style="max-height:60vh"><table class="lista"><thead><tr><th>Colaborador</th><th>Perfil</th><th>Pelo perfil</th><th>Acesso neste sistema</th><th>Vale</th><th>Alterado</th></tr></thead><tbody>${
+      lst.map(u=>{ const base=niveisDe({...u,acessos:{}},u.perfil)[m.id], vale=niveisDe(u,u.perfil)[m.id], tem=temExcecao(u,m.id), inf=((u.acessos_info||{})[m.id])||null;
+        return `<tr class="${u.ativo===false?"inativo ":""}${tem?"pers":""}"><td><span class="av">${esc(iniciais(u.nome))}</span><b>${esc(u.nome||u.email)}</b>${tem?'<span class="tag-pers">PERSONALIZADO</span>':""}<br><span class="cap" style="margin-left:42px">${esc(u.email)}${u.ativo===false?" · inativo":""}</span></td>
+          <td>${u.papel==="admin"?'<span class="pill p-azul">Administrador</span>':u.perfil?esc(nomeGrupo(u.perfil)):'<span class="pill p-amb">sem perfil</span>'}</td>
+          <td>${pillNivel(m,base)}</td>
+          <td>${u.papel==="admin"?'<span class="cap">Administrador — acesso total sempre</span>':`<select class="sel-acesso${tem?" pers":""}" data-email="${esc(u.email)}" aria-label="Acesso de ${esc(u.nome)} em ${esc(m.nome)}">${opcoesAcesso(m,u)}</select>`}</td>
+          <td>${pillNivel(m,vale)}</td>
+          <td>${tem&&inf?`<span class="cap" style="margin:0">${esc(inf.por_nome||inf.por||"")}<br>${esc(dataBR(inf.em))}</span>`:'<span class="cap" style="margin:0">—</span>'}</td></tr>`; }).join("")||'<tr><td colspan="6" class="cap" style="text-align:center;padding:20px">Ninguém com esses filtros.</td></tr>'}</tbody></table></div></div>`;
+  $("#sisFechar",box).onclick=()=>{ estSis.mod=""; render(); };
+  box.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ estSis.perfil=b.dataset.g; desenharSistema(); });
+  $("#sisPers",box).onchange=e=>{ estSis.soPers=e.target.checked; desenharSistema(); };
+  const bi=$("#sisBusca",box); bi.oninput=()=>{ estSis.busca=bi.value; const pos=bi.selectionStart; desenharSistema(); const n=$("#sisBusca"); n.focus(); n.setSelectionRange(pos,pos); };
+  box.querySelectorAll("select.sel-acesso").forEach(s=>s.onchange=async()=>{
+    const u=D.usuarios.find(x=>x.email===s.dataset.email), v=s.value, corpo=v.startsWith("p:")?{perfil:v.slice(2)}:v.startsWith("n:")?{nivel:Number(v.slice(2))}:{};
+    s.disabled=true; status("Salvando…","salvando");
+    try{ const j=await api(`/api/admin/acessos/${encodeURIComponent(m.id)}/${encodeURIComponent(u.email)}`,{method:"PUT",body:JSON.stringify(corpo)});
+      u.acessos={...(u.acessos||{}),[m.id]:v.startsWith("p:")?"perfil:"+v.slice(2):v.startsWith("n:")?Number(v.slice(2)):null};
+      u.acessos_info={...(u.acessos_info||{}),[m.id]:v?{por_nome:"você",em:new Date().toISOString()}:null};
+      if(j&&j.niveis) u.niveis=j.niveis;
+      status(`${u.nome} · ${m.nome}: ${v?"acesso individual → "+rotuloNivel(m,niveisDe(u,u.perfil)[m.id]):"voltou a seguir o perfil"} — gravado`);
+      render(); }
+    catch(e){ status("Erro: "+e.message,"erro"); s.disabled=false; desenharSistema(); }
+  });
 }
 
 // ═══ DEPARTAMENTOS ═══
@@ -374,7 +475,7 @@ async function renderHistorico(c){
   c.innerHTML=`<h2>Histórico de permissões</h2><p class="cap">Toda mudança de perfil, nível, usuário e departamento — com quem fez e quando (últimas 200).</p><div id="hLista"><p class="cap">Carregando…</p></div>`;
   try{ const j=await api("/api/admin/permissoes-log"), L=$("#hLista"); if(!L) return;
     L.innerHTML=j.historico.length?`<div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Quando</th><th>Quem</th><th>Onde</th><th>O quê</th><th>Antes → depois</th></tr></thead><tbody>${
-      j.historico.map(h=>`<tr><td>${esc(dataBR(h.em))}</td><td>${esc(h.por_nome||h.por)}</td><td><span class="pill p-cinza">${esc({perfil:"Perfil",usuario:"Usuário",departamento:"Departamento"}[h.tipo]||h.tipo)}</span> ${esc(h.alvo)}</td><td>${esc(h.descricao)}</td>
+      j.historico.map(h=>`<tr><td>${esc(dataBR(h.em))}</td><td>${esc(h.por_nome||h.por)}</td><td><span class="pill p-cinza">${esc({perfil:"Perfil",usuario:"Usuário",departamento:"Departamento",acesso:"Acesso individual"}[h.tipo]||h.tipo)}</span> ${esc(h.alvo)}</td><td>${esc(h.descricao)}</td>
         <td>${h.antes!=null||h.depois!=null?`${esc(h.antes??"—")} → <b>${esc(h.depois??"—")}</b>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<p class="aviso">Nenhuma alteração registrada ainda.</p>';
   }catch(e){ const L=$("#hLista"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
 }
