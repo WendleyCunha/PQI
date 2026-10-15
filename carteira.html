@@ -204,8 +204,20 @@ tr.exp > td{background:color-mix(in srgb,var(--steel-soft) 35%,var(--paper));pad
 .est-cli{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .est-v{text-align:right;font-variant-numeric:tabular-nums}
 .est-item > .pp{padding:14px 16px;border-top:1px solid var(--rule)}
-table.uma-linha td{white-space:nowrap;vertical-align:middle}
-table.uma-linha .corta{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+/* [v4.11] lista em uma linha: colunas com largura ajustável (arrastar a borda do título, como no Excel) e tela que arrasta com o mouse */
+table.uma-linha{table-layout:fixed;width:max-content}
+table.uma-linha td{white-space:nowrap;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+table.uma-linha th{overflow:hidden;text-overflow:ellipsis}
+table.uma-linha tr.exp > td{white-space:normal;overflow:visible}
+table.uma-linha .corta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.uma-linha .cel{display:flex;gap:6px;align-items:center;min-width:0}
+table.uma-linha .cel .corta{flex:1 1 auto;min-width:0} table.uma-linha .cel .pill{flex:none}
+.col-res{position:absolute;top:0;right:0;bottom:0;width:8px;cursor:col-resize;z-index:2}
+.col-res::after{content:"";position:absolute;top:22%;bottom:22%;right:3px;width:2px;border-radius:1px;background:var(--rule)}
+.col-res:hover::after,.col-res.ativo::after{background:var(--steel);top:0;bottom:0}
+.tbl-wrap.arrasta{cursor:grab} .tbl-wrap.arrastando{cursor:grabbing;user-select:none}
+.tbl-wrap.arrastando tr.clic:hover td{background:inherit}
+body.redimensionando,body.redimensionando *{cursor:col-resize!important;user-select:none!important}
 .vazio-tri{text-align:center;padding:40px 16px;background:var(--ok-soft);border-radius:10px;font-size:16px}
 /* [v4.7] encerramento indevido: pedido marcado como resolvido que voltou bloqueado na planilha seguinte */
 .est-item.indevido{border-color:var(--bad);border-left:6px solid var(--bad);background:var(--bad-soft)}
@@ -886,6 +898,42 @@ function nomeCurto(n){ return tx(n).split(/\s+/).filter(Boolean).slice(0,2).join
 function dataHoraCurta(v){ if(!v) return ""; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",",""); }
 function textoUltimaAcao(h){ if(!h) return ""; const a=textoHist(h).replace(/<[^>]+>/g,"");   // já vem escapado
   return `${a}${h.nota?` — “${esc(h.nota)}”`:""} · ${esc(h.por||"—")} · ${dataHoraCurta(h.em)}`; }
+// ── larguras das colunas: arrastar a borda do título; fica guardado neste navegador ──
+const LARG_FILA_PADRAO={pedido:90,cliente:150,codigo:100,entrega:200,status:120,produto:300,classe:290,setor:120,dias:130,nota:420,acao:120};
+const CHAVE_LARG_FILA="cart_fila_larguras";
+function largurasFila(){ let g={}; try{ g=JSON.parse(localStorage.getItem(CHAVE_LARG_FILA)||"{}")||{}; }catch(_){} return {...LARG_FILA_PADRAO,...g}; }
+function salvarLargurasFila(g){ try{ localStorage.setItem(CHAVE_LARG_FILA,JSON.stringify(g)); }catch(_){} }
+let _fimRedim=0, _arrastou=false;
+function ligarColunasFila(box){
+  const tab=box.querySelector("table.uma-linha"); if(!tab) return;
+  const ths=[...tab.querySelectorAll("thead th")], chaves=[...COLS_FILA.map(x=>x[0]),"acao"];
+  const ajustarTabela=()=>{ tab.style.width=ths.reduce((a,th)=>a+(parseFloat(th.style.width)||0),0)+"px"; };
+  ths.forEach((th,i)=>{ const k=chaves[i], h=document.createElement("span"); h.className="col-res"; h.title="Arraste para ajustar a largura · duplo clique volta ao padrão"; th.appendChild(h);
+    h.addEventListener("click",e=>e.stopPropagation());
+    h.addEventListener("dblclick",e=>{ e.stopPropagation(); const g=largurasFila(); g[k]=LARG_FILA_PADRAO[k]; salvarLargurasFila(g); th.style.width=g[k]+"px"; ajustarTabela(); _fimRedim=Date.now(); });
+    h.addEventListener("mousedown",e=>{ e.preventDefault(); e.stopPropagation(); const x0=e.clientX, w0=parseFloat(th.style.width)||th.getBoundingClientRect().width;
+      h.classList.add("ativo"); document.body.classList.add("redimensionando");
+      const mover=ev=>{ th.style.width=Math.max(50,Math.round(w0+ev.clientX-x0))+"px"; ajustarTabela(); };
+      const soltar=()=>{ document.removeEventListener("mousemove",mover); document.removeEventListener("mouseup",soltar); h.classList.remove("ativo"); document.body.classList.remove("redimensionando");
+        const g=largurasFila(); g[k]=Math.round(parseFloat(th.style.width)||w0); salvarLargurasFila(g); _fimRedim=Date.now(); };
+      document.addEventListener("mousemove",mover); document.addEventListener("mouseup",soltar); }); });
+  ajustarTabela();
+}
+// ── segurar o botão esquerdo e arrastar a lista para a direita/esquerda (e para cima/baixo) ──
+function arrastarTela(wrap,chave){
+  if(!wrap) return;
+  try{ const v=JSON.parse(sessionStorage.getItem(chave)||"null"); if(v){ wrap.scrollLeft=v.x||0; wrap.scrollTop=v.y||0; } }catch(_){}
+  wrap.addEventListener("scroll",()=>{ try{ sessionStorage.setItem(chave,JSON.stringify({x:wrap.scrollLeft,y:wrap.scrollTop})); }catch(_){} },{passive:true});
+  wrap.addEventListener("mousedown",e=>{
+    if(e.button!==0||e.target.closest("button,a,input,select,textarea,label,.col-res,.pp,tr.exp")) return;
+    const x0=e.clientX, y0=e.clientY, sl=wrap.scrollLeft, st=wrap.scrollTop; let andou=false; _arrastou=false;
+    const mover=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0;
+      if(!andou&&Math.abs(dx)+Math.abs(dy)<6) return;
+      andou=true; _arrastou=true; wrap.classList.add("arrastando"); wrap.scrollLeft=sl-dx; wrap.scrollTop=st-dy; ev.preventDefault(); };
+    const soltar=()=>{ document.removeEventListener("mousemove",mover); document.removeEventListener("mouseup",soltar); wrap.classList.remove("arrastando");
+      setTimeout(()=>{ _arrastou=false; },0); };
+    document.addEventListener("mousemove",mover); document.addEventListener("mouseup",soltar); });
+}
 function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, b=itensBloqueados(p)[0], u=ultimaAcaoPessoa(d);
   switch(estFila.ord){
     case "pedido": return Number(d.pedido)||nrm(d.pedido);
@@ -908,7 +956,7 @@ function renderFilas(c){
   const todas=[...TRAT.values()], abertas=todas.filter(aberta), naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(p=>p.k));
   if(!estFila.setor){ const meu=cfg().setores.find(s=>MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))); estFila.setor=meu?meu.id:"__todos"; }
   c.innerHTML=`<section><header><h2>Pendências por setor</h2><p>A bola está com quem? Cada setor trata a própria fila e devolve (resolve ou toca para outro setor).</p>
-      <span class="direita"><button type="button" class="peq" id="flXls">⬇️ Excel</button></span></header>
+      <span class="direita"><button type="button" class="peq" id="flLarg" title="Volta todas as colunas ao tamanho original">↔ Larguras padrão</button><button type="button" class="peq" id="flXls">⬇️ Excel</button></span></header>
     <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>setoresDe(t).includes(s.id));
       const est=l.filter(foraDoPrazo).length;
       return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small></button>`; }).join("")}</div>
@@ -931,26 +979,30 @@ function renderFilas(c){
   const linhas=lst.map(t=>({t,p:pedidoDaTrat(t)})).filter(o=>buscaFila(o,q))
     .map(o=>({...o,_k:chaveOrdemFila(o,naFoto)}))
     .sort((a,b)=>{ const x=a._k, y=b._k; const r=typeof x==="number"&&typeof y==="number"?x-y:String(x).localeCompare(String(y),"pt-BR",{numeric:true}); return r*estFila.dir||(diasComSetor(b.t)-diasComSetor(a.t)); });
-  const thF=([k,r,cls])=>`<th class="ord ${cls||""}" data-of="${k}" title="Clique para ordenar ${estFila.ord===k&&estFila.dir>0?"Z–A":"A–Z"}">${r}${estFila.ord===k?(estFila.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`;
+  const LG=largurasFila();
+  const thF=([k,r,cls])=>`<th class="ord ${cls||""}" data-of="${k}" style="width:${LG[k]}px" title="Clique para ordenar ${estFila.ord===k&&estFila.dir>0?"Z–A":"A–Z"}">${r}${estFila.ord===k?(estFila.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`;
   $("#flT",c).innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(linhas.length)}</b> pendência(s)${q||estFila.motivo?" com esses filtros":""} · ordenado por <b>${esc((COLS_FILA.find(x=>x[0]===estFila.ord)||[,""])[1])}</b> ${estFila.dir>0?"(A–Z / menor → maior)":"(Z–A / maior → menor)"} — clique no título da coluna para inverter.</p>
-    <div class="tbl-wrap"><table class="uma-linha"><thead><tr>${COLS_FILA.map(thF).join("")}<th></th></tr></thead><tbody>${
+    <div class="tbl-wrap arrasta" id="flWrap"><table class="uma-linha"><thead><tr>${COLS_FILA.map(thF).join("")}<th style="width:${LG.acao}px"></th></tr></thead><tbody>${
     linhas.map(({t,p})=>{ const d=t.dados, dias=diasComSetor(t), sla=foraDoPrazo(t), pz=p.fora?null:prazo(p), bl=itensBloqueados(p), u=ultimaAcaoPessoa(d), ua=textoUltimaAcao(u);
       const prod=bl.length?`${esc(bl[0][IT.prod])} · ${esc(bl[0][IT.desc])}`:"", todos=bl.map(i=>`${i[IT.prod]} · ${i[IT.desc]}`).join("\n");
       return `<tr class="clic" data-k="${esc(d.chave)}"><td title="Loja ${esc(d.loja)}"><b>${esc(d.pedido)}</b></td>
         <td title="${esc(d.cliente||p.n||"")}">${esc(nomeCurto(d.cliente||p.n))}</td><td>${esc(p.c||"—")}</td>
         <td>${pz?`${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"} <span class="pill ${pz.pill}">${pz.rot}</span>`:"—"}</td>
         <td>${p.fora?'<span class="pill p-cinza">Saiu da carteira</span>':bloqueado(p)?'<span class="pill p-warn">Bloqueado</span>':'<span class="pill p-ok">Liberado</span>'}</td>
-        <td title="${esc(todos)}">${prod?`<span class="corta" style="max-width:300px">${prod}</span>${bl.length>1?` <span class="pill p-cinza">+${bl.length-1}</span>`:""}`:'<span class="muted">—</span>'}</td>
-        <td title="${esc(`${d.classe||""} · ${d.motivo||""}`)}"><span class="corta" style="max-width:280px"><b>${esc(d.classe)}</b> · ${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
+        <td title="${esc(todos)}">${prod?`<div class="cel"><span class="corta">${prod}</span>${bl.length>1?`<span class="pill p-cinza">+${bl.length-1}</span>`:""}</div>`:'<span class="muted">—</span>'}</td>
+        <td title="${esc(`${d.classe||""} · ${d.motivo||""}`)}"><span class="corta"><b>${esc(d.classe)}</b> · ${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
         <td class="num">${sla?`<span class="pill p-bad">${dias} d · prazo ${sla} d</span>`:`${dias} d`}</td>
-        <td title="${ua.replace(/"/g,"&quot;")}">${u?`<span class="corta" style="max-width:380px">${ua}</span>`:'<span class="muted">—</span>'}</td>
+        <td title="${ua.replace(/"/g,"&quot;")}">${u?`<span class="corta">${ua}</span>`:'<span class="muted">—</span>'}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
         ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="11"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
-  $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
-  $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
-  const pp=$("#flT [data-pp]",c); if(pp) montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"fila",()=>render());
+  ligarColunasFila($("#flT",c)); arrastarTela($("#flWrap",c),"cart_fila_scroll");
+  $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
+  $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")||_arrastou) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
+  const pp=$("#flT [data-pp]",c); if(pp){ montarPainelPedido(pp,pedidoDaTrat(TRAT.get(pp.dataset.pp)),"fila",()=>render());
+    const wr=$("#flWrap",c); Object.assign(pp.style,{position:"sticky",left:"0",maxWidth:Math.max(600,wr.clientWidth-36)+"px"}); }   // o card aberto fica na largura da tela, mesmo com a lista rolada
   $("#flT",c).querySelectorAll("[data-res]").forEach(b=>b.onclick=async()=>{ const nota=prompt("Resolver — o que foi feito? (opcional)",""); if(nota===null) return;
     try{ await gravarTratativa(pedidoDaTrat(TRAT.get(b.dataset.res)),{acao:"resolver",nota}); render(); toast("✓ Resolvida."); }catch(e){ alert(e.message); } });
+  $("#flLarg",c).onclick=()=>{ try{ localStorage.removeItem(CHAVE_LARG_FILA); }catch(_){} render(); toast("↔ Colunas de volta ao tamanho padrão."); };
   $("#flXls",c).onclick=()=>exportarRelatorio(`pendencias_${estFila.setor==="__todos"?"todos_setores":nrm(setorPor(estFila.setor).nome).replace(/\W+/g,"_")}`,linhas.map(x=>x.p));
 }
 
