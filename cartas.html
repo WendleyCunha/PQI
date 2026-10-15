@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartas de Débito — King Star</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="cartas"></script>
+<style>
+/* ═══ Mesmo padrão visual do PQI (Carteira, Diário, Mapa, Organogramas) ═══ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,h4{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:22px 0 8px;font-weight:600}
+a{color:var(--steel)}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:90ch}
+.muted{color:var(--ink-3)}
+[hidden]{display:none!important}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who{color:var(--ink-3);font-size:13px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.who.erro{color:var(--bad)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);flex:none}
+.dot.ok{background:var(--ok)} .dot.salvando{background:var(--amber)} .dot.erro{background:var(--bad)}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--ink-3)}
+button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn{color:var(--bad)} button.peq,.btn.peq{padding:6px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.btn:focus-within{outline:2px solid var(--amber);outline-offset:2px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{min-height:80px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+label.f b{color:var(--bad);font-weight:600}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.msg{font-size:13px} .msg.ok{color:var(--ok)} .msg.erro{color:var(--bad)}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);font-size:14px}
+.alerta{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px;border-left:4px solid var(--amber)}
+.conflito{margin:0 0 16px;padding:12px 14px;border-radius:6px;background:var(--bad-soft);border:1px solid var(--bad);font-size:14px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-warn{background:var(--amber-soft);color:var(--amber)}
+.p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-roxo{background:var(--block-soft);color:var(--block)}
+.wrap{padding:24px 28px 64px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow-y:auto}
+.side-btn{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:1px solid transparent;background:none;
+  color:var(--ink-3);font:500 10.5px/1.2 "IBM Plex Sans",sans-serif;text-align:center;cursor:pointer;position:relative}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--amber);color:#fff;border-radius:8px;padding:0 5px}
+.side-sep{flex:none;width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+section > header .direita{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
+.kpi{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 16px;text-align:left;font:inherit;color:inherit;display:block;width:100%;border-top:4px solid var(--kc,var(--rule))}
+button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
+.kpi > span{color:var(--ink-3);font-size:13px}
+.kpi b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
+.kpi small{display:block;color:var(--ink-3);font-size:12px;margin-top:4px}
+.k-bad{--kc:var(--bad)} .k-warn{--kc:var(--amber)} .k-ok{--kc:var(--ok)} .k-azul{--kc:var(--prog)} .k-roxo{--kc:var(--block)}
+.tbl-wrap{overflow:auto;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);max-height:70vh}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{position:sticky;top:0;z-index:1;text-align:left;font:600 12.5px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .sub{display:block;font-size:12px;color:var(--ink-3)}
+td input[type=checkbox],th input[type=checkbox]{width:16px;height:16px;accent-color:var(--steel)}
+.filtros{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.filtros .busca{grid-column:span 2}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:400px}
+.toast{background:var(--ink);color:var(--sheet);border-radius:10px;padding:12px 14px;font-size:14px;box-shadow:0 10px 26px rgba(10,15,25,.3)}
+/* ─── específico das Cartas ─── */
+.loja-cab{display:flex;gap:10px;align-items:center;background:var(--ink);color:var(--sheet);border-radius:8px;padding:8px 14px;margin:22px 0 12px;font:700 15px "IBM Plex Sans Condensed",sans-serif;letter-spacing:.02em}
+.loja-cab small{margin-left:auto;font:500 13px "IBM Plex Sans",sans-serif;opacity:.85}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.carta{background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--amber);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .15s,border-color .15s}
+.carta.sobre{border-color:var(--steel);box-shadow:0 0 0 3px var(--steel-soft)}
+.carta .rot{display:block;color:var(--ink-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.carta .nome{font:700 17px/1.2 "IBM Plex Sans Condensed",sans-serif}
+.carta .lin{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:13.5px}
+.carta .lin b{font-weight:600}
+.carta .valor{font:700 22px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--amber)}
+.carta .motivo{font-size:13px;color:var(--ink-2);background:var(--paper);border-radius:6px;padding:6px 8px;max-height:84px;overflow:auto;white-space:pre-wrap}
+.carta .bts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.carta .bts > *{flex:1 1 auto}
+.up{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2px 6px;border:2px dashed var(--rule);border-radius:8px;padding:9px;font-size:13px;color:var(--ink-2);cursor:pointer;text-align:center}
+.up:hover{border-color:var(--steel);color:var(--steel);background:var(--steel-soft)}
+.up input{display:none}
+.carta.enviando{opacity:.6;pointer-events:none}
+details.lote{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--steel);border-radius:10px;margin:10px 0}
+details.lote > summary{cursor:pointer;padding:12px 16px;display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;list-style:none}
+details.lote > summary::-webkit-details-marker{display:none}
+details.lote > summary::before{content:"▸";color:var(--ink-3)} details.lote[open] > summary::before{content:"▾"}
+details.lote > summary b{font:700 16px "IBM Plex Sans Condensed",sans-serif}
+details.lote .corpo{padding:0 16px 14px}
+dialog{border:1px solid var(--rule);border-radius:12px;background:var(--sheet);color:var(--ink);padding:22px 26px;width:min(760px,96vw);max-height:94vh;overflow:auto}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 12px;font-size:21px}
+.colab-ok{font-size:12.5px;color:var(--ok);margin-top:2px}
+.colab-novo{font-size:12.5px;color:var(--amber);margin-top:2px}
+@media (max-width:860px){
+  .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
+  .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .filtros .busca{grid-column:auto}
+}
+@media print{ .bar,.side-rg,.acoes{display:none!important} body{background:#fff} .wrap{padding:0} .shell-item{display:block} }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <button type="button" id="btNova" class="primary" hidden>＋ Nova carta</button>
+</div></div>
+<div class="wrap">
+  <div class="shell-item">
+    <nav class="side-rg" id="menu" aria-label="Seções das cartas"></nav>
+    <div class="conteudo-item"><main id="root"><p class="cap">Carregando as cartas…</p></main></div>
+  </div>
+  <footer class="doc-foot">Cartas de Débito · procedimento de apuração para desconto salarial (art. 462, §1º da CLT) · o Word é preenchido a partir do modelo <b>carta_preenchida.docx</b>.</footer>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<dialog id="dlg"><div id="dlgCorpo"></div></dialog>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// CARTAS DE DÉBITO  [v4.1] — veio do Streamlit (cartas.py)
+// Fluxo: Nova carta → Painel (Aguardando Assinatura: baixa o Word, colhe a
+// assinatura, sobe a carta assinada) → Fechamento (CARTA RECEBIDA: ZIP das
+// assinadas + Excel → fecha o lote) → Histórico (lotes fechados).
+// O Word é preenchido aqui no navegador com o modelo carta_preenchida.docx
+// (marcadores {{GERENTE}}, {{CPF}}, {{CODIGO_CLIENTE}}, {{VALOR_DEBITO}},
+// {{LOJA_ORIGEM}}, {{DATA_COMPRA}}, {{DESC_DEBITO}}, {{DATA_LOCAL}}).
+// ═══════════════════════════════════════════════════════════════════
+const API="/api/cartas";
+const AGUARDANDO="Aguardando Assinatura", RECEBIDA="CARTA RECEBIDA", FECHADA="LOTE_FECHADO";
+const $=(s,r=document)=>r.querySelector(s);
+function el(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function tx(v){ return String(v==null?"":v).trim(); }
+const nrm=s=>tx(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ");
+function pad(n){ return String(n).padStart(2,"0"); }
+function hojeBR(){ const d=new Date(); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`; }
+function brParaISO(s){ const m=tx(s).match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?`${m[3]}-${m[2]}-${m[1]}`:""; }
+function isoParaBR(s){ const m=tx(s).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:""; }
+function dataHoraBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }
+function moeda(v){ return "R$ "+(Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function int(v){ return (v||0).toLocaleString("pt-BR"); }
+// aceita "1.234,56", "1234,56", "1234.56"
+function numBR(s){ s=tx(s).replace(/[R$\s]/g,""); if(!s) return 0; if(s.includes(",")) s=s.replace(/\./g,"").replace(",","."); const n=parseFloat(s); return isNaN(n)?NaN:n; }
+function kb(n){ return n>=1048576?(n/1048576).toFixed(1).replace(".",",")+" MB":Math.max(1,Math.round(n/1024))+" KB"; }
+function toast(t){ const e=el("div","toast"); e.innerHTML=t; $("#toasts").appendChild(e); setTimeout(()=>e.remove(),7000); }
+function baixarBlob(b,nome){ const u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+function carimbo(){ const d=new Date(); return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`; }
+function nomeArq(s){ return tx(s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w.-]+/g,"_").replace(/_+/g,"_").slice(0,80)||"carta"; }
+
+// ═══ dados ═══
+let NIVEL=1, ADMIN=false, CARTAS=[], COLAB=[], LOTES=[], LIMITE=900*1024;
+async function api(url,op={}){
+  const r=await fetch(url,{headers:op.body instanceof FormData?{}:{"Content-Type":"application/json"},cache:"no-store",...op});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){ $("#root").innerHTML='<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+  return j;
+}
+function setStatus(t,d){ $("#dot").className="dot "+t; $("#who").classList.toggle("erro",t==="erro");
+  $("#whoTxt").textContent=t==="salvando"?(d||"Salvando…"):t==="erro"?"Erro: "+(d||""):`Tudo salvo · ${int(CARTAS.length)} carta(s) · ${int(COLAB.length)} colaborador(es) · ${int(LOTES.length)} lote(s)`; }
+const D=r=>Object.assign({id:r.id,versao:r.versao,criado_por:r.criado_por,criado_por_email:r.criado_por_email,criado_em:r.criado_em},r.dados||{});
+async function carregar(){
+  const j=await api(API);
+  NIVEL=Number(j.nivel??NIVEL); LIMITE=Number(j.limite_arquivo)||LIMITE;
+  CARTAS=(j.cartas||[]).map(D); COLAB=(j.colaboradores||[]).map(D).filter(c=>c.nome).sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR"));
+  LOTES=(j.lotes||[]).map(D).sort((a,b)=>String(b.fechado_em||"").localeCompare(String(a.fechado_em||"")));
+  setStatus("ok");
+}
+const aguardando=()=>CARTAS.filter(c=>c.status===AGUARDANDO);
+const recebidas=()=>CARTAS.filter(c=>c.status===RECEBIDA);
+const fechadas=()=>CARTAS.filter(c=>c.status===FECHADA);
+const soma=l=>l.reduce((a,c)=>a+(Number(c.VALOR)||0),0);
+function cpfDe(nome){ const c=COLAB.find(x=>x.nome===tx(nome).toUpperCase()); return c?c.cpf:""; }
+function podeEditarCarta(c){ return NIVEL>=3||(NIVEL>=2&&c.criado_por_email&&window.PQI_ACESSO&&c.criado_por_email===PQI_ACESSO.email); }
+
+// ═══ bibliotecas (carregadas só quando precisa) ═══
+const _lib={};
+function lib(nome,url,glob){ if(window[glob]) return Promise.resolve(window[glob]);
+  return _lib[nome]||(_lib[nome]=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=url; s.onload=()=>res(window[glob]); s.onerror=()=>{ delete _lib[nome]; rej(new Error(`não consegui carregar a biblioteca ${nome} (sem internet?)`)); }; document.head.appendChild(s); })); }
+const jszip=()=>lib("JSZip","https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","JSZip");
+const excelJS=()=>lib("ExcelJS","https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js","ExcelJS");
+
+// ═══ WORD: preenche o modelo carta_preenchida.docx ═══
+// O Word às vezes quebra um marcador em pedaços ({{ | DATA_LOCAL | }}); aqui o texto
+// do parágrafo é lido inteiro e o valor entra no primeiro pedaço, mantendo a formatação.
+let _modelo=null;
+async function modelo(){ if(_modelo) return _modelo;
+  const r=await fetch(`${API}/modelo`,{cache:"no-store"}); if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"não encontrei o modelo da carta"); }
+  return (_modelo=await r.arrayBuffer()); }
+function dadosWord(c){ return {GERENTE:c.NOME||"",CPF:c.CPF||"",CODIGO_CLIENTE:c.COD_CLI||"",VALOR_DEBITO:moeda(c.VALOR),LOJA_ORIGEM:c.LOJA||"",
+  DATA_COMPRA:c.DATA||"",DESC_DEBITO:c.MOTIVO||"",DATA_LOCAL:`São Paulo, ${hojeBR()}`}; }
+function preencherXML(xml,dados){
+  const W="http://schemas.openxmlformats.org/wordprocessingml/2006/main", doc=new DOMParser().parseFromString(xml,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length) return xml;
+  let mexeu=false;
+  for(const p of [...doc.getElementsByTagNameNS(W,"p")]){
+    const ts=[...p.getElementsByTagNameNS(W,"t")]; if(!ts.length) continue;
+    for(let guarda=0;guarda<50;guarda++){
+      const textos=ts.map(t=>t.textContent), cheio=textos.join(""), re=/\{\{\s*([A-Z_]+)\s*\}\}/g; let m, alvo=null;
+      while((m=re.exec(cheio))) if(m[1] in dados){ alvo=m; break; }
+      if(!alvo) break;
+      const ini=alvo.index, fim=ini+alvo[0].length; let pos=0, colocou=false;
+      ts.forEach((t,i)=>{ const a=pos, b=pos+textos[i].length; pos=b; if(b<=ini||a>=fim) return;
+        const antes=ini>a?textos[i].slice(0,ini-a):"", depois=fim<b?textos[i].slice(fim-a):"";
+        t.textContent=antes+(colocou?"":String(dados[alvo[1]]))+depois; colocou=true; t.setAttribute("xml:space","preserve"); });
+      mexeu=true;
+    }
+  }
+  return mexeu?new XMLSerializer().serializeToString(doc):xml;
+}
+async function gerarWord(c){
+  const Z=await jszip(), zip=await Z.loadAsync(await modelo()), dados=dadosWord(c);
+  for(const n of Object.keys(zip.files).filter(n=>/^word\/(document|header\d*|footer\d*)\.xml$/.test(n)))
+    zip.file(n,preencherXML(await zip.file(n).async("string"),dados));
+  return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"DEFLATE"});
+}
+async function baixarWord(c,bt){ if(bt) bt.disabled=true;
+  try{ baixarBlob(await gerarWord(c),`Carta_${nomeArq(c.NOME)}.docx`); }catch(e){ toast("⚠ Erro no modelo Word: "+esc(e.message)); } finally{ if(bt) bt.disabled=false; } }
+
+// ═══ upload da carta assinada (foto grande é reduzida aqui antes de enviar) ═══
+async function reduzirImagem(file){
+  if(!/^image\//.test(file.type)||file.size<=LIMITE*0.95) return file;
+  const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("não consegui ler a imagem")); i.src=URL.createObjectURL(file); });
+  for(const [lado,q] of [[2400,.85],[2000,.8],[1700,.75],[1400,.7],[1200,.65],[1000,.6]]){
+    const k=Math.min(1,lado/Math.max(img.width,img.height)), cv=document.createElement("canvas"); cv.width=Math.round(img.width*k); cv.height=Math.round(img.height*k);
+    const g=cv.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height);
+    const b=await new Promise(r=>cv.toBlob(r,"image/jpeg",q));
+    if(b&&b.size<=LIMITE*0.95) return new File([b],file.name.replace(/\.\w+$/,"")+".jpg",{type:"image/jpeg"});
+  }
+  throw new Error("a foto continua grande demais mesmo reduzida");
+}
+async function enviarAssinada(c,file,card){
+  if(!file) return;
+  try{ card&&card.classList.add("enviando"); setStatus("salvando","Enviando a carta assinada…");
+    const f=await reduzirImagem(file);
+    if(f.size>LIMITE) throw new Error(`o arquivo tem ${kb(f.size)} e o limite é ${kb(LIMITE)}. Se for PDF, salve em qualidade menor (ou envie uma foto).`);
+    const fd=new FormData(); fd.append("arquivo",f,f.name);
+    await api(`${API}/${encodeURIComponent(c.id)}/assinatura`,{method:"POST",body:fd});
+    await carregar(); render(); toast(`✅ Carta de <b>${esc(c.NOME)}</b> recebida${f!==file?` (foto reduzida para ${kb(f.size)})`:""} — já está em <b>Fechamento</b>.`);
+  }catch(e){ setStatus("erro",e.message); card&&card.classList.remove("enviando"); toast("⚠ "+esc(e.message)); }
+}
+async function baixarAnexo(c){ const r=await fetch(`${API}/${encodeURIComponent(c.id)}/assinatura`,{cache:"no-store"});
+  if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||`HTTP ${r.status}`); } return r.blob(); }
+
+// ═══ exportações: ZIP das assinadas e Excel ═══
+async function zipAssinadas(lista,nome){
+  const comArq=lista.filter(c=>c.anexo&&c.anexo.arquivo_id&&!c.anexo.removido);
+  if(!comArq.length) return alert("Nenhuma destas cartas tem o arquivo assinado guardado.");
+  setStatus("salvando","Montando o ZIP…");
+  try{ const Z=await jszip(), zip=new Z(); let i=0, falhas=0;
+    for(const c of comArq){ i++; setStatus("salvando",`Montando o ZIP… ${i}/${comArq.length}`);
+      try{ const ext=(tx(c.anexo.nome).match(/\.\w+$/)||[".pdf"])[0]; zip.file(`Carta_${nomeArq(c.NOME)}_${c.id}${ext}`,await baixarAnexo(c)); }catch(_){ falhas++; } }
+    baixarBlob(await zip.generateAsync({type:"blob",compression:"DEFLATE"}),nome);
+    setStatus("ok"); toast(`📥 ZIP com ${i-falhas} carta(s) assinada(s)${falhas?` · ${falhas} não baixaram`:""}${lista.length>comArq.length?` · ${lista.length-comArq.length} sem arquivo`:""}.`);
+  }catch(e){ setStatus("erro",e.message); alert(e.message); }
+}
+const COLS_XLS=[["NOME",c=>c.NOME],["CPF",c=>c.CPF],["COD_CLI",c=>c.COD_CLI],["VALOR",c=>Number(c.VALOR)||0],["LOJA",c=>c.LOJA],["DATA",c=>c.DATA],["MOTIVO",c=>c.MOTIVO],
+  ["status",c=>c.status],["id_lote",c=>c.id_lote||""],["arquivo assinado",c=>c.anexo?(c.anexo.removido?"excluído do banco":c.anexo.nome):""],["recebida em",c=>c.recebida_em?dataHoraBR(c.recebida_em):""],["registrada por",c=>c.criado_por||""]];
+async function excel(lista,nome){
+  try{ const X=await excelJS(), wb=new X.Workbook(), ws=wb.addWorksheet("Cartas");
+    ws.addRow(COLS_XLS.map(c=>c[0])); ws.getRow(1).eachCell(c=>{ c.font={bold:true,color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF2E4A7A"}}; });
+    lista.forEach(c=>ws.addRow(COLS_XLS.map(k=>k[1](c)))); ws.getColumn(4).numFmt='"R$" #,##0.00';
+    COLS_XLS.forEach((k,i)=>ws.getColumn(i+1).width=Math.max(10,Math.min(60,Math.max(k[0].length+3,...lista.slice(0,300).map(c=>String(k[1](c)??"").length+2)))));
+    if(lista.length){ ws.autoFilter={from:{row:1,column:1},to:{row:1,column:COLS_XLS.length}}; ws.addRow([]); const t=ws.addRow(["TOTAL","","",soma(lista)]); t.font={bold:true}; t.getCell(4).numFmt='"R$" #,##0.00'; }
+    ws.views=[{state:"frozen",ySplit:1}];
+    baixarBlob(new Blob([await wb.xlsx.writeBuffer()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),nome);
+  }catch(e){ alert(e.message); } }
+
+// ═══ navegação ═══
+const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
+const ICO={
+  nova:SV+'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>',
+  painel:SV+'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  fechamento:SV+'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>',
+  historico:SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
+  config:SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
+};
+const SECOES=[["nova","Nova carta",2],["painel","Painel",1],["fechamento","Fechamento",1],["historico","Histórico",1],"sep",["config","Configurar",1]];
+let secao="painel"; try{ secao=sessionStorage.getItem("cartas_secao")||"painel"; }catch(_){}
+function ir(s){ secao=s; try{ sessionStorage.setItem("cartas_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
+function atualizarMenu(){
+  const nA=aguardando().length, nR=recebidas().length;
+  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
+    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="painel"&&nA?`<span class="n">${nA}</span>`:""}${x[0]==="fechamento"&&nR?`<span class="n" style="background:var(--ok)">${nR}</span>`:""}</button>`).join("");
+  $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
+  $("#btNova").hidden=NIVEL<2||secao==="nova";
+}
+function render(){
+  if(secao==="nova"&&NIVEL<2) secao="painel";
+  atualizarMenu(); const c=$("#root"); c.innerHTML="";
+  if(NIVEL<2) c.insertAdjacentHTML("beforeend",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil em Cartas de Débito permite consultar e baixar o Word, sem registrar.</p>');
+  const box=el("div"); c.appendChild(box);
+  ({nova:renderNova,painel:renderPainel,fechamento:renderFechamento,historico:renderHistorico,config:renderConfig}[secao]||renderPainel)(box);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FORMULÁRIO (Nova carta e Editar)
+// ═══════════════════════════════════════════════════════════════════
+function formCarta(c){
+  c=c||{};
+  return `<div class="grade">
+      <label class="f">Colaborador <b>*</b><input data-c="NOME" list="dlColab" value="${esc(c.NOME||"")}" placeholder="Digite para buscar — nome novo é cadastrado ao salvar" autocomplete="off"><span data-ccolab></span></label>
+      <label class="f">CPF <b>*</b><input data-c="CPF" value="${esc(c.CPF||"")}" placeholder="000.000.000-00" inputmode="numeric"></label>
+      <label class="f">Código do cliente <b>*</b><input data-c="COD_CLI" value="${esc(c.COD_CLI||"")}"></label></div>
+    <div class="grade" style="margin-top:12px">
+      <label class="f">Valor (R$)<input data-c="VALOR" value="${c.VALOR!=null&&c.VALOR!==""?esc((Number(c.VALOR)||0).toLocaleString("pt-BR",{minimumFractionDigits:2})):""}" placeholder="0,00" inputmode="decimal"></label>
+      <label class="f">Loja de origem<input data-c="LOJA" list="dlLojas" value="${esc(c.LOJA||"")}" autocomplete="off"></label>
+      <label class="f">Data da ocorrência<input data-c="DATA" type="date" value="${esc(brParaISO(c.DATA)||(c.id?"":new Date().toISOString().slice(0,10)))}"></label></div>
+    <label class="f" style="margin-top:12px">Motivo detalhado<textarea data-c="MOTIVO" style="text-transform:uppercase">${esc(c.MOTIVO||"")}</textarea></label>
+    <datalist id="dlColab">${COLAB.map(x=>`<option value="${esc(x.nome)}">`).join("")}</datalist>
+    <datalist id="dlLojas">${[...new Set(CARTAS.map(x=>x.LOJA).filter(Boolean))].sort().map(x=>`<option value="${esc(x)}">`).join("")}</datalist>`;
+}
+function ligarForm(box){
+  const nome=box.querySelector('[data-c="NOME"]'), cpf=box.querySelector('[data-c="CPF"]'), info=box.querySelector("[data-ccolab]");
+  const ver=()=>{ const n=tx(nome.value).toUpperCase(), k=cpfDe(n);
+    if(!n){ info.className=""; info.textContent=""; return; }
+    if(k){ info.className="colab-ok"; info.textContent="✓ colaborador cadastrado"; if(!tx(cpf.value)||cpf.dataset.auto==="1"){ cpf.value=k; cpf.dataset.auto="1"; } }
+    else { info.className="colab-novo"; info.textContent="+ novo colaborador — será cadastrado ao salvar"; if(cpf.dataset.auto==="1"){ cpf.value=""; cpf.dataset.auto=""; } } };
+  nome.addEventListener("input",ver); nome.addEventListener("change",ver); cpf.addEventListener("input",()=>{ cpf.dataset.auto=""; }); ver();
+}
+function lerForm(box){
+  const v=k=>box.querySelector(`[data-c="${k}"]`).value, valor=numBR(v("VALOR"));
+  const d={NOME:tx(v("NOME")).toUpperCase(),CPF:tx(v("CPF")),COD_CLI:tx(v("COD_CLI")),VALOR:valor,LOJA:tx(v("LOJA")).toUpperCase(),DATA:isoParaBR(v("DATA")),MOTIVO:tx(v("MOTIVO")).toUpperCase()};
+  if(!d.NOME||!d.CPF||!d.COD_CLI) throw new Error("Preencha Nome, CPF e Código do Cliente.");
+  if(isNaN(valor)||valor<0) throw new Error("Valor inválido — use, por exemplo, 1.234,56.");
+  return d;
+}
+
+function renderNova(c){
+  c.innerHTML=`<section><header><h2>Nova carta</h2><p>Registre o débito. A carta vai para o <b>Painel</b> aguardando assinatura — lá você baixa o Word e depois sobe a carta assinada.</p></header>
+    <div class="box" id="nvForm">${formCarta(null)}
+      <div class="acoes"><button type="button" class="primary" id="nvSalvar">✨ Registrar carta</button><button type="button" id="nvSalvarWord">✨ Registrar e baixar o Word</button><span class="msg" id="nvMsg"></span></div></div></section>`;
+  const f=$("#nvForm",c); ligarForm(f);
+  const salvar=async word=>{ const m=$("#nvMsg"); let d; try{ d=lerForm(f); }catch(e){ m.className="msg erro"; m.textContent=e.message; return; }
+    c.querySelectorAll("button").forEach(b=>b.disabled=true); m.className="msg"; m.textContent="Gravando…";
+    try{ const r=await api(API,{method:"POST",body:JSON.stringify(d)}); await carregar();
+      if(word){ const nova=CARTAS.find(x=>x.id===(r&&r.id))||d; await baixarWord(nova); }
+      toast(`✅ Carta de <b>${esc(d.NOME)}</b> registrada — está no Painel aguardando assinatura.`); render(); }
+    catch(e){ m.className="msg erro"; m.textContent=e.message; c.querySelectorAll("button").forEach(b=>b.disabled=false); } };
+  $("#nvSalvar",c).onclick=()=>salvar(false); $("#nvSalvarWord",c).onclick=()=>salvar(true);
+  f.querySelector('[data-c="NOME"]').focus();
+}
+
+function abrirEdicao(carta){
+  const dlg=$("#dlg");
+  $("#dlgCorpo").innerHTML=`<h3>✏️ Editar carta — ${esc(carta.NOME)}</h3><div id="edForm">${formCarta(carta)}</div>
+    <div class="acoes" style="justify-content:flex-end"><span class="msg" id="edMsg" style="margin-right:auto"></span><button type="button" id="edCancelar">Cancelar</button><button type="button" class="primary" id="edSalvar">💾 Salvar alterações</button></div>`;
+  const f=$("#edForm"); ligarForm(f);
+  $("#edCancelar").onclick=()=>dlg.close();
+  $("#edSalvar").onclick=async()=>{ const m=$("#edMsg"); let d; try{ d=lerForm(f); }catch(e){ m.className="msg erro"; m.textContent=e.message; return; }
+    $("#edSalvar").disabled=true; m.className="msg"; m.textContent="Gravando…";
+    try{ await api(`${API}/${encodeURIComponent(carta.id)}`,{method:"PUT",body:JSON.stringify({...d,versao:carta.versao})}); dlg.close(); await carregar(); render(); toast("✅ Carta atualizada."); }
+    catch(e){ m.className="msg erro"; m.textContent=e.message; $("#edSalvar").disabled=false; if(/alterou esta carta/.test(e.message)){ await carregar(); render(); } } };
+  dlg.showModal();
+}
+function verHistorico(carta){
+  $("#dlgCorpo").innerHTML=`<h3>🕒 ${esc(carta.NOME)} — histórico da carta</h3>
+    <p class="cap">Registrada por ${esc(carta.criado_por||"—")} em ${dataHoraBR(carta.criado_em)} · status: <b>${esc(carta.status)}</b>${carta.id_lote?` · lote ${esc(carta.id_lote)}`:""}</p>
+    <div class="tbl-wrap" style="max-height:50vh"><table><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th></tr></thead><tbody>${
+      (carta.historico||[]).slice().reverse().map(h=>`<tr><td>${dataHoraBR(h.em)}</td><td>${esc(h.por)}</td><td>${esc(h.acao)}</td></tr>`).join("")||'<tr><td colspan="3" class="muted">Sem registros.</td></tr>'}</tbody></table></div>
+    <div class="acoes" style="justify-content:flex-end"><button type="button" onclick="document.getElementById('dlg').close()">Fechar</button></div>`;
+  $("#dlg").showModal();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PAINEL — cartas aguardando assinatura, agrupadas por loja
+// ═══════════════════════════════════════════════════════════════════
+const estP={busca:"",loja:""};
+function renderPainel(c){
+  const todas=aguardando(), q=nrm(estP.busca);
+  const lst=todas.filter(x=>(!estP.loja||x.LOJA===estP.loja)&&(!q||[x.NOME,x.CPF,x.COD_CLI,x.LOJA,x.MOTIVO].some(v=>nrm(v).includes(q))));
+  const lojas=[...new Set(todas.map(x=>x.LOJA||"SEM LOJA"))].sort();
+  c.innerHTML=`<section><header><h2>Painel</h2><p>Cartas aguardando assinatura. Baixe o Word, colha a assinatura e suba a carta assinada (foto ou PDF) — ela vai para o Fechamento.</p>
+      ${NIVEL>=3&&todas.length?`<span class="direita"><button type="button" class="peq" id="pnXls">⬇️ Excel (pendentes)</button></span>`:""}</header>
+    <div class="kpis"><div class="kpi k-warn"><span>⏳ Aguardando assinatura</span><b>${int(todas.length)}</b><small>${int(lojas.length)} loja(s)</small></div>
+      <div class="kpi k-warn"><span>💰 Valor pendente</span><b>${moeda(soma(todas))}</b><small>soma das cartas aguardando</small></div>
+      <button type="button" class="kpi k-ok" data-ir="fechamento"><span>✅ Assinadas para fechar</span><b>${int(recebidas().length)}</b><small>${moeda(soma(recebidas()))} · ir para o Fechamento</small></button></div>
+    ${todas.length?`<div class="filtros"><input class="busca" id="pnBusca" placeholder="Buscar nome, CPF, código do cliente, loja, motivo..." value="${esc(estP.busca)}">
+      <select id="pnLoja"><option value="">Loja: todas</option>${lojas.map(l=>`<option${l===estP.loja?" selected":""}>${esc(l)}</option>`).join("")}</select></div>`:""}
+    <div id="pnLista"></div></section>`;
+  const L=$("#pnLista",c);
+  if(!todas.length) L.innerHTML='<p class="aviso">Nenhuma carta aguardando assinatura. 👌</p>';
+  else if(!lst.length) L.innerHTML='<p class="aviso">Nenhuma carta com esses filtros.</p>';
+  else {
+    const grupos=new Map(); lst.slice().sort((a,b)=>tx(a.LOJA).localeCompare(tx(b.LOJA))||tx(a.NOME).localeCompare(tx(b.NOME))).forEach(x=>{ const k=x.LOJA||"SEM LOJA"; if(!grupos.has(k)) grupos.set(k,[]); grupos.get(k).push(x); });
+    L.innerHTML=[...grupos].map(([loja,l])=>`<div class="loja-cab">📍 ${esc(loja)} <span style="font-weight:500">(${l.length} ${l.length===1?"item":"itens"})</span><small>${moeda(soma(l))}</small></div>
+      <div class="cards">${l.map(x=>`<article class="carta" data-id="${esc(x.id)}">
+        <div><span class="rot">Colaborador</span><div class="nome">${esc(x.NOME)}</div><span class="muted" style="font-size:12.5px">CPF ${esc(x.CPF||"—")}</span></div>
+        <div class="lin"><div><span class="rot">Cód. cliente</span><b>${esc(x.COD_CLI||"—")}</b></div><div><span class="rot">Data</span><b>${esc(x.DATA||"—")}</b></div></div>
+        <div><span class="rot">Valor</span><div class="valor">${moeda(x.VALOR)}</div></div>
+        <div><span class="rot">Motivo</span><div class="motivo">${esc(x.MOTIVO||"—")}</div></div>
+        <span class="muted" style="font-size:12px">Registrada por ${esc(x.criado_por||"—")} · ${dataHoraBR(x.criado_em)} · <a href="#" data-hist>histórico</a></span>
+        <div class="bts"><button type="button" class="peq" data-word>📂 Baixar Word</button>${podeEditarCarta(x)?'<button type="button" class="peq" data-edit>✏️ Editar</button>':""}${NIVEL>=3?'<button type="button" class="peq warn" data-del title="Excluir carta">🗑️</button>':""}</div>
+        ${NIVEL>=2?`<label class="up" title="Clique ou arraste o arquivo aqui"><input type="file" accept="image/*,application/pdf,.doc,.docx" data-up><b style="font-weight:600">⤒ Enviar carta assinada</b><span class="muted" style="width:100%;font-size:12px">clique ou arraste aqui · foto, PDF ou Word</span></label>`:""}
+      </article>`).join("")}</div>`).join("");
+  }
+  const bb=$("#pnBusca",c); if(bb) bb.oninput=()=>{ estP.busca=bb.value; clearTimeout(bb._t); bb._t=setTimeout(()=>{ const pos=bb.selectionStart; render(); const n=$("#pnBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
+  const sl=$("#pnLoja",c); if(sl) sl.onchange=()=>{ estP.loja=sl.value; render(); };
+  const xl=$("#pnXls",c); if(xl) xl.onclick=()=>excel(lst,`Cartas_Pendentes_${carimbo()}.xlsx`);
+  c.querySelectorAll("[data-ir]").forEach(b=>b.onclick=()=>ir(b.dataset.ir));
+  c.querySelectorAll("article.carta").forEach(card=>{ const x=CARTAS.find(k=>k.id===card.dataset.id);
+    card.querySelector("[data-word]").onclick=e=>baixarWord(x,e.currentTarget);
+    card.querySelector("[data-hist]").onclick=e=>{ e.preventDefault(); verHistorico(x); };
+    const ed=card.querySelector("[data-edit]"); if(ed) ed.onclick=()=>abrirEdicao(x);
+    const dl=card.querySelector("[data-del]"); if(dl) dl.onclick=async()=>{ if(!confirm(`Excluir a carta de ${x.NOME} (${moeda(x.VALOR)})?\n\nNão dá para desfazer.`)) return;
+      try{ await api(`${API}/${encodeURIComponent(x.id)}`,{method:"DELETE"}); await carregar(); render(); toast("🗑️ Carta excluída."); }catch(e){ alert(e.message); } };
+    const up=card.querySelector("[data-up]"); if(up){ up.onchange=()=>enviarAssinada(x,up.files[0],card);
+      card.ondragover=e=>{ e.preventDefault(); card.classList.add("sobre"); }; card.ondragleave=()=>card.classList.remove("sobre");
+      card.ondrop=e=>{ e.preventDefault(); card.classList.remove("sobre"); enviarAssinada(x,e.dataTransfer.files[0],card); }; } });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FECHAMENTO — cartas assinadas (CARTA RECEBIDA) → fechar o lote
+// ═══════════════════════════════════════════════════════════════════
+const foraLote=new Set();   // cartas desmarcadas no fechamento (o padrão é todas marcadas)
+function renderFechamento(c){
+  const prontas=recebidas().sort((a,b)=>tx(a.LOJA).localeCompare(tx(b.LOJA))||tx(a.NOME).localeCompare(tx(b.NOME)));
+  const sel=prontas.filter(x=>!foraLote.has(x.id)), semArq=sel.filter(x=>!x.anexo||!x.anexo.arquivo_id||x.anexo.removido).length;
+  c.innerHTML=`<section><header><h2>Fechamento do lote</h2><p>Cartas assinadas prontas para fechar. Baixe o ZIP e o Excel, confira e finalize — o lote vai para o Histórico.</p></header>
+    ${!prontas.length?'<p class="aviso">Nenhuma carta assinada pronta para fechamento. As cartas chegam aqui quando a assinada é enviada no Painel.</p>':`
+    <div class="kpis"><div class="kpi k-ok"><span>📦 No lote</span><b>${int(sel.length)}</b><small>de ${int(prontas.length)} carta(s) assinada(s)</small></div>
+      <div class="kpi k-ok"><span>💰 Valor total do lote</span><b>${moeda(soma(sel))}</b><small>${semArq?`<span style="color:var(--bad)">${semArq} sem arquivo assinado</span>`:"todas com arquivo assinado"}</small></div></div>
+    <div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="fcTodos" ${sel.length===prontas.length?"checked":""} title="Marcar todas"></th><th>Colaborador</th><th>Cód. cliente</th><th>Loja</th><th>Data</th><th class="num">Valor</th><th>Carta assinada</th><th></th></tr></thead><tbody>${
+      prontas.map(x=>`<tr><td><input type="checkbox" data-sel="${esc(x.id)}" ${foraLote.has(x.id)?"":"checked"}></td><td><b>${esc(x.NOME)}</b><span class="sub">CPF ${esc(x.CPF)}</span></td><td>${esc(x.COD_CLI)}</td><td>${esc(x.LOJA||"—")}</td><td>${esc(x.DATA||"—")}</td><td class="num">${moeda(x.VALOR)}</td>
+        <td>${x.anexo&&x.anexo.arquivo_id&&!x.anexo.removido?`<a href="${API}/${encodeURIComponent(x.id)}/assinatura">📎 ${esc(x.anexo.nome)}</a><span class="sub">${kb(x.anexo.tamanho||0)} · ${esc(x.anexo.por||"")} · ${dataHoraBR(x.anexo.em)}</span>`:'<span class="pill p-bad">sem arquivo</span>'}</td>
+        <td style="white-space:nowrap">${NIVEL>=2?`<label class="btn peq" title="Trocar o arquivo assinado"><input type="file" accept="image/*,application/pdf,.doc,.docx" data-troca="${esc(x.id)}" hidden>↻ Trocar</label>`:""} <button type="button" class="peq" data-word="${esc(x.id)}" title="Baixar o Word em branco de novo">📂</button></td></tr>`).join("")}</tbody></table></div>
+    ${NIVEL>=3?`<div class="acoes"><button type="button" id="fcZip" ${sel.length-semArq?"":"disabled"}>📥 Baixar ZIP (assinadas — ${sel.length-semArq}/${sel.length})</button><button type="button" id="fcXls" ${sel.length?"":"disabled"}>📊 Baixar Excel do lote</button></div>
+      <div class="alerta">Ao finalizar, as <b>${int(sel.length)}</b> carta(s) marcadas saem daqui e vão para o <b>Histórico</b> como um lote fechado. <b>Baixe o ZIP e o Excel antes</b> — eles continuam disponíveis no Histórico.</div>
+      <div class="acoes"><button type="button" class="primary" id="fcFechar" ${sel.length?"":"disabled"}>🚀 Finalizar lote e enviar ao Histórico</button><span class="msg" id="fcMsg"></span></div>`
+      :'<p class="aviso">🔒 Fechar o lote e exportar exigem o perfil <b>Editar</b> em Cartas de Débito.</p>'}`}</section>`;
+  const td=$("#fcTodos",c); if(td) td.onchange=()=>{ prontas.forEach(x=>td.checked?foraLote.delete(x.id):foraLote.add(x.id)); render(); };
+  c.querySelectorAll("[data-sel]").forEach(cb=>cb.onchange=()=>{ cb.checked?foraLote.delete(cb.dataset.sel):foraLote.add(cb.dataset.sel); render(); });
+  c.querySelectorAll("[data-word]").forEach(b=>b.onclick=()=>baixarWord(CARTAS.find(x=>x.id===b.dataset.word),b));
+  c.querySelectorAll("[data-troca]").forEach(i=>i.onchange=()=>enviarAssinada(CARTAS.find(x=>x.id===i.dataset.troca),i.files[0]));
+  const z=$("#fcZip",c); if(z) z.onclick=()=>zipAssinadas(sel,`Lote_${carimbo()}_Assinadas.zip`);
+  const xl=$("#fcXls",c); if(xl) xl.onclick=()=>excel(sel,`Lote_${carimbo()}.xlsx`);
+  const fe=$("#fcFechar",c); if(fe) fe.onclick=async()=>{
+    if(semArq&&!confirm(`${semArq} carta(s) marcada(s) estão sem o arquivo assinado. Fechar mesmo assim?`)) return;
+    if(!confirm(`Finalizar o lote com ${sel.length} carta(s) — ${moeda(soma(sel))}?`)) return;
+    fe.disabled=true; const m=$("#fcMsg"); m.className="msg"; m.textContent="Fechando o lote…";
+    try{ const r=await api(`${API}/lotes`,{method:"POST",body:JSON.stringify({ids:sel.map(x=>x.id)})}); foraLote.clear(); await carregar(); ir("historico"); toast(`🚀 Lote <b>${esc(r.codigo)}</b> finalizado — ${sel.length} carta(s) arquivada(s).`); }
+    catch(e){ m.className="msg erro"; m.textContent=e.message; fe.disabled=false; await carregar(); } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HISTÓRICO — lotes fechados
+// ═══════════════════════════════════════════════════════════════════
+const estH={busca:"",abertos:new Set()};
+function renderHistorico(c){
+  const q=nrm(estH.busca), porId=new Map(CARTAS.map(x=>[x.id,x]));
+  const lotes=LOTES.map(l=>({...l,cartas:(l.ids_cartas||[]).map(id=>porId.get(id)).filter(Boolean)}))
+    .filter(l=>!q||nrm(l.codigo).includes(q)||l.cartas.some(x=>[x.NOME,x.CPF,x.COD_CLI,x.LOJA].some(v=>nrm(v).includes(q))));
+  c.innerHTML=`<section><header><h2>Histórico de lotes</h2><p>Lotes fechados, do mais recente para o mais antigo. Clique no lote para ver as cartas.</p></header>
+    <div class="kpis"><div class="kpi k-azul"><span>📦 Lotes fechados</span><b>${int(LOTES.length)}</b><small>${int(fechadas().length)} carta(s) arquivada(s)</small></div>
+      <div class="kpi k-azul"><span>💰 Valor arquivado</span><b>${moeda(soma(fechadas()))}</b><small>soma de todos os lotes</small></div></div>
+    ${LOTES.length?`<div class="filtros"><input class="busca" id="hBusca" placeholder="Buscar lote, colaborador, CPF, código do cliente, loja..." value="${esc(estH.busca)}"></div>`:""}
+    <div id="hLista">${!LOTES.length?'<p class="aviso">Nenhum lote fechado ainda.</p>':!lotes.length?'<p class="aviso">Nenhum lote com essa busca.</p>':
+      lotes.map(l=>{ const comArq=l.cartas.filter(x=>x.anexo&&x.anexo.arquivo_id&&!x.anexo.removido).length;
+        return `<details class="lote" data-lote="${esc(l.id)}" ${estH.abertos.has(l.id)||q?"open":""}><summary><b>📦 Lote ${esc(l.codigo||l.id)}</b><span>${esc(l.data||dataHoraBR(l.fechado_em))}</span><span>${int(l.total||l.cartas.length)} carta(s)</span><b style="color:var(--amber)">${moeda(l.valor_total)}</b><span class="muted">fechado por ${esc(l.fechado_por||"—")}</span>
+          ${comArq?`<span class="pill p-ok">📎 ${comArq} arquivo(s)</span>`:'<span class="pill p-cinza">sem arquivos guardados</span>'}</summary><div class="corpo">
+          ${l.cartas.length?`<div class="tbl-wrap" style="max-height:45vh"><table><thead><tr><th>Colaborador</th><th>Cód. cliente</th><th>Loja</th><th>Data</th><th class="num">Valor</th><th>Carta assinada</th>${NIVEL>=3?"<th></th>":""}</tr></thead><tbody>${
+            l.cartas.map(x=>`<tr><td><b>${esc(x.NOME)}</b><span class="sub">CPF ${esc(x.CPF)}</span></td><td>${esc(x.COD_CLI)}</td><td>${esc(x.LOJA||"—")}</td><td>${esc(x.DATA||"—")}</td><td class="num">${moeda(x.VALOR)}</td>
+              <td>${x.anexo&&x.anexo.removido?'<span class="muted">arquivo excluído do banco</span>':x.anexo&&x.anexo.arquivo_id?`<a href="${API}/${encodeURIComponent(x.id)}/assinatura">📎 ${esc(x.anexo.nome)}</a>`:'<span class="muted">—</span>'}${x.status!==FECHADA?` <span class="pill p-warn">reaberta</span>`:""}</td>
+              ${NIVEL>=3?`<td>${x.status===FECHADA?`<button type="button" class="peq" data-reab="${esc(x.id)}" title="Volta para o Painel como Aguardando Assinatura">🔓 Reabrir</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table></div>`
+            :'<p class="cap">As cartas deste lote não foram encontradas no banco.</p>'}
+          ${NIVEL>=3?`<div class="acoes"><button type="button" class="peq" data-xls="${esc(l.id)}">📊 Excel completo</button><button type="button" class="peq" data-zip="${esc(l.id)}" ${comArq?"":"disabled"}>📥 ZIP assinadas (${comArq}/${l.cartas.length})</button>
+            ${comArq?`<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin-left:auto"><input type="checkbox" data-conf="${esc(l.id)}" style="width:16px;height:16px"> Confirmo excluir os ${comArq} arquivo(s)</label><button type="button" class="peq warn" data-limpa="${esc(l.id)}" disabled>🗑️ Excluir arquivos do lote</button>`:'<span class="cap" style="margin:0 0 0 auto">✅ Este lote já não tem arquivos anexados.</span>'}</div>
+            ${comArq?'<p class="cap" style="margin:0">⚠️ Baixe o ZIP antes de excluir — não dá para desfazer. Só remove os arquivos; o registro do lote (nomes, valores, datas) continua.</p>':""}`
+            :'<p class="cap" style="margin:8px 0 0">🔒 Exportar e excluir arquivos exigem o perfil <b>Editar</b>.</p>'}
+        </div></details>`; }).join("")}</div></section>`;
+  const hb=$("#hBusca",c); if(hb) hb.oninput=()=>{ estH.busca=hb.value; clearTimeout(hb._t); hb._t=setTimeout(()=>{ const pos=hb.selectionStart; render(); const n=$("#hBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },300); };
+  c.querySelectorAll("details.lote").forEach(d=>d.ontoggle=()=>{ d.open?estH.abertos.add(d.dataset.lote):estH.abertos.delete(d.dataset.lote); });
+  const lotePor=id=>lotes.find(l=>l.id===id);
+  c.querySelectorAll("[data-xls]").forEach(b=>b.onclick=()=>{ const l=lotePor(b.dataset.xls); excel(l.cartas,`Lote_${nomeArq(l.codigo||l.id)}.xlsx`); });
+  c.querySelectorAll("[data-zip]").forEach(b=>b.onclick=()=>{ const l=lotePor(b.dataset.zip); zipAssinadas(l.cartas,`Lote_${nomeArq(l.codigo||l.id)}_Assinadas.zip`); });
+  c.querySelectorAll("[data-conf]").forEach(cb=>cb.onchange=()=>{ const b=c.querySelector(`[data-limpa="${CSS.escape(cb.dataset.conf)}"]`); if(b) b.disabled=!cb.checked; });
+  c.querySelectorAll("[data-limpa]").forEach(b=>b.onclick=async()=>{ const l=lotePor(b.dataset.limpa); b.disabled=true;
+    try{ const r=await api(`${API}/lotes/${encodeURIComponent(l.id)}/limpar-anexos`,{method:"POST"}); await carregar(); render(); toast(`🗑️ ${r.limpas} arquivo(s) removido(s) do banco. O histórico do lote foi mantido.`); }catch(e){ alert(e.message); b.disabled=false; } });
+  c.querySelectorAll("[data-reab]").forEach(b=>b.onclick=()=>reabrir(CARTAS.find(x=>x.id===b.dataset.reab)));
+}
+async function reabrir(x){
+  if(!x||!confirm(`Reabrir a carta de ${x.NOME} (${moeda(x.VALOR)})?\n\nEla sai do lote ${x.id_lote||""} e volta para o Painel como “Aguardando Assinatura”.`)) return;
+  try{ await api(`${API}/${encodeURIComponent(x.id)}/reabrir`,{method:"POST"}); await carregar(); render(); toast(`🔓 Carta de <b>${esc(x.NOME)}</b> reaberta — está no Painel.`); }catch(e){ alert(e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONFIGURAR — colaboradores, importação, base completa, reabrir, modelo
+// ═══════════════════════════════════════════════════════════════════
+const estCfg={busca:"",previa:null,cabecalho:true};
+function renderConfig(c){
+  const q=nrm(estCfg.busca), lst=COLAB.filter(x=>!q||nrm(x.nome).includes(q)||nrm(x.cpf).includes(q));
+  c.innerHTML=`<section><header><h2>Configurar</h2><p>Colaboradores (nome e CPF usados nas cartas), importação em lote, base completa e o modelo do Word.</p></header>
+    <div class="box"><b>👤 Colaboradores</b> <span class="muted">· ${int(COLAB.length)} cadastrado(s)</span>
+      ${NIVEL>=2?`<div class="grade" style="margin-top:10px;grid-template-columns:2fr 1fr auto;align-items:end"><label class="f">Nome<input id="cfNome" autocomplete="off"></label><label class="f">CPF<input id="cfCpf" inputmode="numeric"></label><button type="button" class="primary" id="cfAdd">➕ Adicionar</button></div><span class="msg" id="cfMsg"></span>`:""}
+      <input id="cfBusca" placeholder="Buscar colaborador por nome ou CPF..." value="${esc(estCfg.busca)}" style="margin-top:12px">
+      <div class="tbl-wrap" style="max-height:40vh;margin-top:8px"><table><thead><tr><th>Nome</th><th>CPF</th><th class="num">Cartas</th>${NIVEL>=3?"<th></th>":""}</tr></thead><tbody>${
+        lst.map(x=>{ const n=CARTAS.filter(k=>k.NOME===x.nome).length; return `<tr><td><b>${esc(x.nome)}</b></td><td>${esc(x.cpf)}</td><td class="num">${int(n)}</td>${NIVEL>=3?`<td><button type="button" class="peq warn" data-delc="${esc(x.id)}" title="Remover da lista (as cartas continuam)">🗑️</button></td>`:""}</tr>`; }).join("")||'<tr><td colspan="4" class="muted" style="text-align:center;padding:18px">Nenhum colaborador.</td></tr>'}</tbody></table></div></div>
+    ${NIVEL>=3?`<div class="box"><b>📤 Importar colaboradores em lote (Excel ou CSV)</b><p class="cap" style="margin:2px 0 8px">Coluna A = Nome, coluna B = CPF. Com ou sem cabeçalho. Nome já cadastrado tem o CPF atualizado.</p>
+      <input type="file" id="cfArq" accept=".xlsx,.csv,.txt" style="max-width:420px"><div id="cfPrevia"></div></div>
+    <div class="box"><b>📊 Base completa</b><p class="cap" style="margin:2px 0 8px">Todas as cartas (${int(CARTAS.length)}) — pendentes, assinadas e arquivadas.</p><button type="button" id="cfBase" ${CARTAS.length?"":"disabled"}>📊 Exportar TODAS as cartas (.xlsx)</button></div>
+    <div class="box" style="border-left:6px solid var(--bad)"><b>🚨 Reabrir carta de lote fechado</b><p class="cap" style="margin:2px 0 8px">A carta volta para o Painel como “Aguardando Assinatura” e sai do lote.</p>
+      ${fechadas().length?`<div class="acoes" style="margin:0"><select id="cfReab" style="max-width:520px">${fechadas().sort((a,b)=>tx(a.NOME).localeCompare(tx(b.NOME))).map(x=>`<option value="${esc(x.id)}">${esc(x.NOME)} — ${esc(x.DATA||"")} — ${moeda(x.VALOR)} — lote ${esc(x.id_lote||"")}</option>`).join("")}</select><button type="button" class="warn" id="cfReabBt">🔓 Reabrir carta selecionada</button></div>`:'<p class="cap" style="margin:0">Nenhuma carta fechada para reabrir.</p>'}</div>`:""}
+    <div class="box"><b>📄 Modelo do Word</b><p class="cap" style="margin:2px 0 8px">Arquivo <b>carta_preenchida.docx</b> na pasta do sistema (junto do main.py). Marcadores: <code>{{GERENTE}}</code> <code>{{CPF}}</code> <code>{{CODIGO_CLIENTE}}</code> <code>{{VALOR_DEBITO}}</code> <code>{{LOJA_ORIGEM}}</code> <code>{{DATA_COMPRA}}</code> <code>{{DESC_DEBITO}}</code> <code>{{DATA_LOCAL}}</code>. Para mudar o texto da carta, edite o modelo no Word mantendo os marcadores e suba o arquivo de novo no repositório.</p>
+      <a class="btn peq" href="${API}/modelo" download="carta_preenchida.docx">⬇️ Baixar o modelo atual</a></div></section>`;
+  const bi=$("#cfBusca",c); bi.oninput=()=>{ estCfg.busca=bi.value; const pos=bi.selectionStart; render(); const n=$("#cfBusca"); n.focus(); n.setSelectionRange(pos,pos); };
+  const add=$("#cfAdd",c); if(add) add.onclick=async()=>{ const m=$("#cfMsg"), nome=tx($("#cfNome").value), cpf=tx($("#cfCpf").value);
+    if(!nome||!cpf){ m.className="msg erro"; m.textContent="Preencha nome e CPF."; return; }
+    add.disabled=true; try{ const r=await api(`${API}/colaboradores`,{method:"POST",body:JSON.stringify({nome,cpf})}); await carregar(); render(); toast(r.resultado==="atualizado"?`✏️ CPF de <b>${esc(nome.toUpperCase())}</b> atualizado.`:r.resultado==="igual"?"Esse colaborador já estava cadastrado.":`✅ <b>${esc(nome.toUpperCase())}</b> adicionado.`); }
+    catch(e){ m.className="msg erro"; m.textContent=e.message; add.disabled=false; } };
+  c.querySelectorAll("[data-delc]").forEach(b=>b.onclick=async()=>{ const x=COLAB.find(k=>k.id===b.dataset.delc); if(!confirm(`Remover ${x.nome} da lista de colaboradores?\n\nAs cartas dele continuam.`)) return;
+    try{ await api(`${API}/colaboradores/${encodeURIComponent(x.id)}`,{method:"DELETE"}); await carregar(); render(); toast(`${esc(x.nome)} removido.`); }catch(e){ alert(e.message); } });
+  const arq=$("#cfArq",c); if(arq) arq.onchange=async()=>{ try{ estCfg.previa=await lerPlanilha(arq.files[0]); desenharPrevia(c); }catch(e){ $("#cfPrevia").innerHTML=`<p class="conflito">⚠️ Erro ao ler o arquivo: ${esc(e.message)}</p>`; } };
+  if(estCfg.previa&&arq) desenharPrevia(c);
+  const bs=$("#cfBase",c); if(bs) bs.onclick=()=>excel(CARTAS,`Base_Completa_${carimbo()}.xlsx`);
+  const rb=$("#cfReabBt",c); if(rb) rb.onclick=()=>reabrir(CARTAS.find(x=>x.id===$("#cfReab").value));
+}
+async function lerPlanilha(file){
+  if(!file) return null;
+  let linhas=[];
+  if(/\.xlsx$/i.test(file.name)){ const X=await excelJS(), wb=new X.Workbook(); await wb.xlsx.load(await file.arrayBuffer()); const ws=wb.worksheets[0];
+    ws.eachRow({includeEmpty:false},r=>{ const v=i=>{ const c=r.getCell(i).value; return tx(c&&typeof c==="object"?(c.text||c.result||(c.richText||[]).map(t=>t.text).join("")):c); }; linhas.push([v(1),v(2)]); }); }
+  else { const t=await file.text(), sep=(t.split("\n")[0].match(/;/g)||[]).length>=(t.split("\n")[0].match(/,/g)||[]).length?";":",";
+    linhas=t.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(sep).map(x=>tx(x.replace(/^"|"$/g,"")))).map(l=>[l[0]||"",l[1]||""]); }
+  if(!linhas.length) throw new Error("o arquivo está vazio");
+  return {nome:file.name,linhas:linhas.filter(l=>l[0]||l[1])};
+}
+function desenharPrevia(c){
+  const P=estCfg.previa, box=$("#cfPrevia",c); if(!P||!box) return;
+  const usar=(estCfg.cabecalho?P.linhas.slice(1):P.linhas), validas=usar.filter(l=>l[0]&&l[1]&&nrm(l[0])!=="nan"&&nrm(l[1])!=="nan");
+  box.innerHTML=`<p class="cap" style="margin:10px 0 6px"><b>Prévia</b> — ${esc(P.nome)} · ${int(P.linhas.length)} linha(s) encontradas</p>
+    <div class="tbl-wrap" style="max-height:220px"><table><thead><tr><th>#</th><th>Nome (A)</th><th>CPF (B)</th></tr></thead><tbody>${P.linhas.slice(0,50).map((l,i)=>`<tr${estCfg.cabecalho&&i===0?' style="opacity:.45;text-decoration:line-through"':""}><td>${i+1}</td><td>${esc(l[0])}</td><td>${esc(l[1])}</td></tr>`).join("")}${P.linhas.length>50?`<tr><td colspan="3" class="muted">… e mais ${int(P.linhas.length-50)}</td></tr>`:""}</tbody></table></div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:8px"><input type="checkbox" id="cfCab" ${estCfg.cabecalho?"checked":""} style="width:16px;height:16px"> A primeira linha é cabeçalho (ex.: “Nome”, “CPF”) — ignorar</label>
+    <div class="acoes"><button type="button" class="primary" id="cfImp" ${validas.length?"":"disabled"}>✅ Confirmar importação (${int(validas.length)})</button>${usar.length-validas.length?`<span class="cap" style="margin:0">${int(usar.length-validas.length)} linha(s) sem nome ou CPF serão ignoradas</span>`:""}<span class="msg" id="cfImpMsg"></span></div>`;
+  $("#cfCab",box).onchange=e=>{ estCfg.cabecalho=e.target.checked; desenharPrevia(c); };
+  $("#cfImp",box).onclick=async()=>{ const b=$("#cfImp"), m=$("#cfImpMsg"); b.disabled=true; m.className="msg"; m.textContent="Importando…";
+    try{ const r=await api(`${API}/colaboradores/importar`,{method:"POST",body:JSON.stringify({linhas:validas.map(l=>({nome:l[0],cpf:l[1]}))})});
+      estCfg.previa=null; await carregar(); render(); toast(`✅ Importação concluída: ${int(r.novo||0)} novo(s), ${int(r.atualizado||0)} com CPF atualizado, ${int(r.igual||0)} já existiam.`); }
+    catch(e){ m.className="msg erro"; m.textContent=e.message; b.disabled=false; } };
+}
+
+// ═══ início ═══
+async function iniciar(){
+  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado) NIVEL=a.nivel; }catch(_){}
+  $("#btNova").onclick=()=>ir("nova");
+  try{ await carregar(); render(); }
+  catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
+    $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar as cartas.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
+}
+iniciar();
+</script>
+</body>
+</html>
