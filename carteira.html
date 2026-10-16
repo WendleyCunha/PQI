@@ -349,14 +349,15 @@ function montarFoto(itens, pedidos){
     else if(x.fo==="pedidos") x.fo="ambas";
     if(!x.sp) x.sp=campo(r,"Status Pedido");
     x.it.push([campo(r,"Item"),campo(r,"Produto"),campo(r,"Descrição","Descricao"),campo(r,"Grupo Produto"),campo(r,"Local"),numBR(campo(r,"QTD")),numBR(campo(r,"Total")),campo(r,"Status"),campo(r,"Filial")]); });
-  return {pedidos:[...P.values()],conflitos};
+  const {limpos,sujeira}=separarSujeira([...P.values()]);
+  return {pedidos:limpos,conflitos,sujeira};
 }
 // índices do item: [item, produto, descrição, grupo, local, qtd, total, status]
 const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7,fil:8};   // fil = coluna "Filial" da planilha de itens
 function tels(p){ return [...new Set((p.t||[]).filter(Boolean))]; }
 
 // ═══ regras ═══
-let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13};
+let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000};
 function prazo(p){
   if(!p.en) return {cls:"semdata",rot:"Sem data",pill:"p-cinza"};
   if(Number(p.en.slice(0,4))>=Number(CFG_DADOS.ano_ficticio||2030)) return {cls:"semdata",rot:"Sem data",pill:"p-cinza",obs:"data fictícia"};
@@ -445,13 +446,21 @@ async function enviarFoto(data, meta, partes, aoProgredir){
 async function carregarFoto(data){
   const {j}=await api(`${API}/dias/${data}`);
   const f=await descompactar(j.partes,j.meta.formato);
+  const {limpos,sujeira}=separarSujeira(f.pedidos||[]);   // fotos antigas também ficam limpas, sem reimportar
+  f.pedidos=limpos; f.sujeira=sujeira.length?sujeira:((j.meta&&j.meta.sujeira)||[]);
   f.meta=j.meta; return f;
 }
+// [v4.14] SUJEIRA DE SISTEMA: pedido com número menor que o limite (padrão 10000 = até 4 dígitos, ex.: 000476)
+// não entra na apuração — fica numa lista separada para o TI limpar a base.
+function numPedido(p){ const d=String(p&&p.p||"").replace(/\D/g,""); return d?parseInt(d,10):NaN; }
+function ehSujeira(p){ const lim=Number(CFG_DADOS.pedido_minimo??10000); const n=numPedido(p); return lim>0&&!isNaN(n)&&n<lim; }
+function separarSujeira(peds){ const limpos=[], sujeira=[]; peds.forEach(p=>(ehSujeira(p)?sujeira:limpos).push(p)); return {limpos,sujeira}; }
+function resumoSujeira(l){ return (l||[]).slice(0,1000).map(p=>p.k?{k:p.k,p:p.p,l:p.l,ln:p.ln,c:p.c,n:p.n,em:p.em,en:p.en,v:p.v||0,st:p.st,sp:p.sp,it:(p.it||[]).length}:p); }
 async function carregarTratativas(){ const {j}=await api(`${API}/tratativas`); TRAT=new Map((j||[]).map(t=>[t.dados.chave,t])); }
 
 // ═══ configuração: setores e motivos (classificação → motivo → setor) ═══
 const CORES=["#2E4A7A","#2B63B0","#2F7D4F","#C98A0B","#6B46A8","#B83232","#0F766E","#9D174D","#4A5568"];
-const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,
+const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,
   setores:[{id:"compras",nome:"Compras",cor:"#2B63B0"},{id:"cx",nome:"CX",cor:"#6B46A8"},{id:"logistica",nome:"Logística",cor:"#2F7D4F"},
     {id:"financeiro",nome:"Financeiro",cor:"#C98A0B"},{id:"loja",nome:"Comercial / Loja",cor:"#0F766E"}],
   motivos:[
@@ -467,7 +476,7 @@ const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,
     {id:"m10",classe:"Pendente logística",motivo:"Reagendar entrega",setor:"logistica",sla:1,ativo:true},
     {id:"m11",classe:"Pendente financeiro",motivo:"Pagamento / liberação pendente",setor:"financeiro",sla:2,ativo:true},
     {id:"m12",classe:"Cancelamento",motivo:"Cliente solicitou cancelamento",setor:"cx",sla:2,ativo:true}]};
-function cfg(){ const d=(CFG&&CFG.dados)||CONFIG_PADRAO; if(d.dias_aviso==null) d.dias_aviso=13; return d; }
+function cfg(){ const d=(CFG&&CFG.dados)||CONFIG_PADRAO; if(d.dias_aviso==null) d.dias_aviso=13; if(d.pedido_minimo==null) d.pedido_minimo=10000; return d; }
 function setorPor(id){ return cfg().setores.find(s=>s.id===id)||{id,nome:id||"—",cor:"#8A93A3"}; }
 function motivoPor(id){ return cfg().motivos.find(m=>m.id===id)||null; }
 async function salvarConfig(dados){
@@ -1370,6 +1379,7 @@ function renderImportar(c){
     ${imp.itens&&imp.itens.totais.TOTAL!=null?(imp.itens.totais.TOTAL===r.itens?`<p class="aviso" style="background:var(--ok-soft)">✓ Confere com o total do BI: <b>${int(imp.itens.totais.TOTAL)}</b> itens${imp.itens.totais.BLOQUEADOS!=null?` · ${int(imp.itens.totais.BLOQUEADOS)} bloqueados`:""}${imp.itens.totais.LIBERADOS!=null?` · ${int(imp.itens.totais.LIBERADOS)} liberados`:""}.</p>`
       :`<p class="alerta">⚠ O total do BI diz <b>${int(imp.itens.totais.TOTAL)}</b> itens, mas foram lidos <b>${int(r.itens)}</b>. Confira se a planilha veio completa.</p>`):""}
     ${!imp.itens||!imp.pedidos?`<p class="alerta">Falta a planilha de <b>${!imp.itens?"itens":"pedidos"}</b>. Dá para gravar assim, mas a foto fica incompleta.</p>`:""}
+    ${(pv.sujeira||[]).length?`<p class="aviso">🧹 <b>${int(pv.sujeira.length)}</b> pedido(s) com número abaixo de ${int(cfg().pedido_minimo)} (sujeira de sistema, ex.: ${pv.sujeira.slice(0,5).map(p=>esc(p.p)).join(", ")}) <b>não entram</b> na carteira nem nos totais. A lista fica em <b>Configurar → Sujeira de sistema</b> para o TI.</p>`:""}
     ${pv.conflitos.length?`<p class="alerta">${pv.conflitos.length} pedido(s) repetido(s) na mesma loja dentro da planilha de pedidos — ficou a última linha: ${pv.conflitos.slice(0,10).map(esc).join(", ")}${pv.conflitos.length>10?"…":""}</p>`:""}
     ${r.corrigidos_qtd_bloq?`<p class="aviso">⛔ <b>${int(r.corrigidos_qtd_bloq)}</b> pedido(s) com <b>Qtd Bloq = 1</b> estavam como LIBERADO/CARTEIRA no Status e foram considerados <b>BLOQUEADO</b>.</p>`:""}
     ${U.length?`<div class="aviso"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="impFechar" ${imp.fechar?"checked":""} style="width:16px;height:16px;margin-top:3px"><span><b>Atualizar automaticamente ${U.length} pendência(s) aberta(s) pela planilha:</b><br>
@@ -1388,12 +1398,12 @@ function renderImportar(c){
     try{
       const foto={versao:1,data:imp.data,pedidos:pv.pedidos}, {partes,formato}=await compactar(foto);
       const corta=a=>a.length>6000?a.slice(0,6000):a;
-      const meta={resumo:pv.resumo,novos:corta(pv.novos),sairam:corta(pv.sairam),primeira:pv.primeira,formato,
+      const meta={resumo:pv.resumo,novos:corta(pv.novos),sairam:corta(pv.sairam),primeira:pv.primeira,formato,sujeira:resumoSujeira(pv.sujeira),
         arquivos:{itens:imp.itens&&imp.itens.nome,pedidos:imp.pedidos&&imp.pedidos.nome},origem:{ambas:pv.ambas,so_pedidos:pv.soPed,so_itens:pv.soIt},conflitos:pv.conflitos.slice(0,200)};
       setStatus("salvando");
       await enviarFoto(imp.data,meta,partes,t=>{ m.textContent=t; });
       const {j}=await api(`${API}/dias`); DIAS=j||[];
-      if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
+      if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; foto.sujeira=pv.sujeira||[]; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
       let fechadas=0, mudaram=0;
       if(U.length&&imp.fechar) for(const x of U){ const quando=`foto de ${dataBR(imp.data)}`;
         try{ if(x.tipo==="saiu"){ await gravarTratativa(pedidoDaTrat(x.t),{acao:"auto",nota:`Saiu da carteira na ${quando}`}); fechadas++; }
@@ -1421,7 +1431,14 @@ function renderConfig(c){
   c.innerHTML=`<section><header><h2>Configurar</h2><p>Setores que recebem pendências e os motivos de cada classificação. Cada motivo fica pendente com um setor.</p></header>
     <div class="grade" style="max-width:860px"><label class="f">Atrasado = entrega em até (dias)<input type="number" min="0" id="cfDias" value="${esc(D.dias_alerta)}"></label>
       <label class="f">Alerta = entrega em até (dias)<input type="number" min="1" id="cfAviso" value="${esc(D.dias_aviso??13)}"></label>
+      <label class="f" title="Pedidos com número menor que este (ex.: 000476) são sujeira de sistema e ficam fora da apuração. 0 = não filtrar.">Ignorar pedido com número menor que<input type="number" min="0" id="cfMin" value="${esc(D.pedido_minimo??10000)}"></label>
       <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label></div>
+    ${(()=>{ const sj=(FOTO&&FOTO.sujeira)||[]; return `<div class="box" style="max-width:none"><b>🧹 Sujeira de sistema</b> <span class="muted">· carteira de ${FOTO_DATA?dataBR(FOTO_DATA):"—"}</span>
+      <p class="cap" style="margin:2px 0 8px">Pedidos com número abaixo de <b>${int(D.pedido_minimo??10000)}</b> (até ${String(Math.max(1,(D.pedido_minimo??10000)-1)).length} dígitos) não entram na carteira, nos blocos do Painel, na Triagem nem nas Soluções. Esta lista é para o TI limpar a base. Mudou o limite? Salve e recarregue a página.</p>
+      ${sj.length?`<div class="acoes" style="margin:0 0 8px"><b>${int(sj.length)}</b> pedido(s) · ${moeda(sj.reduce((a,p)=>a+(p.v||0),0))}<button type="button" class="peq" id="cfSujXls">⬇️ Excel para o TI</button></div>
+        <div class="tbl-wrap" style="max-height:260px"><table><thead><tr><th>Loja</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Emissão</th><th>Entrega</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody>${
+          sj.slice().sort((a,b)=>numPedido(a)-numPedido(b)).map(p=>`<tr><td>${esc(p.l)} ${esc(p.ln||"")}</td><td><b>${esc(p.p)}</b></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td><td>${p.em?dataBR(p.em):"—"}</td><td>${p.en?dataBR(p.en):"—"}</td><td>${esc(p.st||p.sp||"—")}</td><td class="num">${moeda(p.v)}</td></tr>`).join("")}</tbody></table></div>`
+        :'<p class="cap" style="margin:0">Nenhum pedido de sujeira na carteira aberta. 👌</p>'}</div>`; })()}
     <h3>Setores</h3><div id="cfSet"></div><div class="acoes"><button type="button" class="peq" id="cfSetAdd">＋ Setor</button></div>
     <h3>Motivos</h3><p class="cap">A <b>classificação</b> agrupa (ex.: Pendente compra); o <b>motivo</b> detalha; o <b>setor</b> é com quem fica a pendência; o <b>prazo</b> é quantos dias o setor tem antes de ficar “fora do prazo”.</p>
     <datalist id="dlClasses">${[...new Set(D.motivos.map(m=>m.classe))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
@@ -1447,11 +1464,14 @@ function renderConfig(c){
       if([...TRAT.values()].some(t=>aberta(t)&&motivosDe(t).some(x=>x.id===m.id))){ alert("Há pendências abertas com este motivo — desative em vez de excluir."); return; }
       D.motivos.splice(+b.dataset.md,1); desMot(); }); };
   desSet(); desMot();
+  const sx=$("#cfSujXls",c); if(sx) sx.onclick=()=>exportarXlsx("sujeira_sistema",[{nome:"Sujeira de sistema",cols:[["Loja",p=>p.l],["Nome loja",p=>p.ln||""],["Pedido",p=>p.p],["Cliente",p=>p.n||""],["Código",p=>p.c||""],
+    ["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],["Status",p=>p.st||""],["Status Pedido",p=>p.sp||""],["Valor",p=>p.v||0]],linhas:(FOTO.sujeira||[]).slice().sort((a,b)=>numPedido(a)-numPedido(b))}]);
   $("#cfSetAdd",c).onclick=()=>{ D.setores.push({id:uid(),nome:"Novo setor",cor:CORES[D.setores.length%CORES.length]}); desSet(); desMot(); };
   $("#cfMotAdd",c).onclick=()=>{ D.motivos.push({id:uid(),classe:"",motivo:"",setor:(D.setores[0]||{}).id,sla:3,ativo:true}); desMot(); };
   $("#cfSalvar",c).onclick=async()=>{ const m=$("#cfMsg");
     D.dias_alerta=Number($("#cfDias").value)||4; D.ano_ficticio=Number($("#cfAno").value)||2030;
     D.dias_aviso=Math.max(D.dias_alerta+1,Number($("#cfAviso").value)||13);
+    D.pedido_minimo=Math.max(0,Number($("#cfMin").value)||0);
     D.setores=D.setores.filter(s=>tx(s.nome)).map(s=>({...s,nome:tx(s.nome)})); D.motivos=D.motivos.filter(x=>tx(x.motivo)).map(x=>({...x,classe:tx(x.classe)||"Outros",motivo:tx(x.motivo)}));
     try{ await salvarConfig(D); m.className="msg ok"; m.textContent="✓ Configuração salva."; render(); toast("✓ Configuração salva."); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
 }
