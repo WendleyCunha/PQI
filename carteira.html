@@ -95,6 +95,8 @@ button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)}
 .kpi > span{color:var(--ink-3);font-size:13px}
 .kpi b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
 .kpi small{display:block;color:var(--ink-3);font-size:12px;margin-top:4px}
+.kpis5{grid-template-columns:repeat(5,minmax(0,1fr))} @media (max-width:1100px){ .kpis5{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))} }
+.kpi-destaque{background:var(--bad-soft);border-color:var(--bad);border-top-width:6px} .kpi-destaque b{color:var(--bad);font-size:36px}
 .k-bad{--kc:var(--bad)} .k-warn{--kc:var(--amber)} .k-ok{--kc:var(--ok)} .k-azul{--kc:var(--prog)} .k-roxo{--kc:var(--block)} .k-cinza{--kc:var(--idle)}
 /* filtros */
 .filtros{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
@@ -354,13 +356,15 @@ const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7,fil:8};   // f
 function tels(p){ return [...new Set((p.t||[]).filter(Boolean))]; }
 
 // ═══ regras ═══
-let CFG_DADOS={ano_ficticio:2030,dias_alerta:4};
+let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13};
 function prazo(p){
   if(!p.en) return {cls:"semdata",rot:"Sem data",pill:"p-cinza"};
   if(Number(p.en.slice(0,4))>=Number(CFG_DADOS.ano_ficticio||2030)) return {cls:"semdata",rot:"Sem data",pill:"p-cinza",obs:"data fictícia"};
   const n=diasEntre(hojeISO(),p.en), lim=Number(CFG_DADOS.dias_alerta||4);
   if(n<0) return {cls:"atrasado",rot:`Venceu há ${-n} d`,pill:"p-bad",n};
   if(n<=lim) return {cls:"atrasado",rot:n===0?"Vence hoje":`Vence em ${n} d`,pill:"p-bad",n};
+  // [v4.12] ALERTA: passou do limite do atraso (logística D+4) mas entrega em até "dias_aviso" dias (padrão 13)
+  if(n<=Number(CFG_DADOS.dias_aviso||13)) return {cls:"alerta",rot:`Alerta · ${n} d`,pill:"p-warn",n};
   return {cls:"emdia",rot:`Em dia · ${n} d`,pill:"p-ok",n};
 }
 // [v4.3] FONTE DA VERDADE do bloqueio: coluna L "Qtd Bloq" da planilha de pedidos (1 = bloqueado),
@@ -447,7 +451,7 @@ async function carregarTratativas(){ const {j}=await api(`${API}/tratativas`); T
 
 // ═══ configuração: setores e motivos (classificação → motivo → setor) ═══
 const CORES=["#2E4A7A","#2B63B0","#2F7D4F","#C98A0B","#6B46A8","#B83232","#0F766E","#9D174D","#4A5568"];
-const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,
+const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,
   setores:[{id:"compras",nome:"Compras",cor:"#2B63B0"},{id:"cx",nome:"CX",cor:"#6B46A8"},{id:"logistica",nome:"Logística",cor:"#2F7D4F"},
     {id:"financeiro",nome:"Financeiro",cor:"#C98A0B"},{id:"loja",nome:"Comercial / Loja",cor:"#0F766E"}],
   motivos:[
@@ -463,7 +467,7 @@ const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,
     {id:"m10",classe:"Pendente logística",motivo:"Reagendar entrega",setor:"logistica",sla:1,ativo:true},
     {id:"m11",classe:"Pendente financeiro",motivo:"Pagamento / liberação pendente",setor:"financeiro",sla:2,ativo:true},
     {id:"m12",classe:"Cancelamento",motivo:"Cliente solicitou cancelamento",setor:"cx",sla:2,ativo:true}]};
-function cfg(){ return (CFG&&CFG.dados)||CONFIG_PADRAO; }
+function cfg(){ const d=(CFG&&CFG.dados)||CONFIG_PADRAO; if(d.dias_aviso==null) d.dias_aviso=13; return d; }
 function setorPor(id){ return cfg().setores.find(s=>s.id===id)||{id,nome:id||"—",cor:"#8A93A3"}; }
 function motivoPor(id){ return cfg().motivos.find(m=>m.id===id)||null; }
 async function salvarConfig(dados){
@@ -592,7 +596,7 @@ function passa(p,ignorarItem){
   if(F.sit&&situacao(p)!==F.sit) return false;
   if(F.loja&&p.l!==F.loja) return false; if(F.st&&statusReal(p)!==F.st) return false; if(F.sp&&p.sp!==F.sp) return false; if(F.tp&&p.tp!==F.tp) return false;
   if(F.ag&&p.ag!==F.ag) return false; if(F.ci&&p.ci!==F.ci) return false;
-  if(F.prazo&&prazo(p).cls!==F.prazo) return false;
+  if(F.prazo==="projecao"){ if(!["emdia","semdata"].includes(prazo(p).cls)) return false; } else if(F.prazo&&prazo(p).cls!==F.prazo) return false;
   if(F.bloq==="sim"&&!bloqueado(p)) return false; if(F.bloq==="nao"&&bloqueado(p)) return false;
   const tr=tratDe(p.k);
   if(F.trat==="sem"&&aberta(tr)) return false; if(F.trat==="aberta"&&!aberta(tr)) return false; if(F.trat==="resolvida"&&!(tr&&tr.dados.status==="resolvida")) return false;
@@ -610,7 +614,7 @@ function painelFiltros(onMudar){
   const lojas=[...new Map(FOTO.pedidos.map(p=>[p.l,p.ln])).entries()].sort((a,b)=>a[0].localeCompare(b[0],"pt-BR",{numeric:true})).map(([l,n])=>[l,`${l}${n?" · "+n:""}`]);
   const box=el("div");
   box.innerHTML=`<div class="filtros"><input class="busca" data-f="busca" placeholder="Buscar pedido, cliente, código, produto, cidade..." value="${esc(F.busca)}" aria-label="Buscar">
-    ${sel("prazo","Prazo",[["atrasado","🔴 Atrasado (≤ "+cfg().dias_alerta+" dias ou vencido)"],["emdia","🟢 Em dia"],["semdata","⚪ Sem data"]],F.prazo)}
+    ${sel("prazo","Prazo",[["atrasado","🔴 Atrasado (≤ "+cfg().dias_alerta+" dias ou vencido)"],["alerta","🟠 Alerta ("+(cfg().dias_alerta+1)+" a "+cfg().dias_aviso+" dias)"],["emdia","🟢 Em dia (mais de "+cfg().dias_aviso+" dias)"],["semdata","⚪ Sem data"],["projecao","📦 Projeção (em dia + sem data)"]],F.prazo)}
     ${sel("bloq","Bloqueio",[["sim","Só bloqueados"],["nao","Só não bloqueados"]],F.bloq)}
     ${sel("trat","Tratativa",[["naoanalisado","Ainda não analisado (triagem)"],["sem","Sem tratativa aberta"],["aberta","Com tratativa aberta"],["resolvida","Resolvida"],["ok","✓ Correção da Pendência"],["indevido_pend","⚠ Resolvido indevidamente — aguardando nova triagem"],["indevido","⚠ Já teve encerramento indevido (todos)"]],F.trat)}
     ${sel("setor","Pendente com",cfg().setores.map(s=>[s.id,s.nome]),F.setor)}
@@ -650,6 +654,11 @@ function renderPainel(c){
   const P=FOTO.pedidos, R=resumoDaFoto(P), m=FOTO.meta||{}, tr=[...TRAT.values()];
   const abertas=tr.filter(aberta), semTrat=P.filter(p=>bloqueado(p)&&!aberta(tratDe(p.k))).length, atrasBloqSem=P.filter(p=>bloqueado(p)&&prazo(p).cls==="atrasado"&&!aberta(tratDe(p.k))).length;
   const chavesFoto=new Set(P.map(p=>p.k));
+  // [v4.12] blocos da carteira: o foco é o BLOQUEADO ATRASADO; alerta e projeção à parte (sem somar um no outro)
+  const bl=P.filter(bloqueado), soma=l=>l.reduce((a,p)=>a+(p.v||0),0);
+  const B={tot:bl, atr:bl.filter(p=>prazo(p).cls==="atrasado"), alerta:bl.filter(p=>prazo(p).cls==="alerta"), proj:bl.filter(p=>["emdia","semdata"].includes(prazo(p).cls)),
+    libSem:P.filter(p=>!bloqueado(p)&&situacao(p)==="SEM AGENDAMENTO")};
+  B.atrSem=B.atr.filter(p=>!aberta(tratDe(p.k))).length;
   const corr=tr.filter(corrigido).sort((a,b)=>String(infoCorrecao(b).em).localeCompare(String(infoCorrecao(a).em))), corrFoto=corr.filter(t=>chavesFoto.has(t.dados.chave)).length;
   // [v4.7] encerramentos indevidos: cada vez que um pedido encerrado voltou bloqueado conta 1
   const indev=tr.flatMap(t=>indevidosDe(t).map(x=>({t,x}))).sort((a,b)=>String(b.x.detectado_em).localeCompare(String(a.x.detectado_em)));
@@ -658,20 +667,23 @@ function renderPainel(c){
   const rankIndev=[...porUsuIndev.entries()].sort((a,b)=>b[1]-a[1]);
   c.innerHTML=`<header class="doc-head"><div><h1>Carteira de ${dataBR(FOTO_DATA)}</h1>
       <p class="obj">${int(R.pedidos)} pedidos · ${int(R.itens)} itens · ${int(R.unidades)} unidades · ${moeda(R.valor)} em carteira</p>
-      <p class="cap" style="margin:6px 0 0">Prazo: entrega a ${cfg().dias_alerta} dias ou menos (ou vencida) = <b>atrasado</b>; ano a partir de ${cfg().ano_ficticio} = <b>sem data</b>. Pode vender sem estoque — o que não pode é furar a data de entrega.</p></div>
+      <p class="cap" style="margin:6px 0 0">Logística D+${cfg().dias_alerta}: entrega em até ${cfg().dias_alerta} dias (ou vencida) = <b>atrasado</b>; de ${cfg().dias_alerta+1} a ${cfg().dias_aviso} dias = <b>alerta</b>; depois disso = <b>projeção</b> (o que precisa entrar); ano a partir de ${cfg().ano_ficticio} = <b>sem data</b>. Pode vender sem estoque — o que não pode é furar a data de entrega.</p></div>
     <div class="stamp"><div class="code">Foto do dia</div><dl><dt>Importada</dt><dd>${dataHoraBR(m.importado_em)}</dd><dt>Por</dt><dd>${esc(m.importado_por||"—")}</dd>
       <dt>Entraram</dt><dd>${m.novos?int(m.novos.length):"—"}</dd><dt>Saíram</dt><dd>${m.sairam?int(m.sairam.length):"—"}</dd></dl></div></header>
-    <div class="kpis">
-      <button type="button" class="kpi k-bad" data-k="atrasado"><span>🔴 Atrasados (≤ ${cfg().dias_alerta} dias)</span><b>${int(R.atrasados)}</b><small>${int(R.bloq_atrasados)} deles bloqueados</small></button>
-      <button type="button" class="kpi k-warn" data-k="bloq"><span>⛔ Bloqueados</span><b>${int(R.bloqueados)}</b><small>${int(semTrat)} sem tratativa aberta</small></button>
-      <button type="button" class="kpi k-bad" data-k="critico"><span>🚨 Bloqueado + atrasado + sem tratativa</span><b>${int(atrasBloqSem)}</b><small>risco de agendamento furado</small></button>
-      <button type="button" class="kpi k-cinza" data-k="semdata"><span>⚪ Sem data</span><b>${int(R.sem_data)}</b><small>datas fictícias</small></button>
-      <button type="button" class="kpi k-azul" data-k="aberta"><span>📌 Pendências abertas</span><b>${int(abertas.length)}</b><small>com algum setor</small></button>
-      <button type="button" class="kpi k-azul" data-k="triagem"><span>🔎 Falta triar</span><b>${int(faltaTriar().length)}</b><small>${int(FOTO.pedidos.filter(p=>analisado(p.k)&&escopoTriagem(p)).length)} já analisados</small></button>
-      <button type="button" class="kpi k-ok" data-k="correcao"><span>✅ ${ROT_CORRECAO}</span><b>${int(corr.length)}</b><small>resolvidos na fonte · ${int(corrFoto)} na carteira atual</small></button>
-      <button type="button" class="kpi k-bad" data-k="indevido" title="Pedidos marcados como Correção da Pendência ou Resolver que voltaram bloqueados na planilha seguinte"><span>⚠ Encerramentos indevidos</span><b style="color:${indev.length?"var(--bad)":"inherit"}">${int(indev.length)}</b><small>${int(indevPend)} aguardando nova triagem${rankIndev.length?` · mais: ${esc(rankIndev[0][0])} (${int(rankIndev[0][1])})`:""}</small></button>
-      <button type="button" class="kpi k-roxo" data-k="novo"><span>🆕 Entraram nesta foto</span><b>${int((m.novos||[]).length)}</b><small>${int((m.sairam||[]).length)} saíram</small></button></div>
+    <h3>Carteira — bloqueados</h3>
+    <div class="kpis kpis5">
+      <button type="button" class="kpi k-bad kpi-destaque" data-k="b_atr"><span>🔴 Bloqueados ATRASADOS</span><b>${int(B.atr.length)}</b><small>entrega em até ${cfg().dias_alerta} dias (D+${cfg().dias_alerta}) ou vencida · ${moeda(soma(B.atr))}<br>${int(B.atr.filter(p=>prazo(p).n<0).length)} já vencidos · <b style="display:inline;font:inherit;color:var(--bad)">${int(B.atrSem)} sem tratativa</b></small></button>
+      <button type="button" class="kpi k-warn" data-k="b_alerta"><span>🟠 Bloqueados em ALERTA</span><b>${int(B.alerta.length)}</b><small>entrega de ${cfg().dias_alerta+1} a ${cfg().dias_aviso} dias · ${moeda(soma(B.alerta))}<br>ainda não é atraso — agir agora</small></button>
+      <button type="button" class="kpi k-azul" data-k="b_proj"><span>📦 Bloqueados — projeção</span><b>${int(B.proj.length)}</b><small>entrega após ${cfg().dias_aviso} dias ou sem data · ${moeda(soma(B.proj))}<br>${int(B.proj.filter(p=>prazo(p).cls==="semdata").length)} sem data · o que precisa entrar</small></button>
+      <button type="button" class="kpi k-cinza" data-k="b_tot"><span>⛔ Total de bloqueados</span><b>${int(B.tot.length)}</b><small>${moeda(soma(B.tot))} · ${R.pedidos?Math.round(B.tot.length/R.pedidos*100):0}% da carteira<br>${int(semTrat)} sem tratativa aberta</small></button>
+      <button type="button" class="kpi k-roxo" data-k="lib_sem"><span>📅 Liberados SEM AGENDAMENTO</span><b>${int(B.libSem.length)}</b><small>${moeda(soma(B.libSem))}<br>${int(B.libSem.filter(p=>prazo(p).cls==="atrasado").length)} com entrega em até ${cfg().dias_alerta} dias</small></button></div>
     <h3>Pendências por setor</h3><div class="setores" id="pnSet"></div>
+    <h3>Administração</h3>
+    <div class="kpis">
+      <button type="button" class="kpi k-azul" data-k="triagem"><span>🔎 Falta triar</span><b>${int(faltaTriar().length)}</b><small>${int(FOTO.pedidos.filter(p=>analisado(p.k)&&escopoTriagem(p)).length)} já analisados</small></button>
+      <button type="button" class="kpi k-bad" data-k="indevido" title="Pedidos marcados como Correção da Pendência ou Resolver que voltaram bloqueados na planilha seguinte"><span>⚠ Encerramentos indevidos</span><b style="color:${indev.length?"var(--bad)":"inherit"}">${int(indev.length)}</b><small>${int(indevPend)} aguardando nova triagem${rankIndev.length?` · mais: ${esc(rankIndev[0][0])} (${int(rankIndev[0][1])})`:""}</small></button>
+      <button type="button" class="kpi k-ok" data-k="correcao"><span>✅ ${ROT_CORRECAO}</span><b>${int(corr.length)}</b><small>resolvidos na fonte · ${int(corrFoto)} na carteira atual</small></button>
+      <button type="button" class="kpi k-roxo" data-k="novo"><span>🆕 Entraram nesta foto</span><b>${int((m.novos||[]).length)}</b><small>${int((m.sairam||[]).length)} saíram</small></button></div>
     <div class="box"><b>✅ ${ROT_CORRECAO} — resolvidos na fonte, sem tocar a bola</b><p class="cap" style="margin:2px 0 8px">${int(corr.length)} caso(s) · os mais recentes primeiro · clique no pedido para abrir na Carteira.</p><div id="pnCorr"></div></div>
     <div class="box" style="border-left:6px solid var(--bad)"><b>⚠ Encerramentos indevidos — marcados como resolvidos, mas voltaram bloqueados na planilha seguinte</b>
       <p class="cap" style="margin:2px 0 8px">${int(indev.length)} ocorrência(s) · ${int(indevPend)} ainda aguardando nova triagem · os mais recentes primeiro.</p>
@@ -684,7 +696,8 @@ function renderPainel(c){
       <div class="box" style="margin:0"><b>Por tipo de pedido</b><p class="cap" style="margin:2px 0 8px">Pedidos na carteira.</p><div id="pnTipo"></div></div></div>`;
   c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const k=b.dataset.k; if(k==="triagem") return ir("triagem"); if(k==="correcao") return irCarteira({motivo:"__correcao"});
     if(k==="indevido") return irCarteira({trat:"indevido"});
-    irCarteira(k==="atrasado"?{prazo:"atrasado"}:k==="bloq"?{bloq:"sim"}:k==="critico"?{bloq:"sim",prazo:"atrasado",trat:"sem"}:k==="semdata"?{prazo:"semdata"}:k==="aberta"?{trat:"aberta"}:{novo:true}); });
+    if(k==="pend_tot") return ir("filas");
+    irCarteira(k==="b_atr"?{bloq:"sim",prazo:"atrasado"}:k==="b_alerta"?{bloq:"sim",prazo:"alerta"}:k==="b_proj"?{bloq:"sim",prazo:"projecao"}:k==="b_tot"?{bloq:"sim"}:k==="lib_sem"?{bloq:"nao",sit:"SEM AGENDAMENTO"}:{novo:true}); });
   $("#pnCorr",c).innerHTML=corr.length?`<div class="tbl-wrap" style="max-height:340px"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Loja</th><th>Nota (o que foi feito)</th><th>Por</th><th>Quando</th></tr></thead><tbody>${
       corr.map(t=>{ const d=t.dados, i=infoCorrecao(t), fora=!chavesFoto.has(d.chave);
         return `<tr><td><a href="#" data-cped="${esc(d.pedido)}">${esc(d.pedido)}</a>${fora?'<span class="sub">saiu da carteira</span>':""}</td><td>${esc(d.cliente||"—")}</td><td>${esc(d.loja||"")}</td><td style="white-space:normal">${i.nota?esc(i.nota):'<span class="muted">—</span>'}</td><td>${esc(i.por||"—")}</td><td>${i.em?dataHoraBR(i.em):"—"}</td></tr>`; }).join("")}</tbody></table></div>`
@@ -698,10 +711,11 @@ function renderPainel(c){
           <td>${pend?'<span class="pill p-bad">aguardando triagem</span>':d.status==="aberta"?'<span class="pill p-azul">reclassificado</span>':d.status==="indevido"?'<span class="pill p-bad">aguardando</span>':'<span class="pill p-cinza">encerrado de novo</span>'}</td></tr>`; }).join("")}</tbody></table></div>`;
     pi.querySelectorAll("[data-iped]").forEach(a=>a.onclick=e=>{ e.preventDefault(); irCarteira({trat:"indevido",busca:a.dataset.iped}); }); }
   const ps=$("#pnSet",c);
-  ps.innerHTML=cfg().setores.map(s=>{ const l=abertas.filter(t=>setoresDe(t).includes(s.id)), est=l.filter(foraDoPrazo).length,
+  ps.innerHTML=`<button type="button" class="setor-card" style="--sc:#1B2436" data-k="pend_tot"><h4>📌 Pendências — total</h4><b>${abertas.length}</b><small>${abertas.filter(foraDoPrazo).length?`<span style="color:var(--bad);font-weight:600">${abertas.filter(foraDoPrazo).length} fora do prazo</span> · `:""}abertas com algum setor</small></button>`+cfg().setores.map(s=>{ const l=abertas.filter(t=>setoresDe(t).includes(s.id)), est=l.filter(foraDoPrazo).length,
       velho=l.reduce((a,t)=>Math.max(a,diasComSetor(t)),0), fora=l.filter(t=>!chavesFoto.has(t.dados.chave)).length;
     return `<button type="button" class="setor-card" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span> · `:""}${l.length?`mais antiga: ${velho} d`:"nada pendente"}${fora?` · ${fora} saíram da carteira`:""}</small></button>`; }).join("");
   ps.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ estFila.setor=b.dataset.set; ir("filas"); });
+  const pt=ps.querySelector('[data-k="pend_tot"]'); if(pt) pt.onclick=()=>{ estFila.setor="__todos"; ir("filas"); };
   const ult=DIAS.slice(-30).filter(d=>d.resumo);
   $("#pnGraf",c).innerHTML=ult.length<2?'<p class="cap">O gráfico aparece a partir da segunda importação.</p>':graficoLinhas([
     {nome:"Pedidos",cor:"#2E4A7A",v:ult.map(d=>d.resumo.pedidos)},{nome:"Bloqueados",cor:"#C98A0B",v:ult.map(d=>d.resumo.bloqueados)},{nome:"Atrasados",cor:"#B83232",v:ult.map(d=>d.resumo.atrasados)}],ult.map(d=>dataBR(d.data).slice(0,5)));
@@ -1029,7 +1043,7 @@ function etapaDe(p){ const pz=prazo(p); return pz.cls==="semdata"?"semdata":pz.n
 function noBloqueio(p){ return estT.bloq==="todos"||bloqueado(p); }
 function escopoTriagem(p,etapa){ const e=etapa||estT.etapa; return noBloqueio(p)&&(e==="todos"||etapaDe(p)===e); }
 function faltaTriar(){ return FOTO?FOTO.pedidos.filter(p=>escopoTriagem(p)&&!analisado(p.k)):[]; }
-function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atrasado"?0:x.cls==="emdia"?1:2;
+function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atrasado"?0:x.cls==="alerta"?1:x.cls==="emdia"?2:3;
   return r(pa)-r(pb)||((pa.n??9999)-(pb.n??9999))||((b.v||0)-(a.v||0)); }
 function renderTriagem(c){
   const doEscopo=FOTO.pedidos.filter(p=>escopoTriagem(p)), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
@@ -1234,7 +1248,8 @@ function renderConfig(c){
   if(NIVEL<3){ c.innerHTML='<div class="aviso">Configurar exige o perfil <b>Editar</b> no módulo Carteira.</div>'; return; }
   const D=JSON.parse(JSON.stringify(cfg()));
   c.innerHTML=`<section><header><h2>Configurar</h2><p>Setores que recebem pendências e os motivos de cada classificação. Cada motivo fica pendente com um setor.</p></header>
-    <div class="grade" style="max-width:640px"><label class="f">Atrasado = entrega em até (dias)<input type="number" min="0" id="cfDias" value="${esc(D.dias_alerta)}"></label>
+    <div class="grade" style="max-width:860px"><label class="f">Atrasado = entrega em até (dias)<input type="number" min="0" id="cfDias" value="${esc(D.dias_alerta)}"></label>
+      <label class="f">Alerta = entrega em até (dias)<input type="number" min="1" id="cfAviso" value="${esc(D.dias_aviso??13)}"></label>
       <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label></div>
     <h3>Setores</h3><div id="cfSet"></div><div class="acoes"><button type="button" class="peq" id="cfSetAdd">＋ Setor</button></div>
     <h3>Motivos</h3><p class="cap">A <b>classificação</b> agrupa (ex.: Pendente compra); o <b>motivo</b> detalha; o <b>setor</b> é com quem fica a pendência; o <b>prazo</b> é quantos dias o setor tem antes de ficar “fora do prazo”.</p>
@@ -1265,6 +1280,7 @@ function renderConfig(c){
   $("#cfMotAdd",c).onclick=()=>{ D.motivos.push({id:uid(),classe:"",motivo:"",setor:(D.setores[0]||{}).id,sla:3,ativo:true}); desMot(); };
   $("#cfSalvar",c).onclick=async()=>{ const m=$("#cfMsg");
     D.dias_alerta=Number($("#cfDias").value)||4; D.ano_ficticio=Number($("#cfAno").value)||2030;
+    D.dias_aviso=Math.max(D.dias_alerta+1,Number($("#cfAviso").value)||13);
     D.setores=D.setores.filter(s=>tx(s.nome)).map(s=>({...s,nome:tx(s.nome)})); D.motivos=D.motivos.filter(x=>tx(x.motivo)).map(x=>({...x,classe:tx(x.classe)||"Outros",motivo:tx(x.motivo)}));
     try{ await salvarConfig(D); m.className="msg ok"; m.textContent="✓ Configuração salva."; render(); toast("✓ Configuração salva."); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
 }
