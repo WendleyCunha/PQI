@@ -1907,6 +1907,45 @@ def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
     return registro
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.15] CX × COMPRAS — o "pingue-pongue" de cada pedido.
+# Um documento por pedido (loja+pedido) na coleção "carteira_interacoes":
+# devolutiva do CX, cobrança/previsão do Compras por item, produto alternativo
+# e os pedidos que uma área faz para a outra. Fica SEPARADO da tratativa da
+# triagem de propósito: CX e Compras gravam sem esperar a reserva da triagem.
+# ──────────────────────────────────────────────────────────────────────────
+COLECAO_CART_INTERACOES = "carteira_interacoes"
+
+
+@app.get("/api/carteira/interacoes")
+def cart_interacoes(request: Request):
+    return db.docs_listar(COLECAO_CART_INTERACOES)
+
+
+@app.post("/api/carteira/interacoes")
+def cart_interacao_criar(payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict) or not payload.dados.get("chave"):
+        raise HTTPException(status_code=400, detail="Registro inválido.")
+    _checar_tamanho(payload.dados)
+    ja = next((d for d in db.docs_listar(COLECAO_CART_INTERACOES) if (d.get("dados") or {}).get("chave") == payload.dados["chave"]), None)
+    if ja:   # duas pessoas abriram o mesmo pedido ao mesmo tempo: devolve o que já existe para a tela juntar
+        return JSONResponse({"detail": "conflito", "atual": ja}, status_code=409)
+    return db.docs_criar(COLECAO_CART_INTERACOES, payload.dados, _nome_de(request), _email(request))
+
+
+@app.put("/api/carteira/interacoes/{item_id}")
+def cart_interacao_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
+    if not isinstance(payload.dados, dict):
+        raise HTTPException(status_code=400, detail="Registro inválido.")
+    _checar_tamanho(payload.dados)
+    resultado, registro = db.docs_salvar(COLECAO_CART_INTERACOES, item_id, payload.dados, payload.versao, _nome_de(request))
+    if resultado == "nao_existe":
+        raise HTTPException(status_code=404, detail="Registro não encontrado.")
+    if resultado == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    return registro
+
+
 @app.get("/api/carteira/config")
 def cart_config(request: Request):
     lst = db.docs_listar(db.COLECAO_CART_CONFIG)
