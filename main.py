@@ -1918,7 +1918,7 @@ def cart_dia_excluir(data: str, request: Request):
     return {"ok": True, "excluido": data, "por": _nome_de(request)}
 
 
-_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}")
+_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}(\|(cx|compras))?")   # [v4.17] + reserva por área: "loja-pedido|cx"
 
 
 def _reserva_de_outro(chave: str, request: Request) -> Optional[dict]:
@@ -2031,6 +2031,10 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
             pede(x.get("de") if x.get("de") in ("cx", "compras") else "cx", 4)
     for aba, n in precisa.items():
         _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + ("CX" if aba == "cx" else "Compras"))
+        # [v4.17] quem abriu primeiro o pedido nesta área é quem trata — o outro espera ele sair
+        r = db.cart_reserva_ativa(f"{novo.get('chave') or antes.get('chave')}|{aba}")
+        if r and (r.get("email") or "").lower() != _email(request).lower():
+            raise HTTPException(status_code=423, detail=f"Não é possível gravar: {r.get('por') or r.get('email')} já está tratando este pedido no {'CX' if aba == 'cx' else 'Compras'}.")
 
 
 @app.get("/api/carteira/interacoes")
