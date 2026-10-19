@@ -369,14 +369,23 @@ function pad(n){ return String(n).padStart(2,"0"); }
 function iso(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 // [v4.18] HORÁRIO DE BRASÍLIA: "hoje" e o dia de cada registro sempre no fuso de São Paulo (o computador pode estar em outro)
 const TZ_BR="America/Sao_Paulo";
-function hojeISO(){ return new Date().toLocaleDateString("sv-SE",{timeZone:TZ_BR}); }
-function diaBR(v){ if(!v) return ""; const t=String(v); if(/T/.test(t)&&/(Z|[+-]\d\d:?\d\d)$/.test(t)){ const d=new Date(t); if(!isNaN(d)) return d.toLocaleDateString("sv-SE",{timeZone:TZ_BR}); } return t.slice(0,10); }
+// [v4.19] formatadores criados UMA vez (criar um por chamada deixava a tela lenta com milhares de pedidos)
+const FMT_DIA=new Intl.DateTimeFormat("sv-SE",{timeZone:TZ_BR,year:"numeric",month:"2-digit",day:"2-digit"});
+const FMT_DH=new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:TZ_BR});
+const FMT_DHC=new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:TZ_BR});
+const FMT_MOEDA=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}), FMT_INT=new Intl.NumberFormat("pt-BR");
+const COLL=new Intl.Collator("pt-BR",{numeric:true});
+let _hoje={t:0,v:""};
+function hojeISO(){ const a=Date.now(); if(a-_hoje.t>30000){ _hoje={t:a,v:FMT_DIA.format(new Date(a))}; } return _hoje.v; }
+const _diaMemo=new Map();
+function diaBR(v){ if(!v) return ""; const t=String(v); if(/T/.test(t)&&/(Z|[+-]\d\d:?\d\d)$/.test(t)){ let r=_diaMemo.get(t); if(r!==undefined) return r; const d=new Date(t); r=isNaN(d)?t.slice(0,10):FMT_DIA.format(d); if(_diaMemo.size>20000) _diaMemo.clear(); _diaMemo.set(t,r); return r; } return t.slice(0,10); }
 function dataBR(i){ if(!i) return "—"; const [a,m,d]=diaBR(i).split("-"); return d?`${d}/${m}/${a}`:i; }
-function dataHoraBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:TZ_BR}); }
-function diasEntre(a,b){ return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5); }
+function dataHoraBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:FMT_DH.format(d); }
+const _diasMemo=new Map();
+function diasEntre(a,b){ const k=a+"|"+b; let r=_diasMemo.get(k); if(r===undefined){ r=Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5); if(_diasMemo.size>20000) _diasMemo.clear(); _diasMemo.set(k,r); } return r; }
 function numBR(s){ s=tx(s); if(!s) return 0; const n=parseFloat(s.replace(/\./g,"").replace(",",".")); return isNaN(n)?0:n; }
-function moeda(v){ return (v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}); }
-function int(v){ return (v||0).toLocaleString("pt-BR"); }
+function moeda(v){ return FMT_MOEDA.format(v||0); }
+function int(v){ return FMT_INT.format(v||0); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function baixarBlob(b,nome){ const u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
 function toast(t){ const e=el("div","toast"); e.innerHTML=t; $("#toasts").appendChild(e); setTimeout(()=>e.remove(),7000); }
@@ -449,7 +458,11 @@ function tels(p){ return [...new Set((p.t||[]).filter(Boolean))]; }
 
 // ═══ regras ═══
 let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30};
-function prazo(p){
+function prazo(p){   // [v4.19] guardado por pedido enquanto o dia e a configuração não mudam
+  const sig=hojeISO()+"|"+CFG_DADOS.dias_alerta+"|"+CFG_DADOS.dias_aviso+"|"+CFG_DADOS.ano_ficticio;
+  if(p._pz&&p._pzs===sig) return p._pz;
+  const r=prazo_(p); try{ Object.defineProperty(p,"_pz",{value:r,writable:true,configurable:true,enumerable:false}); Object.defineProperty(p,"_pzs",{value:sig,writable:true,configurable:true,enumerable:false}); }catch(_){} return r; }
+function prazo_(p){
   if(!p.en) return {cls:"semdata",rot:"Sem data",pill:"p-cinza"};
   if(Number(p.en.slice(0,4))>=Number(CFG_DADOS.ano_ficticio||2030)) return {cls:"semdata",rot:"Sem data",pill:"p-cinza",obs:"data fictícia"};
   const n=diasEntre(hojeISO(),p.en), lim=Number(CFG_DADOS.dias_alerta||4);
@@ -1055,7 +1068,7 @@ const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["codigo","Código"],
 const ACOES_PESSOA=["classificar","nota","resolver","reabrir","ok"];
 function ultimaAcaoPessoa(d){ return [...((d&&d.historico)||[])].reverse().find(h=>ACOES_PESSOA.includes(h.acao))||null; }
 function nomeCurto(n){ return tx(n).split(/\s+/).filter(Boolean).slice(0,2).join(" ")||"—"; }
-function dataHoraCurta(v){ if(!v) return ""; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:TZ_BR}).replace(",",""); }
+function dataHoraCurta(v){ if(!v) return ""; const d=new Date(v); return isNaN(d)?v:FMT_DHC.format(d).replace(",",""); }
 function textoUltimaAcao(h){ if(!h) return ""; const a=textoHist(h).replace(/<[^>]+>/g,"");   // já vem escapado
   return `${a}${h.nota?` — “${esc(h.nota)}”`:""} · ${esc(h.por||"—")} · ${dataHoraCurta(h.em)}`; }
 // ── larguras das colunas: arrastar a borda do título; fica guardado neste navegador ──
