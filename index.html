@@ -14,6 +14,7 @@
   --gold:#e8b33d; --gold-soft:#f3cd6f; --violet:#8b6cff;
   --ink:#f2f0ea; --ink-muted:#8b8f9c; --ink-faint:#565b6b;
   --verde:#3ddc97; --azul:#4fc3f7; --nav-bg:rgba(14, 16, 23, 0.90);
+  --vermelho:#ff6b6b;
 }
 :root[data-theme="light"]{
   --void:#f4f5f8; --panel:#ffffff; --panel-2:#eaeef5;
@@ -21,6 +22,7 @@
   --gold:#b38314; --gold-soft:#8c640c; --violet:#6846ff;
   --ink:#1a1c23; --ink-muted:#5e6375; --ink-faint:#8a90a2;
   --verde:#109658; --azul:#0288d1; --nav-bg:rgba(255, 255, 255, 0.90);
+  --vermelho:#c62828;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -244,12 +246,54 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 .btn-entrar{width:100%;background:var(--gold);color:#16130b;border:0;border-radius:10px;padding:12px;font:600 14px 'Inter',sans-serif;cursor:pointer;margin-top:4px;}
 .btn-entrar:disabled{opacity:.6;cursor:wait;}
 .btn-entrar:focus-visible,.campo-login input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
-.erro-login{color:#ff6b6b;font-size:13px;min-height:20px;margin-top:12px;}
+.erro-login{color:var(--vermelho);font-size:13px;min-height:20px;margin-top:12px;}
 .rodape-login{margin-top:18px;font-size:11.5px;color:var(--ink-faint);}
 .modal-fundo{position:fixed;inset:0;z-index:3500;background:rgba(6,7,11,.72);display:none;align-items:center;justify-content:center;padding:20px;}
 .modal-fundo.visivel{display:flex;}
 .modal-fundo .cartao-login h1{font-size:19px;}
 .btn-cancelar{width:100%;background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:500 13px 'Inter',sans-serif;cursor:pointer;margin-top:8px;}
+
+/* ══════════ [NOVO v4.2] LEMBRAR DE MIM · ESQUECI MINHA SENHA · SINO DO ADM ══════════ */
+.linha-login{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 14px;font-size:12.5px;color:var(--ink-muted);}
+.linha-login label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;}
+.linha-login input{width:16px;height:16px;accent-color:var(--gold);}
+.link-login{background:none;border:0;color:var(--gold-soft);font:500 12.5px 'Inter',sans-serif;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:3px;}
+.link-login:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px;}
+.espera{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:6px 0 2px;}
+.espera .spinner{width:42px;height:42px;}
+.espera b{font:600 15px 'Space Grotesk',sans-serif;color:var(--ink);}
+.espera p{font-size:13px;color:var(--ink-muted);line-height:1.5;}
+.caixa-info{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--ink-muted);margin:0 0 14px;line-height:1.5;}
+.caixa-info.ok{border-color:var(--verde);color:var(--ink);}
+.caixa-info.ruim{border-color:var(--vermelho);color:var(--ink);}
+.regras{font-size:11.5px;color:var(--ink-faint);margin:-6px 0 12px;}
+.relogio{font:600 12px 'Space Grotesk',sans-serif;color:var(--gold-soft);}
+.sino{position:relative;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:40px;height:40px;border-radius:10px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+.sino.visivel{display:flex;}
+.sino:hover{border-color:var(--gold);}
+.sino svg{width:18px;height:18px;color:var(--gold-soft);}
+.sino .n{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;border-radius:10px;background:var(--vermelho);color:#fff;font:700 11px/19px 'Inter',sans-serif;padding:0 5px;text-align:center;display:none;}
+.sino.tem .n{display:block;}
+.sino.tem svg{animation:balanca 1.6s ease-in-out infinite;}
+@keyframes balanca{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(8deg)}40%{transform:rotate(-5deg)}}
+@media (prefers-reduced-motion:reduce){.sino.tem svg{animation:none}}
+.painel-sino{position:absolute;top:calc(100% + 8px);right:0;width:min(340px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:8px;display:none;z-index:1500;box-shadow:0 12px 40px rgba(0,0,0,.35);text-align:left;cursor:default;}
+.painel-sino.aberto{display:block;}
+.painel-sino h4{font:600 13px 'Space Grotesk',sans-serif;padding:6px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px;color:var(--ink);}
+.painel-sino .it{display:flex;gap:10px;align-items:flex-start;width:100%;background:none;border:0;color:var(--ink);text-align:left;padding:9px 8px;border-radius:8px;cursor:pointer;font:13px 'Inter',sans-serif;}
+.painel-sino .it:hover{background:var(--panel-2);}
+.painel-sino .it small{display:block;color:var(--ink-muted);font-size:11.5px;margin-top:2px;}
+.painel-sino .vz{padding:14px 8px;color:var(--ink-muted);font-size:12.5px;}
+.painel-sino .rod{display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:4px;padding-top:6px;}
+.painel-sino .rod button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px;font:500 12px 'Inter',sans-serif;cursor:pointer;}
+.painel-sino .rod button:hover{border-color:var(--gold);}
+.toast-adm{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:2500;max-width:min(380px,calc(100vw - 36px));background:var(--panel);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.4);font-size:13px;display:none;}
+.toast-adm.visivel{display:block;}
+.toast-adm b{color:var(--gold-soft);}
+.toast-adm .acoes-t{display:flex;gap:8px;margin-top:10px;}
+.toast-adm .acoes-t button{background:var(--gold);color:#16130b;border:0;border-radius:8px;padding:7px 12px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;}
+.toast-adm .acoes-t button.sec{background:none;border:1px solid var(--line);color:var(--ink);}
+@media (max-width:760px){.navbar{padding:10px 14px;gap:10px}.nav-title p,.user-info,.btn-full span,.btn-theme span,.btn-home span{display:none}}
 </style>
 </head>
 <body>
@@ -261,10 +305,55 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
     <p class="sub" id="subLogin">Entre com o seu e-mail e senha.</p>
     <label class="campo-login">E-mail<input type="email" id="loginEmail" autocomplete="username" required></label>
     <label class="campo-login">Senha<input type="password" id="loginSenha" autocomplete="current-password" required></label>
+    <!-- [v4.2] Lembrar de mim + Esqueci minha senha -->
+    <div class="linha-login">
+      <label id="boxLembrar" hidden><input type="checkbox" id="loginLembrar"> <span id="txtLembrar">Lembrar de mim</span></label>
+      <button type="button" class="link-login" id="btnEsqueci" hidden>Esqueci minha senha</button>
+    </div>
     <button class="btn-entrar" id="btnEntrar" type="submit">Entrar</button>
     <div class="erro-login" id="erroLogin" role="alert"></div>
-    <p class="rodape-login">Esqueceu a senha? Peça ao administrador para gerar uma nova.</p>
+    <p class="rodape-login" id="rodapeLogin">Esqueceu a senha? Peça ao administrador para gerar uma nova.</p>
   </form>
+
+  <!-- [NOVO v4.2] Esqueci minha senha — pedido → espera a liberação do ADM → senha nova -->
+  <div class="cartao-login" id="cartaoEsqueci" hidden aria-live="polite">
+    <div class="mark"><span>PS</span></div>
+    <h1 id="esqTitulo">Esqueci minha senha</h1>
+
+    <form id="esqPasso1">
+      <p class="sub">Digite o seu e-mail. O administrador recebe o pedido e libera; assim que ele liberar, esta mesma tela abre o campo para você criar a senha nova.</p>
+      <label class="campo-login">E-mail<input type="email" id="esqEmail" autocomplete="username" required></label>
+      <button class="btn-entrar" id="esqPedir" type="submit">Pedir liberação</button>
+      <button class="btn-cancelar" type="button" data-esq-voltar>Voltar para o login</button>
+    </form>
+
+    <div id="esqPasso2" hidden>
+      <div class="espera">
+        <div class="spinner" aria-hidden="true"></div>
+        <b>Aguardando liberação do administrador…</b>
+        <p>Pedido enviado para <span id="esqEmailMostra"></span>.<br>Pode deixar esta tela aberta: ela confere sozinha. Se fechar, quando voltar neste mesmo computador ela continua de onde parou.</p>
+        <p class="relogio" id="esqDesde"></p>
+      </div>
+      <button class="btn-cancelar" type="button" id="esqCancelar">Cancelar o pedido</button>
+    </div>
+
+    <form id="esqPasso3" hidden>
+      <div class="caixa-info ok" id="esqLiberadoInfo">✓ Liberado!</div>
+      <label class="campo-login">Senha nova<input type="password" id="esqSenha" autocomplete="new-password" required></label>
+      <label class="campo-login">Repita a senha nova<input type="password" id="esqSenha2" autocomplete="new-password" required></label>
+      <p class="regras" id="esqRegras"></p>
+      <div class="linha-login" id="esqBoxLembrar" hidden><label><input type="checkbox" id="esqLembrar"> <span id="esqTxtLembrar">Lembrar de mim</span></label></div>
+      <button class="btn-entrar" id="esqSalvar" type="submit">Salvar senha e entrar</button>
+      <p class="relogio" id="esqRestante" style="margin-top:10px;text-align:center"></p>
+    </form>
+
+    <div id="esqPasso4" hidden>
+      <div class="caixa-info ruim" id="esqFimInfo"></div>
+      <button class="btn-entrar" type="button" id="esqDeNovo">Pedir de novo</button>
+      <button class="btn-cancelar" type="button" data-esq-voltar>Voltar para o login</button>
+    </div>
+    <div class="erro-login" id="esqErro" role="alert"></div>
+  </div>
 </div>
 
 <!-- [NOVO v3.0] Troca de senha (obrigatória no primeiro acesso) -->
@@ -273,8 +362,8 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
     <h1 id="tituloSenha">Trocar senha</h1>
     <p class="sub" id="subSenha">Escolha uma senha nova, com pelo menos 8 caracteres.</p>
     <label class="campo-login">Senha atual<input type="password" id="senhaAtual" autocomplete="current-password" required></label>
-    <label class="campo-login">Senha nova<input type="password" id="senhaNova" autocomplete="new-password" required minlength="8"></label>
-    <label class="campo-login">Repita a senha nova<input type="password" id="senhaNova2" autocomplete="new-password" required minlength="8"></label>
+    <label class="campo-login">Senha nova<input type="password" id="senhaNova" autocomplete="new-password" required minlength="6"></label>
+    <label class="campo-login">Repita a senha nova<input type="password" id="senhaNova2" autocomplete="new-password" required minlength="6"></label>
     <button class="btn-entrar" id="btnSalvarSenha" type="submit">Salvar senha nova</button>
     <button class="btn-cancelar" id="btnCancelarSenha" type="button">Cancelar</button>
     <div class="erro-login" id="erroSenha" role="alert"></div>
@@ -306,6 +395,13 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
   </div>
 
   <div class="nav-right">
+    <!-- [NOVO v4.2] Sino do administrador: pedidos de senha e contas bloqueadas -->
+    <div class="sino" id="sino" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="Pedidos de acesso">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="n" id="sinoN">0</span>
+      <div class="painel-sino" id="painelSino" role="menu"></div>
+    </div>
+
     <!-- Bloco de Saudação, Avatar e Data/Hora (Preparado para Futuros Logs) -->
     <div class="user-widget" id="userWidget" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="Sua conta">
       <img src="" id="userAvatarImg" class="user-avatar" style="display:none;" alt="Avatar">
@@ -371,6 +467,9 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 
 </div>
 
+<!-- [NOVO v4.2] aviso no canto quando chega pedido novo (para o ADM) -->
+<div class="toast-adm" id="toastAdm" role="status" aria-live="polite"></div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // [AJUSTADO v3.0] REGISTRO DE SISTEMAS — agora vem do SERVIDOR, já
@@ -415,14 +514,14 @@ function renderGrid(lista){
 // Atualizador de Data, Hora e Saudação Automática
 function atualizarContextoUsuario() {
   const agora = new Date();
-  
+
   // Data e Hora Formatada (DD/MM/AAAA HH:MM)
   const dia = String(agora.getDate()).padStart(2, '0');
   const mes = String(agora.getMonth() + 1).padStart(2, '0');
   const ano = agora.getFullYear();
   const hora = String(agora.getHours()).padStart(2, '0');
   const min = String(agora.getMinutes()).padStart(2, '0');
-  
+
   document.getElementById('lblDatetime').textContent = `${dia}/${mes}/${ano} ${hora}:${min}`;
 
   // Saudação por horário
@@ -560,7 +659,7 @@ function toggleTheme() {
   const currentTheme = html.getAttribute('data-theme');
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', newTheme);
-  
+
   const themeText = document.getElementById('themeText');
   themeText.textContent = newTheme === 'dark' ? 'Dark' : 'Light';
 }
@@ -600,6 +699,8 @@ function acordarServidores() {
 // [NOVO v3.0] SESSÃO — login, menu do usuário, troca de senha e saída
 // ═══════════════════════════════════════════════════════════════════
 const $id = id => document.getElementById(id);
+function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let CFG_LOGIN = { esqueci: false, lembrar: false, lembrar_dias: 30, senha_minimo: 8 };
 
 function aplicarSessao(dados) {
   USUARIO = dados.usuario;
@@ -608,6 +709,7 @@ function aplicarSessao(dados) {
   $id('userAvatarFallback').textContent = nome.trim().charAt(0).toUpperCase();
   $id('menuNome').textContent = nome;
   $id('menuEmail').textContent = USUARIO.email;
+  $id('menuTrocarSenha').style.display = USUARIO.fabrica ? 'none' : 'block';   // [v4.2] admin de fábrica: senha é a do Render
   atualizarContextoUsuario();
   $id('busca').value = '';
   renderGrid(SISTEMAS);
@@ -615,18 +717,24 @@ function aplicarSessao(dados) {
     $id('grid').innerHTML = '<div class="vazio">Você ainda não tem nenhum módulo liberado. Peça acesso ao administrador.</div>';
   }
   $id('telaLogin').classList.remove('visivel');
+  esqLimpar();
   if (USUARIO.trocar_senha) abrirTrocaSenha(true);
+  iniciarSino();   // [v4.2]
 }
 
 function mostrarLogin(aviso) {
   fecharTodasAbas();
+  pararSino();
   USUARIO = null; SISTEMAS = [];
   $id('grid').innerHTML = '';
   $id('subLogin').textContent = aviso || 'Entre com o seu e-mail e senha.';
   $id('erroLogin').textContent = '';
   $id('loginSenha').value = '';
   $id('telaLogin').classList.add('visivel');
-  setTimeout(() => ($id('loginEmail').value ? $id('loginSenha') : $id('loginEmail')).focus(), 50);
+  carregarConfigLogin();
+  if (esqLer()) { esqMostrar(2); esqConferir(); }   // [v4.2] tinha um pedido em andamento neste computador
+  else mostrarCartaoLogin();
+  setTimeout(() => { if (!$id('formLogin').hidden) ($id('loginEmail').value ? $id('loginSenha') : $id('loginEmail')).focus(); }, 50);
 }
 
 function fecharTodasAbas() {
@@ -642,7 +750,7 @@ $id('formLogin').addEventListener('submit', async (e) => {
   try {
     const r = await fetch('/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: $id('loginEmail').value, senha: $id('loginSenha').value }),
+      body: JSON.stringify({ email: $id('loginEmail').value, senha: $id('loginSenha').value, lembrar: $id('loginLembrar').checked }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.detail || 'Não consegui entrar agora. Tente de novo.');
@@ -667,6 +775,7 @@ $id('userWidget').addEventListener('keydown', (e) => {
 });
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#userWidget')) { $id('userMenu').classList.remove('aberto'); $id('userWidget').setAttribute('aria-expanded', false); }
+  if (!e.target.closest('#sino')) { $id('painelSino').classList.remove('aberto'); $id('sino').setAttribute('aria-expanded', false); }
 });
 $id('menuSair').addEventListener('click', async () => {
   $id('userMenu').classList.remove('aberto');
@@ -679,9 +788,10 @@ $id('menuTrocarSenha').addEventListener('click', () => { $id('userMenu').classLi
 let trocaObrigatoria = false;
 function abrirTrocaSenha(obrigatoria) {
   trocaObrigatoria = obrigatoria;
+  const min = CFG_LOGIN.senha_minimo || 8;
   $id('subSenha').textContent = obrigatoria
-    ? 'Primeiro acesso: troque a senha que o administrador definiu por uma só sua (mínimo 8 caracteres).'
-    : 'Escolha uma senha nova, com pelo menos 8 caracteres.';
+    ? `Primeiro acesso: troque a senha que o administrador definiu por uma só sua (mínimo ${min} caracteres).`
+    : `Escolha uma senha nova, com pelo menos ${min} caracteres.`;
   $id('btnCancelarSenha').style.display = obrigatoria ? 'none' : 'block';
   ['senhaAtual', 'senhaNova', 'senhaNova2'].forEach(i => $id(i).value = '');
   $id('erroSenha').textContent = '';
@@ -707,7 +817,222 @@ $id('formSenha').addEventListener('submit', async (e) => {
   finally { btn.disabled = false; }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// [NOVO v4.2] CONFIGURAÇÃO DA TELA DE LOGIN (vem da aba Configurações)
+// ═══════════════════════════════════════════════════════════════════
+async function carregarConfigLogin() {
+  try {
+    const r = await fetch('/api/auth/config-login', { cache: 'no-store' });
+    if (r.ok) CFG_LOGIN = await r.json();
+  } catch (_) {}
+  const dias = CFG_LOGIN.lembrar_dias || 30;
+  $id('boxLembrar').hidden = !CFG_LOGIN.lembrar;
+  $id('txtLembrar').textContent = `Lembrar de mim (${dias} dias)`;
+  $id('btnEsqueci').hidden = !CFG_LOGIN.esqueci;
+  $id('rodapeLogin').textContent = CFG_LOGIN.esqueci
+    ? 'Esqueceu a senha? Clique em “Esqueci minha senha”: o administrador libera e você mesmo cria uma nova.'
+    : 'Esqueceu a senha? Peça ao administrador para gerar uma nova.';
+  if (!CFG_LOGIN.lembrar) $id('loginLembrar').checked = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// [NOVO v4.2] ESQUECI MINHA SENHA
+// O código do pedido fica SÓ neste navegador (localStorage). O servidor
+// guarda o hash dele — a liberação do ADM só funciona aqui.
+// ═══════════════════════════════════════════════════════════════════
+const ESQ_CHAVE = 'pqi_esqueci';
+let esqTimer = null, esqRelogio = null, esqLiberadoAte = null;
+function esqLer() { try { const x = JSON.parse(localStorage.getItem(ESQ_CHAVE) || 'null'); if (x && x.codigo) return x; } catch (_) {} return null; }
+function esqGravar(x) { try { localStorage.setItem(ESQ_CHAVE, JSON.stringify(x)); } catch (_) {} }
+function esqLimpar() { try { localStorage.removeItem(ESQ_CHAVE); } catch (_) {} clearTimeout(esqTimer); clearInterval(esqRelogio); }
+function mostrarCartaoLogin() { $id('formLogin').hidden = false; $id('cartaoEsqueci').hidden = true; }
+function esqMostrar(passo, titulo) {
+  $id('formLogin').hidden = true; $id('cartaoEsqueci').hidden = false; $id('esqErro').textContent = '';
+  [1, 2, 3, 4].forEach(n => $id('esqPasso' + n).hidden = n !== passo);
+  $id('esqTitulo').textContent = titulo || (passo === 3 ? 'Crie a sua senha nova' : 'Esqueci minha senha');
+  const x = esqLer();
+  if (passo === 2 && x) {
+    $id('esqEmailMostra').textContent = x.email;
+    clearInterval(esqRelogio);
+    const desde = () => { const m = Math.max(0, Math.round((Date.now() - x.em) / 60000)); $id('esqDesde').textContent = m < 1 ? 'Pedido feito agora' : `Pedido feito há ${m} min`; };
+    desde(); esqRelogio = setInterval(desde, 30000);
+  }
+}
+$id('btnEsqueci').addEventListener('click', () => { $id('esqEmail').value = $id('loginEmail').value || ''; esqMostrar(1); setTimeout(() => $id('esqEmail').focus(), 50); });
+document.querySelectorAll('[data-esq-voltar]').forEach(b => b.addEventListener('click', () => { esqLimpar(); mostrarCartaoLogin(); }));
+$id('esqDeNovo').addEventListener('click', () => { const x = esqLer(); esqLimpar(); $id('esqEmail').value = (x && x.email) || $id('loginEmail').value || ''; esqMostrar(1); });
+$id('esqCancelar').addEventListener('click', () => { esqLimpar(); mostrarCartaoLogin(); });
+
+$id('esqPasso1').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $id('esqPedir'); btn.disabled = true; $id('esqErro').textContent = '';
+  try {
+    const email = $id('esqEmail').value.trim().toLowerCase();
+    const r = await fetch('/api/auth/esqueci', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || 'Não consegui enviar o pedido.');
+    esqGravar({ codigo: j.codigo, email, em: Date.now(), validade: (j.validade_horas || 24) * 3600000 });
+    esqMostrar(2); esqAgendar(4000);
+  } catch (err) { $id('esqErro').textContent = err.message === 'Failed to fetch' ? 'Servidor indisponível. Tente de novo em alguns segundos.' : err.message; }
+  finally { btn.disabled = false; }
+});
+
+function esqAgendar(ms) { clearTimeout(esqTimer); esqTimer = setTimeout(esqConferir, ms); }
+async function esqConferir() {
+  const x = esqLer(); if (!x || USUARIO) return;
+  if (Date.now() - x.em > x.validade) { esqFim('⏱ O pedido venceu sem ser liberado. Peça de novo — ou fale direto com o administrador.'); return; }
+  try {
+    const r = await fetch('/api/auth/esqueci/' + encodeURIComponent(x.codigo), { cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error('falha');
+    if (j.status === 'liberado') { esqLiberado(j); return; }
+    if (j.status === 'recusado') { esqFim('✕ O administrador recusou o pedido.' + (j.motivo ? ' Motivo: ' + j.motivo : '')); return; }
+    if (j.status === 'expirado') { esqFim('⏱ A liberação venceu antes da senha nova ser criada. Peça de novo.'); return; }
+    if (j.status === 'substituido') { esqFim('Este pedido foi substituído por um pedido mais novo (feito em outro computador ou aba).'); return; }
+    if (j.status === 'concluido') { esqLimpar(); mostrarCartaoLogin(); $id('subLogin').textContent = 'Senha nova criada. Entre com ela.'; return; }
+    if ($id('esqPasso2').hidden) esqMostrar(2);
+    esqAgendar(document.hidden ? 15000 : 5000);
+  } catch (_) { esqAgendar(10000); }
+}
+function esqFim(texto) { clearTimeout(esqTimer); esqMostrar(4, 'Pedido encerrado'); $id('esqFimInfo').textContent = texto; }
+function esqLiberado(j) {
+  clearTimeout(esqTimer);
+  if (!$id('esqPasso3').hidden) return;
+  esqMostrar(3);
+  esqLiberadoAte = j.liberado_ate ? new Date(j.liberado_ate) : null;
+  $id('esqLiberadoInfo').textContent = `✓ Liberado${j.liberado_por ? ' por ' + j.liberado_por : ''}! ${j.nome ? j.nome + ', c' : 'C'}rie a sua senha nova.`;
+  const regras = [`mínimo ${CFG_LOGIN.senha_minimo || 8} caracteres`];
+  if (CFG_LOGIN.senha_numero) regras.push('pelo menos um número');
+  if (CFG_LOGIN.senha_letra) regras.push('pelo menos uma letra');
+  $id('esqRegras').textContent = 'Regras: ' + regras.join(' · ');
+  $id('esqBoxLembrar').hidden = !CFG_LOGIN.lembrar;
+  $id('esqTxtLembrar').textContent = `Lembrar de mim (${CFG_LOGIN.lembrar_dias || 30} dias)`;
+  clearInterval(esqRelogio);
+  const conta = () => {
+    if (!esqLiberadoAte) { $id('esqRestante').textContent = ''; return; }
+    const s = Math.max(0, Math.round((esqLiberadoAte - Date.now()) / 1000));
+    $id('esqRestante').textContent = s ? `A liberação vale por mais ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'A liberação venceu.';
+    if (!s) { clearInterval(esqRelogio); esqFim('⏱ A liberação venceu antes da senha nova ser criada. Peça de novo.'); }
+  };
+  conta(); esqRelogio = setInterval(conta, 1000);
+  setTimeout(() => $id('esqSenha').focus(), 50);
+}
+$id('esqPasso3').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const x = esqLer(); if (!x) return;
+  if ($id('esqSenha').value !== $id('esqSenha2').value) { $id('esqErro').textContent = 'As duas senhas não são iguais.'; return; }
+  const btn = $id('esqSalvar'); btn.disabled = true; $id('esqErro').textContent = '';
+  try {
+    const r = await fetch('/api/auth/esqueci/' + encodeURIComponent(x.codigo) + '/senha', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senha: $id('esqSenha').value, lembrar: $id('esqLembrar').checked }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || 'Não consegui salvar a senha.');
+    esqLimpar(); $id('esqSenha').value = $id('esqSenha2').value = '';
+    aplicarSessao(j);
+  } catch (err) { $id('esqErro').textContent = err.message; }
+  finally { btn.disabled = false; }
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && esqLer() && !USUARIO && !$id('esqPasso2').hidden) esqConferir(); });
+
+// ═══════════════════════════════════════════════════════════════════
+// [NOVO v4.2] SINO DO ADMINISTRADOR — confere a cada 30 s se tem pedido
+// de senha esperando ou conta bloqueada por senha errada. Quando chega
+// um novo: o sino balança, aparece um aviso no canto e (se você permitir)
+// sai uma notificação do Windows, mesmo com o Painel em segundo plano.
+// ═══════════════════════════════════════════════════════════════════
+let sinoTimer = null, sinoVistos = null, sinoDados = null;
+function ehAdmin() { return USUARIO && USUARIO.papel === 'admin'; }
+function iniciarSino() {
+  pararSino();
+  $id('sino').classList.toggle('visivel', !!ehAdmin());
+  if (!ehAdmin()) return;
+  sinoVistos = null; buscarAvisos();
+}
+function pararSino() { clearTimeout(sinoTimer); sinoTimer = null; $id('sino').classList.remove('visivel', 'tem'); $id('toastAdm').classList.remove('visivel'); }
+function chaveAviso(i) { return i.tipo === 'senha' ? 's:' + i.id + ':' + i.status : 'b:' + i.chave; }
+async function buscarAvisos() {
+  clearTimeout(sinoTimer);
+  if (!ehAdmin()) return;
+  try {
+    const r = await fetch('/api/admin/avisos', { cache: 'no-store' });
+    if (r.status === 401) { mostrarLogin('Sua sessão expirou. Entre de novo.'); return; }
+    if (r.ok) {
+      sinoDados = await r.json();
+      const n = (sinoDados.pendentes || 0) + (sinoDados.bloqueados || 0);
+      $id('sinoN').textContent = n > 99 ? '99+' : n;
+      $id('sino').classList.toggle('tem', n > 0);
+      $id('sino').title = n ? `${n} pedido(s) de acesso esperando você` : 'Nenhum pedido de acesso';
+      const novos = (sinoDados.itens || []).filter(i => (i.tipo === 'bloqueio' || i.status === 'pendente') && sinoVistos && !sinoVistos.has(chaveAviso(i)));
+      sinoVistos = new Set((sinoDados.itens || []).map(chaveAviso));
+      if (novos.length) avisarNovo(novos);
+      if ($id('painelSino').classList.contains('aberto')) desenharSino();
+    }
+  } catch (_) {}
+  sinoTimer = setTimeout(buscarAvisos, document.hidden ? 60000 : 30000);
+}
+function textoAviso(i) {
+  return i.tipo === 'senha'
+    ? { t: `🔑 ${i.nome || i.email} pediu senha nova`, s: i.status === 'liberado' ? 'liberado — esperando a pessoa criar a senha' : 'esperando você liberar' }
+    : { t: `🔒 ${i.nome || i.email} foi bloqueado(a)`, s: 'errou a senha várias vezes seguidas' };
+}
+function avisarNovo(novos) {
+  const i = novos[0], tx = textoAviso(i);
+  const t = $id('toastAdm');
+  t.innerHTML = `<b>${escH(tx.t)}</b>${novos.length > 1 ? ` <span style="color:var(--ink-muted)">e mais ${novos.length - 1}</span>` : ''}<div style="color:var(--ink-muted);margin-top:2px">${escH(tx.s)}</div>
+    <div class="acoes-t"><button type="button" id="tAbrir">Abrir Liberações</button><button type="button" class="sec" id="tDepois">Depois</button></div>`;
+  t.classList.add('visivel');
+  $id('tAbrir').onclick = () => { t.classList.remove('visivel'); abrirLiberacoes(); };
+  $id('tDepois').onclick = () => t.classList.remove('visivel');
+  clearTimeout(avisarNovo._t); avisarNovo._t = setTimeout(() => t.classList.remove('visivel'), 20000);
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification('Painel de Sistemas — pedido de acesso', { body: tx.t + ' · ' + tx.s, tag: 'pqi-acesso' });
+      n.onclick = () => { window.focus(); abrirLiberacoes(); n.close(); };
+    }
+  } catch (_) {}
+}
+function desenharSino() {
+  const p = $id('painelSino'), itens = (sinoDados && sinoDados.itens) || [];
+  const notif = 'Notification' in window ? Notification.permission : 'indisponivel';
+  p.innerHTML = `<h4>Pedidos de acesso</h4>` + (itens.length
+    ? itens.map((i, k) => { const tx = textoAviso(i); return `<button type="button" class="it" role="menuitem" data-k="${k}"><span>${tx.t.slice(0, 2)}</span><span>${escH(tx.t.slice(2).trim())}<small>${escH(tx.s)}</small></span></button>`; }).join('')
+    : '<div class="vz">Nenhum pedido esperando. Quando alguém clicar em “Esqueci minha senha” ou for bloqueado por errar a senha, aparece aqui.</div>')
+    + `<div class="rod"><button type="button" id="sinoAbrir">Abrir Liberações</button>${notif === 'default' ? '<button type="button" id="sinoNotif">🔔 Avisar no Windows</button>' : ''}</div>`;
+  p.querySelectorAll('[data-k]').forEach(b => b.onclick = () => abrirLiberacoes());
+  $id('sinoAbrir').onclick = () => abrirLiberacoes();
+  const bn = $id('sinoNotif');
+  if (bn) bn.onclick = async (e) => { e.stopPropagation(); try { await Notification.requestPermission(); } catch (_) {} desenharSino(); };
+}
+$id('sino').addEventListener('click', (e) => {
+  if (e.target.closest('#painelSino')) return;
+  const aberto = $id('painelSino').classList.toggle('aberto');
+  $id('sino').setAttribute('aria-expanded', aberto);
+  if (aberto) { desenharSino(); buscarAvisos(); }
+});
+$id('sino').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'sino') { e.preventDefault(); $id('sino').click(); }
+  if (e.key === 'Escape') $id('painelSino').classList.remove('aberto');
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && ehAdmin()) buscarAvisos(); });
+// Abre a Segurança já na aba Liberações (se já estiver aberta, só troca de aba)
+function abrirLiberacoes() {
+  $id('painelSino').classList.remove('aberto');
+  const s = SISTEMAS.find(x => x.id === 'admin'); if (!s) return;
+  try { sessionStorage.setItem('seg_aba', 'liberacoes'); } catch (_) {}
+  const aberta = abasAbertas.get(chaveDoSistema(s));
+  abrirSistema(s);
+  if (aberta && aberta.iframeEl.contentWindow) {
+    try { aberta.iframeEl.contentWindow.postMessage({ pqi: 'seg-aba', aba: 'liberacoes' }, location.origin); } catch (_) {}
+  }
+}
+// A Segurança avisa quando liberou/recusou algo → o sino atualiza na hora
+window.addEventListener('message', (e) => {
+  if (e.origin === location.origin && e.data && e.data.pqi === 'avisos-mudaram' && ehAdmin()) buscarAvisos();
+});
+
 async function iniciarSessao() {
+  carregarConfigLogin();
   try {
     const r = await fetch('/api/auth/me', { cache: 'no-store' });
     if (r.ok) aplicarSessao(await r.json());
@@ -717,10 +1042,10 @@ async function iniciarSessao() {
   }
 }
 
-// confere a sessão a cada 5 minutos — se expirou, volta pro login
+// confere a sessão a cada 5 minutos — se expirou (ou o ADM derrubou), volta pro login
 setInterval(async () => {
   if (!USUARIO) return;
-  try { const r = await fetch('/api/auth/me', { cache: 'no-store' }); if (r.status === 401) mostrarLogin('Sua sessão expirou. Entre de novo.'); } catch (_) {}
+  try { const r = await fetch('/api/auth/me', { cache: 'no-store' }); if (r.status === 401) mostrarLogin('Sua sessão terminou. Entre de novo.'); } catch (_) {}
 }, 5 * 60 * 1000);
 
 // Inicialização
