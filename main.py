@@ -175,6 +175,25 @@ def _niveis(u: dict) -> dict:
     return mods.niveis_do_usuario(u, _perfil_do(u), _perfis())
 
 
+def _abas(u: dict, niveis: Optional[dict] = None) -> dict:
+    """[v4.16] Nível (0–4) de cada ABA de cada sistema — ver modulos.abas_do_usuario."""
+    return mods.abas_do_usuario(u, _perfil_do(u), niveis if niveis is not None else _niveis(u))
+
+
+def _nivel_aba(request: Request, modulo_id: str, aba: str) -> int:
+    return int(_abas(usuario_atual(request)).get(modulo_id, {}).get(aba, 0))
+
+
+def _exigir_aba(request: Request, modulo_id: str, abas, minimo: int, acao: str) -> None:
+    """[v4.16] Confere no servidor a permissão da aba (basta uma das abas listadas ter o nível)."""
+    abas = [abas] if isinstance(abas, str) else list(abas)
+    mapa = _abas(usuario_atual(request)).get(modulo_id, {})
+    if any(int(mapa.get(a, 0)) >= minimo for a in abas):
+        return
+    nomes = {a["id"]: a["nome"] for a in mods.abas_de(modulo_id)}
+    raise HTTPException(status_code=403, detail=f"{acao} exige “{mods.NIVEIS_ABA.get(minimo)}” na aba {' ou '.join('“'+nomes.get(a, a)+'”' for a in abas)}. Peça ao administrador.")
+
+
 def _nome_perfil(u: dict) -> str:
     if u.get("papel") == "admin":
         return "Administrador"
@@ -290,7 +309,10 @@ async def porteiro(request: Request, call_next):
         niveis = await run_in_threadpool(_niveis, usuario)
     except Exception as e:
         return _negar(eh_api, 503, f"Não consegui verificar suas permissões agora ({e.__class__.__name__}).")
-    nivel = niveis.get(modulo["id"], 0)
+    try:   # [v4.16] uma aba com nível maior que o sistema também libera gravar (a rota confere a aba)
+        nivel = mods.nivel_efetivo_sistema(niveis.get(modulo["id"], 0), (await run_in_threadpool(_abas, usuario, niveis)).get(modulo["id"]))
+    except Exception:
+        nivel = niveis.get(modulo["id"], 0)
     if nivel < perm.VISUALIZAR:
         return _negar(eh_api, 403, f"Você não tem acesso ao módulo “{modulo['nome']}”. Peça liberação ao administrador.")
     metodo = request.method.upper()
@@ -313,13 +335,16 @@ def usuario_atual(request: Request) -> dict:
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
                                    "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos",
-                                   "acessos", "acessos_info", "fabrica")}
+                                   "acessos", "acessos_info", "fabrica", "abas")}
 
 
 def _sessao_publica(u: dict) -> dict:
     niveis = _niveis(u)
-    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, niveis), "permissoes": niveis,
-            "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO)}
+    abas = _abas(u, niveis)
+    efetivos = {k: mods.nivel_efetivo_sistema(v, abas.get(k)) for k, v in niveis.items()}
+    return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, efetivos), "permissoes": niveis,
+            "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO),
+            "abas": abas, "niveis_aba": mods.NIVEIS_ABA}   # [v4.16] permissão por aba
 
 
 def _email(request: Request) -> str:
@@ -670,7 +695,7 @@ def admin_listar():
     except Exception as e:
         print(f"[AVISO] pedidos de senha: {e!r}")
         pedidos, bloq = {}, {}
-    return {"usuarios": [{**_usuario_publico(u), "niveis": _niveis(u), "perfil_nome": _nome_perfil(u),
+    return {"usuarios": [{**_usuario_publico(u), "niveis": _niveis(u), "abas_ef": _abas(u), "perfil_nome": _nome_perfil(u),
                           "pedido_senha": pedidos.get(u.get("email")), "bloqueio": bloq.get(u.get("email"))} for u in db.usuarios_listar()],
             "modulos": mods.catalogo_publico(), "papeis": mods.PAPEIS, "niveis": perm.NIVEIS,
             "perfis": list(_perfis().values()),
@@ -780,6 +805,7 @@ class PerfilEdicao(BaseModel):
     nome: Optional[str] = None
     descricao: Optional[str] = None
     niveis: Optional[dict] = None
+    abas: Optional[dict] = None   # [v4.16] {sistema: {aba: 0–4 | null (segue o sistema)}}
 
 
 class PerfilArquivar(BaseModel):
@@ -796,7 +822,7 @@ def _uso_perfis() -> dict:
 
 @app.get("/api/admin/perfis")
 def admin_perfis():
-    return {"perfis": list(_perfis().values()), "modulos": mods.catalogo_publico(), "niveis": perm.NIVEIS, "uso": _uso_perfis()}
+    return {"perfis": list(_perfis().values()), "modulos": mods.catalogo_publico(), "niveis": perm.NIVEIS, "uso": _uso_perfis(), "niveis_aba": mods.NIVEIS_ABA}
 
 
 @app.post("/api/admin/perfis")
@@ -852,6 +878,23 @@ def admin_perfil_editar(perfil_id: str, payload: PerfilEdicao, request: Request)
                 niveis[mid] = n
                 _log(request, "perfil", atual.get("nome"), f"{cat[mid]['nome']}", perm.NIVEIS[antes], perm.NIVEIS[n])
         campos["niveis"] = niveis
+    if payload.abas is not None:   # [v4.16] permissão por aba no perfil
+        abas = {k: dict(v or {}) for k, v in (atual.get("abas") or {}).items()}
+        for mid, mapa in payload.abas.items():
+            validas = {a["id"]: a for a in mods.abas_de(mid)}
+            if not validas:
+                raise HTTPException(status_code=400, detail=f"O sistema {mid} não tem abas.")
+            for aid, n in (mapa or {}).items():
+                if aid not in validas:
+                    raise HTTPException(status_code=400, detail=f"Aba inexistente: {aid}")
+                antes = (abas.get(mid) or {}).get(aid)
+                novo = None if n is None or n == "" else max(0, min(4, int(n)))
+                if antes == novo:
+                    continue
+                abas.setdefault(mid, {})[aid] = novo
+                txt = lambda v: "Segue o sistema" if v is None else mods.NIVEIS_ABA[v]
+                _log(request, "perfil", atual.get("nome"), f"{mods.POR_ID[mid]['nome']} › aba {validas[aid]['nome']}", txt(antes), txt(novo))
+        campos["abas"] = abas
     if campos:
         campos["alterado_em"] = datetime.now().isoformat()
         campos["alterado_por"] = _email(request)
@@ -937,6 +980,36 @@ def admin_acesso_individual(modulo_id: str, email: str, payload: AcessoIndividua
     _log(request, "acesso", f"{alvo.get('nome') or email} · {m['nome']}", "Acesso individual no sistema",
          _texto_acesso(m, antes), _texto_acesso(m, novo))
     return {"sucesso": True, "niveis": _niveis({**alvo, "acessos": acessos})}
+
+
+class AcessoAba(BaseModel):
+    aba: str
+    nivel: Optional[int] = None   # None = segue o perfil / o sistema
+
+
+@app.put("/api/admin/acessos-abas/{modulo_id}/{email}")
+def admin_acesso_aba(modulo_id: str, email: str, payload: AcessoAba, request: Request):
+    """[v4.16] Acesso individual de UMA aba para UMA pessoa."""
+    validas = {a["id"]: a for a in mods.abas_de(modulo_id)}
+    if payload.aba not in validas:
+        raise HTTPException(status_code=404, detail="Aba inexistente.")
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if alvo.get("papel") == "admin":
+        raise HTTPException(status_code=400, detail="Administrador já tem acesso total.")
+    novo = None if payload.nivel is None else max(0, min(4, int(payload.nivel)))
+    abas = {k: dict(v or {}) for k, v in (alvo.get("abas") or {}).items()}
+    antes = (abas.get(modulo_id) or {}).get(payload.aba)
+    if antes == novo:
+        return {"sucesso": True}
+    abas.setdefault(modulo_id, {})[payload.aba] = novo
+    db.usuario_atualizar(email, {"abas": abas, "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+    _esquecer_cache(email)
+    txt = lambda v: "Segue o perfil" if v is None else mods.NIVEIS_ABA[v]
+    _log(request, "acesso", f"{alvo.get('nome') or email} · {mods.POR_ID[modulo_id]['nome']} › {validas[payload.aba]['nome']}", "Acesso individual na aba", txt(antes), txt(novo))
+    return {"sucesso": True, "abas": _abas({**alvo, "abas": abas}).get(modulo_id, {})}
 
 
 @app.get("/api/admin/permissoes-log")
@@ -1778,9 +1851,12 @@ class CarteiraParte(BaseModel):
     conteudo: str
 
 
-def _exigir_editar_carteira(request: Request) -> None:
-    if _niveis(usuario_atual(request)).get("carteira", 0) < 3:
-        raise HTTPException(status_code=403, detail="Importar a carteira e mudar as configurações exige o perfil “Editar” no módulo Carteira.")
+def _exigir_editar_carteira(request: Request, aba: str = "importar") -> None:
+    # [v4.16] agora pela aba: Importar → aba Importar · Configurações → aba Configurar (ou CX, que guarda a equipe)
+    if aba == "config":
+        _exigir_aba(request, "carteira", ["config", "cx"], 3, "Mudar as configurações da Carteira")
+    else:
+        _exigir_aba(request, "carteira", "importar", 3, "Importar a carteira")
 
 
 @app.get("/api/carteira/dias")
@@ -1880,6 +1956,7 @@ def cart_tratativas(request: Request):
 
 @app.post("/api/carteira/tratativas")
 def cart_tratativa_criar(payload: ProcessoEntrada, request: Request):
+    _exigir_aba(request, "carteira", ["triagem", "filas", "solucoes", "carteira", "importar"], 2, "Classificar pedidos")   # [v4.16]
     if not isinstance(payload.dados, dict) or not payload.dados.get("chave"):
         raise HTTPException(status_code=400, detail="Tratativa inválida.")
     _checar_tamanho(payload.dados)
@@ -1893,6 +1970,7 @@ def cart_tratativa_criar(payload: ProcessoEntrada, request: Request):
 
 @app.put("/api/carteira/tratativas/{item_id}")
 def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
+    _exigir_aba(request, "carteira", ["triagem", "filas", "solucoes", "carteira", "importar"], 2, "Classificar pedidos")   # [v4.16]
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Tratativa inválida.")
     _checar_tamanho(payload.dados)
@@ -1917,6 +1995,44 @@ def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
 COLECAO_CART_INTERACOES = "carteira_interacoes"
 
 
+def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
+    """[v4.16] Quem mexe na parte do CX precisa da aba CX; na parte do Compras, da aba Compras.
+    Apagar algo que já estava registrado exige “Excluir” na aba daquela parte."""
+    j = lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False, default=str)
+    antes, precisa = antes or {}, {}
+    def pede(aba, n):
+        precisa[aba] = max(precisa.get(aba, 0), n)
+    if j(antes.get("cx")) != j(novo.get("cx")) or j(antes.get("cx_resp")) != j(novo.get("cx_resp")) or len(novo.get("cx_hist") or []) > len(antes.get("cx_hist") or []):
+        pede("cx", 2)
+    if len(novo.get("cx_hist") or []) < len(antes.get("cx_hist") or []):
+        pede("cx", 4)
+    ca, cn = antes.get("compras") or {}, novo.get("compras") or {}
+    if j(ca) != j(cn):
+        pede("compras", 4 if any(k not in cn for k in ca) else 2)
+    aa = {a.get("id"): a for a in antes.get("alternativos") or []}
+    an = {a.get("id"): a for a in novo.get("alternativos") or []}
+    for i, a in an.items():
+        if i not in aa:
+            pede("compras", 2)
+        elif j(a) != j(aa[i]):
+            pede("cx" if a.get("status") != aa[i].get("status") else "compras", 2)
+    if any(i not in an for i in aa):
+        pede("compras", 4)
+    sa = {x.get("id"): x for x in antes.get("solicitacoes") or []}
+    sn = {x.get("id"): x for x in novo.get("solicitacoes") or []}
+    for i, x in sn.items():
+        if i not in sa:
+            pede(x.get("de") if x.get("de") in ("cx", "compras") else "cx", 2)
+        elif j(x) != j(sa[i]):
+            quem = x.get("para") if x.get("status") == "respondida" else x.get("de")
+            pede(quem if quem in ("cx", "compras") else "cx", 2)
+    for i, x in sa.items():
+        if i not in sn:
+            pede(x.get("de") if x.get("de") in ("cx", "compras") else "cx", 4)
+    for aba, n in precisa.items():
+        _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + ("CX" if aba == "cx" else "Compras"))
+
+
 @app.get("/api/carteira/interacoes")
 def cart_interacoes(request: Request):
     return db.docs_listar(COLECAO_CART_INTERACOES)
@@ -1927,6 +2043,7 @@ def cart_interacao_criar(payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict) or not payload.dados.get("chave"):
         raise HTTPException(status_code=400, detail="Registro inválido.")
     _checar_tamanho(payload.dados)
+    _conferir_interacao(request, {}, payload.dados)   # [v4.16]
     ja = next((d for d in db.docs_listar(COLECAO_CART_INTERACOES) if (d.get("dados") or {}).get("chave") == payload.dados["chave"]), None)
     if ja:   # duas pessoas abriram o mesmo pedido ao mesmo tempo: devolve o que já existe para a tela juntar
         return JSONResponse({"detail": "conflito", "atual": ja}, status_code=409)
@@ -1938,6 +2055,9 @@ def cart_interacao_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Registro inválido.")
     _checar_tamanho(payload.dados)
+    atual = db.docs_ler(COLECAO_CART_INTERACOES, item_id)   # [v4.16] confere o que mudou (CX × Compras)
+    if atual:
+        _conferir_interacao(request, atual.get("dados") or {}, payload.dados)
     resultado, registro = db.docs_salvar(COLECAO_CART_INTERACOES, item_id, payload.dados, payload.versao, _nome_de(request))
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Registro não encontrado.")
@@ -1954,7 +2074,7 @@ def cart_config(request: Request):
 
 @app.post("/api/carteira/config")
 def cart_config_criar(payload: ProcessoEntrada, request: Request):
-    _exigir_editar_carteira(request)
+    _exigir_editar_carteira(request, "config")
     if db.docs_listar(db.COLECAO_CART_CONFIG):
         raise HTTPException(status_code=409, detail="A configuração já existe — atualize em vez de criar.")
     return db.docs_criar(db.COLECAO_CART_CONFIG, payload.dados or {}, _nome_de(request), _email(request))
@@ -1962,7 +2082,7 @@ def cart_config_criar(payload: ProcessoEntrada, request: Request):
 
 @app.put("/api/carteira/config/{item_id}")
 def cart_config_salvar(item_id: str, payload: ProcessoEntrada, request: Request):
-    _exigir_editar_carteira(request)
+    _exigir_editar_carteira(request, "config")
     _checar_tamanho(payload.dados)
     resultado, registro = db.docs_salvar(db.COLECAO_CART_CONFIG, item_id, payload.dados, payload.versao, _nome_de(request))
     if resultado == "conflito":
@@ -2091,6 +2211,7 @@ def _apagar_arquivo(arquivo_id: str) -> None:
 def cartas_tudo(request: Request):
     return {"cartas": db.docs_listar(COLECAO_CARTAS), "colaboradores": db.docs_listar(COLECAO_CARTAS_COLAB),
             "lotes": db.docs_listar(COLECAO_CARTAS_LOTES), "nivel": _nivel_cartas(request),
+            "abas": _abas(usuario_atual(request)).get("cartas", {}),
             "limite_arquivo": db.LIMITE_ARQUIVO_BYTES}
 
 
@@ -2105,6 +2226,7 @@ def cartas_modelo():
 
 @app.post("/api/cartas")
 def cartas_criar(payload: CartaEntrada, request: Request):
+    _exigir_aba(request, "cartas", "nova", 2, "Registrar carta")   # [v4.16]
     dados = _limpa_carta(payload)
     dados.update(status=CARTA_AGUARDANDO, id_lote="", anexo=None,
                  historico=[{"em": datetime.now().isoformat(), "por": _nome_de(request), "acao": "Carta registrada"}])
@@ -2115,7 +2237,9 @@ def cartas_criar(payload: CartaEntrada, request: Request):
 @app.put("/api/cartas/{carta_id}")
 def cartas_editar(carta_id: str, payload: CartaEntrada, request: Request):
     c = _carta_ou_erro(carta_id)
-    _exigir_editar_ou_dono(request, "cartas", c.get("criado_por_email"))
+    # [v4.16] Editar na aba Painel/Fechamento — ou Adicionar, sendo quem registrou a carta
+    dono = c.get("criado_por_email") and c.get("criado_por_email") == _email(request)
+    _exigir_aba(request, "cartas", ["painel", "fechamento"], 2 if dono else 3, "Editar carta")
     atual = c.get("dados") or {}
     if atual.get("status") == CARTA_FECHADA:
         raise HTTPException(status_code=400, detail="Esta carta já está num lote fechado. Reabra antes de editar.")
@@ -2129,6 +2253,7 @@ def cartas_editar(carta_id: str, payload: CartaEntrada, request: Request):
 
 @app.delete("/api/cartas/{carta_id}")
 def cartas_excluir(carta_id: str, request: Request):
+    _exigir_aba(request, "cartas", "painel", 4, "Excluir carta")   # [v4.16]
     c = _carta_ou_erro(carta_id)
     if (c.get("dados") or {}).get("status") == CARTA_FECHADA:
         raise HTTPException(status_code=400, detail="Carta de lote fechado não pode ser excluída — reabra antes.")
@@ -2145,6 +2270,8 @@ async def cartas_assinatura(carta_id: str, request: Request, arquivo: UploadFile
     if len(conteudo) > db.LIMITE_ARQUIVO_BYTES:
         raise HTTPException(status_code=413, detail=f"Arquivo de {len(conteudo)//1024} KB passa do limite de {db.LIMITE_ARQUIVO_BYTES//1024} KB. "
                                                     "Foto: a tela reduz sozinha; PDF: salve em qualidade menor.")
+
+    _exigir_aba(request, "cartas", ["painel", "fechamento"], 2, "Enviar a carta assinada")   # [v4.16]
 
     def gravar():
         c = _carta_ou_erro(carta_id)
@@ -2178,7 +2305,7 @@ def cartas_assinatura_baixar(carta_id: str):
 
 @app.post("/api/cartas/{carta_id}/reabrir")
 def cartas_reabrir(carta_id: str, request: Request):
-    _exigir_editar_cartas(request, "Reabrir carta")
+    _exigir_aba(request, "cartas", "historico", 3, "Reabrir carta")   # [v4.16]
     c = _carta_ou_erro(carta_id)
     dados = dict(c.get("dados") or {})
     lote_ant = dados.get("id_lote") or ""
@@ -2188,7 +2315,7 @@ def cartas_reabrir(carta_id: str, request: Request):
 
 @app.post("/api/cartas/lotes")
 def cartas_fechar_lote(payload: LoteFechar, request: Request):
-    _exigir_editar_cartas(request, "Fechar o lote")
+    _exigir_aba(request, "cartas", "fechamento", 3, "Fechar o lote")   # [v4.16]
     if not payload.ids:
         raise HTTPException(status_code=400, detail="Nenhuma carta para fechar.")
     cartas = []
@@ -2213,7 +2340,7 @@ def cartas_fechar_lote(payload: LoteFechar, request: Request):
 
 @app.post("/api/cartas/lotes/{lote_id}/limpar-anexos")
 def cartas_limpar_anexos(lote_id: str, request: Request):
-    _exigir_editar_cartas(request, "Excluir os arquivos do lote")
+    _exigir_aba(request, "cartas", "historico", 4, "Excluir os arquivos do lote")   # [v4.16]
     lote = db.docs_ler(COLECAO_CARTAS_LOTES, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote não encontrado.")
@@ -2234,6 +2361,7 @@ def cartas_limpar_anexos(lote_id: str, request: Request):
 
 @app.post("/api/cartas/colaboradores")
 def cartas_colab_salvar(payload: ColaboradorCarta, request: Request):
+    _exigir_aba(request, "cartas", "config", 2, "Cadastrar colaborador")   # [v4.16]
     r = _upsert_colaborador(request, payload.nome, payload.cpf)
     if r == "ignorado":
         raise HTTPException(status_code=400, detail="Preencha nome e CPF.")
@@ -2242,7 +2370,7 @@ def cartas_colab_salvar(payload: ColaboradorCarta, request: Request):
 
 @app.post("/api/cartas/colaboradores/importar")
 def cartas_colab_importar(payload: ColaboradoresImportar, request: Request):
-    _exigir_editar_cartas(request, "Importar colaboradores")
+    _exigir_aba(request, "cartas", "config", 3, "Importar colaboradores")   # [v4.16]
     if len(payload.linhas) > 5000:
         raise HTTPException(status_code=400, detail="Máximo de 5.000 linhas por importação.")
     cont: dict = {}
@@ -2255,6 +2383,7 @@ def cartas_colab_importar(payload: ColaboradoresImportar, request: Request):
 
 @app.delete("/api/cartas/colaboradores/{colab_id}")
 def cartas_colab_excluir(colab_id: str, request: Request):
+    _exigir_aba(request, "cartas", "config", 4, "Remover colaborador")   # [v4.16]
     if not db.docs_excluir(COLECAO_CARTAS_COLAB, colab_id, _nome_de(request)):
         raise HTTPException(status_code=404, detail="Colaborador não encontrado.")
     return {"sucesso": True}
