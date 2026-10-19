@@ -18,6 +18,40 @@ import db_diario as db
 import seguranca as seg
 import modulos as mods
 import permissoes as perm
+import db_seguranca as dbs   # [v4.2] Configurações, Sessões ativas e pedidos de senha
+import hmac                  # [v4.2] comparar a senha do administrador de fábrica
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.2] ADMINISTRADOR DE FÁBRICA — para nunca ficar trancado de fora.
+# Render → Environment:  ADMIN_FABRICA_EMAIL = seu e-mail (pode ser um que não existe no cadastro)
+#                         ADMIN_FABRICA_SENHA = uma senha forte
+# Ele NÃO fica gravado no banco: vale enquanto as duas variáveis existirem.
+# Apagou as variáveis → ele deixa de entrar na hora (as sessões dele caem).
+# ──────────────────────────────────────────────────────────────────────────
+FAB_EMAIL = (os.environ.get("ADMIN_FABRICA_EMAIL") or "").strip().lower()
+FAB_SENHA = os.environ.get("ADMIN_FABRICA_SENHA") or ""
+
+
+def _usuario_fabrica() -> dict:
+    return {"email": FAB_EMAIL, "nome": "Administrador de fábrica", "papel": "admin", "ativo": True,
+            "fabrica": True, "versao_sessao": 0, "modulos": [], "perfil": "", "departamentos": []}
+
+
+# [NOVO v4.2] CONFIGURAÇÕES DA SEGURANÇA (aba Configurações) — cache de 30 s
+_cache_cfg: dict = {"t": 0.0, "dados": None}
+
+
+def _cfg() -> dict:
+    if _cache_cfg["dados"] is not None and time.time() - _cache_cfg["t"] < 30:
+        return _cache_cfg["dados"]
+    try:
+        dados = dbs.config_ler()
+    except Exception as e:
+        print(f"[AVISO] não consegui ler as configurações da segurança: {e!r}")
+        dados = _cache_cfg["dados"] or dict(dbs.CONFIG_PADRAO)
+    seg.configurar(dados)
+    _cache_cfg.update(t=time.time(), dados=dados)
+    return dados
 
 
 def _garantir_admin():
@@ -56,6 +90,10 @@ def _init_em_segundo_plano():
             print(f"[OK] {n} perfis de acesso padrão criados.")
     except Exception as e:
         print(f"[AVISO] não consegui verificar os perfis de acesso: {e!r}")
+    try:
+        _cfg()   # [v4.2] aplica limites de tentativas, sessão e regras de senha
+    except Exception as e:
+        print(f"[AVISO] configurações da segurança: {e!r}")
     if seg.SEGREDO_TEMPORARIO:
         print("[AVISO] SESSION_SECRET não configurado — todos serão deslogados a cada reinício do servidor.")
 
@@ -85,7 +123,9 @@ app = FastAPI(title="PQI — Painel de Sistemas", version="3.0", lifespan=lifesp
 # Endereço que não pertence a módulo nenhum é negado por padrão.
 # ══════════════════════════════════════════════════════════════════════════
 ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
-                  "/api/auth/login", "/api/auth/logout", "/api/auth/me"}
+                  "/api/auth/login", "/api/auth/logout", "/api/auth/me",
+                  "/api/auth/esqueci", "/api/auth/config-login"}          # [v4.2] Esqueci minha senha
+ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
@@ -154,13 +194,52 @@ def _dep_ok(u: dict, dep: str) -> bool:
     return s is None or dep in s
 
 
+_cache_sessoes: dict = {}   # [v4.2] sid → (sessão, quando leu)
+_uso_gravado: dict = {}     # [v4.2] sid → quando gravou o "último uso" (grava no máx. a cada 5 min)
+
+
+def _esquecer_sessao(sid: str) -> None:
+    _cache_sessoes.pop(sid, None)
+
+
+def _sessao_ok(sid: str, email: str, request: Request) -> bool:
+    """[v4.2] A sessão listada em Sessões ativas ainda vale? (derrubada pelo ADM = não)."""
+    agora = time.time()
+    item = _cache_sessoes.get(sid)
+    if item and agora - item[1] < _CACHE_SEG:
+        s = item[0]
+    else:
+        s = dbs.sessao_ler(sid)
+        _cache_sessoes[sid] = (s, agora)
+    if not s or s.get("revogada") or (s.get("email") or "") != email:
+        return False
+    if agora - _uso_gravado.get(sid, 0) > 300:
+        _uso_gravado[sid] = agora
+        try:
+            dbs.sessao_atualizar(sid, {"ultimo_uso": datetime.now().isoformat(), "ip": _ip(request)})
+        except Exception:
+            pass
+    return True
+
+
 def _usuario_da_requisicao(request: Request) -> Optional[dict]:
     dados = seg.ler_token(request.cookies.get(seg.NOME_COOKIE))
     if not dados:
         return None
-    u = _usuario_cacheado(dados.get("e", ""))
-    if not u or not u.get("ativo", True) or int(u.get("versao_sessao", 1)) != int(dados.get("v", -1)):
+    email = dados.get("e", "")
+    if dados.get("f"):   # [v4.2] administrador de fábrica: só enquanto as variáveis do Render existirem
+        if not (FAB_EMAIL and FAB_SENHA and email == FAB_EMAIL):
+            return None
+        u = _usuario_fabrica()
+    else:
+        u = _usuario_cacheado(email)
+        if not u or not u.get("ativo", True) or int(u.get("versao_sessao", 1)) != int(dados.get("v", -1)):
+            return None
+    sid = dados.get("s")
+    if sid and not _sessao_ok(sid, email, request):
         return None
+    if sid:
+        request.state.sid = sid
     return u
 
 
@@ -183,7 +262,7 @@ height:100vh;margin:0}}div{{text-align:center;max-width:420px;padding:24px}}a{{c
 @app.middleware("http")
 async def porteiro(request: Request, call_next):
     caminho = request.url.path
-    if caminho in ROTAS_PUBLICAS:
+    if caminho in ROTAS_PUBLICAS or caminho.startswith(ROTAS_PUBLICAS_PREFIXO):
         return await call_next(request)
 
     eh_api = caminho.startswith("/api/")
@@ -234,7 +313,7 @@ def usuario_atual(request: Request) -> dict:
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
                                    "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos",
-                                   "acessos", "acessos_info")}
+                                   "acessos", "acessos_info", "fabrica")}
 
 
 def _sessao_publica(u: dict) -> dict:
@@ -276,11 +355,34 @@ def _ip(request: Request) -> str:
     return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
 
 
-def _gravar_cookie(resposta: Response, u: dict) -> None:
+def _gravar_cookie(resposta: Response, u: dict, duracao: Optional[int] = None, sid: Optional[str] = None) -> None:
+    duracao = int(duracao or seg.DURACAO_SESSAO_SEG)
     resposta.set_cookie(
-        seg.NOME_COOKIE, seg.criar_token(u["email"], int(u.get("versao_sessao", 1))),
-        max_age=seg.DURACAO_SESSAO_SEG, httponly=True, secure=True, samesite="lax", path="/",
+        seg.NOME_COOKIE, seg.criar_token(u["email"], int(u.get("versao_sessao", 1)), duracao, sid, bool(u.get("fabrica"))),
+        max_age=duracao, httponly=True, secure=True, samesite="lax", path="/",
     )
+
+
+def _abrir_sessao(request: Request, resposta: Response, u: dict, lembrar: bool = False) -> None:
+    """[v4.2] Cria a sessão (aparece em Sessões ativas) e grava o cookie.
+    Lembrar de mim → dura os dias de Configurações; senão, as horas de Configurações."""
+    cfg = _cfg()
+    lembrar = bool(lembrar and cfg.get("lembrar_ativo", True))
+    duracao = int(cfg.get("lembrar_dias", 30)) * 86400 if lembrar else seg.DURACAO_SESSAO_SEG
+    sid = seg.novo_id()
+    agora = datetime.now()
+    try:
+        dbs.sessao_criar(sid, {
+            "email": u["email"], "nome": u.get("nome") or u["email"], "criado_em": agora.isoformat(),
+            "ultimo_uso": agora.isoformat(), "expira_em": datetime.fromtimestamp(time.time() + duracao).isoformat(),
+            "ip": _ip(request), "navegador": (request.headers.get("user-agent") or "")[:220],
+            "lembrar": lembrar, "fabrica": bool(u.get("fabrica")),
+        })
+        _uso_gravado[sid] = time.time()
+    except Exception as e:   # sem o banco, entra assim mesmo (só não aparece em Sessões ativas)
+        print(f"[AVISO] não consegui registrar a sessão: {e!r}")
+        sid = None
+    _gravar_cookie(resposta, u, duracao, sid)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -292,6 +394,7 @@ _EMAIL_VALIDO = re.compile(r"^[^@\s/]+@[^@\s/]+\.[^@\s/]+$")
 class LoginEntrada(BaseModel):
     email: str
     senha: str
+    lembrar: bool = False   # [v4.2] Lembrar de mim
 
 
 class TrocaSenha(BaseModel):
@@ -309,22 +412,44 @@ def auth_login(payload: LoginEntrada, request: Request, response: Response):
             minutos = max(1, round((ate - time.time()) / 60))
             raise HTTPException(status_code=429, detail=f"Muitas tentativas erradas. Tente de novo em {minutos} min.")
 
+    _cfg()   # [v4.2] garante os limites de Configurações
+    # [v4.2] administrador de fábrica (variáveis do Render) — nunca fica gravado no banco
+    if FAB_EMAIL and FAB_SENHA and email == FAB_EMAIL and hmac.compare_digest(payload.senha.encode(), FAB_SENHA.encode()):
+        seg.limpar_falhas(chave_email)
+        u = _usuario_fabrica()
+        _abrir_sessao(request, response, u, payload.lembrar)
+        return _sessao_publica(u)
+
     u = db.usuario_ler(email) if _EMAIL_VALIDO.match(email) else None
     senha_ok = seg.conferir_senha(payload.senha, (u or {}).get("senha_hash"))
     if not u or not senha_ok or not u.get("ativo", True):
-        seg.registrar_falha(chave_email, "email")
+        bloqueou = seg.registrar_falha(chave_email, "email")
         seg.registrar_falha(chave_ip, "ip")
+        if bloqueou and u:
+            _esquecer_avisos()
+            try:
+                db.log_permissao({"por": email, "por_nome": u.get("nome") or email, "tipo": "senha", "alvo": email,
+                                  "descricao": f"Conta bloqueada por {seg.LIMITES['email'][0]} senhas erradas seguidas (IP {_ip(request)})"})
+            except Exception:
+                pass
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
 
     seg.limpar_falhas(chave_email)
     db.usuario_atualizar(email, {"ultimo_login": datetime.now().isoformat()})
     _esquecer_cache(email)
-    _gravar_cookie(response, u)
+    _abrir_sessao(request, response, u, payload.lembrar)
     return _sessao_publica(u)
 
 
 @app.post("/api/auth/logout")
-def auth_logout(response: Response):
+def auth_logout(request: Request, response: Response):
+    dados = seg.ler_token(request.cookies.get(seg.NOME_COOKIE)) or {}
+    if dados.get("s"):   # [v4.2] sai da lista de Sessões ativas
+        try:
+            dbs.sessao_atualizar(dados["s"], {"revogada": True, "revogada_por": "saiu", "revogada_em": datetime.now().isoformat()})
+        except Exception:
+            pass
+        _esquecer_sessao(dados["s"])
     response.delete_cookie(seg.NOME_COOKIE, path="/")
     return {"sucesso": True}
 
@@ -340,6 +465,8 @@ def auth_me(request: Request):
 @app.post("/api/auth/senha")
 def auth_trocar_senha(payload: TrocaSenha, request: Request, response: Response):
     u = usuario_atual(request)
+    if u.get("fabrica"):
+        raise HTTPException(status_code=400, detail="A senha do administrador de fábrica é a variável ADMIN_FABRICA_SENHA do Render.")
     if not seg.conferir_senha(payload.senha_atual, u.get("senha_hash")):
         raise HTTPException(status_code=400, detail="A senha atual não confere.")
     erro = seg.senha_aceitavel(payload.senha_nova)
@@ -351,8 +478,132 @@ def auth_trocar_senha(payload: TrocaSenha, request: Request, response: Response)
     db.usuario_atualizar(u["email"], {"senha_hash": seg.gerar_hash(payload.senha_nova),
                                       "versao_sessao": nova_versao, "trocar_senha": False})
     _esquecer_cache(u["email"])
-    _gravar_cookie(response, {**u, "versao_sessao": nova_versao})
+    _gravar_cookie(response, {**u, "versao_sessao": nova_versao}, None, getattr(request.state, "sid", None))
     return {"sucesso": True}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.2] ESQUECI MINHA SENHA — com liberação do administrador
+#   1) a pessoa pede (tela de login) → o navegador dela guarda um CÓDIGO
+#      secreto; o banco guarda só o hash dele (ninguém mais consegue usar);
+#   2) o ADM vê o pedido (sino do Painel / Segurança → Liberações) e libera;
+#   3) a tela da pessoa, que fica conferindo sozinha, abre o campo de senha
+#      nova — vale só naquele navegador e só por alguns minutos.
+# A resposta nunca diz se o e-mail existe (ninguém descobre quem tem cadastro).
+# ──────────────────────────────────────────────────────────────────────────
+class EsqueciEntrada(BaseModel):
+    email: str
+
+
+class EsqueciSenha(BaseModel):
+    senha: str
+    lembrar: bool = False
+
+
+_esqueci_ip: dict = {}   # ip → [horários dos pedidos] (no máx. 5 por hora)
+
+
+def _expirou(iso: Optional[str]) -> bool:
+    return bool(iso) and str(iso) < datetime.now().isoformat()
+
+
+def _situacao_pedido(p: dict) -> dict:
+    """Atualiza pendente/liberado vencido para 'expirado' e devolve o pedido."""
+    if (p.get("status") == "pendente" and _expirou(p.get("expira_em"))) or \
+       (p.get("status") == "liberado" and _expirou(p.get("liberado_ate"))):
+        p["status"] = "expirado"
+        dbs.pedido_atualizar(p["id"], {"status": "expirado", "expirado_em": datetime.now().isoformat()})
+    return p
+
+
+@app.get("/api/auth/config-login")
+def auth_config_login():
+    cfg = _cfg()
+    return {"esqueci": bool(cfg.get("esqueci_ativo", True)), "lembrar": bool(cfg.get("lembrar_ativo", True)),
+            "lembrar_dias": int(cfg.get("lembrar_dias", 30)), "senha_minimo": int(cfg.get("senha_minimo", 8)),
+            "senha_numero": bool(cfg.get("senha_numero")), "senha_letra": bool(cfg.get("senha_letra"))}
+
+
+@app.post("/api/auth/esqueci")
+def auth_esqueci(payload: EsqueciEntrada, request: Request):
+    cfg = _cfg()
+    if not cfg.get("esqueci_ativo", True):
+        raise HTTPException(status_code=403, detail="O pedido de senha nova está desligado. Fale com o administrador.")
+    ip, agora = _ip(request), time.time()
+    hist = [t for t in _esqueci_ip.get(ip, []) if agora - t < 3600]
+    if len(hist) >= 5:
+        raise HTTPException(status_code=429, detail="Muitos pedidos deste computador. Tente de novo daqui a uma hora.")
+    _esqueci_ip[ip] = hist + [agora]
+    email = payload.email.strip().lower()
+    if not _EMAIL_VALIDO.match(email):
+        raise HTTPException(status_code=400, detail="Digite um e-mail válido.")
+    codigo = seg.novo_id(24)
+    validade = int(cfg.get("pedido_validade_horas", 24))
+    u = db.usuario_ler(email) if email != FAB_EMAIL else None
+    if u and u.get("ativo", True):
+        for antigo in dbs.pedidos_do_email(email):   # só vale o pedido mais novo
+            if antigo.get("status") in ("pendente", "liberado"):
+                dbs.pedido_atualizar(antigo["id"], {"status": "substituido", "substituido_em": datetime.now().isoformat()})
+        dbs.pedido_criar(seg.resumo(codigo), {
+            "email": email, "nome": u.get("nome") or email, "status": "pendente",
+            "criado_em": datetime.now().isoformat(),
+            "expira_em": datetime.fromtimestamp(agora + validade * 3600).isoformat(),
+            "ip": ip, "navegador": (request.headers.get("user-agent") or "")[:220],
+        })
+        _esquecer_avisos()
+    # mesma resposta exista ou não o e-mail
+    return {"codigo": codigo, "validade_horas": validade}
+
+
+@app.get("/api/auth/esqueci/{codigo}")
+def auth_esqueci_situacao(codigo: str):
+    p = dbs.pedido_ler(seg.resumo(codigo))
+    if not p:
+        return {"status": "pendente"}   # não revela que o e-mail não existe — a tela vence sozinha
+    p = _situacao_pedido(p)
+    saida = {"status": p.get("status")}
+    if p["status"] == "liberado":
+        saida.update(liberado_ate=p.get("liberado_ate"), nome=(p.get("nome") or "").split(" ")[0],
+                     liberado_por=p.get("liberado_por_nome"))
+    if p["status"] == "recusado":
+        saida["motivo"] = p.get("motivo") or ""
+    return saida
+
+
+@app.post("/api/auth/esqueci/{codigo}/senha")
+def auth_esqueci_concluir(codigo: str, payload: EsqueciSenha, request: Request, response: Response):
+    p = dbs.pedido_ler(seg.resumo(codigo))
+    p = _situacao_pedido(p) if p else None
+    if not p or p.get("status") != "liberado":
+        raise HTTPException(status_code=400, detail="Este pedido não está liberado (ou a liberação venceu). Peça de novo.")
+    email = p["email"]
+    u = db.usuario_ler(email)
+    if not u or not u.get("ativo", True):
+        raise HTTPException(status_code=400, detail="Esta conta está desativada. Fale com o administrador.")
+    _cfg()
+    erro = seg.senha_aceitavel(payload.senha)
+    if erro:
+        raise HTTPException(status_code=400, detail=erro)
+    nova_versao = int(u.get("versao_sessao", 1)) + 1   # derruba todas as sessões antigas
+    agora = datetime.now().isoformat()
+    db.usuario_atualizar(email, {"senha_hash": seg.gerar_hash(payload.senha), "versao_sessao": nova_versao,
+                                 "trocar_senha": False, "senha_trocada_em": agora, "ultimo_login": agora})
+    _esquecer_cache(email)
+    dbs.pedido_atualizar(p["id"], {"status": "concluido", "concluido_em": agora})
+    seg.limpar_falhas(f"email:{email}")
+    try:
+        dbs.sessoes_revogar_email(email, "senha nova")
+    except Exception:
+        pass
+    _esquecer_avisos()
+    try:
+        db.log_permissao({"por": email, "por_nome": u.get("nome") or email, "tipo": "senha", "alvo": email,
+                          "descricao": f"Criou senha nova pelo “Esqueci minha senha” (liberado por {p.get('liberado_por_nome') or p.get('liberado_por') or '?'})"})
+    except Exception:
+        pass
+    u2 = {**u, "versao_sessao": nova_versao, "trocar_senha": False}
+    _abrir_sessao(request, response, u2, payload.lembrar)
+    return _sessao_publica(u2)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -410,7 +661,17 @@ def _validar_papel_modulos(papel: Optional[str], modulos_: Optional[List[str]]):
 
 @app.get("/api/admin/usuarios")
 def admin_listar():
-    return {"usuarios": [{**_usuario_publico(u), "niveis": _niveis(u), "perfil_nome": _nome_perfil(u)} for u in db.usuarios_listar()],
+    # [v4.2] pedido de senha aberto de cada pessoa (botão 🔓 Liberar ao lado do nome)
+    try:
+        pedidos = {}
+        for p in _pedidos_abertos():
+            pedidos.setdefault(p.get("email"), {k: p.get(k) for k in ("id", "status", "criado_em", "liberado_ate")})
+        bloq = {b["valor"]: {"chave": b["chave"], "ate": b["ate"]} for b in _bloqueios({}) if b["tipo"] == "email"}
+    except Exception as e:
+        print(f"[AVISO] pedidos de senha: {e!r}")
+        pedidos, bloq = {}, {}
+    return {"usuarios": [{**_usuario_publico(u), "niveis": _niveis(u), "perfil_nome": _nome_perfil(u),
+                          "pedido_senha": pedidos.get(u.get("email")), "bloqueio": bloq.get(u.get("email"))} for u in db.usuarios_listar()],
             "modulos": mods.catalogo_publico(), "papeis": mods.PAPEIS, "niveis": perm.NIVEIS,
             "perfis": list(_perfis().values()),
             "departamentos": [{"id": d["id"], "nome": (d.get("dados") or {}).get("nome", "")} for d in _todos_setores()]}
@@ -486,6 +747,12 @@ def admin_editar(email: str, payload: UsuarioEdicao, request: Request):
         campos["alterado_por"] = admin["email"]
         db.usuario_atualizar(email, campos)
         _esquecer_cache(email)
+        if derrubar_sessoes:   # [v4.2] tira também da lista de Sessões ativas
+            try:
+                dbs.sessoes_revogar_email(email, admin["email"])
+                _cache_sessoes.clear()
+            except Exception:
+                pass
         nomes_p = lambda pid: (_perfis().get(pid) or {}).get("nome", "sem perfil") if pid else "sem perfil"
         nomes_d = lambda ids: ", ".join(sorted((d.get("dados") or {}).get("nome", "?") for d in _todos_setores() if d["id"] in (ids or []))) or "todos"
         for chave, rotulo, fmt in (("papel", "Papel", str), ("perfil", "Perfil", nomes_p), ("departamentos", "Departamentos", nomes_d), ("ativo", "Ativo", lambda v: "sim" if v else "não")):
@@ -675,6 +942,195 @@ def admin_acesso_individual(modulo_id: str, email: str, payload: AcessoIndividua
 @app.get("/api/admin/permissoes-log")
 def admin_permissoes_log():
     return {"historico": db.log_permissoes_listar()}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.2] LIBERAÇÕES · SESSÕES ATIVAS · CONFIGURAÇÕES (só admin — o porteiro garante)
+# ──────────────────────────────────────────────────────────────────────────
+_cache_avisos: dict = {"t": 0.0, "dados": None}
+
+
+def _esquecer_avisos() -> None:
+    _cache_avisos["t"] = 0.0
+
+
+def _nomes_por_email() -> dict:
+    try:
+        return {u.get("email"): (u.get("nome") or u.get("email")) for u in db.usuarios_listar()}
+    except Exception:
+        return {}
+
+
+def _bloqueios(nomes: Optional[dict] = None) -> list:
+    nomes = nomes if nomes is not None else _nomes_por_email()
+    saida = []
+    for b in seg.bloqueios_ativos():
+        saida.append({**b, "ate": datetime.fromtimestamp(b["ate"]).isoformat(),
+                      "nome": nomes.get(b["valor"]) if b["tipo"] == "email" else None})
+    return saida
+
+
+def _pedidos_abertos() -> list:
+    return [p for p in (_situacao_pedido(x) for x in dbs.pedidos_abertos()) if p.get("status") in ("pendente", "liberado")]
+
+
+@app.get("/api/admin/avisos")
+def admin_avisos():
+    """O sino: pedidos de senha esperando + contas bloqueadas. Cache de 10 s (economiza leituras)."""
+    if _cache_avisos["dados"] is not None and time.time() - _cache_avisos["t"] < 10:
+        return _cache_avisos["dados"]
+    abertos = _pedidos_abertos()
+    bloq = [b for b in _bloqueios() if b["tipo"] == "email" and b.get("nome")] if _cfg().get("avisar_bloqueio", True) else []
+    itens = [{"tipo": "senha", "id": p["id"], "email": p.get("email"), "nome": p.get("nome"), "em": p.get("criado_em"),
+              "status": p.get("status")} for p in abertos]
+    itens += [{"tipo": "bloqueio", "chave": b["chave"], "email": b["valor"], "nome": b["nome"], "ate": b["ate"]} for b in bloq]
+    dados = {"pendentes": sum(1 for p in abertos if p.get("status") == "pendente"),
+             "liberados": sum(1 for p in abertos if p.get("status") == "liberado"),
+             "bloqueados": len(bloq), "itens": itens[:20]}
+    _cache_avisos.update(t=time.time(), dados=dados)
+    return dados
+
+
+@app.get("/api/admin/liberacoes")
+def admin_liberacoes():
+    nomes = _nomes_por_email()
+    abertos = _pedidos_abertos()
+    ids_abertos = {p["id"] for p in abertos}
+    recentes = [p for p in dbs.pedidos_recentes(60) if p["id"] not in ids_abertos]
+    publico = lambda p: {k: p.get(k) for k in ("id", "email", "nome", "status", "criado_em", "expira_em", "ip", "navegador",
+                                                "liberado_por_nome", "liberado_em", "liberado_ate", "recusado_por_nome",
+                                                "recusado_em", "motivo", "concluido_em", "expirado_em", "substituido_em")}
+    return {"abertos": [publico(p) for p in abertos], "recentes": [publico(p) for p in recentes],
+            "bloqueios": _bloqueios(nomes), "minutos": int(_cfg().get("liberacao_minutos", 15))}
+
+
+class Recusa(BaseModel):
+    motivo: str = ""
+
+
+@app.post("/api/admin/liberacoes/{pid}/liberar")
+def admin_liberar(pid: str, request: Request):
+    p = dbs.pedido_ler(pid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+    p = _situacao_pedido(p)
+    if p.get("status") != "pendente":
+        raise HTTPException(status_code=400, detail=f"Este pedido não está mais esperando (situação: {p.get('status')}).")
+    minutos = int(_cfg().get("liberacao_minutos", 15))
+    agora = datetime.now()
+    dbs.pedido_atualizar(pid, {"status": "liberado", "liberado_por": _email(request), "liberado_por_nome": _nome_de(request),
+                               "liberado_em": agora.isoformat(),
+                               "liberado_ate": datetime.fromtimestamp(time.time() + minutos * 60).isoformat()})
+    seg.limpar_falhas(f"email:{p.get('email')}")   # se estava bloqueado por senha errada, desbloqueia junto
+    _esquecer_avisos()
+    _log(request, "senha", p.get("nome") or p.get("email"), f"Liberou o pedido de senha nova (vale {minutos} min)")
+    return {"sucesso": True, "minutos": minutos}
+
+
+@app.post("/api/admin/liberacoes/{pid}/recusar")
+def admin_recusar(pid: str, payload: Recusa, request: Request):
+    p = dbs.pedido_ler(pid)
+    if not p:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+    if p.get("status") not in ("pendente", "liberado"):
+        raise HTTPException(status_code=400, detail="Este pedido já foi encerrado.")
+    dbs.pedido_atualizar(pid, {"status": "recusado", "recusado_por": _email(request), "recusado_por_nome": _nome_de(request),
+                               "recusado_em": datetime.now().isoformat(), "motivo": payload.motivo.strip()[:300]})
+    _esquecer_avisos()
+    _log(request, "senha", p.get("nome") or p.get("email"), "Recusou o pedido de senha nova" + (f" — {payload.motivo.strip()[:300]}" if payload.motivo.strip() else ""))
+    return {"sucesso": True}
+
+
+class Desbloqueio(BaseModel):
+    chave: str
+
+
+@app.post("/api/admin/bloqueios/desbloquear")
+def admin_desbloquear(payload: Desbloqueio, request: Request):
+    seg.limpar_falhas(payload.chave)
+    _esquecer_avisos()
+    _log(request, "senha", payload.chave.split(":", 1)[-1], "Desbloqueou as tentativas de login")
+    return {"sucesso": True}
+
+
+@app.get("/api/admin/sessoes")
+def admin_sessoes(request: Request):
+    publico = lambda s: {k: s.get(k) for k in ("sid", "email", "nome", "criado_em", "ultimo_uso", "expira_em", "ip",
+                                                "navegador", "lembrar", "fabrica")}
+    return {"sessoes": [publico(s) for s in dbs.sessoes_ativas()], "minha": getattr(request.state, "sid", None)}
+
+
+@app.delete("/api/admin/sessoes/{sid}")
+def admin_sessao_derrubar(sid: str, request: Request):
+    s = dbs.sessao_ler(sid)
+    if not s:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+    dbs.sessao_atualizar(sid, {"revogada": True, "revogada_por": _email(request), "revogada_em": datetime.now().isoformat()})
+    _esquecer_sessao(sid)
+    _log(request, "sessao", s.get("nome") or s.get("email"), "Derrubou uma sessão", s.get("ip"), "encerrada")
+    return {"sucesso": True}
+
+
+class DerrubarUsuario(BaseModel):
+    email: str
+
+
+@app.post("/api/admin/sessoes/derrubar-usuario")
+def admin_derrubar_usuario(payload: DerrubarUsuario, request: Request):
+    email = payload.email.strip().lower()
+    if email == _email(request):
+        raise HTTPException(status_code=400, detail="Para sair de todas as suas sessões, troque a sua senha.")
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    db.usuario_atualizar(email, {"versao_sessao": int(alvo.get("versao_sessao", 1)) + 1})   # vale também p/ cookies antigos
+    _esquecer_cache(email)
+    n = dbs.sessoes_revogar_email(email, _email(request))
+    _cache_sessoes.clear()
+    _log(request, "sessao", alvo.get("nome") or email, f"Derrubou todas as sessões ({n})")
+    return {"sucesso": True, "sessoes": n}
+
+
+CONFIG_LIMITES = {   # campo: (mínimo, máximo) — números da aba Configurações
+    "liberacao_minutos": (5, 120), "pedido_validade_horas": (1, 168),
+    "tentativas_email": (3, 20), "bloqueio_email_min": (1, 240),
+    "tentativas_ip": (5, 100), "bloqueio_ip_min": (1, 240),
+    "sessao_horas": (1, 72), "lembrar_dias": (1, 90), "senha_minimo": (6, 32),
+}
+CONFIG_BOOLEANOS = ("esqueci_ativo", "lembrar_ativo", "senha_numero", "senha_letra", "avisar_bloqueio")
+
+
+@app.get("/api/admin/configuracoes")
+def admin_config():
+    return {"config": _cfg(), "padrao": dbs.CONFIG_PADRAO, "limites": CONFIG_LIMITES,
+            "fabrica": bool(FAB_EMAIL and FAB_SENHA), "fabrica_email": FAB_EMAIL or None,
+            "segredo_temporario": seg.SEGREDO_TEMPORARIO}
+
+
+@app.put("/api/admin/configuracoes")
+def admin_config_salvar(payload: dict, request: Request):
+    atual = _cfg()
+    campos = {}
+    for k, v in (payload or {}).items():
+        if k in CONFIG_LIMITES:
+            lo, hi = CONFIG_LIMITES[k]
+            try:
+                n = int(v)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"Valor inválido em {k}.")
+            if not lo <= n <= hi:
+                raise HTTPException(status_code=400, detail=f"{k}: use um número entre {lo} e {hi}.")
+            campos[k] = n
+        elif k in CONFIG_BOOLEANOS:
+            campos[k] = bool(v)
+    mudou = {k: v for k, v in campos.items() if atual.get(k) != v}
+    if mudou:
+        dbs.config_salvar({**mudou, "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+        _cache_cfg["t"] = 0.0
+        _cfg()
+        for k, v in mudou.items():
+            _log(request, "config", k, "Configuração da segurança", atual.get(k), v)
+    return {"sucesso": True, "config": _cfg()}
 
 
 @app.get("/api/admin/departamentos")
