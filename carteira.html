@@ -492,6 +492,12 @@ async function descompactar(partes,formato){
 
 // ═══ dados ═══
 let NIVEL=3, USUARIO="", EMAIL="", MEUS_SETORES=[], ADMIN=false;
+// [v4.16] PERMISSÃO POR ABA — 0 Sem acesso (a aba some) · 1 Visualizar · 2 Adicionar · 3 Editar · 4 Excluir.
+// NIVEL passa a ser o da ABA aberta (até 3); PODE_EXCLUIR = aba em “Excluir”. Sem lista de abas, segue o sistema.
+let NIVEL_SIS=3, ABAS_N=null, PODE_EXCLUIR=true;
+const MIN_ABA={importar:3,config:3};
+function nivelAba(id){ if(ABAS_N&&id in ABAS_N) return Number(ABAS_N[id])||0; const n=NIVEL_SIS; return n<(MIN_ABA[id]||1)?0:(n>=3?4:n); }
+function aplicarNivelAba(){ const n=nivelAba(secao); NIVEL=Math.min(3,n); PODE_EXCLUIR=n>=4; }
 let DIAS=[], FOTO=null, FOTO_DATA="", FOTO_ATUAL=null, TRAT=new Map(), CFG=null;
 let statusAtual={tipo:"ok",det:""};
 function setStatus(t,d){ statusAtual={tipo:t,det:d||""}; $("#dot").className="dot "+t; $("#who").classList.toggle("erro",t==="erro");
@@ -664,11 +670,13 @@ function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ li
   secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
   const abertas=[...TRAT.values()].filter(aberta).length, _pa=pendenciasAreas();   // [v4.15] contadores do CX e do Compras
-  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
+  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||nivelAba(x[0])>=1).map(x=>x==="sep"?'<div class="side-sep"></div>':
     `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&FOTO?`<span class="n" style="background:var(--prog)">${faltaTriar().length}</span>`:""}${x[0]==="cx"&&_pa.paraCX?`<span class="n" style="background:${corArea("cx")}">${_pa.paraCX}</span>`:""}${x[0]==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<span class="n" style="background:${corArea("compras")}">${_pa.paraCompras+_pa.vencidas}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 }
 function render(){
+  if(nivelAba(secao)<1){ const prim=SECOES.find(x=>x!=="sep"&&nivelAba(x[0])>=1); if(prim) secao=prim[0]; }   // [v4.16] aba sem acesso: vai para a primeira liberada
+  aplicarNivelAba();
   atualizarMenu(); desenharLembrete(); const c=$("#root"); c.innerHTML="";
   if(!FOTO&&!["importar","config","historico"].includes(secao)){ c.innerHTML=`<div class="aviso"><b>Nenhuma carteira importada ainda.</b> ${NIVEL>=3?'Use <b>⤒ Importar a carteira do dia</b> e arraste as duas planilhas do BI.':"Peça a quem tem o perfil Editar no módulo para importar a carteira do dia."}</div>`; return; }
   if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
@@ -1329,7 +1337,7 @@ function renderReposicao(c){
         <td><b>${esc(r.de_pedido)}</b> <span class="muted">loja ${esc(r.de_loja||"")}</span> · ${esc(nomeCurto(r.de_cliente))} · ${r.de_entrega?dataBR(r.de_entrega):"sem data"}</td>
         <td><b>${esc(r.para_pedido)}</b> · ${esc(nomeCurto(r.para_cliente))} · ${r.para_entrega?dataBR(r.para_entrega):"—"}</td><td>${esc(r.local_de||"—")}${r.local_para&&r.local_para!==r.local_de?` → ${esc(r.local_para)}`:""}</td>
         <td>${esc(r.por||"—")}</td><td>${r.status==="aberta"&&!r.viu_bloqueado?'<span class="pill p-cinza" title="A próxima planilha deve mostrar o item bloqueado no pedido que doou">aguardando o ERP</span> ':""}${ST[r.status]||esc(r.status)}${r.fechada_em?` <span class="muted">${dataBR(String(r.fechada_em).slice(0,10))}</span>`:""}</td>
-        <td>${NIVEL>=3&&r.status==="aberta"?`<button type="button" class="peq" data-rep="${esc(t.dados.chave)}|${esc(r.id)}" title="Marcar como reposta à mão">✓ Reposta</button> <button type="button" class="peq warn" data-can="${esc(t.dados.chave)}|${esc(r.id)}" title="A retirada não aconteceu">✕</button>`:""}</td></tr>`).join("")
+        <td>${NIVEL>=3&&r.status==="aberta"?`<button type="button" class="peq" data-rep="${esc(t.dados.chave)}|${esc(r.id)}" title="Marcar como reposta à mão">✓ Reposta</button> ${PODE_EXCLUIR?` <button type="button" class="peq warn" data-can="${esc(t.dados.chave)}|${esc(r.id)}" title="A retirada não aconteceu">✕</button>`:""}`:""}</td></tr>`).join("")
       ||'<tr><td colspan="9" class="muted" style="text-align:center;padding:20px">Nada aqui.</td></tr>'}</tbody></table></div>`;
   const rb=$("#rpBusca",c); rb.oninput=()=>{ SOL.repoBusca=rb.value; clearTimeout(rb._t); rb._t=setTimeout(()=>{ const pos=rb.selectionStart; render(); const n=$("#rpBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },300); };
   $("#rpSt",c).onchange=e=>{ SOL.repoSt=e.target.value; render(); };
@@ -1731,9 +1739,9 @@ function desenharLembrete(){
   const r=pendenciasAreas(), min=(()=>{ try{ return sessionStorage.getItem("cart_lembrete_min")==="1"; }catch(_){ return false; } })();
   const co=[r.paraCompras?`<b>${r.paraCompras}</b> pedido(s) do CX esperando resposta`:"",r.vencidas?`<b>${r.vencidas}</b> previsão(ões) vencida(s)`:"",r.semCompras?`<b>${r.semCompras}</b> pedido(s) com Compras sem tratativa`:""].filter(Boolean);
   const cx=[r.paraCX?`<b>${r.paraCX}</b> pedido(s) do Compras esperando devolutiva`:"",r.alt?`<b>${r.alt}</b> produto(s) alternativo(s) para oferecer`:""].filter(Boolean);
-  if(!co.length&&!cx.length){ box.innerHTML=""; box.hidden=true; return; }
+  if((!co.length||nivelAba("compras")<1)&&(!cx.length||nivelAba("cx")<1)){ box.innerHTML=""; box.hidden=true; return; }
   box.hidden=false;
-  const linha=(a,itens,dest)=>itens.length?`<div class="lb-linha${minhaArea(a)?" minha":""}" style="--ac:${corArea(a)}"><span class="lb-area">${a==="cx"?"📞 CX":"🛒 Compras"}${minhaArea(a)?' <span class="pill p-aco">sua área</span>':""}</span><span class="lb-txt">${itens.join(" · ")}</span><button type="button" class="peq" data-lb="${dest}">Abrir ${a==="cx"?"CX":"Compras"} →</button></div>`:"";
+  const linha=(a,itens,dest)=>itens.length&&nivelAba(dest)>=1?`<div class="lb-linha${minhaArea(a)?" minha":""}" style="--ac:${corArea(a)}"><span class="lb-area">${a==="cx"?"📞 CX":"🛒 Compras"}${minhaArea(a)?' <span class="pill p-aco">sua área</span>':""}</span><span class="lb-txt">${itens.join(" · ")}</span><button type="button" class="peq" data-lb="${dest}">Abrir ${a==="cx"?"CX":"Compras"} →</button></div>`:"";
   box.innerHTML=min?`<button type="button" class="lb-mini" id="lbMax">🔔 Pendências entre CX e Compras: ${r.pedCompras.size+r.pedCX.size} pedido(s) — mostrar</button>`
     :`<div class="lb-cab">🔔 <b>Pendências entre áreas</b><span class="muted">— o pingue-pongue CX × Compras: quem precisa responder agora</span><button type="button" class="lb-x" id="lbMin" title="Recolher (volta a aparecer ao recarregar)">recolher ▴</button></div>${linha("compras",co,"compras")}${linha("cx",cx,"cx")}`;
   box.querySelectorAll("[data-lb]").forEach(b=>b.onclick=()=>{ if(b.dataset.lb==="compras"){ COS.escopo="pendentes"; } else { CXS.view="devolutiva"; CXS.soPend=true; } ir(b.dataset.lb); });
@@ -1744,8 +1752,8 @@ function desenharLembrete(){
 function avisoAoEntrar(){
   try{ if(sessionStorage.getItem("cart_aviso_areas")) return; sessionStorage.setItem("cart_aviso_areas","1"); }catch(_){}
   const r=pendenciasAreas(), m=[];
-  if(minhaArea("compras")&&(r.paraCompras||r.vencidas)) m.push(`🛒 <b>Compras:</b> ${r.paraCompras} pedido(s) do CX esperando resposta${r.vencidas?` e ${r.vencidas} previsão(ões) vencida(s)`:""}.`);
-  if(minhaArea("cx")&&(r.paraCX||r.alt)) m.push(`📞 <b>CX:</b> ${r.paraCX} pedido(s) do Compras esperando devolutiva${r.alt?` e ${r.alt} alternativo(s) para oferecer`:""}.`);
+  if(minhaArea("compras")&&nivelAba("compras")>=1&&(r.paraCompras||r.vencidas)) m.push(`🛒 <b>Compras:</b> ${r.paraCompras} pedido(s) do CX esperando resposta${r.vencidas?` e ${r.vencidas} previsão(ões) vencida(s)`:""}.`);
+  if(minhaArea("cx")&&nivelAba("cx")>=1&&(r.paraCX||r.alt)) m.push(`📞 <b>CX:</b> ${r.paraCX} pedido(s) do Compras esperando devolutiva${r.alt?` e ${r.alt} alternativo(s) para oferecer`:""}.`);
   if(m.length) toast("🔔 "+m.join("<br>"));
 }
 
@@ -1762,7 +1770,7 @@ function textoSolucao(s){ return s?s.moves.map(m=>`${m.t}× ${m.prod} ${m.desc} 
 const estPG={};   // chave → formulário aberto
 function liEvento(e){ const c=e.setor?corArea(e.setor):"var(--idle)"; return `<li style="--sc:${c}"><b>${e.setor?(e.setor==="cx"?"CX":"Compras"):"—"}</b> · ${esc(e.texto)}<small>${dataHoraBR(e.em)} · ${esc(e.por||"—")}</small></li>`; }
 function montarInteracao(box,p,foco){
-  const d=interDe(p.k)||novaInter(p), pode=NIVEL>=2&&!p.fora, F=estPG[p.k]||"", bl=itensBloqueados(p), cx=d.cx||null;
+  const d=interDe(p.k)||novaInter(p), podeCo=nivelAba("compras")>=2&&!p.fora, podeCx=nivelAba("cx")>=2&&!p.fora, podeArea=a=>nivelAba(a)>=2&&!p.fora, F=estPG[p.k]||"", bl=itensBloqueados(p), cx=d.cx||null;
   const sols=(d.solicitacoes||[]).slice().reverse(), ab=sols.filter(s=>s.status==="aberta"), fe=sols.filter(s=>s.status!=="aberta");
   const sol=bl.length?solucaoPara(p):null, tent=(d.cx_hist||[]).filter(h=>/sem sucesso/i.test(h.devolutiva)).length;
   const formCo=prod=>{ const c=coDe(d,prod); return `<div class="pg-form" data-fco="${esc(prod)}">
@@ -1778,7 +1786,7 @@ function montarInteracao(box,p,foco){
       return `<div class="pg-item"><div class="pg-item-t"><b>${esc(prod)}</b> · ${esc(i[IT.desc])} <span class="muted">· ${esc(i[IT.local]||"—")} · ${int(i[IT.qtd])} un</span></div>
         <div class="pg-item-l">${pillCo(c.situacao)}${c.fornecedor?` <span class="muted">fornecedor</span> <b>${esc(c.fornecedor)}</b>`:""}${c.nova_data?` · nova data <b class="${venc?"txt-bad":""}">${dataBR(c.nova_data)}</b>${venc?' <span class="pill p-bad">vencida</span>':""}`:""}${c.motivo?` · motivo: ${esc(c.motivo)}`:""}</div>
         <div class="pg-item-l muted">${u?`📞 Cobrado ao fornecedor em <b>${dataHoraBR(u.em)}</b> por <b>${esc(u.por)}</b>${u.obs?` — “${esc(u.obs)}”`:""}${(c.cobrancas||[]).length>1?` · ${(c.cobrancas||[]).length} cobranças`:""}`:"Ainda não cobrado ao fornecedor."}</div>
-        ${F==="co:"+prod?formCo(prod):pode?`<button type="button" class="peq" data-abrir="co:${esc(prod)}">✎ Atualizar / registrar cobrança</button>`:""}</div>`; }).join("")
+        ${F==="co:"+prod?formCo(prod):podeCo?`<button type="button" class="peq" data-abrir="co:${esc(prod)}">✎ Atualizar / registrar cobrança</button>`:""}</div>`; }).join("")
     :`<p class="cap" style="margin:0">${p.fora?"Pedido fora da carteira atual.":"Nenhum item bloqueado neste pedido."}</p>`;
   const alts=(d.alternativos||[]).slice().reverse();
   const formAlt=`<div class="pg-form" data-falt><label class="f">Item que ele substitui<select data-a="item">${bl.map(i=>`<option value="${esc(i[IT.prod])}">${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>
@@ -1787,7 +1795,7 @@ function montarInteracao(box,p,foco){
       <div class="pg-bts"><button type="button" class="primary" data-salvaralt>Sugerir ao CX</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`;
   const blocoAlt=`<div class="pg-sub"><b>🔁 Produto alternativo</b>${alts.length?alts.map(a=>`<div class="pg-alt"><b>${esc(a.prod)}</b> · ${esc(a.desc)} <span class="muted">(no lugar de ${esc(a.item)})</span>${a.prazo?` · ${esc(a.prazo)}`:""} ${a.status==="sugerido"?'<span class="pill p-warn">aguardando o cliente (CX)</span>':a.status==="aceito"?'<span class="pill p-ok">cliente aceitou</span>':'<span class="pill p-cinza">cliente não quis</span>'}
       ${a.obs?`<br><span class="muted">“${esc(a.obs)}”</span>`:""}<br><small class="muted">sugerido por ${esc(a.por)} em ${dataHoraBR(a.em)}${a.resp_por?` · resposta do CX por ${esc(a.resp_por)} em ${dataHoraBR(a.resp_em)}`:""}</small></div>`).join(""):'<p class="cap" style="margin:4px 0 0">Nenhum alternativo sugerido.</p>'}
-      ${F==="alt"?formAlt:pode&&bl.length?`<button type="button" class="peq" data-abrir="alt">＋ Sugerir produto alternativo ao CX</button>`:""}</div>`;
+      ${F==="alt"?formAlt:podeCo&&bl.length?`<button type="button" class="peq" data-abrir="alt">＋ Sugerir produto alternativo ao CX</button>`:""}</div>`;
   const formCx=`<div class="pg-form" data-fcx>
       <label class="f">Colaborador<input data-x="colab" value="${esc(colabCX(d)||USUARIO)}"></label>
       <label class="f">Devolutiva<select data-x="devolutiva"><option value="">— escolha —</option>${DEVOLUTIVAS.map(v=>`<option value="${esc(v)}">${esc(v==="Sem sucesso"?`Sem sucesso no contato (vira ${tent+1}ª tentativa)`:v)}</option>`).join("")}</select></label>
@@ -1799,7 +1807,7 @@ function montarInteracao(box,p,foco){
   const blocoCx=`<div class="pg-cx-atual">${pillDev(devolutiva(d))}${cx?` <span class="muted">por</span> <b>${esc(cx.colab||cx.por)}</b> · ação de ${dataBR(cx.data_acao)}${cx.nova_previsao?` · nova previsão aceita <b class="newdate">${dataBR(cx.nova_previsao)}</b>`:""}${cx.atendeu?` · atendeu: ${esc(cx.atendeu)}`:""}${cx.obs?`<br><span class="muted">“${esc(cx.obs)}”</span>`:""}`:""}
       ${d.cx_resp?`<div class="cap" style="margin:4px 0 0">Responsável no CX: <b>${esc(d.cx_resp)}</b></div>`:""}${tent?`<div class="cap" style="margin:2px 0 0">${tent} tentativa(s) sem sucesso</div>`:""}</div>
       ${(d.cx_hist||[]).length>1?`<details class="pg-det"><summary>histórico de devolutivas (${d.cx_hist.length})</summary><ul class="hist">${d.cx_hist.slice().reverse().map(h=>`<li style="--sc:${corDev(h.devolutiva)}">${esc(h.devolutiva)}${h.nova_previsao?` · nova previsão ${dataBR(h.nova_previsao)}`:""}${h.obs?` — “${esc(h.obs)}”`:""}<small>ação ${dataBR(h.data_acao)} · ${esc(h.colab||h.por)} · gravado ${dataHoraBR(h.em)}</small></li>`).join("")}</ul></details>`:""}
-      ${F==="cx"?formCx:pode?`<button type="button" class="peq" data-abrir="cx">✎ Registrar devolutiva do contato</button>`:""}`;
+      ${F==="cx"?formCx:podeCx?`<button type="button" class="peq" data-abrir="cx">✎ Registrar devolutiva do contato</button>`:""}`;
   // pedidos entre as áreas
   const formSol=para=>`<div class="pg-form" data-fsol="${para}">
       <label class="f">${para==="compras"?"Pedir ao Compras":"Pedir ao CX"}<select data-s="tipo">${TIPOS_SOL[para].map(t=>`<option value="${t[0]}">${esc(t[1])}</option>`).join("")}</select></label>
@@ -1818,7 +1826,7 @@ function montarInteracao(box,p,foco){
       ${s.texto?`<div style="margin-top:3px">“${esc(s.texto)}”</div>`:""}${s.sol_txt?`<div class="cap" style="margin:3px 0 0">💡 Soluções: ${esc(s.sol_txt)}</div>`:""}
       <small class="muted">${esc(s.por)} · ${dataHoraBR(s.em)}</small>
       ${s.resposta||s.resp_por?`<div class="pg-resp">↩ ${esc(s.resposta||"(sem texto)")}<small class="muted"> — ${esc(s.resp_por)} · ${dataHoraBR(s.resp_em)}</small></div>`:""}
-      ${s.status==="aberta"&&pode?(F==="resp:"+s.id?formResp(s):`<div class="pg-bts"><button type="button" class="peq primary" data-abrir="resp:${esc(s.id)}">↩ Responder</button>${nrm(s.email)===nrm(EMAIL)||NIVEL>=3?`<button type="button" class="peq" data-cancsol="${esc(s.id)}">cancelar</button>`:""}</div>`):""}</div>`; };
+      ${s.status==="aberta"&&(podeArea(s.para)||podeArea(s.de))?(F==="resp:"+s.id?formResp(s):`<div class="pg-bts">${podeArea(s.para)?`<button type="button" class="peq primary" data-abrir="resp:${esc(s.id)}">↩ Responder</button>`:`<span class="muted">esperando ${s.para==="cx"?"o CX":"o Compras"}</span>`}${podeArea(s.de)&&(nrm(s.email)===nrm(EMAIL)||nivelAba(s.de)>=4)?`<button type="button" class="peq" data-cancsol="${esc(s.id)}">cancelar</button>`:""}</div>`):""}</div>`; };
   const t=tratDe(p.k);
   box.className="pg";
   box.innerHTML=`<div class="pg-topo"><b>Com quem está:</b> ${bolaHTML(p)}${t&&aberta(t)?` <span class="muted">· triagem:</span> ${pillsSetores(t)} <span class="muted">${esc(t.dados.classe)} — ${esc(t.dados.motivo)} · há ${diasComSetor(t)} d</span>`:""}</div>
@@ -1828,7 +1836,7 @@ function montarInteracao(box,p,foco){
     </div>
     <div class="pg-sub"><b>🔁 Pedidos entre as áreas</b> <span class="muted">— uma área pede, a outra responde e devolve</span>
       ${ab.length?ab.map(cardSol).join(""):'<p class="cap" style="margin:4px 0">Nada pendente entre CX e Compras neste pedido.</p>'}
-      ${F==="sol:compras"?formSol("compras"):F==="sol:cx"?formSol("cx"):pode?`<div class="pg-bts"><button type="button" class="peq" data-abrir="sol:compras">📞→🛒 CX pede ao Compras</button><button type="button" class="peq" data-abrir="sol:cx">🛒→📞 Compras pede ao CX</button></div>`:""}
+      ${F==="sol:compras"?formSol("compras"):F==="sol:cx"?formSol("cx"):podeCx||podeCo?`<div class="pg-bts">${podeCx?'<button type="button" class="peq" data-abrir="sol:compras">📞→🛒 CX pede ao Compras</button>':""}${podeCo?'<button type="button" class="peq" data-abrir="sol:cx">🛒→📞 Compras pede ao CX</button>':""}</div>`:""}
       ${fe.length?`<details class="pg-det"><summary>respondidos / cancelados (${fe.length})</summary>${fe.map(cardSol).join("")}</details>`:""}</div>
     ${(d.eventos||[]).length?`<details class="pg-det"><summary>linha do tempo do pedido (${d.eventos.length})</summary><ul class="hist">${d.eventos.slice().reverse().slice(0,80).map(liEvento).join("")}</ul></details>`:""}`;
   const redesenhar=()=>montarInteracao(box,p,foco);
@@ -1883,7 +1891,8 @@ function registrarDevolutiva(dd,p,x){
 }
 // resumo curto para o card da Triagem e das Pendências por setor
 function montarResumoInteracao(box,p){
-  if(!box) return; const d=interDe(p.k), bl=itensBloqueados(p);
+  if(!box) return; if(nivelAba("cx")<1&&nivelAba("compras")<1){ box.innerHTML=""; return; }   // [v4.16] sem as abas CX e Compras: não mostra
+  const d=interDe(p.k), bl=itensBloqueados(p);
   const co=bl.map(i=>{ const c=coDe(d,i[IT.prod]); return c.situacao||c.nova_data||(c.cobrancas||[]).length?`<div><b>${esc(i[IT.prod])}</b> ${pillCo(c.situacao)}${c.nova_data?` · nova data <b>${dataBR(c.nova_data)}</b>`:""}${ultimaCobranca(c)?` · cobrado ${dataHoraCurta(ultimaCobranca(c).em)} por ${esc(nomeCurto(ultimaCobranca(c).por))}`:""}</div>`:""; }).filter(Boolean);
   const aberto=box.dataset.aberto==="1";
   box.innerHTML=`<div class="ri"><div class="ri-cab"><b>📞 CX · 🛒 Compras</b> ${bolaHTML(p,"")}<button type="button" class="peq" data-ri>${aberto?"▴ recolher":"▾ abrir e registrar"}</button></div>
@@ -2218,11 +2227,11 @@ function celInter(p){ const d=interDe(p.k), b=bolaDe(p), ev=d&&d.eventos&&d.even
   return `<div class="cel">${b.length?b.map(x=>pillArea(x.a,x.a==="cx"?"CX":"Compras")).join(" "):pillDev(devolutiva(d))}<span class="corta" title="${esc(ev?`${ev.texto} · ${ev.por} · ${dataHoraCurta(ev.em)}`:"")}">${ev?`${esc(ev.texto)} · ${esc(nomeCurto(ev.por))}`:""}</span></div>`; }
 
 async function iniciar(){
-  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; } }catch(_){}
+  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; NIVEL_SIS=a.nivelSistema!=null?a.nivelSistema:a.nivel; ABAS_N=a.abas||null; EMAIL=a.email; } }catch(_){}
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||""; ADMIN=u.papel==="admin";
       const deps=u.departamentos||[];
       if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
-  $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
+  $("#btImportar").hidden=nivelAba("importar")<3; $("#btImportar").onclick=()=>ir("importar");
   $("#btRelatorio").onclick=()=>{ if(!FOTO) return alert("Nenhuma carteira importada ainda."); exportarRelatorio("relatorio_completo",FOTO.pedidos); };
   try{
     const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas(),carregarInteracoes()]);   // [v4.15] + CX × Compras
