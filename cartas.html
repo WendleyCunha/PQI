@@ -186,6 +186,11 @@ function carimbo(){ const d=new Date(); return `${d.getFullYear()}${pad(d.getMon
 function nomeArq(s){ return tx(s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w.-]+/g,"_").replace(/_+/g,"_").slice(0,80)||"carta"; }
 
 // ═══ dados ═══
+// [v4.16] permissão por aba: NIVEL = nível da aba aberta (até 3) · PODE_EXCLUIR = aba em “Excluir”
+let NIVEL_SIS=1, ABAS_N=null, PODE_EXCLUIR=false;
+const MIN_ABA={nova:2};
+function nivelAba(id){ if(ABAS_N&&id in ABAS_N) return Number(ABAS_N[id])||0; const n=NIVEL_SIS; return n<(MIN_ABA[id]||1)?0:(n>=3?4:n); }
+function aplicarNivelAba(){ const n=nivelAba(secao); NIVEL=Math.min(3,n); PODE_EXCLUIR=n>=4; }
 let NIVEL=1, ADMIN=false, CARTAS=[], COLAB=[], LOTES=[], LIMITE=900*1024;
 async function api(url,op={}){
   const r=await fetch(url,{headers:op.body instanceof FormData?{}:{"Content-Type":"application/json"},cache:"no-store",...op});
@@ -199,7 +204,7 @@ function setStatus(t,d){ $("#dot").className="dot "+t; $("#who").classList.toggl
 const D=r=>Object.assign({id:r.id,versao:r.versao,criado_por:r.criado_por,criado_por_email:r.criado_por_email,criado_em:r.criado_em},r.dados||{});
 async function carregar(){
   const j=await api(API);
-  NIVEL=Number(j.nivel??NIVEL); LIMITE=Number(j.limite_arquivo)||LIMITE;
+  NIVEL_SIS=Number(j.nivel??NIVEL_SIS); ABAS_N=j.abas||null; LIMITE=Number(j.limite_arquivo)||LIMITE;
   CARTAS=(j.cartas||[]).map(D); COLAB=(j.colaboradores||[]).map(D).filter(c=>c.nome).sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR"));
   LOTES=(j.lotes||[]).map(D).sort((a,b)=>String(b.fechado_em||"").localeCompare(String(a.fechado_em||"")));
   setStatus("ok");
@@ -318,13 +323,14 @@ let secao="painel"; try{ secao=sessionStorage.getItem("cartas_secao")||"painel";
 function ir(s){ secao=s; try{ sessionStorage.setItem("cartas_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
   const nA=aguardando().length, nR=recebidas().length;
-  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
+  $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||nivelAba(x[0])>=1).map(x=>x==="sep"?'<div class="side-sep"></div>':
     `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="painel"&&nA?`<span class="n">${nA}</span>`:""}${x[0]==="fechamento"&&nR?`<span class="n" style="background:var(--ok)">${nR}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
-  $("#btNova").hidden=NIVEL<2||secao==="nova";
+  $("#btNova").hidden=nivelAba("nova")<2||secao==="nova";
 }
 function render(){
-  if(secao==="nova"&&NIVEL<2) secao="painel";
+  if(nivelAba(secao)<1||(secao==="nova"&&nivelAba("nova")<2)){ const prim=SECOES.find(x=>x!=="sep"&&nivelAba(x[0])>=(x[0]==="nova"?2:1)); if(prim) secao=prim[0]; }
+  aplicarNivelAba();
   atualizarMenu(); const c=$("#root"); c.innerHTML="";
   if(NIVEL<2) c.insertAdjacentHTML("beforeend",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil em Cartas de Débito permite consultar e baixar o Word, sem registrar.</p>');
   const box=el("div"); c.appendChild(box);
@@ -428,7 +434,7 @@ function renderPainel(c){
         <div><span class="rot">Valor</span><div class="valor">${moeda(x.VALOR)}</div></div>
         <div><span class="rot">Motivo</span><div class="motivo">${esc(x.MOTIVO||"—")}</div></div>
         <span class="muted" style="font-size:12px">Registrada por ${esc(x.criado_por||"—")} · ${dataHoraBR(x.criado_em)} · <a href="#" data-hist>histórico</a></span>
-        <div class="bts"><button type="button" class="peq" data-word>📂 Baixar Word</button>${podeEditarCarta(x)?'<button type="button" class="peq" data-edit>✏️ Editar</button>':""}${NIVEL>=3?'<button type="button" class="peq warn" data-del title="Excluir carta">🗑️</button>':""}</div>
+        <div class="bts"><button type="button" class="peq" data-word>📂 Baixar Word</button>${podeEditarCarta(x)?'<button type="button" class="peq" data-edit>✏️ Editar</button>':""}${PODE_EXCLUIR?'<button type="button" class="peq warn" data-del title="Excluir carta">🗑️</button>':""}</div>
         ${NIVEL>=2?`<label class="up" title="Clique ou arraste o arquivo aqui"><input type="file" accept="image/*,application/pdf,.doc,.docx" data-up><b style="font-weight:600">⤒ Enviar carta assinada</b><span class="muted" style="width:100%;font-size:12px">clique ou arraste aqui · foto, PDF ou Word</span></label>`:""}
       </article>`).join("")}</div>`).join("");
   }
@@ -502,7 +508,7 @@ function renderHistorico(c){
               ${NIVEL>=3?`<td>${x.status===FECHADA?`<button type="button" class="peq" data-reab="${esc(x.id)}" title="Volta para o Painel como Aguardando Assinatura">🔓 Reabrir</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table></div>`
             :'<p class="cap">As cartas deste lote não foram encontradas no banco.</p>'}
           ${NIVEL>=3?`<div class="acoes"><button type="button" class="peq" data-xls="${esc(l.id)}">📊 Excel completo</button><button type="button" class="peq" data-zip="${esc(l.id)}" ${comArq?"":"disabled"}>📥 ZIP assinadas (${comArq}/${l.cartas.length})</button>
-            ${comArq?`<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin-left:auto"><input type="checkbox" data-conf="${esc(l.id)}" style="width:16px;height:16px"> Confirmo excluir os ${comArq} arquivo(s)</label><button type="button" class="peq warn" data-limpa="${esc(l.id)}" disabled>🗑️ Excluir arquivos do lote</button>`:'<span class="cap" style="margin:0 0 0 auto">✅ Este lote já não tem arquivos anexados.</span>'}</div>
+            ${comArq&&PODE_EXCLUIR?`<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin-left:auto"><input type="checkbox" data-conf="${esc(l.id)}" style="width:16px;height:16px"> Confirmo excluir os ${comArq} arquivo(s)</label><button type="button" class="peq warn" data-limpa="${esc(l.id)}" disabled>🗑️ Excluir arquivos do lote</button>`:'<span class="cap" style="margin:0 0 0 auto">✅ Este lote já não tem arquivos anexados.</span>'}</div>
             ${comArq?'<p class="cap" style="margin:0">⚠️ Baixe o ZIP antes de excluir — não dá para desfazer. Só remove os arquivos; o registro do lote (nomes, valores, datas) continua.</p>':""}`
             :'<p class="cap" style="margin:8px 0 0">🔒 Exportar e excluir arquivos exigem o perfil <b>Editar</b>.</p>'}
         </div></details>`; }).join("")}</div></section>`;
@@ -531,8 +537,8 @@ function renderConfig(c){
     <div class="box"><b>👤 Colaboradores</b> <span class="muted">· ${int(COLAB.length)} cadastrado(s)</span>
       ${NIVEL>=2?`<div class="grade" style="margin-top:10px;grid-template-columns:2fr 1fr auto;align-items:end"><label class="f">Nome<input id="cfNome" autocomplete="off"></label><label class="f">CPF<input id="cfCpf" inputmode="numeric"></label><button type="button" class="primary" id="cfAdd">➕ Adicionar</button></div><span class="msg" id="cfMsg"></span>`:""}
       <input id="cfBusca" placeholder="Buscar colaborador por nome ou CPF..." value="${esc(estCfg.busca)}" style="margin-top:12px">
-      <div class="tbl-wrap" style="max-height:40vh;margin-top:8px"><table><thead><tr><th>Nome</th><th>CPF</th><th class="num">Cartas</th>${NIVEL>=3?"<th></th>":""}</tr></thead><tbody>${
-        lst.map(x=>{ const n=CARTAS.filter(k=>k.NOME===x.nome).length; return `<tr><td><b>${esc(x.nome)}</b></td><td>${esc(x.cpf)}</td><td class="num">${int(n)}</td>${NIVEL>=3?`<td><button type="button" class="peq warn" data-delc="${esc(x.id)}" title="Remover da lista (as cartas continuam)">🗑️</button></td>`:""}</tr>`; }).join("")||'<tr><td colspan="4" class="muted" style="text-align:center;padding:18px">Nenhum colaborador.</td></tr>'}</tbody></table></div></div>
+      <div class="tbl-wrap" style="max-height:40vh;margin-top:8px"><table><thead><tr><th>Nome</th><th>CPF</th><th class="num">Cartas</th>${PODE_EXCLUIR?"<th></th>":""}</tr></thead><tbody>${
+        lst.map(x=>{ const n=CARTAS.filter(k=>k.NOME===x.nome).length; return `<tr><td><b>${esc(x.nome)}</b></td><td>${esc(x.cpf)}</td><td class="num">${int(n)}</td>${PODE_EXCLUIR?`<td><button type="button" class="peq warn" data-delc="${esc(x.id)}" title="Remover da lista (as cartas continuam)">🗑️</button></td>`:""}</tr>`; }).join("")||'<tr><td colspan="4" class="muted" style="text-align:center;padding:18px">Nenhum colaborador.</td></tr>'}</tbody></table></div></div>
     ${NIVEL>=3?`<div class="box"><b>📤 Importar colaboradores em lote (Excel ou CSV)</b><p class="cap" style="margin:2px 0 8px">Coluna A = Nome, coluna B = CPF. Com ou sem cabeçalho. Nome já cadastrado tem o CPF atualizado.</p>
       <input type="file" id="cfArq" accept=".xlsx,.csv,.txt" style="max-width:420px"><div id="cfPrevia"></div></div>
     <div class="box"><b>📊 Base completa</b><p class="cap" style="margin:2px 0 8px">Todas as cartas (${int(CARTAS.length)}) — pendentes, assinadas e arquivadas.</p><button type="button" id="cfBase" ${CARTAS.length?"":"disabled"}>📊 Exportar TODAS as cartas (.xlsx)</button></div>
