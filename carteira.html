@@ -247,6 +247,85 @@ tr.indev td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
   .doc-head{grid-template-columns:1fr} .filtros .busca{grid-column:auto} .barra-l{grid-template-columns:110px 1fr 54px}
 }
 @media print{ .bar,.side-rg,.acoes,.filtros{display:none!important} body{background:#fff} .wrap{padding:0} .shell-item{display:block} }
+/* ═══ [v4.15] CX × COMPRAS ═══ */
+.lembrete{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:6px}
+.lb-cab{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:14px}
+.lb-x{margin-left:auto;font-size:12px;padding:3px 9px}
+.lb-mini{background:none;border:0;padding:0;font-size:13.5px;color:var(--ink-2);text-align:left;cursor:pointer}
+.lb-linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-left:5px solid var(--ac);background:color-mix(in srgb,var(--ac) 7%,var(--sheet));border-radius:6px;padding:7px 10px;font-size:14px}
+.lb-linha.minha{box-shadow:inset 0 0 0 2px var(--ac);animation:pulsa 2.4s ease-in-out 3}
+@keyframes pulsa{50%{background:color-mix(in srgb,var(--ac) 18%,var(--sheet))}}
+@media (prefers-reduced-motion:reduce){.lb-linha.minha{animation:none}}
+.lb-area{font-weight:700;min-width:110px}
+.lb-txt{flex:1;min-width:220px}
+.lembrete-area{border-left:5px solid var(--ac);background:color-mix(in srgb,var(--ac) 8%,var(--sheet));border-radius:8px;padding:10px 14px;margin:0 0 12px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mainnav{display:flex;gap:6px;flex-wrap:wrap;background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:5px;margin:0 0 12px}
+.mainnav button{flex:1 1 160px;background:transparent;border:0;border-radius:8px;padding:10px 14px;font:600 17px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3)}
+.mainnav button:hover{color:var(--ink);background:var(--rule-2)}
+.mainnav button[aria-selected="true"]{background:var(--steel);color:var(--sheet)}
+.fbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:8px 14px;margin:0 0 12px;font-size:13.5px}
+.fbar select{width:auto;min-width:170px}
+.fbl{font:600 16px "IBM Plex Sans Condensed",sans-serif;margin-right:4px}
+.sectionhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cmp{display:flex;flex-direction:column;gap:12px}
+.cmprow{display:grid;grid-template-columns:minmax(150px,230px) 1fr 74px;gap:12px;align-items:center;background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit;width:100%}
+button.cmprow{cursor:pointer} button.cmprow:hover .n{color:var(--steel);text-decoration:underline}
+.cmprow .n{font-weight:600} .cmprow .n small{display:block;color:var(--ink-3);font-weight:400;font-size:12.5px}
+.stack{display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--rule-2)}
+.stack span{height:100%;min-width:2px;border-right:2px solid var(--sheet)} .stack span:last-child{border-right:0}
+.cmprow .pct{text-align:right;font:700 19px "IBM Plex Sans Condensed",sans-serif} .cmprow .pct small{display:block;font:400 11.5px "IBM Plex Sans",sans-serif;color:var(--ink-3)}
+@media (max-width:860px){.cmprow{grid-template-columns:1fr 64px}.cmprow .stack{grid-column:1/-1;grid-row:2}}
+.cards-cx{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:10px 0}
+.card-cx{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 12px 12px 18px;text-align:left;display:flex;flex-direction:column;gap:5px;position:relative;overflow:hidden;font:inherit;color:inherit;cursor:pointer}
+.card-cx::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--c)}
+.card-cx:hover{border-color:var(--c)} .card-cx[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c);background:var(--rule-2)}
+.card-cx .h{font-weight:600;font-size:14px} .card-cx .v{font:700 30px/1 "IBM Plex Sans Condensed",sans-serif} .card-cx .v small{font:500 12.5px "IBM Plex Sans",sans-serif;color:var(--ink-3);margin-left:6px}
+.card-cx .bar{height:5px;border-radius:3px;background:var(--rule-2)} .card-cx .bar b{display:block;height:100%;border-radius:3px;background:var(--c)}
+.tabs-cx{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
+.tab-cx{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:9px 14px;font:600 17px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);margin-bottom:-1px}
+.tab-cx[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--amber)}
+.tab-cx .c{font:500 12px "IBM Plex Sans",sans-serif;background:var(--rule-2);border-radius:999px;padding:1px 8px;margin-left:6px}
+table.dt-cx{min-width:1180px;font-size:13.5px} table.dt-cx td{vertical-align:top} table.dt-cx .nw{white-space:nowrap}
+table.dt-cx .obs{max-width:300px;color:var(--ink-3)} table.dt-cx tr.tr-pend td:first-child{box-shadow:inset 4px 0 0 var(--amber)}
+.sub{display:block;font-size:12px;color:var(--ink-3)}
+.newdate{font-weight:700;color:var(--amber)} .txt-bad{color:var(--bad);font-weight:600} .txt-ok{color:var(--ok)}
+.seg2{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg2 button{background:transparent;border:0;border-radius:0;padding:6px 12px;font-size:13.5px;color:var(--ink-3)}
+.seg2 button[aria-pressed="true"]{background:var(--amber-soft);color:var(--ink);font-weight:600}
+table.pv tr.pvrow,table.pv tr.prodrow{cursor:pointer} table.pv tr.pvrow:hover td,table.pv tr.prodrow:hover td{background:var(--rule-2)} table.pv tr.sel td{background:var(--amber-soft)}
+table.pv tfoot td{font-weight:700}
+.nd{display:inline-flex;align-items:baseline;gap:4px;border:1px solid var(--amber);border-radius:6px;padding:1px 7px;margin:2px 6px 2px 0;font-size:13px;white-space:nowrap}
+.nd b{color:var(--amber)} .nd em{font-style:normal;color:var(--ink-3);font-size:11.5px}
+table.mx{font-size:13.5px} table.mx .z{color:var(--rule)} .heat{border-radius:4px;padding:1px 6px;display:inline-block;min-width:26px;text-align:center}
+.dot-c{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mini-bar{display:inline-block;width:60px;height:7px;border-radius:4px;background:var(--rule-2);overflow:hidden;vertical-align:1px} .mini-bar i{display:block;height:100%}
+.kpi-lead{background:var(--ink);color:var(--sheet);border-color:var(--ink)} .kpi-lead > span,.kpi-lead small{color:color-mix(in srgb,var(--sheet) 75%,transparent)}
+button.kpi.ativo{box-shadow:inset 0 0 0 2px var(--kc,var(--steel))}
+.chk{display:inline-flex;gap:7px;align-items:center;font-size:13.5px;cursor:pointer} .chk input{width:16px;height:16px;accent-color:var(--steel)}
+.filtros-rodape .chk{margin-right:14px}
+/* painel do pedido CX ⇄ Compras */
+.pg{display:flex;flex-direction:column;gap:10px;background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;white-space:normal}
+.pg-topo{font-size:14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pg-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px} @media (max-width:900px){.pg-cols{grid-template-columns:1fr}}
+.pg-col{background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--ac);border-radius:10px;padding:10px 12px;min-width:0}
+.pg-col h4{margin:0 0 8px;font-size:16px}
+.pg-cols.foco-cx .pg-col:last-child,.pg-cols.foco-co .pg-col:first-child{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent)}
+.pg-item{border-bottom:1px dashed var(--rule);padding:6px 0 8px;font-size:13.5px} .pg-item:last-of-type{border-bottom:0}
+.pg-item-t{font-size:14px} .pg-item-l{margin-top:3px}
+.pg-sub{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.pg-col .pg-sub{border:0;padding:8px 0 0;border-top:1px solid var(--rule);border-radius:0;margin-top:8px}
+.pg-alt{padding:6px 0;border-bottom:1px dashed var(--rule)}
+.pg-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;background:var(--paper);border:1px solid var(--amber);border-radius:8px;padding:10px;margin:8px 0 2px}
+.pg-form label.f{font-size:12.5px} .pg-form textarea{min-height:52px}
+.pg-bts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;grid-column:1/-1;margin-top:4px}
+.pg-sol{border-left:4px solid var(--rule);padding:6px 10px;margin:6px 0;border-radius:4px;background:var(--paper)}
+.pg-sol.aberta{border-left-color:var(--ac);background:color-mix(in srgb,var(--ac) 7%,var(--sheet))}
+.pg-resp{margin-top:4px;padding-left:10px;border-left:2px solid var(--ok)}
+.pg-det{margin-top:6px;font-size:13px} .pg-det summary{cursor:pointer;color:var(--ink-3)}
+.pg-cx-atual{font-size:14px;line-height:1.6}
+.ri{margin-top:10px;border:1px solid var(--rule);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13.5px}
+.ri-cab{display:flex;gap:6px;flex-wrap:wrap;align-items:center} .ri-cab .peq{margin-left:auto}
+.ri-l{margin-top:4px} .ri [data-pg]{margin-top:8px}
 </style>
 </head>
 <body>
@@ -258,7 +337,7 @@ tr.indev td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
 <div class="wrap">
   <div class="shell-item">
     <nav class="side-rg" id="menu" aria-label="Seções da carteira"></nav>
-    <div class="conteudo-item"><main id="root"><p class="cap">Carregando a carteira…</p></main></div>
+    <div class="conteudo-item"><div id="lembreteAreas" class="lembrete" hidden aria-live="polite"></div><main id="root"><p class="cap">Carregando a carteira…</p></main></div>
   </div>
   <footer class="doc-foot">Carteira de Encomendas · BI “Pedidos em Aberto” + “PV Abertos”, unidos por loja + pedido · cada classificação deixa a pendência com um setor.</footer>
 </div>
@@ -572,28 +651,30 @@ const ICO={
   itens:SV+'<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>',
   filas:SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>',
   solucoes:SV+'<path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
+  cx:SV+'<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>',
+  compras:SV+'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 002 1.6h9.7a2 2 0 002-1.6L23 6H6"/></svg>',
   historico:SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
   importar:SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
   config:SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
 };
-const SECOES=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],["solucoes","Soluções",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
+const SECOES=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],["cx","CX",1],["compras","Compras",1],["solucoes","Soluções",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
 let secao="painel";
 try{ secao=sessionStorage.getItem("cart_secao")||"painel"; }catch(_){}
 function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ liberar(estT.reservado); estT.reservado=""; estT.aberto=""; }   // saiu da triagem: devolve o pedido
   secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
-  const abertas=[...TRAT.values()].filter(aberta).length;
+  const abertas=[...TRAT.values()].filter(aberta).length, _pa=pendenciasAreas();   // [v4.15] contadores do CX e do Compras
   $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||NIVEL>=x[2]).map(x=>x==="sep"?'<div class="side-sep"></div>':
-    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&FOTO?`<span class="n" style="background:var(--prog)">${faltaTriar().length}</span>`:""}</button>`).join("");
+    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&FOTO?`<span class="n" style="background:var(--prog)">${faltaTriar().length}</span>`:""}${x[0]==="cx"&&_pa.paraCX?`<span class="n" style="background:${corArea("cx")}">${_pa.paraCX}</span>`:""}${x[0]==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<span class="n" style="background:${corArea("compras")}">${_pa.paraCompras+_pa.vencidas}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 }
 function render(){
-  atualizarMenu(); const c=$("#root"); c.innerHTML="";
+  atualizarMenu(); desenharLembrete(); const c=$("#root"); c.innerHTML="";
   if(!FOTO&&!["importar","config","historico"].includes(secao)){ c.innerHTML=`<div class="aviso"><b>Nenhuma carteira importada ainda.</b> ${NIVEL>=3?'Use <b>⤒ Importar a carteira do dia</b> e arraste as duas planilhas do BI.':"Peça a quem tem o perfil Editar no módulo para importar a carteira do dia."}</div>`; return; }
   if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
   const vd=$("#vdVoltar",c); if(vd) vd.onclick=()=>{ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; render(); };
   const box=el("div"); c.appendChild(box);
-  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
+  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,cx:renderCx,compras:renderCompras,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
   if(NIVEL<2) c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil na Carteira permite consultar, sem classificar.</p>');
 }
 
@@ -881,6 +962,7 @@ function montarPainelPedido(box,p,modo,aoFim){
       ${d&&!indev_?(aberta_?`<p style="margin:0">📌 Pendente com ${pillsSetores(t)} há ${diasComSetor(t)} dia(s) · <b>${esc(d.classe)}</b> — ${esc(d.motivo)}</p>`
           :d.status==="ok"?`<p style="margin:0"><span class="pill p-ok">✓ ${ROT_CORRECAO}</span>${notaCorrecao(t)?` “${esc(notaCorrecao(t))}”`:""}</p>`:`<p style="margin:0"><span class="pill p-ok">✓ Resolvida</span> ${esc(d.classe)} — ${esc(d.motivo)}</p>`)
         :indev_?(d.status==="reposicao"?'<p style="margin:0"><span class="pill p-roxo">↪ Doou peça para outro pedido — aguardando reposição</span> <span class="muted">(ainda não analisado na triagem)</span></p>':""):`<p style="margin:0"><span class="pill p-azul">🔎 Ainda não analisado</span></p>`}
+      <div data-inter></div>
       ${outro?`<div class="trava">🔒 <b>Em análise por ${esc(outro.por||outro.email)}</b> agora — para não tratarem o mesmo pedido em dobro, só essa pessoa pode classificar até terminar (ou a reserva vencer).</div>`
       :NIVEL>=2?`<div class="grupos-mot">${classes.map(cl=>{ const ms=ativos.filter(m=>m.classe===cl), sets=[...new Set(ms.map(m=>m.setor))];
           return `<div class="grupo-mot" style="--sc:${setorPor(sets[0]).cor}"><div class="gm-cab"><b>${esc(cl)}</b><span>${esc(sets.map(x=>setorPor(x).nome).join(" · "))}</span></div>
@@ -905,6 +987,7 @@ function montarPainelPedido(box,p,modo,aoFim){
   const on=(sel,acao)=>{ const b=box.querySelector(sel); if(b) b.onclick=()=>agir({acao}); };
   on("[data-ok]","ok"); on("[data-res]","resolver"); on("[data-reab]","reabrir"); on("[data-nt]","nota");
   atualizarConf();
+  montarResumoInteracao(box.querySelector("[data-inter]"),p);   // [v4.15] o que o CX e o Compras registraram
 }
 async function classificarLote(lst,depois){
   const mot=$("#ltMot").value, msg=$("#ltMsg"), nota=$("#ltNota").value;
@@ -922,7 +1005,7 @@ async function classificarLote(lst,depois){
 const estFila={setor:"",status:"aberta",aberto:"",busca:"",motivo:"",ord:"dias",dir:-1};
 // [v4.10] lista em UMA LINHA por pedido: Pedido · Cliente · Código · Entrega/prazo · Status · Produto·Descrição ·
 // Classificação·motivo · Setor · Com o setor há · Última nota (última ação de uma PESSOA — ignora as automáticas)
-const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["codigo","Código"],["entrega","Entrega / prazo"],["status","Status"],["produto","Produto · Descrição"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"]];
+const COLS_FILA=[["pedido","Pedido"],["cliente","Cliente"],["codigo","Código"],["entrega","Entrega / prazo"],["status","Status"],["produto","Produto · Descrição"],["classe","Classificação · motivo"],["setor","Setor"],["dias","Com o setor há","num"],["nota","Última nota"],["inter","CX · Compras"]];
 const ACOES_PESSOA=["classificar","nota","resolver","reabrir","ok"];
 function ultimaAcaoPessoa(d){ return [...((d&&d.historico)||[])].reverse().find(h=>ACOES_PESSOA.includes(h.acao))||null; }
 function nomeCurto(n){ return tx(n).split(/\s+/).filter(Boolean).slice(0,2).join(" ")||"—"; }
@@ -930,7 +1013,7 @@ function dataHoraCurta(v){ if(!v) return ""; const d=new Date(v); return isNaN(d
 function textoUltimaAcao(h){ if(!h) return ""; const a=textoHist(h).replace(/<[^>]+>/g,"");   // já vem escapado
   return `${a}${h.nota?` — “${esc(h.nota)}”`:""} · ${esc(h.por||"—")} · ${dataHoraCurta(h.em)}`; }
 // ── larguras das colunas: arrastar a borda do título; fica guardado neste navegador ──
-const LARG_FILA_PADRAO={pedido:90,cliente:150,codigo:100,entrega:200,status:120,produto:300,classe:290,setor:120,dias:130,nota:420,acao:120};
+const LARG_FILA_PADRAO={pedido:90,cliente:150,codigo:100,entrega:200,status:120,produto:300,classe:290,setor:120,dias:130,nota:420,inter:300,acao:120};
 const CHAVE_LARG_FILA="cart_fila_larguras";
 function largurasFila(){ let g={}; try{ g=JSON.parse(localStorage.getItem(CHAVE_LARG_FILA)||"{}")||{}; }catch(_){} return {...LARG_FILA_PADRAO,...g}; }
 function salvarLargurasFila(g){ try{ localStorage.setItem(CHAVE_LARG_FILA,JSON.stringify(g)); }catch(_){} }
@@ -977,20 +1060,21 @@ function chaveOrdemFila(o,naFoto){ const {t,p}=o, d=t.dados, b=itensBloqueados(p
     case "setor": return nrm(setoresDe(t).map(x=>setorPor(x).nome).join(" + "));
     case "dias": return diasComSetor(t);
     case "nota": return u?String(u.em||""):"";
+    case "inter": { const di=interDe(d.chave), ev=di&&di.eventos&&di.eventos[di.eventos.length-1]; return (bolaDe(p).length?"0":"1")+(ev?String(ev.em):""); }
     default: return 0; } }
 function buscaFila(o,q){ if(!q) return true; const {t,p}=o, d=t.dados;
   return [d.pedido,d.chave,d.loja,d.cliente,p.n,p.c,p.ci,d.classe,d.motivo,d.situacao,...motivosDe(t).map(m=>m.motivo),
-    ...p.it.flatMap(i=>[i[IT.prod],i[IT.desc]]),...(d.historico||[]).map(h=>h.nota)].some(x=>nrm(x).includes(q)); }
+    ...p.it.flatMap(i=>[i[IT.prod],i[IT.desc]]),...(d.historico||[]).map(h=>h.nota),...(((interDe(d.chave)||{}).eventos)||[]).map(e=>e.texto)].some(x=>nrm(x).includes(q)); }
 function pedidoDaTrat(t){ const d=t.dados; return (FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos.find(p=>p.k===d.chave))||
   {k:d.chave,p:d.pedido,l:d.loja,ln:"",c:"",n:d.cliente,em:"",en:"",st:"",tp:"",sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:0,it:[],fora:true}; }
 function renderFilas(c){
-  const todas=[...TRAT.values()], abertas=todas.filter(aberta), naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(p=>p.k));
+  const _pa=pendenciasAreas(), todas=[...TRAT.values()], abertas=todas.filter(aberta), naFoto=new Set(((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).map(p=>p.k));
   if(!estFila.setor){ const meu=cfg().setores.find(s=>MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))); estFila.setor=meu?meu.id:"__todos"; }
   c.innerHTML=`<section><header><h2>Pendências por setor</h2><p>A bola está com quem? Cada setor trata a própria fila e devolve (resolve ou toca para outro setor).</p>
       <span class="direita"><button type="button" class="peq" id="flLarg" title="Volta todas as colunas ao tamanho original">↔ Larguras padrão</button><button type="button" class="peq" id="flXls">⬇️ Excel</button></span></header>
     <div class="setores">${[{id:"__todos",nome:"Todos os setores",cor:"#4A5568"},...cfg().setores].map(s=>{ const l=s.id==="__todos"?abertas:abertas.filter(t=>setoresDe(t).includes(s.id));
       const est=l.filter(foraDoPrazo).length;
-      return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small></button>`; }).join("")}</div>
+      return `<button type="button" class="setor-card${estFila.setor===s.id?" ativo":""}" style="--sc:${s.cor}" data-set="${s.id}"><h4>${esc(s.nome)}${MEUS_SETORES.some(n=>nrm(n)===nrm(s.nome))?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${l.length}</b><small>${est?`<span style="color:var(--bad);font-weight:600">${est} fora do prazo</span>`:"no prazo"}</small>${s.id==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<small style="color:${corArea("compras")};font-weight:600">🔔 ${_pa.paraCompras} do CX · ${_pa.vencidas} previsão vencida</small>`:s.id==="cx"&&_pa.paraCX?`<small style="color:${corArea("cx")};font-weight:600">🔔 ${_pa.paraCX} do Compras esperando</small>`:""}</button>`; }).join("")}</div>
     <div class="filtros" style="grid-template-columns:minmax(170px,220px) minmax(220px,1fr) minmax(260px,2fr)">
       <select id="flSt" aria-label="Situação"><option value="aberta"${estFila.status==="aberta"?" selected":""}>Abertas</option><option value="resolvida"${estFila.status==="resolvida"?" selected":""}>Resolvidas (últimos 30 dias)</option></select>
       <select id="flMot" aria-label="Motivo"><option value="">Motivo: todos</option>${[...new Set(cfg().motivos.map(m=>m.classe))].map(cl=>`<optgroup label="${esc(cl)}">${cfg().motivos.filter(m=>m.classe===cl).map(m=>`<option value="${esc(m.id)}"${m.id===estFila.motivo?" selected":""}>${esc(m.motivo)} → ${esc(setorPor(m.setor).nome)}${m.ativo===false?" (inativo)":""}</option>`).join("")}</optgroup>`).join("")}</select>
@@ -1024,8 +1108,9 @@ function renderFilas(c){
         <td title="${esc(`${d.classe||""} · ${d.motivo||""}`)}"><span class="corta"><b>${esc(d.classe)}</b> · ${esc(d.motivo)}</span></td><td>${pillsSetores(t)||'<span class="muted">—</span>'}</td>
         <td class="num">${sla?`<span class="pill p-bad">${dias} d · prazo ${sla} d</span>`:`${dias} d`}</td>
         <td title="${ua.replace(/"/g,"&quot;")}">${u?`<span class="corta">${ua}</span>`:'<span class="muted">—</span>'}</td>
+        <td>${celInter(p)}</td>
         <td>${NIVEL>=2&&d.status==="aberta"?`<button type="button" class="peq" data-res="${esc(d.chave)}">✓ Resolver</button>`:""}</td></tr>
-        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="11"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
+        ${estFila.aberto===d.chave?`<tr class="exp"><td colspan="12"><div data-pp="${esc(d.chave)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="12" class="muted" style="text-align:center;padding:24px">${q||estFila.motivo?"Nenhuma pendência com esses filtros.":estFila.status==="aberta"?"Nada pendente aqui. 👌":"Nenhuma resolvida nos últimos 30 dias."}</td></tr>`}</tbody></table></div>`;
   ligarColunasFila($("#flT",c)); arrastarTela($("#flWrap",c),"cart_fila_scroll");
   $("#flT",c).querySelectorAll("th[data-of]").forEach(h=>h.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const k=h.dataset.of; if(estFila.ord===k) estFila.dir*=-1; else { estFila.ord=k; estFila.dir=k==="dias"?-1:1; } render(); });
   $("#flT",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button")||_arrastou) return; estFila.aberto=estFila.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
@@ -1548,6 +1633,590 @@ function exportarRelatorio(nome,lst){ if(!lst.length) return alert("Nada para ex
 // ═══════════════════════════════════════════════════════════════════
 // INÍCIO
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// [v4.15] CX × COMPRAS — o "pingue-pongue" de cada pedido
+// Um registro por pedido (loja+pedido), separado da tratativa da triagem:
+//   cx            → devolutiva atual do CX (colaborador, devolutiva, tentativa, nova previsão aceita, obs, data da ação)
+//   cx_hist       → todas as devolutivas (é o que alimenta os indicadores e a evolução)
+//   cx_resp       → colaborador do CX responsável pelo pedido (distribuição da equipe)
+//   compras[prod] → por ITEM: situação, fornecedor, nova data, motivo do atraso, cobranças (dia/hora/login/obs)
+//   alternativos  → produtos alternativos sugeridos pelo Compras (e a resposta do cliente via CX)
+//   solicitacoes  → o que uma área pediu para a outra (aberta → respondida): é o que diz "com quem está a bola"
+//   eventos       → linha do tempo do pedido (quem fez o quê, quando)
+// ═══════════════════════════════════════════════════════════════════
+let INTER=new Map();
+async function carregarInteracoes(){
+  try{ const {j}=await api(`${API}/interacoes`); const m=new Map();
+    (j||[]).forEach(d=>{ const k=d.dados&&d.dados.chave; if(!k) return; const o=m.get(k); if(!o||String(d.atualizado_em||"")>String(o.atualizado_em||"")) m.set(k,d); });
+    INTER=m; }catch(e){ if(e.message==="sessão expirada") throw e; }
+}
+function interDe(k){ const d=INTER.get(k); return d?d.dados:null; }
+function novaInter(p){ return {chave:p.k,pedido:p.p,loja:p.l,cliente:p.n,cx:null,cx_hist:[],cx_resp:"",compras:{},alternativos:[],solicitacoes:[],eventos:[]}; }
+function evento(d,setor,acao,texto,extra){ d.eventos=d.eventos||[]; d.eventos.push({id:uid(),em:new Date().toISOString(),por:USUARIO,email:EMAIL,setor,acao,texto:tx(texto),...(extra||{})}); }
+async function gravarInteracao(p, fn, tent=0){
+  const doc=INTER.get(p.k), dados=doc?JSON.parse(JSON.stringify(doc.dados)):novaInter(p);
+  ["cx_hist","alternativos","solicitacoes","eventos"].forEach(k=>{ if(!Array.isArray(dados[k])) dados[k]=[]; }); if(!dados.compras) dados.compras={};
+  fn(dados); dados.cliente=p.n||dados.cliente; if(dados.eventos.length>400) dados.eventos=dados.eventos.slice(-400);
+  setStatus("salvando");
+  if(doc){ const {r,j}=await api(`${API}/interacoes/${doc.id}`,{method:"PUT",body:JSON.stringify({dados,versao:doc.versao})});
+    if(r.status===409){ INTER.set(p.k,j.atual); if(tent<3) return gravarInteracao(p,fn,tent+1); setStatus("ok"); throw new Error("muita gente mexendo neste pedido ao mesmo tempo — tente de novo"); }
+    INTER.set(p.k,j); }
+  else { const {r,j}=await api(`${API}/interacoes`,{method:"POST",body:JSON.stringify({dados})});
+    if(r.status===409){ INTER.set(p.k,j.atual); if(tent<3) return gravarInteracao(p,fn,tent+1); }
+    else INTER.set(p.k,j); }
+  setStatus("ok"); atualizarMenu(); desenharLembrete();
+}
+
+// ─── vocabulário ───
+const SEM_DEV="Sem devolutiva";
+const DEVOLUTIVAS=["Liberado e agendado","Aceitou aguardar o prazo","Aceitou alterar","Alterado para Similar","Sem sucesso","Solicitou cancelamento","Eliminado"];
+const ORDEM_DEV=["Liberado e agendado","Aceitou aguardar o prazo","Aceitou alterar","Alterado para Similar","1°Sem sucesso","2°Sem sucesso","3°Sem sucesso","Solicitou cancelamento","Eliminado",SEM_DEV];
+const COR_DEV={"Liberado e agendado":"var(--ok)","Aceitou aguardar o prazo":"var(--prog)","Aceitou alterar":"#0F766E","Alterado para Similar":"#0F766E","1°Sem sucesso":"var(--amber)","2°Sem sucesso":"#C2410C","3°Sem sucesso":"#C2410C","Solicitou cancelamento":"var(--bad)","Eliminado":"var(--block)"};
+function corDev(a){ if(a===SEM_DEV) return "var(--idle)"; if(COR_DEV[a]) return COR_DEV[a]; if(/sem sucesso/i.test(a)) return "#C2410C"; return "#9D174D"; }
+function rankDev(a){ const i=ORDEM_DEV.indexOf(a); return i<0?(/sem sucesso/i.test(a)?6.5:ORDEM_DEV.length-1.5):i; }
+function ordenarDev(l){ return l.sort((a,b)=>rankDev(a)-rankDev(b)||a.localeCompare(b)); }
+function pillDev(a){ return `<span class="pill" style="background:color-mix(in srgb,${corDev(a)} 14%,transparent);color:${corDev(a)}">${esc(a)}</span>`; }
+const SIT_CO=[["","Sem registro do Compras","var(--idle)"],["encomendado","Encomendado ao fornecedor","var(--prog)"],["cobrado","Cobrado ao fornecedor","#0F766E"],["aguardando","Aguardando previsão do fornecedor","var(--amber)"],
+  ["atraso","Fornecedor sinalizou atraso","var(--bad)"],["transito","Faturado / em trânsito","var(--block)"],["recebido","Recebido — aguardando liberação","var(--ok)"],["sem_solucao","Sem solução (fora de linha / descontinuado)","#9D174D"]];
+function sitCo(id){ return SIT_CO.find(s=>s[0]===(id||""))||SIT_CO[0]; }
+function pillCo(id){ const s=sitCo(id); return `<span class="pill" style="background:color-mix(in srgb,${s[2]} 14%,transparent);color:${s[2]}">${esc(s[1])}</span>`; }
+const TIPOS_SOL={
+  cx:[["avisar_data","Avisar o cliente da nova data / do atraso"],["oferecer_alt","Oferecer o produto alternativo ao cliente"],["confirmar","Confirmar com o cliente (aguardar, trocar ou cancelar)"],["outro_cx","Outro assunto"]],
+  compras:[["posicao","Cobrar o fornecedor / dar posição da entrega"],["armazem","Ajustar armazém / transferir o item"],["alternativo","Procurar um produto alternativo"],["outro_co","Outro assunto"]]};
+function rotTipo(t){ return [...TIPOS_SOL.cx,...TIPOS_SOL.compras].find(x=>x[0]===t)?.[1]||t; }
+const NOME_AREA={cx:"📞 CX",compras:"🛒 Compras"};
+function corArea(a){ return setorPor(a).cor||(a==="cx"?"#6B46A8":"#2B63B0"); }
+function pillArea(a,txt){ const c=corArea(a); return `<span class="pill" style="background:color-mix(in srgb,${c} 15%,transparent);color:${c}">${esc(txt||NOME_AREA[a]||a)}</span>`; }
+function minhaArea(a){ const n=setorPor(a).nome; return MEUS_SETORES.some(x=>nrm(x)===nrm(n)); }
+
+// ─── leitura do registro ───
+function coDe(d,prod){ return (d&&d.compras&&d.compras[prod])||{}; }
+function solAbertas(d,para){ return ((d&&d.solicitacoes)||[]).filter(s=>s.status==="aberta"&&(!para||s.para===para)); }
+function devolutiva(d){ return d&&d.cx&&d.cx.devolutiva?d.cx.devolutiva:SEM_DEV; }
+function colabCX(d){ return (d&&(d.cx_resp||(d.cx&&d.cx.colab)))||""; }
+function previsaoCompras(p,d){ const ds=itensBloqueados(p).map(i=>coDe(d,i[IT.prod]).nova_data).filter(Boolean).sort(); return ds[ds.length-1]||""; }
+function comprasVencidas(p,d){ d=d||interDe(p.k); if(!d||p.fora||!bloqueado(p)) return [];
+  return itensBloqueados(p).filter(i=>{ const c=coDe(d,i[IT.prod]); return c.nova_data&&c.nova_data<hojeISO()&&!["recebido","sem_solucao"].includes(c.situacao); }); }
+function semRegistroCompras(p,d){ d=d||interDe(p.k); return bloqueado(p)&&!p.fora&&itensBloqueados(p).every(i=>!coDe(d,i[IT.prod]).situacao&&!(coDe(d,i[IT.prod]).cobrancas||[]).length); }
+function comComprasNaTriagem(p){ const t=tratDe(p.k); return !!(t&&aberta(t)&&setoresDe(t).includes("compras")); }
+function altPendentes(d){ return ((d&&d.alternativos)||[]).filter(a=>a.status==="sugerido"); }
+function ultimaCobranca(c){ const l=(c&&c.cobrancas)||[]; return l[l.length-1]||null; }
+// com quem está a bola (CX × Compras) — usado no card, nas listas e no lembrete
+function bolaDe(p){
+  const d=interDe(p.k), r=[];
+  const sc=solAbertas(d,"compras"), sx=solAbertas(d,"cx");
+  if(sc.length) r.push({a:"compras",t:`${sc.length} pedido(s) do CX`});
+  if(sx.length) r.push({a:"cx",t:`${sx.length} pedido(s) do Compras`});
+  if(comprasVencidas(p,d).length) r.push({a:"compras",t:"previsão vencida"});
+  if(comComprasNaTriagem(p)&&semRegistroCompras(p,d)) r.push({a:"compras",t:"sem tratativa do Compras"});
+  return r;
+}
+function bolaHTML(p,vazio){ const b=bolaDe(p); return b.length?b.map(x=>pillArea(x.a,`${x.a==="cx"?"📞 CX":"🛒 Compras"}: ${x.t}`)).join(" "):(vazio||'<span class="muted">ninguém pendente</span>'); }
+// pedido sem estar na foto atual (saiu da carteira): monta um resumo com o que o registro guarda
+function pedidoDeChave(k){ const f=FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos.find(p=>p.k===k); if(f) return f; const t=tratDe(k); if(t) return pedidoDaTrat(t);
+  const d=interDe(k)||{}; return {k,p:d.pedido||k.split("-")[1],l:d.loja||k.split("-")[0],ln:"",c:"",n:d.cliente||"",em:"",en:"",st:"",tp:"",sp:"",ag:"",ci:"",ba:"",cep:"",t:[],ob:"",de:"",cu:0,v:0,ipv:0,qpv:0,qb:0,it:[],fora:true}; }
+
+// ─── totais para o lembrete e os contadores do menu ───
+function pendenciasAreas(){
+  const r={paraCompras:0,paraCX:0,vencidas:0,semCompras:0,alt:0,pedCompras:new Set(),pedCX:new Set()};
+  INTER.forEach((doc,k)=>{ const d=doc.dados; const a=solAbertas(d,"compras").length, b=solAbertas(d,"cx").length;
+    if(a){ r.paraCompras+=a; r.pedCompras.add(k); } if(b){ r.paraCX+=b; r.pedCX.add(k); } r.alt+=altPendentes(d).length; });
+  ((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).forEach(p=>{ if(!bloqueado(p)) return; const d=interDe(p.k);
+    if(comprasVencidas(p,d).length){ r.vencidas++; r.pedCompras.add(p.k); }
+    if(comComprasNaTriagem(p)&&semRegistroCompras(p,d)){ r.semCompras++; r.pedCompras.add(p.k); } });
+  return r;
+}
+function desenharLembrete(){
+  const box=$("#lembreteAreas"); if(!box) return;
+  const r=pendenciasAreas(), min=(()=>{ try{ return sessionStorage.getItem("cart_lembrete_min")==="1"; }catch(_){ return false; } })();
+  const co=[r.paraCompras?`<b>${r.paraCompras}</b> pedido(s) do CX esperando resposta`:"",r.vencidas?`<b>${r.vencidas}</b> previsão(ões) vencida(s)`:"",r.semCompras?`<b>${r.semCompras}</b> pedido(s) com Compras sem tratativa`:""].filter(Boolean);
+  const cx=[r.paraCX?`<b>${r.paraCX}</b> pedido(s) do Compras esperando devolutiva`:"",r.alt?`<b>${r.alt}</b> produto(s) alternativo(s) para oferecer`:""].filter(Boolean);
+  if(!co.length&&!cx.length){ box.innerHTML=""; box.hidden=true; return; }
+  box.hidden=false;
+  const linha=(a,itens,dest)=>itens.length?`<div class="lb-linha${minhaArea(a)?" minha":""}" style="--ac:${corArea(a)}"><span class="lb-area">${a==="cx"?"📞 CX":"🛒 Compras"}${minhaArea(a)?' <span class="pill p-aco">sua área</span>':""}</span><span class="lb-txt">${itens.join(" · ")}</span><button type="button" class="peq" data-lb="${dest}">Abrir ${a==="cx"?"CX":"Compras"} →</button></div>`:"";
+  box.innerHTML=min?`<button type="button" class="lb-mini" id="lbMax">🔔 Pendências entre CX e Compras: ${r.pedCompras.size+r.pedCX.size} pedido(s) — mostrar</button>`
+    :`<div class="lb-cab">🔔 <b>Pendências entre áreas</b><span class="muted">— o pingue-pongue CX × Compras: quem precisa responder agora</span><button type="button" class="lb-x" id="lbMin" title="Recolher (volta a aparecer ao recarregar)">recolher ▴</button></div>${linha("compras",co,"compras")}${linha("cx",cx,"cx")}`;
+  box.querySelectorAll("[data-lb]").forEach(b=>b.onclick=()=>{ if(b.dataset.lb==="compras"){ COS.escopo="pendentes"; } else { CXS.view="devolutiva"; CXS.soPend=true; } ir(b.dataset.lb); });
+  const mn=$("#lbMin",box); if(mn) mn.onclick=()=>{ try{ sessionStorage.setItem("cart_lembrete_min","1"); }catch(_){} desenharLembrete(); };
+  const mx=$("#lbMax",box); if(mx) mx.onclick=()=>{ try{ sessionStorage.removeItem("cart_lembrete_min"); }catch(_){} desenharLembrete(); };
+}
+// aviso ao abrir a Carteira: a pessoa da área vê na hora o que está esperando por ela
+function avisoAoEntrar(){
+  try{ if(sessionStorage.getItem("cart_aviso_areas")) return; sessionStorage.setItem("cart_aviso_areas","1"); }catch(_){}
+  const r=pendenciasAreas(), m=[];
+  if(minhaArea("compras")&&(r.paraCompras||r.vencidas)) m.push(`🛒 <b>Compras:</b> ${r.paraCompras} pedido(s) do CX esperando resposta${r.vencidas?` e ${r.vencidas} previsão(ões) vencida(s)`:""}.`);
+  if(minhaArea("cx")&&(r.paraCX||r.alt)) m.push(`📞 <b>CX:</b> ${r.paraCX} pedido(s) do Compras esperando devolutiva${r.alt?` e ${r.alt} alternativo(s) para oferecer`:""}.`);
+  if(m.length) toast("🔔 "+m.join("<br>"));
+}
+
+// ─── Soluções: existe peça em outro pedido para este? (usado no pedido de "ajustar armazém") ───
+let _solMemo={data:"",n:0,sols:[]};
+function solucoesMemo(){ if(!FOTO_ATUAL) return []; const f=FOTO_ATUAL.foto; if(_solMemo.data!==FOTO_ATUAL.data||_solMemo.n!==TRAT.size){ const guard=FOTO; FOTO=f; try{ _solMemo={data:FOTO_ATUAL.data,n:TRAT.size,sols:montarSolucoes("todos")}; }finally{ FOTO=guard; } } return _solMemo.sols; }
+function solucaoPara(p){ return solucoesMemo().find(s=>s.r.k===p.k)||null; }
+function textoSolucao(s){ return s?s.moves.map(m=>`${m.t}× ${m.prod} ${m.desc} do pedido ${m.o.p.p} (loja ${m.o.p.l}, ${nomeCurto(m.o.p.n)}) — local ${m.localDe||"?"}${m.localPara&&m.localPara!==m.localDe?` → ${m.localPara}`:""}`).join("; "):""; }
+
+// ═══════════════════════════════════════════════════════════════════
+// O PAINEL DO PEDIDO (CX ⇄ COMPRAS) — o mesmo em todas as abas
+// foco: "cx" | "compras" | "ambos"
+// ═══════════════════════════════════════════════════════════════════
+const estPG={};   // chave → formulário aberto
+function liEvento(e){ const c=e.setor?corArea(e.setor):"var(--idle)"; return `<li style="--sc:${c}"><b>${e.setor?(e.setor==="cx"?"CX":"Compras"):"—"}</b> · ${esc(e.texto)}<small>${dataHoraBR(e.em)} · ${esc(e.por||"—")}</small></li>`; }
+function montarInteracao(box,p,foco){
+  const d=interDe(p.k)||novaInter(p), pode=NIVEL>=2&&!p.fora, F=estPG[p.k]||"", bl=itensBloqueados(p), cx=d.cx||null;
+  const sols=(d.solicitacoes||[]).slice().reverse(), ab=sols.filter(s=>s.status==="aberta"), fe=sols.filter(s=>s.status!=="aberta");
+  const sol=bl.length?solucaoPara(p):null, tent=(d.cx_hist||[]).filter(h=>/sem sucesso/i.test(h.devolutiva)).length;
+  const formCo=prod=>{ const c=coDe(d,prod); return `<div class="pg-form" data-fco="${esc(prod)}">
+      <label class="f">Situação<select data-c="situacao">${SIT_CO.map(s=>`<option value="${s[0]}"${s[0]===(c.situacao||"")?" selected":""}>${esc(s[1])}</option>`).join("")}</select></label>
+      <label class="f">Fornecedor<input data-c="fornecedor" value="${esc(c.fornecedor||"")}" placeholder="Nome do fornecedor"></label>
+      <label class="f">Nova data (previsão)<input type="date" data-c="nova_data" value="${esc(c.nova_data||"")}"></label>
+      <label class="f">Motivo do atraso<input data-c="motivo" value="${esc(c.motivo||"")}" placeholder="Ex.: falta de matéria-prima"></label>
+      <label class="f" style="grid-column:1/-1">Observação<input data-c="obs" placeholder="O que foi falado com o fornecedor"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" data-c="cobrei" checked> Registrar que <b>cobrei o fornecedor agora</b> (${dataHoraBR(new Date().toISOString())} · ${esc(USUARIO)})</label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" data-c="avisar" checked> Pedir ao <b>CX</b> para avisar o cliente (nova data / atraso)</label>
+      <div class="pg-bts"><button type="button" class="primary" data-salvarco="${esc(prod)}">Salvar</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`; };
+  const itensCo=bl.length?bl.map(i=>{ const prod=i[IT.prod], c=coDe(d,prod), u=ultimaCobranca(c), venc=c.nova_data&&c.nova_data<hojeISO()&&!["recebido","sem_solucao"].includes(c.situacao);
+      return `<div class="pg-item"><div class="pg-item-t"><b>${esc(prod)}</b> · ${esc(i[IT.desc])} <span class="muted">· ${esc(i[IT.local]||"—")} · ${int(i[IT.qtd])} un</span></div>
+        <div class="pg-item-l">${pillCo(c.situacao)}${c.fornecedor?` <span class="muted">fornecedor</span> <b>${esc(c.fornecedor)}</b>`:""}${c.nova_data?` · nova data <b class="${venc?"txt-bad":""}">${dataBR(c.nova_data)}</b>${venc?' <span class="pill p-bad">vencida</span>':""}`:""}${c.motivo?` · motivo: ${esc(c.motivo)}`:""}</div>
+        <div class="pg-item-l muted">${u?`📞 Cobrado ao fornecedor em <b>${dataHoraBR(u.em)}</b> por <b>${esc(u.por)}</b>${u.obs?` — “${esc(u.obs)}”`:""}${(c.cobrancas||[]).length>1?` · ${(c.cobrancas||[]).length} cobranças`:""}`:"Ainda não cobrado ao fornecedor."}</div>
+        ${F==="co:"+prod?formCo(prod):pode?`<button type="button" class="peq" data-abrir="co:${esc(prod)}">✎ Atualizar / registrar cobrança</button>`:""}</div>`; }).join("")
+    :`<p class="cap" style="margin:0">${p.fora?"Pedido fora da carteira atual.":"Nenhum item bloqueado neste pedido."}</p>`;
+  const alts=(d.alternativos||[]).slice().reverse();
+  const formAlt=`<div class="pg-form" data-falt><label class="f">Item que ele substitui<select data-a="item">${bl.map(i=>`<option value="${esc(i[IT.prod])}">${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>
+      <label class="f">Código do alternativo<input data-a="prod" placeholder="Código"></label><label class="f">Descrição<input data-a="desc" placeholder="Descrição do produto alternativo"></label>
+      <label class="f">Disponível em / prazo<input data-a="prazo" placeholder="Ex.: pronta entrega no CD 2"></label><label class="f" style="grid-column:1/-1">Observação para o CX<input data-a="obs" placeholder="Diferença de preço, medida, cor..."></label>
+      <div class="pg-bts"><button type="button" class="primary" data-salvaralt>Sugerir ao CX</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`;
+  const blocoAlt=`<div class="pg-sub"><b>🔁 Produto alternativo</b>${alts.length?alts.map(a=>`<div class="pg-alt"><b>${esc(a.prod)}</b> · ${esc(a.desc)} <span class="muted">(no lugar de ${esc(a.item)})</span>${a.prazo?` · ${esc(a.prazo)}`:""} ${a.status==="sugerido"?'<span class="pill p-warn">aguardando o cliente (CX)</span>':a.status==="aceito"?'<span class="pill p-ok">cliente aceitou</span>':'<span class="pill p-cinza">cliente não quis</span>'}
+      ${a.obs?`<br><span class="muted">“${esc(a.obs)}”</span>`:""}<br><small class="muted">sugerido por ${esc(a.por)} em ${dataHoraBR(a.em)}${a.resp_por?` · resposta do CX por ${esc(a.resp_por)} em ${dataHoraBR(a.resp_em)}`:""}</small></div>`).join(""):'<p class="cap" style="margin:4px 0 0">Nenhum alternativo sugerido.</p>'}
+      ${F==="alt"?formAlt:pode&&bl.length?`<button type="button" class="peq" data-abrir="alt">＋ Sugerir produto alternativo ao CX</button>`:""}</div>`;
+  const formCx=`<div class="pg-form" data-fcx>
+      <label class="f">Colaborador<input data-x="colab" value="${esc(colabCX(d)||USUARIO)}"></label>
+      <label class="f">Devolutiva<select data-x="devolutiva"><option value="">— escolha —</option>${DEVOLUTIVAS.map(v=>`<option value="${esc(v)}">${esc(v==="Sem sucesso"?`Sem sucesso no contato (vira ${tent+1}ª tentativa)`:v)}</option>`).join("")}</select></label>
+      <label class="f">Quem atendeu<input data-x="atendeu" placeholder="Cliente, esposa, filho..."></label>
+      <label class="f">Nova previsão aceita<input type="date" data-x="nova_previsao" value="${esc((cx&&cx.nova_previsao)||previsaoCompras(p,d)||"")}"></label>
+      <label class="f">Data da ação<input type="date" data-x="data_acao" value="${hojeISO()}"></label>
+      <label class="f" style="grid-column:1/-1">Observação<input data-x="obs" placeholder="O que foi combinado com o cliente"></label>
+      <div class="pg-bts"><button type="button" class="primary" data-salvarcx>Salvar devolutiva</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`;
+  const blocoCx=`<div class="pg-cx-atual">${pillDev(devolutiva(d))}${cx?` <span class="muted">por</span> <b>${esc(cx.colab||cx.por)}</b> · ação de ${dataBR(cx.data_acao)}${cx.nova_previsao?` · nova previsão aceita <b class="newdate">${dataBR(cx.nova_previsao)}</b>`:""}${cx.atendeu?` · atendeu: ${esc(cx.atendeu)}`:""}${cx.obs?`<br><span class="muted">“${esc(cx.obs)}”</span>`:""}`:""}
+      ${d.cx_resp?`<div class="cap" style="margin:4px 0 0">Responsável no CX: <b>${esc(d.cx_resp)}</b></div>`:""}${tent?`<div class="cap" style="margin:2px 0 0">${tent} tentativa(s) sem sucesso</div>`:""}</div>
+      ${(d.cx_hist||[]).length>1?`<details class="pg-det"><summary>histórico de devolutivas (${d.cx_hist.length})</summary><ul class="hist">${d.cx_hist.slice().reverse().map(h=>`<li style="--sc:${corDev(h.devolutiva)}">${esc(h.devolutiva)}${h.nova_previsao?` · nova previsão ${dataBR(h.nova_previsao)}`:""}${h.obs?` — “${esc(h.obs)}”`:""}<small>ação ${dataBR(h.data_acao)} · ${esc(h.colab||h.por)} · gravado ${dataHoraBR(h.em)}</small></li>`).join("")}</ul></details>`:""}
+      ${F==="cx"?formCx:pode?`<button type="button" class="peq" data-abrir="cx">✎ Registrar devolutiva do contato</button>`:""}`;
+  // pedidos entre as áreas
+  const formSol=para=>`<div class="pg-form" data-fsol="${para}">
+      <label class="f">${para==="compras"?"Pedir ao Compras":"Pedir ao CX"}<select data-s="tipo">${TIPOS_SOL[para].map(t=>`<option value="${t[0]}">${esc(t[1])}</option>`).join("")}</select></label>
+      ${bl.length?`<label class="f">Item<select data-s="item"><option value="">O pedido todo</option>${bl.map(i=>`<option value="${esc(i[IT.prod])}">${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>`:""}
+      <label class="f" style="grid-column:1/-1">Detalhe<textarea data-s="texto" rows="2" placeholder="${para==="compras"?"Ex.: cliente aceita esperar até 30/10, precisa de posição firme":"Ex.: fornecedor confirmou 28/10 — avisar o cliente"}">${para==="compras"&&sol?"":""}</textarea></label>
+      ${para==="compras"&&sol?`<div class="alerta" style="grid-column:1/-1;margin:0" data-solsug>💡 <b>Soluções</b> já encontrou peça para liberar este pedido: ${esc(textoSolucao(sol))}. <button type="button" class="peq" data-usarsol>Usar no pedido de ajuste de armazém</button></div>`:""}
+      <div class="pg-bts"><button type="button" class="primary" data-salvarsol="${para}">Enviar ${para==="compras"?"ao Compras":"ao CX"}</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`;
+  const formResp=s=>`<div class="pg-form" data-fresp="${esc(s.id)}">
+      ${s.para==="cx"&&["avisar_data","oferecer_alt","confirmar"].includes(s.tipo)?`<label class="f">Devolutiva do contato<select data-r="devolutiva"><option value="">— não registrar devolutiva —</option>${DEVOLUTIVAS.map(v=>`<option value="${esc(v)}">${esc(v==="Sem sucesso"?`Sem sucesso no contato (vira ${tent+1}ª tentativa)`:v)}</option>`).join("")}</select></label>
+        <label class="f">Nova previsão aceita<input type="date" data-r="nova_previsao" value="${esc(previsaoCompras(p,d)||"")}"></label>`:""}
+      ${s.tipo==="oferecer_alt"&&s.alt_id?`<label class="f">O cliente…<select data-r="alt"><option value="">— ainda não respondeu —</option><option value="aceito">aceitou o alternativo</option><option value="recusado">não quis o alternativo</option></select></label>`:""}
+      <label class="f" style="grid-column:1/-1">Resposta<textarea data-r="texto" rows="2" placeholder="O que foi feito / combinado"></textarea></label>
+      <div class="pg-bts"><button type="button" class="primary" data-salvarresp="${esc(s.id)}">Responder e devolver</button><button type="button" data-fechar>Cancelar</button><span class="msg" data-msg></span></div></div>`;
+  const cardSol=s=>{ const meu=s.para; return `<div class="pg-sol${s.status==="aberta"?" aberta":""}" style="--ac:${corArea(meu)}">
+      <div>${pillArea(s.de,s.de==="cx"?"CX":"Compras")} → ${pillArea(s.para,s.para==="cx"?"CX":"Compras")} <b>${esc(rotTipo(s.tipo))}</b>${s.item?` <span class="muted">· item ${esc(s.item)}</span>`:""} ${s.status==="aberta"?`<span class="pill p-warn">pendente com ${s.para==="cx"?"CX":"Compras"} há ${Math.max(0,diasEntre(String(s.em).slice(0,10),hojeISO()))} d</span>`:s.status==="respondida"?'<span class="pill p-ok">respondido</span>':'<span class="pill p-cinza">cancelado</span>'}</div>
+      ${s.texto?`<div style="margin-top:3px">“${esc(s.texto)}”</div>`:""}${s.sol_txt?`<div class="cap" style="margin:3px 0 0">💡 Soluções: ${esc(s.sol_txt)}</div>`:""}
+      <small class="muted">${esc(s.por)} · ${dataHoraBR(s.em)}</small>
+      ${s.resposta||s.resp_por?`<div class="pg-resp">↩ ${esc(s.resposta||"(sem texto)")}<small class="muted"> — ${esc(s.resp_por)} · ${dataHoraBR(s.resp_em)}</small></div>`:""}
+      ${s.status==="aberta"&&pode?(F==="resp:"+s.id?formResp(s):`<div class="pg-bts"><button type="button" class="peq primary" data-abrir="resp:${esc(s.id)}">↩ Responder</button>${nrm(s.email)===nrm(EMAIL)||NIVEL>=3?`<button type="button" class="peq" data-cancsol="${esc(s.id)}">cancelar</button>`:""}</div>`):""}</div>`; };
+  const t=tratDe(p.k);
+  box.className="pg";
+  box.innerHTML=`<div class="pg-topo"><b>Com quem está:</b> ${bolaHTML(p)}${t&&aberta(t)?` <span class="muted">· triagem:</span> ${pillsSetores(t)} <span class="muted">${esc(t.dados.classe)} — ${esc(t.dados.motivo)} · há ${diasComSetor(t)} d</span>`:""}</div>
+    <div class="pg-cols${foco==="cx"?" foco-cx":foco==="compras"?" foco-co":""}">
+      <div class="pg-col" style="--ac:${corArea("compras")}"><h4>🛒 Compras — andamento do estoque</h4>${itensCo}${sol?`<div class="alerta" style="margin:8px 0 0">💡 <b>Soluções:</b> dá para liberar este pedido retirando ${esc(textoSolucao(sol))}.</div>`:""}${blocoAlt}</div>
+      <div class="pg-col" style="--ac:${corArea("cx")}"><h4>📞 CX — contato com o cliente</h4>${blocoCx}</div>
+    </div>
+    <div class="pg-sub"><b>🔁 Pedidos entre as áreas</b> <span class="muted">— uma área pede, a outra responde e devolve</span>
+      ${ab.length?ab.map(cardSol).join(""):'<p class="cap" style="margin:4px 0">Nada pendente entre CX e Compras neste pedido.</p>'}
+      ${F==="sol:compras"?formSol("compras"):F==="sol:cx"?formSol("cx"):pode?`<div class="pg-bts"><button type="button" class="peq" data-abrir="sol:compras">📞→🛒 CX pede ao Compras</button><button type="button" class="peq" data-abrir="sol:cx">🛒→📞 Compras pede ao CX</button></div>`:""}
+      ${fe.length?`<details class="pg-det"><summary>respondidos / cancelados (${fe.length})</summary>${fe.map(cardSol).join("")}</details>`:""}</div>
+    ${(d.eventos||[]).length?`<details class="pg-det"><summary>linha do tempo do pedido (${d.eventos.length})</summary><ul class="hist">${d.eventos.slice().reverse().slice(0,80).map(liEvento).join("")}</ul></details>`:""}`;
+  const redesenhar=()=>montarInteracao(box,p,foco);
+  box.querySelectorAll("[data-abrir]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); estPG[p.k]=b.dataset.abrir; redesenhar(); const f=box.querySelector(".pg-form input:not([type=checkbox]),.pg-form textarea,.pg-form select"); if(f) f.focus(); });
+  box.querySelectorAll("[data-fechar]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); delete estPG[p.k]; redesenhar(); });
+  const salvar=async(btn,fn,okMsg)=>{ const msg=btn.closest(".pg-form,.pg-bts").querySelector("[data-msg]"); btn.disabled=true;
+    try{ await gravarInteracao(p,fn); delete estPG[p.k]; toast(okMsg); if(["cx","compras"].includes(secao)) render(); else redesenhar(); }
+    catch(e){ if(msg){ msg.className="msg erro"; msg.textContent=e.message; } btn.disabled=false; } };
+  const val=(f,attr,k)=>{ const i=f.querySelector(`[${attr}="${k}"]`); return i?(i.type==="checkbox"?i.checked:tx(i.value)):""; };
+  box.querySelectorAll("[data-salvarco]").forEach(b=>b.onclick=()=>{ const f=b.closest("[data-fco]"), prod=b.dataset.salvarco, v=k=>val(f,"data-c",k);
+    const it=bl.find(i=>i[IT.prod]===prod)||[];
+    salvar(b,dd=>{ const antes=coDe(dd,prod), c={...antes}; const agora=new Date().toISOString();
+      ["situacao","fornecedor","nova_data","motivo"].forEach(k=>c[k]=v(k)); c.em=agora; c.por=USUARIO; c.email=EMAIL; c.desc=it[IT.desc]||c.desc||"";
+      if(v("cobrei")){ c.cobrancas=[...(antes.cobrancas||[]),{em:agora,por:USUARIO,email:EMAIL,obs:v("obs"),fornecedor:c.fornecedor}]; if(!c.situacao||c.situacao==="encomendado") c.situacao="cobrado"; }
+      if(v("obs")) c.obs=v("obs");
+      dd.compras[prod]=c;
+      const mud=[c.situacao!==antes.situacao?sitCo(c.situacao)[1]:"",c.nova_data&&c.nova_data!==antes.nova_data?`nova data ${dataBR(c.nova_data)}`:"",c.motivo&&c.motivo!==antes.motivo?`motivo: ${c.motivo}`:"",v("cobrei")?"cobrou o fornecedor":""].filter(Boolean);
+      evento(dd,"compras","compras",`${prod}: ${mud.join(" · ")||"atualizou"}${v("obs")?` — “${v("obs")}”`:""}`,{item:prod});
+      if(v("avisar")) dd.solicitacoes.push({id:uid(),de:"compras",para:"cx",tipo:"avisar_data",item:prod,texto:[`${prod} ${c.desc||""}`.trim()+":",sitCo(c.situacao)[1],c.nova_data?`nova data ${dataBR(c.nova_data)}`:"",c.motivo?`motivo: ${c.motivo}`:"",v("obs")].filter(Boolean).join(" · "),por:USUARIO,email:EMAIL,em:agora,status:"aberta"});
+    },v("avisar")?"🛒 Compras atualizado — o CX recebeu o pedido para avisar o cliente.":"🛒 Compras atualizado."); });
+  const bAlt=box.querySelector("[data-salvaralt]"); if(bAlt) bAlt.onclick=()=>{ const f=box.querySelector("[data-falt]"), v=k=>val(f,"data-a",k);
+    if(!v("prod")&&!v("desc")){ const m=f.querySelector("[data-msg]"); m.className="msg erro"; m.textContent="Informe o código ou a descrição do alternativo."; return; }
+    salvar(bAlt,dd=>{ const agora=new Date().toISOString(), id=uid();
+      dd.alternativos.push({id,item:v("item"),prod:v("prod"),desc:v("desc"),prazo:v("prazo"),obs:v("obs"),status:"sugerido",por:USUARIO,email:EMAIL,em:agora});
+      dd.solicitacoes.push({id:uid(),de:"compras",para:"cx",tipo:"oferecer_alt",item:v("item"),alt_id:id,texto:`Oferecer ${v("prod")} ${v("desc")} no lugar de ${v("item")}${v("prazo")?` · ${v("prazo")}`:""}${v("obs")?` · ${v("obs")}`:""}`,por:USUARIO,email:EMAIL,em:agora,status:"aberta"});
+      evento(dd,"compras","alternativo",`Sugeriu o alternativo ${v("prod")} ${v("desc")} no lugar de ${v("item")}`); },"🔁 Alternativo enviado ao CX."); };
+  const bCx=box.querySelector("[data-salvarcx]"); if(bCx) bCx.onclick=()=>{ const f=box.querySelector("[data-fcx]"), v=k=>val(f,"data-x",k);
+    if(!v("devolutiva")){ const m=f.querySelector("[data-msg]"); m.className="msg erro"; m.textContent="Escolha a devolutiva."; return; }
+    salvar(bCx,dd=>registrarDevolutiva(dd,p,{colab:v("colab"),devolutiva:v("devolutiva"),atendeu:v("atendeu"),nova_previsao:v("nova_previsao"),data_acao:v("data_acao"),obs:v("obs")}),"📞 Devolutiva registrada."); };
+  box.querySelectorAll("[data-salvarsol]").forEach(b=>b.onclick=()=>{ const f=b.closest("[data-fsol]"), para=b.dataset.salvarsol, v=k=>val(f,"data-s",k);
+    if(!v("texto")&&!["armazem","posicao"].includes(v("tipo"))){ const m=f.querySelector("[data-msg]"); m.className="msg erro"; m.textContent="Escreva o detalhe do pedido."; return; }
+    salvar(b,dd=>{ const s={id:uid(),de:para==="compras"?"cx":"compras",para,tipo:v("tipo"),item:v("item"),texto:v("texto"),por:USUARIO,email:EMAIL,em:new Date().toISOString(),status:"aberta"};
+      if(v("tipo")==="armazem"&&sol) s.sol_txt=textoSolucao(sol);
+      dd.solicitacoes.push(s); evento(dd,s.de,"pediu",`Pediu ao ${para==="cx"?"CX":"Compras"}: ${rotTipo(s.tipo)}${s.item?` (${s.item})`:""}${s.texto?` — “${s.texto}”`:""}`); },`🔁 Enviado ao ${para==="cx"?"CX":"Compras"}.`); });
+  const us=box.querySelector("[data-usarsol]"); if(us) us.onclick=()=>{ const f=box.querySelector("[data-fsol]"); f.querySelector('[data-s="tipo"]').value="armazem"; const ta=f.querySelector('[data-s="texto"]'); ta.value=`Ajustar o armazém: ${textoSolucao(sol)}`; ta.focus(); };
+  box.querySelectorAll("[data-salvarresp]").forEach(b=>b.onclick=()=>{ const f=b.closest("[data-fresp]"), id=b.dataset.salvarresp, v=k=>val(f,"data-r",k);
+    salvar(b,dd=>{ const s=dd.solicitacoes.find(x=>x.id===id); if(!s) throw new Error("este pedido não existe mais — atualize a tela"); if(s.status!=="aberta") throw new Error("outra pessoa já respondeu este pedido");
+      const agora=new Date().toISOString(); Object.assign(s,{status:"respondida",resposta:v("texto"),resp_por:USUARIO,resp_email:EMAIL,resp_em:agora});
+      if(v("alt")&&s.alt_id){ const a=dd.alternativos.find(x=>x.id===s.alt_id); if(a) Object.assign(a,{status:v("alt"),resp_por:USUARIO,resp_em:agora}); }
+      evento(dd,s.para,"respondeu",`Respondeu “${rotTipo(s.tipo)}”${v("texto")?`: “${v("texto")}”`:""}${v("alt")?` · cliente ${v("alt")==="aceito"?"aceitou":"não quis"} o alternativo`:""}`);
+      if(v("devolutiva")) registrarDevolutiva(dd,p,{colab:colabCX(dd)||USUARIO,devolutiva:v("devolutiva"),nova_previsao:v("nova_previsao"),data_acao:hojeISO(),obs:v("texto")}); },"↩ Respondido — voltou para quem pediu."); });
+  box.querySelectorAll("[data-cancsol]").forEach(b=>b.onclick=()=>{ if(!confirm("Cancelar este pedido entre as áreas?")) return; const id=b.dataset.cancsol;
+    salvar(b,dd=>{ const s=dd.solicitacoes.find(x=>x.id===id); if(s&&s.status==="aberta"){ Object.assign(s,{status:"cancelada",resp_por:USUARIO,resp_em:new Date().toISOString()}); evento(dd,s.de,"cancelou",`Cancelou o pedido “${rotTipo(s.tipo)}”`); } },"Pedido cancelado."); });
+  box.addEventListener("click",e=>e.stopPropagation());
+}
+function registrarDevolutiva(dd,p,x){
+  const tent=(dd.cx_hist||[]).filter(h=>/sem sucesso/i.test(h.devolutiva)).length;
+  const dev=x.devolutiva==="Sem sucesso"?`${Math.min(tent+1,9)}°Sem sucesso`:x.devolutiva;
+  const reg={devolutiva:dev,colab:x.colab||USUARIO,atendeu:x.atendeu||"",nova_previsao:x.nova_previsao||"",data_acao:x.data_acao||hojeISO(),obs:x.obs||"",por:USUARIO,email:EMAIL,em:new Date().toISOString(),aba:abaCX(p),tentativa:/sem sucesso/i.test(dev)?Math.min(tent+1,9):0};
+  dd.cx=reg; dd.cx_hist=[...(dd.cx_hist||[]),reg]; if(!dd.cx_resp) dd.cx_resp=reg.colab;
+  evento(dd,"cx","devolutiva",`Devolutiva: ${dev}${reg.nova_previsao?` · nova previsão ${dataBR(reg.nova_previsao)}`:""}${reg.obs?` — “${reg.obs}”`:""}`);
+}
+// resumo curto para o card da Triagem e das Pendências por setor
+function montarResumoInteracao(box,p){
+  if(!box) return; const d=interDe(p.k), bl=itensBloqueados(p);
+  const co=bl.map(i=>{ const c=coDe(d,i[IT.prod]); return c.situacao||c.nova_data||(c.cobrancas||[]).length?`<div><b>${esc(i[IT.prod])}</b> ${pillCo(c.situacao)}${c.nova_data?` · nova data <b>${dataBR(c.nova_data)}</b>`:""}${ultimaCobranca(c)?` · cobrado ${dataHoraCurta(ultimaCobranca(c).em)} por ${esc(nomeCurto(ultimaCobranca(c).por))}`:""}</div>`:""; }).filter(Boolean);
+  const aberto=box.dataset.aberto==="1";
+  box.innerHTML=`<div class="ri"><div class="ri-cab"><b>📞 CX · 🛒 Compras</b> ${bolaHTML(p,"")}<button type="button" class="peq" data-ri>${aberto?"▴ recolher":"▾ abrir e registrar"}</button></div>
+    <div class="ri-l">📞 ${pillDev(devolutiva(d))}${d&&d.cx?` · ${esc(d.cx.colab||d.cx.por)} · ${dataBR(d.cx.data_acao)}${d.cx.nova_previsao?` · nova previsão <b>${dataBR(d.cx.nova_previsao)}</b>`:""}${d.cx.tentativa?` · ${d.cx.tentativa}ª tentativa`:""}${d.cx.obs?` — “${esc(d.cx.obs)}”`:""}`:""}</div>
+    <div class="ri-l">🛒 ${co.length?co.join(""):'<span class="muted">sem registro do Compras</span>'}${altPendentes(d).length?` <span class="pill p-warn">🔁 ${altPendentes(d).length} alternativo(s) sugerido(s)</span>`:""}</div>
+    ${aberto?'<div data-pg></div>':""}</div>`;
+  box.querySelector("[data-ri]").onclick=e=>{ e.stopPropagation(); box.dataset.aberto=aberto?"":"1"; montarResumoInteracao(box,p); };
+  const pg=box.querySelector("[data-pg]"); if(pg) montarInteracao(pg,p,"ambos");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ABA CX — o painel "Fluxo da Carteira" do CX, em cima da carteira oficial
+// ═══════════════════════════════════════════════════════════════════
+const CXS={view:"resumo",aba:"atrasados",acao:"",busca:"",colab:"",soNova:false,soVencida:false,soPend:false,prev:null,produto:"",fMes:"",fData:"",fRean:"",eqColab:"",eqAba:"",prodBusca:"",pvModo:"produto",aberto:"",limite:150};
+try{ const v=JSON.parse(localStorage.getItem("cart_cx_pref")||"{}"); if(v.view) CXS.view=v.view; if(v.pvModo) CXS.pvModo=v.pvModo; if(v.aba) CXS.aba=v.aba; }catch(_){}
+function guardarPrefCX(){ try{ localStorage.setItem("cart_cx_pref",JSON.stringify({view:CXS.view,pvModo:CXS.pvModo,aba:CXS.aba})); }catch(_){} }
+const MESES_CX=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const ABAS_CX=[["atrasados","Atrasados","previsao"],["alerta","Alerta","previsao"],["fora","Fora de linha e resíduos","tratativa"],["medida","Medida especial","previsao"],["demais","Demais bloqueados","previsao"]];
+function abaCX(p){
+  const bl=itensBloqueados(p).length?itensBloqueados(p):p.it;
+  if(bl.some(i=>foraDeLinha(i)||/residuo/.test(nrm(`${i[IT.grupo]} ${i[IT.desc]}`)))) return "fora";
+  if(bl.some(i=>/medida especial|med\.? ?especial|\bm\.? ?esp\b/.test(nrm(`${i[IT.grupo]} ${i[IT.desc]}`)))) return "medida";
+  const c=p.fora?"":prazo(p).cls; return c==="atrasado"?"atrasados":c==="alerta"?"alerta":"demais";
+}
+// reanálise automática: o que aconteceu com o pedido DEPOIS do contato do CX (comparando com a foto atual)
+const REAN_ORDEM=["Saiu da carteira","Agendado","Liberado para agendar","Em tratativa com Compras","Previsão vencida","Sem estoque"];
+const REAN_COR={"Saiu da carteira":"var(--ok)","Agendado":"#0F766E","Liberado para agendar":"var(--prog)","Em tratativa com Compras":"var(--amber)","Previsão vencida":"var(--bad)","Sem estoque":"#9D174D"};
+function reanDe(l){ if(!l.d||!l.d.cx) return null; const p=l.p;
+  if(p.fora) return "Saiu da carteira";
+  if(!bloqueado(p)) return /AGENDADO/.test(tx(situacao(p)).toUpperCase())&&!/SEM AGEND/.test(tx(situacao(p)).toUpperCase())?"Agendado":"Liberado para agendar";
+  if(l.vencida) return "Previsão vencida";
+  return itensBloqueados(p).some(i=>coDe(l.d,i[IT.prod]).situacao)?"Em tratativa com Compras":"Sem estoque"; }
+function pillRean(c){ return c?`<span class="pill" style="background:color-mix(in srgb,${REAN_COR[c]} 14%,transparent);color:${REAN_COR[c]}">${esc(c)}</span>`:'<span class="muted">—</span>'; }
+function linhasCX(){
+  if(!FOTO_ATUAL) return [];
+  const hoje=hojeISO(), vistos=new Set(), L=[];
+  const add=(p,d)=>{ if(vistos.has(p.k)) return; vistos.add(p.k); d=d||interDe(p.k);
+    const aba=p.fora||!bloqueado(p)?((d&&d.cx&&d.cx.aba)||abaCX(p)):abaCX(p), prev=previsaoCompras(p,d), nova=(d&&d.cx&&d.cx.nova_previsao)||"";
+    const ac=devolutiva(d), ref=prev||nova;
+    const l={p,d,aba,acao:ac,colab:colabCX(d)||"Sem colaborador",dataAcao:(d&&d.cx&&d.cx.data_acao)||"",previsao:prev,nova,bloq:!p.fora&&bloqueado(p),
+      vencida:!p.fora&&bloqueado(p)&&!!ref&&ref<hoje&&!/cancel/i.test(ac),itens:itensBloqueados(p)};
+    l.mes=l.dataAcao?MESES_CX[+l.dataAcao.slice(5,7)-1]:""; l.rean=reanDe(l); L.push(l); };
+  FOTO_ATUAL.foto.pedidos.forEach(p=>{ if(bloqueado(p)) add(p); });
+  INTER.forEach((doc,k)=>{ if(doc.dados&&doc.dados.cx) add(pedidoDeChave(k),doc.dados); });   // já tratados pelo CX que liberaram ou saíram (reanálise)
+  return L;
+}
+function filtrarPeriodo(L){ return L.filter(l=>(!CXS.fMes||(l.mes||"Sem mês")===CXS.fMes)&&(!CXS.fData||(l.dataAcao||"-")===CXS.fData)); }
+function contarDev(L){ const c={}; L.forEach(l=>c[l.acao]=(c[l.acao]||0)+1); return c; }
+function barraEmpilhada(c){ return `<div class="stack">${ordenarDev(Object.keys(c)).map(k=>`<span title="${esc(k)}: ${c[k]}" style="flex:${c[k]};background:${corDev(k)}"></span>`).join("")}</div>`; }
+function legendaDev(ks){ return `<div class="legenda" style="margin:8px 0 12px">${ordenarDev(ks).map(a=>`<span><i style="background:${corDev(a)}"></i>${esc(a)}</span>`).join("")}</div>`; }
+function renderCx(c){
+  const TODAS=linhasCX(), L=filtrarPeriodo(TODAS), pend=pendenciasAreas();
+  c.innerHTML=`<section><header><h2>📞 CX — Fluxo da Carteira</h2><p>Contato com o cliente dos pedidos <b>bloqueados</b> da carteira oficial (as duas planilhas do BI). O CX registra a devolutiva direto no pedido; o Compras informa o andamento do estoque.</p>
+      <span class="direita"><button type="button" class="peq" id="cxXls">⬇️ Excel</button></span></header>
+    ${pend.paraCX||pend.alt?`<div class="lembrete-area" style="--ac:${corArea("cx")}">🔔 <b>Esperando o CX:</b> ${pend.paraCX} pedido(s) do Compras para responder${pend.alt?` · ${pend.alt} produto(s) alternativo(s) para oferecer ao cliente`:""}. <button type="button" class="peq primary" id="cxVerPend">Ver só esses</button></div>`:""}
+    <nav class="mainnav" role="tablist">${[["resumo","Resumo da ação"],["devolutiva","Devolutiva CX"],["equipe","Produtividade da equipe"]].map(v=>`<button type="button" role="tab" data-cxv="${v[0]}" aria-selected="${CXS.view===v[0]}">${v[1]}</button>`).join("")}</nav>
+    ${filtroPeriodoCX(TODAS)}<div id="cxCorpo"></div></section>`;
+  c.querySelectorAll("[data-cxv]").forEach(b=>b.onclick=()=>{ CXS.view=b.dataset.cxv; guardarPrefCX(); render(); });
+  const vp=$("#cxVerPend",c); if(vp) vp.onclick=()=>{ CXS.view="devolutiva"; CXS.soPend=true; CXS.acao=""; render(); };
+  const gm=$("#gMes",c); if(gm) gm.onchange=()=>{ CXS.fMes=gm.value; CXS.fData=""; render(); };
+  const gd=$("#gData",c); if(gd) gd.onchange=()=>{ CXS.fData=gd.value; render(); };
+  const gl=$("#gLimpa",c); if(gl) gl.onclick=()=>{ CXS.fMes=""; CXS.fData=""; render(); };
+  $("#cxXls",c).onclick=()=>exportarXlsx("cx_fluxo_carteira",[{nome:"CX",cols:COLS_XLS_CX,linhas:L}]);
+  const corpo=$("#cxCorpo",c);
+  if(CXS.view==="devolutiva") renderCxDevolutiva(corpo,L); else if(CXS.view==="equipe") renderCxEquipe(corpo,L); else renderCxResumo(corpo,L);
+}
+const COLS_XLS_CX=[["Aba",l=>(ABAS_CX.find(a=>a[0]===l.aba)||[,""])[1]],["Loja",l=>l.p.l],["Pedido",l=>l.p.p],["Cliente",l=>l.p.n],["Código",l=>l.p.c],["Entrega",l=>l.p.en?dataBR(l.p.en):""],
+  ["Situação",l=>l.p.fora?"Saiu da carteira":statusReal(l.p)],["Itens bloqueados",l=>l.itens.map(i=>`${i[IT.prod]} ${i[IT.desc]}`).join(" | ")],["Previsão (Compras)",l=>l.previsao?dataBR(l.previsao):""],
+  ["Nova previsão aceita",l=>l.nova?dataBR(l.nova):""],["Devolutiva CX",l=>l.acao],["Colaborador",l=>l.colab],["Data da ação",l=>l.dataAcao?dataBR(l.dataAcao):""],["Tentativa",l=>(l.d&&l.d.cx&&l.d.cx.tentativa)||""],
+  ["Observação CX",l=>(l.d&&l.d.cx&&l.d.cx.obs)||""],["Reanálise",l=>l.rean||""],["Pendente com",l=>bolaDe(l.p).map(x=>`${x.a==="cx"?"CX":"Compras"}: ${x.t}`).join(" | ")]];
+function filtroPeriodoCX(L){
+  const meses=[...new Set(L.map(l=>l.mes||"Sem mês"))].sort((a,b)=>MESES_CX.indexOf(a)-MESES_CX.indexOf(b));
+  const datas=[...new Set(L.filter(l=>!CXS.fMes||(l.mes||"Sem mês")===CXS.fMes).map(l=>l.dataAcao||"-"))].sort().reverse();
+  if(meses.length<=1&&meses[0]==="Sem mês") return "";
+  return `<div class="fbar"><span class="fbl">Período da ação</span><label for="gMes">Mês</label><select id="gMes"><option value="">Todos</option>${meses.map(m=>`<option${m===CXS.fMes?" selected":""}>${esc(m)}</option>`).join("")}</select>
+    <label for="gData">Data da ação</label><select id="gData"><option value="">Todas</option>${datas.map(d=>`<option value="${d}"${d===CXS.fData?" selected":""}>${d==="-"?"Sem data":dataBR(d)}</option>`).join("")}</select>
+    ${CXS.fMes||CXS.fData?'<button type="button" class="chip-f" id="gLimpa" style="cursor:pointer">Limpar período ✕</button>':'<span class="muted">mostrando todas as ações</span>'}</div>`;
+}
+function renderCxResumo(c,L){
+  const abas=ABAS_CX.map(a=>({id:a[0],nome:a[1],linhas:L.filter(l=>l.aba===a[0])})).filter(a=>a.linhas.length);
+  const bloq=L.filter(l=>l.bloq), comDev=bloq.filter(l=>l.acao!==SEM_DEV), pct=bloq.length?Math.round(comDev.length/bloq.length*100):0;
+  const itensB=bloq.reduce((a,l)=>a+l.itens.length,0), rean=L.filter(l=>l.rean), venc=L.filter(l=>l.vencida);
+  const leg=new Set(); abas.forEach(a=>Object.keys(contarDev(a.linhas)).forEach(k=>leg.add(k)));
+  // indicadores por data da ação
+  const G={}; L.forEach(l=>{ const d=l.dataAcao||"-"; const g=G[d]||(G[d]={n:0,trat:0,ac:{},rean:0}); g.n++; if(l.acao!==SEM_DEV) g.trat++; g.ac[l.acao]=(g.ac[l.acao]||0)+1; if(l.rean) g.rean++; });
+  const ds=Object.keys(G).filter(d=>d!=="-").sort(), acs=ordenarDev([...new Set(ds.flatMap(d=>Object.keys(G[d].ac)))]);
+  let prevP=null;
+  const rc={}; rean.forEach(l=>rc[l.rean]=(rc[l.rean]||0)+1);
+  c.innerHTML=`<div class="kpis kpis5">
+      <div class="kpi kpi-lead"><span>Pedidos bloqueados</span><b>${int(bloq.length)}</b><small>${int(itensB)} item(ns) · em ${abas.length} tratativa(s)</small></div>
+      <div class="kpi k-ok"><span>Com devolutiva CX</span><b>${int(comDev.length)}</b><small>${pct}% dos pedidos tratados</small></div>
+      <div class="kpi k-warn"><span>Sem devolutiva</span><b style="color:var(--amber)">${int(bloq.length-comDev.length)}</b><small>aguardando contato</small></div>
+      <div class="kpi k-azul"><span>Reanálise</span><b style="color:var(--prog)">${int(rean.length)}</b><small>já tratados — situação na foto de hoje</small></div>
+      <div class="kpi k-bad"><span>Previsão vencida</span><b style="color:var(--bad)">${int(venc.length)}</b><small>previsão antes de ${dataBR(hojeISO())}, ainda bloqueado</small></div></div>
+    <div class="box"><div class="sectionhead"><h3 style="margin:0">Comparativo das tratativas</h3><span class="muted">Distribuição das devolutivas do CX em cada aba</span></div>${legendaDev([...leg])}
+      <div class="cmp">${abas.map(a=>{ const cc=contarDev(a.linhas), n=a.linhas.length, t=n-(cc[SEM_DEV]||0);
+        return `<button type="button" class="cmprow" data-irab="${a.id}"><span class="n">${esc(a.nome)}<small>${int(n)} pedidos</small></span>${barraEmpilhada(cc)}<span class="pct">${n?Math.round(t/n*100):0}%<small>tratado</small></span></button>`; }).join("")||'<p class="cap">Nenhum pedido bloqueado.</p>'}</div></div>
+    ${ds.length?`<div class="box"><div class="sectionhead"><h3 style="margin:0">Indicadores por data da ação</h3><span class="muted">${esc(CXS.fMes||"Todos os meses")} · uma linha por dia de ação</span></div>${legendaDev(acs)}
+      <div class="cmp">${ds.map(d=>{ const g=G[d], p=g.n?Math.round(g.trat/g.n*100):0, dv=prevP==null?null:p-prevP; prevP=p;
+        return `<div class="cmprow"${CXS.fData===d?' style="outline:2px solid var(--amber);outline-offset:4px;border-radius:6px"':""}><span class="n">Ação de ${dataBR(d)}<small>${int(g.n)} pedidos${g.rean?` · ${g.rean} em reanálise`:""}</small></span>${barraEmpilhada(g.ac)}<span class="pct">${p}%<small>tratado${dv?` · <span class="${dv>0?"txt-ok":"txt-bad"}">${dv>0?"+":""}${dv} p.p.</span>`:""}</small></span></div>`; }).join("")}</div>
+      <div class="tbl-wrap" style="margin-top:14px"><table class="mx"><thead><tr><th>Data da ação</th><th class="num">Pedidos</th>${acs.map(a=>`<th class="num" title="${esc(a)}">${esc(a.length>14?a.slice(0,13)+"…":a)}</th>`).join("")}<th class="num">Em reanálise</th><th class="num">% tratado</th></tr></thead><tbody>${
+        ds.map(d=>{ const g=G[d]; return `<tr><td>${dataBR(d)}</td><td class="num"><b>${g.n}</b></td>${acs.map(a=>`<td class="num">${g.ac[a]||'<span class="z">·</span>'}</td>`).join("")}<td class="num">${g.rean||'<span class="z">·</span>'}</td><td class="num"><b>${g.n?Math.round(g.trat/g.n*100):0}%</b></td></tr>`; }).join("")}</tbody></table></div></div>`:""}
+    <div class="box"><div class="sectionhead"><h3 style="margin:0">Reanálise dos pedidos tratados</h3><span class="muted">${int(rean.length)} pedido(s) com devolutiva · comparado com a carteira de ${dataBR(FOTO_ATUAL.data)} · clique para ver</span></div>
+      <div class="cards-cx">${REAN_ORDEM.filter(k=>rc[k]).map(k=>{ const p=Math.round(rc[k]/rean.length*100); return `<button type="button" class="card-cx" data-rean="${esc(k)}" style="--c:${REAN_COR[k]}"><span class="h">${esc(k)}</span><span class="v">${rc[k]}<small>${p}%</small></span><span class="bar"><b style="width:${p}%"></b></span></button>`; }).join("")||'<p class="cap" style="margin:0">Nenhum pedido com devolutiva neste período.</p>'}</div></div>
+    ${evolucaoCX()}`;
+  c.querySelectorAll("[data-irab]").forEach(b=>b.onclick=()=>{ CXS.view="devolutiva"; CXS.aba=b.dataset.irab; CXS.acao=""; guardarPrefCX(); render(); });
+  c.querySelectorAll("[data-rean]").forEach(b=>b.onclick=()=>{ CXS.fRean=b.dataset.rean; CXS.view="devolutiva"; CXS.acao=""; const a=L.find(l=>l.rean===CXS.fRean); if(a) CXS.aba=a.aba; render(); });
+}
+// evolução entre importações: a situação das devolutivas na data de cada carteira importada
+function evolucaoCX(){
+  if(DIAS.length<2) return `<div class="box"><h3 style="margin:0">Evolução entre importações</h3><p class="cap" style="margin:6px 0 0">Na próxima importação da carteira, aqui aparece a comparação de cada devolutiva com a importação anterior.</p></div>`;
+  const [ant,atu]=DIAS.slice(-2), ate=dt=>String(dt.importado_em||dt.data+"T23:59");
+  const estado=lim=>{ const c={}; INTER.forEach(doc=>{ const h=(doc.dados.cx_hist||[]).filter(x=>String(x.em)<=lim); if(h.length){ const a=h[h.length-1].devolutiva; c[a]=(c[a]||0)+1; } }); return c; };
+  const ca=estado(ate(ant)), cb=estado(ate(atu)), ta=(ant.resumo||{}).bloqueados||0, tb=(atu.resumo||{}).bloqueados||0;
+  ca[SEM_DEV]=Math.max(0,ta-Object.values(ca).reduce((a,b)=>a+b,0)); cb[SEM_DEV]=Math.max(0,tb-Object.values(cb).reduce((a,b)=>a+b,0));
+  const ks=ordenarDev([...new Set([...Object.keys(ca),...Object.keys(cb)])]);
+  const row=(rot,a,b,bomSubir)=>{ const d=b-a, cl=!d?"":(d>0)===bomSubir?"txt-ok":"txt-bad"; return `<tr><td>${rot}</td><td class="num">${a}</td><td class="num">${b}</td><td class="num ${cl}">${d>0?"+":""}${d}</td></tr>`; };
+  return `<div class="box"><div class="sectionhead"><h3 style="margin:0">Evolução entre importações</h3><span class="muted">carteira de ${dataBR(ant.data)} → ${dataBR(atu.data)}</span></div>
+    <div class="tbl-wrap" style="margin-top:8px"><table class="mx"><thead><tr><th>Devolutiva</th><th class="num">Anterior</th><th class="num">Atual</th><th class="num">Variação</th></tr></thead><tbody>
+      ${row("<b>Total de pedidos bloqueados</b>",ta,tb,false)}${ks.map(k=>row(`<span class="dot-c" style="background:${corDev(k)}"></span>${esc(k)}`,ca[k]||0,cb[k]||0,k!==SEM_DEV&&!/sem sucesso|cancel/i.test(k))).join("")}</tbody></table></div></div>`;
+}
+function renderCxDevolutiva(c,L){
+  const abas=ABAS_CX.map(a=>({id:a[0],nome:a[1],tipo:a[2],linhas:L.filter(l=>l.aba===a[0])})).filter(a=>a.linhas.length);
+  if(!abas.length){ c.innerHTML='<p class="aviso">Nenhum pedido bloqueado na carteira atual. 👌</p>'; return; }
+  let aba=abas.find(a=>a.id===CXS.aba)||abas.slice().sort((a,b)=>b.linhas.length-a.linhas.length)[0]; CXS.aba=aba.id;
+  const cc=contarDev(aba.linhas), n=aba.linhas.length, hoje=hojeISO();
+  const colabs=[...new Set(aba.linhas.map(l=>l.colab))].sort();
+  const lst=aba.linhas.filter(l=>(!CXS.acao||l.acao===CXS.acao)&&(!CXS.colab||l.colab===CXS.colab)&&(!CXS.soNova||l.nova)&&(!CXS.soVencida||l.vencida)
+      &&(!CXS.soPend||solAbertas(l.d,"cx").length||altPendentes(l.d).length)&&(CXS.prev==null||(l.previsao||"")===CXS.prev)&&(!CXS.produto||l.itens.some(i=>(i[IT.desc]||i[IT.prod])===CXS.produto))
+      &&(!CXS.fRean||(CXS.fRean==="*"?!!l.rean:l.rean===CXS.fRean))
+      &&(!CXS.busca||[l.p.p,l.p.n,l.p.l,l.p.c,l.colab,l.d&&l.d.cx&&l.d.cx.obs,...l.itens.flatMap(i=>[i[IT.prod],i[IT.desc]])].some(x=>nrm(x).includes(nrm(CXS.busca)))))
+    .sort((a,b)=>(a.previsao||a.p.en||"9").localeCompare(b.previsao||b.p.en||"9")||(numPedido(a.p)||0)-(numPedido(b.p)||0));
+  c.innerHTML=`<div class="tabs-cx" role="tablist">${abas.map(a=>`<button type="button" role="tab" class="tab-cx" data-ab="${a.id}" aria-selected="${a.id===aba.id}">${esc(a.nome)}<span class="c">${a.linhas.length}</span></button>`).join("")}</div>
+    <div class="sectionhead" style="margin-top:14px"><h3 style="margin:0">Ações da Devolutiva CX</h3><span class="muted">Clique em um card para ver os pedidos daquela ação</span></div>
+    <div class="cards-cx">${ordenarDev(Object.keys(cc)).map(a=>{ const v=cc[a], p=Math.round(v/n*100); return `<button type="button" class="card-cx" data-acao="${esc(a)}" aria-pressed="${CXS.acao===a}" style="--c:${corDev(a)}"><span class="h">${esc(a)}</span><span class="v">${v}<small>${p}%</small></span><span class="bar"><b style="width:${p}%"></b></span></button>`; }).join("")}</div>
+    ${aba.tipo==="previsao"?painelPrevisao(aba,hoje):painelTratativaFL(aba)}
+    <div class="box" id="cxPedidos"><div class="sectionhead"><h3 style="margin:0">Pedidos${CXS.acao?` · <span style="color:${corDev(CXS.acao)}">${esc(CXS.acao)}</span>`:""}</h3><span class="muted">${int(lst.length)} de ${int(n)} pedidos · clique na linha para registrar</span></div>
+      <div class="filtros" style="grid-template-columns:minmax(220px,2fr) repeat(2,minmax(160px,1fr))"><input class="busca" id="cxBusca" placeholder="Buscar pedido, cliente, loja, código, produto ou observação" value="${esc(CXS.busca)}">
+        <select id="cxColab"><option value="">Todos os colaboradores</option>${colabs.map(x=>`<option${x===CXS.colab?" selected":""}>${esc(x)}</option>`).join("")}</select>
+        <select id="cxRean"><option value="">Reanálise: todas</option><option value="*"${CXS.fRean==="*"?" selected":""}>Com reanálise</option>${REAN_ORDEM.map(k=>`<option${CXS.fRean===k?" selected":""}>${k}</option>`).join("")}</select></div>
+      <div class="filtros-rodape"><label class="chk"><input type="checkbox" id="cxPend"${CXS.soPend?" checked":""}> Só esperando o CX (pedido do Compras / alternativo)</label>
+        ${aba.tipo==="previsao"?`<label class="chk"><input type="checkbox" id="cxNova"${CXS.soNova?" checked":""}> Só com nova previsão aceita</label><label class="chk"><input type="checkbox" id="cxVenc"${CXS.soVencida?" checked":""}> Só previsão vencida</label>`:""}
+        ${CXS.produto?`<span class="chip-f">${esc(CXS.produto.slice(0,40))}<button type="button" data-tira="produto">✕</button></span>`:""}${CXS.prev!=null?`<span class="chip-f">Previsão ${CXS.prev?dataBR(CXS.prev):"vazia"}<button type="button" data-tira="prev">✕</button></span>`:""}${CXS.acao?`<span class="chip-f">${esc(CXS.acao)}<button type="button" data-tira="acao">✕</button></span>`:""}</div>
+      <div class="tbl-wrap arrasta" id="cxWrap" style="max-height:640px"><table class="dt-cx"><thead><tr><th>Pedido</th><th>Produto bloqueado</th><th>Previsão (Compras)</th><th>Nova previsão (CX)</th><th>Reanálise</th><th>Devolutiva CX</th><th>Pendente com</th><th>Cliente</th><th>Colaborador</th><th>Loja</th><th>Tipo</th><th>Observação</th></tr></thead><tbody>${
+        lst.slice(0,CXS.limite).map(l=>{ const p=l.p, d=l.d, dv=l.previsao&&l.nova?diasEntre(l.previsao,l.nova):null, i0=l.itens[0];
+          return `<tr class="clic${CXS.aberto===p.k?" sel":""}${solAbertas(d,"cx").length?" tr-pend":""}" data-k="${esc(p.k)}"><td class="nw"><b>${esc(p.p)}</b><span class="sub">${p.en?`entrega ${dataBR(p.en).slice(0,5)}`:""}${l.dataAcao?` · ação ${dataBR(l.dataAcao).slice(0,5)}`:""}</span></td>
+            <td>${i0?`${esc(i0[IT.desc]||i0[IT.prod])}<span class="sub">${esc(i0[IT.prod])} · qtd ${int(i0[IT.qtd])}${l.itens.length>1?` · +${l.itens.length-1} item(ns)`:""}</span>`:p.fora?'<span class="muted">saiu da carteira</span>':'<span class="muted">liberado</span>'}</td>
+            <td class="nw${l.previsao&&l.previsao<hoje&&l.bloq?" txt-bad":""}">${l.previsao?dataBR(l.previsao):"—"}</td>
+            <td class="nw">${l.nova?`<span class="newdate">${dataBR(l.nova)}</span>${dv?`<span class="sub">${dv>0?"+":""}${dv} dia(s) vs previsão</span>`:""}`:"—"}</td>
+            <td style="min-width:140px">${pillRean(l.rean)}</td><td>${pillDev(l.acao)}${d&&d.cx&&d.cx.tentativa?`<span class="sub">${d.cx.tentativa}ª tentativa</span>`:""}</td>
+            <td>${bolaHTML(p,'<span class="muted">—</span>')}</td><td>${esc(nomeCurto(p.n))}</td><td class="nw">${esc(l.colab)}</td><td class="nw">${esc(p.l)}</td><td>${esc(p.tp||"")}</td><td class="obs">${esc((d&&d.cx&&d.cx.obs)||"")}</td></tr>
+            ${CXS.aberto===p.k?`<tr class="exp"><td colspan="12"><div data-pgcx="${esc(p.k)}"></div></td></tr>`:""}`; }).join("")||'<tr><td colspan="12" class="muted" style="text-align:center;padding:24px">Nenhum pedido com esses filtros.</td></tr>'}</tbody></table></div>
+      ${lst.length>CXS.limite?`<button type="button" class="peq" id="cxMais" style="margin-top:8px">Mostrar mais (${int(lst.length-CXS.limite)})</button>`:""}</div>`;
+  c.querySelectorAll("[data-ab]").forEach(b=>b.onclick=()=>{ CXS.aba=b.dataset.ab; CXS.acao=""; CXS.prev=null; CXS.produto=""; CXS.colab=""; CXS.soNova=CXS.soVencida=false; guardarPrefCX(); render(); });
+  c.querySelectorAll("[data-acao]").forEach(b=>b.onclick=()=>{ CXS.acao=CXS.acao===b.dataset.acao?"":b.dataset.acao; CXS.prev=null; CXS.produto=""; render(); if(CXS.acao) $("#cxPedidos").scrollIntoView({behavior:"smooth",block:"start"}); });
+  const bb=$("#cxBusca",c); bb.oninput=()=>{ CXS.busca=bb.value; clearTimeout(bb._t); bb._t=setTimeout(()=>{ const pos=bb.selectionStart; render(); const nb=$("#cxBusca"); if(nb){ nb.focus(); nb.setSelectionRange(pos,pos); } },250); };
+  $("#cxColab",c).onchange=e=>{ CXS.colab=e.target.value; render(); };
+  $("#cxRean",c).onchange=e=>{ CXS.fRean=e.target.value; render(); };
+  $("#cxPend",c).onchange=e=>{ CXS.soPend=e.target.checked; render(); };
+  const nv=$("#cxNova",c); if(nv) nv.onchange=e=>{ CXS.soNova=e.target.checked; render(); };
+  const vv=$("#cxVenc",c); if(vv) vv.onchange=e=>{ CXS.soVencida=e.target.checked; render(); };
+  c.querySelectorAll("[data-tira]").forEach(b=>b.onclick=()=>{ const k=b.dataset.tira; CXS[k]=k==="prev"?null:""; render(); });
+  const mais=$("#cxMais",c); if(mais) mais.onclick=()=>{ CXS.limite+=150; render(); };
+  c.querySelectorAll("[data-pvm]").forEach(b=>b.onclick=()=>{ CXS.pvModo=b.dataset.pvm; guardarPrefCX(); render(); });
+  c.querySelectorAll("tr.pvrow").forEach(r=>r.onclick=()=>{ const d=r.dataset.prev; CXS.prev=CXS.prev===d?null:d; render(); if(CXS.prev!=null) $("#cxPedidos").scrollIntoView({behavior:"smooth",block:"start"}); });
+  const pb=$("#cxProdBusca",c); if(pb) pb.oninput=()=>{ CXS.prodBusca=pb.value; clearTimeout(pb._t); pb._t=setTimeout(()=>{ const pos=pb.selectionStart; render(); const n2=$("#cxProdBusca"); if(n2){ n2.focus(); n2.setSelectionRange(pos,pos); } },250); };
+  c.querySelectorAll("tr.prodrow").forEach(r=>r.onclick=()=>{ CXS.produto=CXS.produto===r.dataset.prod?"":r.dataset.prod; render(); $("#cxPedidos").scrollIntoView({behavior:"smooth",block:"start"}); });
+  arrastarTela($("#cxWrap",c),"cart_cx_scroll");
+  $("#cxWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; CXS.aberto=CXS.aberto===tr.dataset.k?"":tr.dataset.k; render(); });
+  const pg=c.querySelector("[data-pgcx]"); if(pg){ montarInteracao(pg,pedidoDeChave(pg.dataset.pgcx),"cx"); const wr=$("#cxWrap",c); Object.assign(pg.style,{position:"sticky",left:"0",maxWidth:Math.max(600,wr.clientWidth-30)+"px"}); }
+}
+function painelPrevisao(aba,hoje){
+  const base=CXS.acao?aba.linhas.filter(l=>l.acao===CXS.acao):aba.linhas;
+  const cab=`<div class="box"><div class="sectionhead"><h3 style="margin:0">Previsão (Compras) × nova previsão aceita (CX)</h3><div class="seg2"><button type="button" data-pvm="produto" aria-pressed="${CXS.pvModo!=="data"}">Por produto</button><button type="button" data-pvm="data" aria-pressed="${CXS.pvModo==="data"}">Por data</button></div></div>
+    <p class="cap">A previsão vem do <b>Compras</b> (nova data do item); a nova previsão é a que o <b>cliente aceitou</b> no contato do CX${CXS.acao?` · filtro: ${esc(CXS.acao)}`:""}. Clique em uma linha para ver os pedidos.</p>`;
+  if(CXS.pvModo==="data"){
+    const g={}; let nN=0, adiou=0, ant=0, igual=0;
+    base.forEach(l=>{ const p=l.previsao||""; const x=g[p]||(g[p]={n:0,sem:0,novas:{}}); x.n++; if(l.nova){ nN++; x.novas[l.nova]=(x.novas[l.nova]||0)+1; if(l.previsao){ const d=diasEntre(l.previsao,l.nova); if(d>0) adiou++; else if(d<0) ant++; else igual++; } } else x.sem++; });
+    const ds=Object.keys(g).sort((a,b)=>(a||"9").localeCompare(b||"9"));
+    return cab+`<div class="tbl-wrap"><table class="pv"><thead><tr><th>Previsão</th><th class="num">Pedidos</th><th>Nova previsão aceita</th><th class="num">Sem nova data</th></tr></thead><tbody>${ds.map(d=>{ const x=g[d], venc=d&&d<hoje;
+      return `<tr class="pvrow${CXS.prev===d?" sel":""}" data-prev="${d}"><td class="nw${venc?" txt-bad":""}"><b>${d?dataBR(d):"Sem previsão"}</b>${d===hoje?' <span class="pill p-warn">hoje</span>':venc?' <span class="pill p-bad">vencida</span>':""}</td><td class="num"><b>${x.n}</b></td>
+        <td>${Object.keys(x.novas).sort().map(nd=>{ const dd=d?diasEntre(d,nd):0; return `<span class="nd"><b>${dataBR(nd)}</b> × ${x.novas[nd]}${d&&dd?` <em>${dd>0?"+":""}${dd}d</em>`:""}</span>`; }).join("")||'<span class="muted">—</span>'}</td><td class="num">${x.sem}</td></tr>`; }).join("")}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">${base.length}</td><td>${nN} com nova data</td><td class="num">${base.length-nN}</td></tr></tfoot></table></div>
+      <p class="cap" style="margin:10px 0 0">Nova data depois da previsão: <b>${adiou}</b> · antes: <b>${ant}</b> · mesma data: <b>${igual}</b></p></div>`;
+  }
+  const q=nrm(CXS.prodBusca), itens=base.filter(l=>l.nova||l.previsao);
+  const rows=itens.flatMap(l=>l.itens.slice(0,1).map(i=>({l,i}))).filter(({l,i})=>!q||[i[IT.desc],i[IT.prod],l.p.n,l.p.p,l.p.l].some(x=>nrm(x).includes(q)))
+    .sort((a,b)=>tx(a.i[IT.desc]).localeCompare(tx(b.i[IT.desc]))||tx(a.l.p.n).localeCompare(tx(b.l.p.n)));
+  return cab+`<div class="filtros" style="grid-template-columns:1fr auto"><input class="busca" id="cxProdBusca" placeholder="Buscar produto, cliente ou pedido" value="${esc(CXS.prodBusca)}"><span class="muted">${rows.length} pedidos · ${new Set(rows.map(r=>r.i[IT.desc])).size} produtos</span></div>
+    <div class="tbl-wrap" style="max-height:420px"><table class="pv"><thead><tr><th>Produto</th><th>Cliente</th><th>Pedido</th><th>Previsão (Compras)</th><th>Nova previsão (CX)</th><th>Reanálise</th><th>Devolutiva CX</th></tr></thead><tbody>${
+      rows.map(({l,i})=>{ const d=l.previsao&&l.nova?diasEntre(l.previsao,l.nova):null, prod=i[IT.desc]||i[IT.prod]; return `<tr class="prodrow${CXS.produto===prod?" sel":""}" data-prod="${esc(prod)}"><td><b>${esc(prod)}</b><span class="sub">${esc(i[IT.prod])} · qtd ${int(i[IT.qtd])}</span></td><td>${esc(nomeCurto(l.p.n))}<span class="sub">loja ${esc(l.p.l)}</span></td><td class="nw">${esc(l.p.p)}</td>
+        <td class="nw${l.previsao&&l.previsao<hoje&&l.bloq?" txt-bad":""}"><b>${l.previsao?dataBR(l.previsao):"—"}</b></td><td class="nw">${l.nova?`<span class="newdate">${dataBR(l.nova)}</span>${d!=null?`<span class="sub">${d===0?"mesma data":`${d>0?"+":""}${d} dia(s)`}</span>`:""}`:"—"}</td><td>${pillRean(l.rean)}</td><td>${pillDev(l.acao)}</td></tr>`; }).join("")
+      ||`<tr><td colspan="7" class="muted" style="text-align:center;padding:18px">${itens.length?"Nenhum item encontrado.":"Nenhum pedido com previsão do Compras ou nova previsão aceita ainda."}</td></tr>`}</tbody></table></div></div>`;
+}
+function painelTratativaFL(aba){
+  const c={}; aba.linhas.forEach(l=>{ const d=l.d, alt=((d&&d.alternativos)||[]).slice(-1)[0], s=l.itens.map(i=>coDe(d,i[IT.prod]).situacao).find(Boolean);
+    const k=alt?(alt.status==="aceito"?"Alterar para similar (aceito)":alt.status==="recusado"?"Alternativo recusado":"Alternativo sugerido — aguardando cliente"):s?sitCo(s)[1]:"Sem tratativa do Compras"; c[k]=(c[k]||0)+1; });
+  const ks=Object.keys(c).sort((a,b)=>c[b]-c[a]), max=Math.max(1,...ks.map(k=>c[k]));
+  return `<div class="box"><h3 style="margin:0 0 4px">Tratativa definida</h3><p class="cap">O que foi decidido para cada item fora de linha ou resíduo (vem do Compras: situação e produto alternativo)</p>
+    ${ks.map(k=>`<div style="margin:0 0 8px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(k)}</span><b>${c[k]}</b></div><div class="stack" style="height:10px;margin-top:3px"><span style="flex:0 0 ${c[k]/max*100}%;background:var(--amber)"></span></div></div>`).join("")}</div>`;
+}
+function renderCxEquipe(c,L){
+  const colabs=[...new Set(L.map(l=>l.colab))].sort(), abasX=ABAS_CX.filter(a=>L.some(l=>l.aba===a[0]));
+  if(CXS.eqColab&&!colabs.includes(CXS.eqColab)) CXS.eqColab="";
+  const sel=L.filter(l=>(!CXS.eqColab||l.colab===CXS.eqColab)&&(!CXS.eqAba||l.aba===CXS.eqAba));
+  const t=sel.length, tr=sel.filter(l=>l.acao!==SEM_DEV).length, p=t?Math.round(tr/t*100):0, semResp=L.filter(l=>l.bloq&&l.colab==="Sem colaborador");
+  const equipe=(cfg().cx_equipe||[]).filter(Boolean);
+  c.innerHTML=`<div class="box"><div class="filtros" style="grid-template-columns:auto minmax(160px,1fr) auto minmax(160px,1fr) auto;margin:0;align-items:center">
+      <b>Colaborador</b><select id="eqColab"><option value="">Todos</option>${colabs.map(x=>`<option${x===CXS.eqColab?" selected":""}>${esc(x)}</option>`).join("")}</select>
+      <b>Tratativa</b><select id="eqAba"><option value="">Todas</option>${abasX.map(a=>`<option value="${a[0]}"${a[0]===CXS.eqAba?" selected":""}>${esc(a[1])}</option>`).join("")}</select>
+      ${CXS.eqColab||CXS.eqAba?'<button type="button" class="peq" id="eqLimpa">Limpar filtros ✕</button>':"<span></span>"}</div></div>
+    <div class="kpis"><div class="kpi kpi-lead"><span>Pedidos</span><b>${int(t)}</b><small>${CXS.eqColab?esc(CXS.eqColab):"toda a equipe"}</small></div>
+      <div class="kpi k-ok"><span>Tratados</span><b style="color:var(--ok)">${int(tr)}</b><small>com devolutiva CX</small></div>
+      <div class="kpi k-warn"><span>Sem devolutiva</span><b style="color:var(--amber)">${int(t-tr)}</b><small>aguardando contato</small></div>
+      <div class="kpi"><span>% tratado</span><b>${p}%</b><small>${CXS.eqAba?esc((ABAS_CX.find(a=>a[0]===CXS.eqAba)||[,""])[1]):"todas as tratativas"}</small></div></div>
+    ${NIVEL>=3?`<div class="box"><b>👥 Distribuir pedidos entre a equipe do CX</b><p class="cap" style="margin:4px 0 8px">${int(semResp.length)} pedido(s) bloqueado(s) sem colaborador. Escreva os nomes da equipe (um por linha); a distribuição é igual entre eles, começando pelos mais urgentes. Quem já tem colaborador não muda.</p>
+      <div class="filtros" style="grid-template-columns:minmax(220px,1fr) auto auto;align-items:start"><textarea id="eqNomes" rows="3" placeholder="Alice&#10;Arthur&#10;Camila">${esc(equipe.join("\n"))}</textarea>
+        <select id="eqDistAba"><option value="">Todas as abas</option>${abasX.map(a=>`<option value="${a[0]}">${esc(a[1])}</option>`).join("")}</select>
+        <button type="button" class="primary" id="eqDist"${semResp.length?"":" disabled"}>Distribuir</button></div><span class="msg" id="eqMsg"></span></div>`:""}
+    <div class="sectionhead"><h3 style="margin:0">Devolutivas por colaborador em cada tratativa</h3></div>
+    ${abasX.filter(a=>!CXS.eqAba||a[0]===CXS.eqAba).map(a=>{ const ls=sel.filter(l=>l.aba===a[0]); if(!ls.length) return `<div class="box"><b>${esc(a[1])}</b><p class="cap" style="margin:4px 0 0">Nenhum pedido${CXS.eqColab?` de ${esc(CXS.eqColab)}`:""} nesta tratativa.</p></div>`;
+      const cs=[...new Set(ls.map(l=>l.colab))], acs=ordenarDev(Object.keys(contarDev(ls))), m={}, tc={}; let max=1;
+      ls.forEach(l=>{ const k=l.colab+"|"+l.acao; m[k]=(m[k]||0)+1; max=Math.max(max,m[k]); tc[l.colab]=(tc[l.colab]||0)+1; });
+      return `<div class="box"><b>${esc(a[1])} · ${ls.length} pedidos</b><p class="cap" style="margin:2px 0 8px">Devolutivas do CX de cada colaborador nesta tratativa</p><div class="tbl-wrap"><table class="mx"><thead><tr><th>Colaborador</th>${acs.map(x=>`<th class="num" title="${esc(x)}"><span class="dot-c" style="background:${corDev(x)}"></span>${esc(x.length>14?x.slice(0,13)+"…":x)}</th>`).join("")}<th class="num">Total</th><th class="num">Tratado</th></tr></thead><tbody>${
+        cs.sort((x,y)=>tc[y]-tc[x]).map(cn=>{ const sem=m[cn+"|"+SEM_DEV]||0, pp=Math.round((tc[cn]-sem)/tc[cn]*100);
+          return `<tr><td><b>${esc(cn)}</b></td>${acs.map(x=>{ const v=m[cn+"|"+x]||0; return v?`<td class="num"><span class="heat" style="background:color-mix(in srgb,${corDev(x)} ${Math.round(12+v/max*38)}%,transparent)">${v}</span></td>`:'<td class="num"><span class="z">·</span></td>'; }).join("")}<td class="num"><b>${tc[cn]}</b></td><td class="num"><span class="mini-bar"><i style="width:${pp}%;background:${pp>=80?"var(--ok)":pp>=50?"var(--amber)":"var(--bad)"}"></i></span> <b>${pp}%</b></td></tr>`; }).join("")}</tbody></table></div></div>`; }).join("")}`;
+  $("#eqColab",c).onchange=e=>{ CXS.eqColab=e.target.value; render(); };
+  $("#eqAba",c).onchange=e=>{ CXS.eqAba=e.target.value; render(); };
+  const el2=$("#eqLimpa",c); if(el2) el2.onclick=()=>{ CXS.eqColab=""; CXS.eqAba=""; render(); };
+  const bd=$("#eqDist",c); if(bd) bd.onclick=async()=>{ const nomes=$("#eqNomes").value.split(/\n|,|;/).map(s=>s.trim()).filter(Boolean), ab=$("#eqDistAba").value, msg=$("#eqMsg");
+    if(!nomes.length){ msg.className="msg erro"; msg.textContent="Escreva pelo menos um nome."; return; }
+    const alvo=semResp.filter(l=>!ab||l.aba===ab).sort((a,b)=>ordemUrgencia(a.p,b.p));
+    if(!alvo.length){ msg.className="msg"; msg.textContent="Nenhum pedido sem colaborador nesta aba."; return; }
+    if(!confirm(`Distribuir ${alvo.length} pedido(s) entre ${nomes.length} pessoa(s)?`)) return;
+    bd.disabled=true; let ok=0, erro=0;
+    try{ await salvarConfig({...cfg(),cx_equipe:nomes}); }catch(_){}
+    for(let i=0;i<alvo.length;i++){ const nome=nomes[i%nomes.length];
+      try{ await gravarInteracao(alvo[i].p,dd=>{ dd.cx_resp=nome; evento(dd,"cx","distribuiu",`Pedido distribuído para ${nome}`); }); ok++; }catch(_){ erro++; }
+      msg.className="msg"; msg.textContent=`Distribuindo… ${ok+erro} de ${alvo.length}`; }
+    toast(`👥 ${ok} pedido(s) distribuído(s)${erro?` · ${erro} com erro`:""}.`); render(); };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ABA COMPRAS — cobrança ao fornecedor, previsão por item, alternativo
+// e os pedidos do CX. As pendências continuam com o Compras na triagem;
+// aqui o Compras registra a tratativa DELE.
+// ═══════════════════════════════════════════════════════════════════
+const COS={escopo:"pendentes",busca:"",sit:"",forn:"",aberto:"",ord:"entrega",dir:1,limite:200};
+const ESCOPOS_CO=[["pendentes","Pendentes com o Compras"],["solicitados","Pedidos do CX esperando resposta"],["sem_registro","Com Compras na triagem, sem registro"],["vencidas","Previsão vencida"],["cobrados","Cobrados ao fornecedor"],["alternativos","Com alternativo sugerido"],["todos","Todos os itens bloqueados"]];
+function linhasCompras(){
+  if(!FOTO_ATUAL) return []; const L=[];
+  FOTO_ATUAL.foto.pedidos.forEach(p=>{ if(!bloqueado(p)) return; const d=interDe(p.k), t=tratDe(p.k), sc=solAbertas(d,"compras"), naTri=comComprasNaTriagem(p);
+    const its=itensBloqueados(p).length?itensBloqueados(p):[null];
+    its.forEach(i=>{ const prod=i?i[IT.prod]:"", c=i?coDe(d,prod):{}, u=ultimaCobranca(c), venc=!!(c.nova_data&&c.nova_data<hojeISO()&&!["recebido","sem_solucao"].includes(c.situacao));
+      const scI=sc.filter(s=>!s.item||s.item===prod), alt=((d&&d.alternativos)||[]).filter(a=>a.item===prod);
+      L.push({p,i,prod,d,t,c,u,venc,scI,alt,naTri,semReg:!c.situacao&&!(c.cobrancas||[]).length,pend:scI.length>0||venc||(naTri&&!c.situacao&&!(c.cobrancas||[]).length)}); }); });
+  return L;
+}
+function renderCompras(c){
+  const T=linhasCompras(), pend=pendenciasAreas(), hoje=hojeISO();
+  const k={itens:T.length,pend:new Set(T.filter(l=>l.pend).map(l=>l.p.k)).size,sol:new Set(T.filter(l=>l.scI.length).map(l=>l.p.k)).size,semReg:new Set(T.filter(l=>l.naTri&&l.semReg).map(l=>l.p.k)).size,
+    cob:T.filter(l=>l.u).length,cobHoje:T.filter(l=>l.u&&String(l.u.em).slice(0,10)===hoje).length,venc:T.filter(l=>l.venc).length,alt:T.filter(l=>l.alt.some(a=>a.status==="sugerido")).length,comData:T.filter(l=>l.c.nova_data).length};
+  const q=nrm(COS.busca);
+  const lst=T.filter(l=>{ switch(COS.escopo){ case "pendentes": return l.pend; case "solicitados": return l.scI.length; case "sem_registro": return l.naTri&&l.semReg; case "vencidas": return l.venc; case "cobrados": return !!l.u; case "alternativos": return l.alt.length; default: return true; } })
+    .filter(l=>(!COS.sit||(l.c.situacao||"")===COS.sit)&&(!COS.forn||nrm(l.c.fornecedor)===nrm(COS.forn))&&(!q||[l.p.p,l.p.n,l.p.c,l.p.l,l.prod,l.i&&l.i[IT.desc],l.i&&l.i[IT.grupo],l.c.fornecedor,l.c.motivo,l.t&&l.t.dados.motivo].some(x=>nrm(x).includes(q))));
+  const chave=l=>{ switch(COS.ord){ case "pedido": return numPedido(l.p)||0; case "cliente": return nrm(l.p.n); case "item": return nrm(l.i&&l.i[IT.desc]); case "sit": return sitCo(l.c.situacao)[1]; case "cobr": return l.u?String(l.u.em):""; case "data": return l.c.nova_data||"9999"; case "forn": return nrm(l.c.fornecedor)||"￿"; case "dias": return l.t&&aberta(l.t)?diasComSetor(l.t):-1; default: return chaveEnt(l.p); } };
+  lst.sort((a,b)=>{ const x=chave(a), y=chave(b); return (typeof x==="number"?x-y:String(x).localeCompare(String(y),"pt-BR",{numeric:true}))*COS.dir; });
+  const forn={}; T.forEach(l=>{ if(!l.c.fornecedor) return; const f=forn[l.c.fornecedor]||(forn[l.c.fornecedor]={n:0,venc:0,cob:0,ped:new Set()}); f.n++; f.ped.add(l.p.k); if(l.venc) f.venc++; if(l.u) f.cob++; });
+  const th=(kk,r,cls)=>`<th class="ord ${cls||""}" data-oc="${kk}">${r}${COS.ord===kk?(COS.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`;
+  c.innerHTML=`<section><header><h2>🛒 Compras — andamento do estoque</h2><p>Cada <b>item bloqueado</b> da carteira: cobrança ao fornecedor (dia, hora e quem), nova data, motivo do atraso e produto alternativo. Tudo o que o Compras grava aparece na hora para o CX e no card do pedido.</p>
+      <span class="direita"><button type="button" class="peq" id="coXls">⬇️ Excel</button></span></header>
+    ${pend.paraCompras||pend.vencidas||pend.semCompras?`<div class="lembrete-area" style="--ac:${corArea("compras")}">🔔 <b>Esperando o Compras:</b> ${[pend.paraCompras?`${pend.paraCompras} pedido(s) do CX`:"",pend.vencidas?`${pend.vencidas} pedido(s) com previsão vencida`:"",pend.semCompras?`${pend.semCompras} pedido(s) com Compras na triagem sem tratativa`:""].filter(Boolean).join(" · ")}.</div>`:""}
+    <div class="kpis">
+      <button type="button" class="kpi k-bad${COS.escopo==="pendentes"?" ativo":""}" data-esc="pendentes"><span>Pendentes com o Compras</span><b>${int(k.pend)}</b><small>pedidos (CX, vencidos ou sem tratativa)</small></button>
+      <button type="button" class="kpi k-roxo${COS.escopo==="solicitados"?" ativo":""}" data-esc="solicitados"><span>📞 Pedidos do CX</span><b>${int(k.sol)}</b><small>esperando resposta</small></button>
+      <button type="button" class="kpi k-warn${COS.escopo==="sem_registro"?" ativo":""}" data-esc="sem_registro"><span>Sem tratativa do Compras</span><b>${int(k.semReg)}</b><small>pedidos com Compras na triagem</small></button>
+      <button type="button" class="kpi k-bad${COS.escopo==="vencidas"?" ativo":""}" data-esc="vencidas"><span>Previsão vencida</span><b>${int(k.venc)}</b><small>itens · nova data já passou</small></button>
+      <button type="button" class="kpi k-ok${COS.escopo==="cobrados"?" ativo":""}" data-esc="cobrados"><span>Cobrados ao fornecedor</span><b>${int(k.cob)}</b><small>${int(k.cobHoje)} hoje · ${int(k.comData)} com nova data</small></button>
+      <button type="button" class="kpi k-azul${COS.escopo==="alternativos"?" ativo":""}" data-esc="alternativos"><span>🔁 Alternativo sugerido</span><b>${int(k.alt)}</b><small>aguardando o cliente (CX)</small></button>
+      <button type="button" class="kpi k-cinza${COS.escopo==="todos"?" ativo":""}" data-esc="todos"><span>Itens bloqueados</span><b>${int(k.itens)}</b><small>em ${int(new Set(T.map(l=>l.p.k)).size)} pedido(s)</small></button></div>
+    <div class="filtros" style="grid-template-columns:minmax(200px,1fr) minmax(200px,1fr) minmax(170px,1fr) minmax(240px,2fr)">
+      <select id="coEsc">${ESCOPOS_CO.map(e=>`<option value="${e[0]}"${e[0]===COS.escopo?" selected":""}>${esc(e[1])}</option>`).join("")}</select>
+      <select id="coSit"><option value="">Situação: todas</option>${SIT_CO.map(s=>`<option value="${s[0]}"${s[0]===COS.sit&&COS.sit!==""?" selected":""}>${esc(s[1])}</option>`).join("")}</select>
+      <select id="coForn"><option value="">Fornecedor: todos</option>${Object.keys(forn).sort().map(f=>`<option${f===COS.forn?" selected":""}>${esc(f)}</option>`).join("")}</select>
+      <input class="busca" id="coBusca" placeholder="Buscar pedido, cliente, código, produto, fornecedor, motivo..." value="${esc(COS.busca)}"></div>
+    <p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> item(ns) · clique na linha para registrar · clique no título da coluna para ordenar</p>
+    <div class="tbl-wrap arrasta" id="coWrap" style="max-height:660px"><table class="dt-cx"><thead><tr>${th("pedido","Pedido")}${th("cliente","Cliente")}${th("entrega","Entrega / prazo")}${th("item","Item bloqueado")}<th>Grupo · local</th>${th("dias","Triagem (com o setor há)")}${th("sit","Situação Compras")}${th("forn","Fornecedor")}${th("cobr","Última cobrança")}${th("data","Nova data")}<th>Alternativo</th><th>CX</th><th>Pendente com</th></tr></thead><tbody>${
+      lst.slice(0,COS.limite).map(l=>{ const p=l.p, pz=prazo(p), t=l.t, kk=p.k+"|"+l.prod;
+        return `<tr class="clic${COS.aberto===kk?" sel":""}${l.scI.length?" tr-pend":""}" data-k="${esc(kk)}"><td class="nw"><b>${esc(p.p)}</b><span class="sub">loja ${esc(p.l)}</span></td><td>${esc(nomeCurto(p.n))}<span class="sub">cód. ${esc(p.c||"—")}</span></td>
+          <td class="nw">${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"} <span class="pill ${pz.pill}">${pz.rot}</span></td>
+          <td>${l.i?`<b>${esc(l.prod)}</b> · ${esc(l.i[IT.desc])}<span class="sub">qtd ${int(l.i[IT.qtd])}</span>`:'<span class="muted">sem detalhe de itens</span>'}</td><td>${l.i?`${esc(l.i[IT.grupo]||"—")}<span class="sub">${esc(l.i[IT.local]||"")}</span>`:"—"}</td>
+          <td>${t&&aberta(t)?`${pillsSetores(t)} <span class="sub">${esc(t.dados.classe)} · ${esc(t.dados.motivo)} · ${diasComSetor(t)} d</span>`:t?'<span class="pill p-ok">resolvida na triagem</span>':'<span class="pill p-azul">não triado</span>'}</td>
+          <td>${pillCo(l.c.situacao)}${l.c.motivo?`<span class="sub">${esc(l.c.motivo)}</span>`:""}</td><td>${esc(l.c.fornecedor||"—")}</td>
+          <td>${l.u?`${dataHoraCurta(l.u.em)}<span class="sub">${esc(nomeCurto(l.u.por))}${(l.c.cobrancas||[]).length>1?` · ${(l.c.cobrancas||[]).length}×`:""}</span>`:'<span class="muted">não cobrado</span>'}</td>
+          <td class="nw${l.venc?" txt-bad":""}">${l.c.nova_data?dataBR(l.c.nova_data):"—"}${l.venc?' <span class="pill p-bad">vencida</span>':""}</td>
+          <td>${l.alt.length?l.alt.slice(-1).map(a=>`${esc(a.prod)} <span class="sub">${a.status==="sugerido"?"aguardando cliente":a.status==="aceito"?"aceito":"recusado"}</span>`).join(""):'<span class="muted">—</span>'}</td>
+          <td>${pillDev(devolutiva(l.d))}</td><td>${bolaHTML(p,'<span class="muted">—</span>')}</td></tr>
+          ${COS.aberto===kk?`<tr class="exp"><td colspan="13"><div data-pgco="${esc(p.k)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="13" class="muted" style="text-align:center;padding:24px">${COS.escopo==="pendentes"?"Nada pendente com o Compras. 👌":"Nenhum item com esses filtros."}</td></tr>`}</tbody></table></div>
+    ${lst.length>COS.limite?`<button type="button" class="peq" id="coMais" style="margin-top:8px">Mostrar mais (${int(lst.length-COS.limite)})</button>`:""}
+    ${Object.keys(forn).length?`<div class="box"><b>🏭 Por fornecedor</b><div class="tbl-wrap" style="margin-top:8px;max-height:320px"><table class="mx"><thead><tr><th>Fornecedor</th><th class="num">Itens</th><th class="num">Pedidos</th><th class="num">Cobrados</th><th class="num">Previsão vencida</th></tr></thead><tbody>${
+      Object.entries(forn).sort((a,b)=>b[1].venc-a[1].venc||b[1].n-a[1].n).map(([f,x])=>`<tr class="clic" data-forn="${esc(f)}"><td><b>${esc(f)}</b></td><td class="num">${x.n}</td><td class="num">${x.ped.size}</td><td class="num">${x.cob}</td><td class="num">${x.venc?`<span class="pill p-bad">${x.venc}</span>`:"—"}</td></tr>`).join("")}</tbody></table></div></div>`:""}</section>`;
+  c.querySelectorAll("[data-esc]").forEach(b=>b.onclick=()=>{ COS.escopo=b.dataset.esc; COS.aberto=""; render(); });
+  $("#coEsc",c).onchange=e=>{ COS.escopo=e.target.value; render(); };
+  $("#coSit",c).onchange=e=>{ COS.sit=e.target.value; render(); };
+  $("#coForn",c).onchange=e=>{ COS.forn=e.target.value; render(); };
+  c.querySelectorAll("[data-forn]").forEach(r=>r.onclick=()=>{ COS.forn=r.dataset.forn; COS.escopo="todos"; render(); window.scrollTo({top:0,behavior:"smooth"}); });
+  const bb=$("#coBusca",c); bb.oninput=()=>{ COS.busca=bb.value; clearTimeout(bb._t); bb._t=setTimeout(()=>{ const pos=bb.selectionStart; render(); const n=$("#coBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
+  c.querySelectorAll("th[data-oc]").forEach(h=>h.onclick=()=>{ const kk=h.dataset.oc; if(COS.ord===kk) COS.dir*=-1; else { COS.ord=kk; COS.dir=kk==="dias"||kk==="cobr"?-1:1; } render(); });
+  const mais=$("#coMais",c); if(mais) mais.onclick=()=>{ COS.limite+=200; render(); };
+  arrastarTela($("#coWrap",c),"cart_co_scroll");
+  $("#coWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; COS.aberto=COS.aberto===tr.dataset.k?"":tr.dataset.k; COS.autoForm=!!COS.aberto; render(); });
+  const pg=c.querySelector("[data-pgco]"); if(pg){ const p=pedidoDeChave(pg.dataset.pgco), prod=COS.aberto.split("|").slice(1).join("|"); if(COS.autoForm&&prod&&NIVEL>=2){ estPG[p.k]="co:"+prod; } COS.autoForm=false;
+    montarInteracao(pg,p,"compras"); const wr=$("#coWrap",c); Object.assign(pg.style,{position:"sticky",left:"0",maxWidth:Math.max(600,wr.clientWidth-30)+"px"}); }
+  $("#coXls",c).onclick=()=>exportarXlsx("compras_andamento",[{nome:"Compras",cols:[["Loja",l=>l.p.l],["Pedido",l=>l.p.p],["Cliente",l=>l.p.n],["Código",l=>l.p.c],["Entrega",l=>l.p.en?dataBR(l.p.en):""],["Prazo",l=>prazo(l.p).rot],
+    ["Produto",l=>l.prod],["Descrição",l=>l.i?l.i[IT.desc]:""],["Grupo",l=>l.i?l.i[IT.grupo]:""],["Local",l=>l.i?l.i[IT.local]:""],["Qtd",l=>l.i?Number(l.i[IT.qtd])||0:""],
+    ["Triagem",l=>l.t?`${l.t.dados.classe} · ${l.t.dados.motivo}`:""],["Setor(es)",l=>l.t&&aberta(l.t)?setoresDe(l.t).map(x=>setorPor(x).nome).join(" + "):""],["Com o setor há (dias)",l=>l.t&&aberta(l.t)?diasComSetor(l.t):""],
+    ["Situação Compras",l=>sitCo(l.c.situacao)[1]],["Fornecedor",l=>l.c.fornecedor||""],["Motivo do atraso",l=>l.c.motivo||""],["Nova data",l=>l.c.nova_data?dataBR(l.c.nova_data):""],["Previsão vencida",l=>l.venc?"sim":""],
+    ["Última cobrança",l=>l.u?dataHoraBR(l.u.em):""],["Cobrado por",l=>l.u?l.u.por:""],["Obs. da cobrança",l=>l.u?l.u.obs:""],["Nº de cobranças",l=>(l.c.cobrancas||[]).length],
+    ["Alternativo",l=>l.alt.map(a=>`${a.prod} ${a.desc} (${a.status})`).join(" | ")],["Devolutiva CX",l=>devolutiva(l.d)],["Pendente com",l=>bolaDe(l.p).map(x=>`${x.a==="cx"?"CX":"Compras"}: ${x.t}`).join(" | ")]],linhas:lst}]);
+}
+// atualiza sozinho: o que a outra área gravou aparece sem recarregar (a cada 60 s, se ninguém estiver digitando)
+setInterval(async()=>{
+  if(document.hidden||!FOTO) return;
+  await carregarInteracoes().catch(()=>{});
+  atualizarMenu(); desenharLembrete();
+  const ativo=document.activeElement, digitando=ativo&&ativo.closest&&ativo.closest("#root")&&/INPUT|TEXTAREA|SELECT/.test(ativo.tagName);
+  if(["cx","compras"].includes(secao)&&!digitando&&!Object.keys(estPG).length) render();
+},60000);
+// coluna "CX · Compras" da lista de Pendências por setor
+function celInter(p){ const d=interDe(p.k), b=bolaDe(p), ev=d&&d.eventos&&d.eventos[d.eventos.length-1];
+  if(!d&&!b.length) return '<span class="muted">—</span>';
+  return `<div class="cel">${b.length?b.map(x=>pillArea(x.a,x.a==="cx"?"CX":"Compras")).join(" "):pillDev(devolutiva(d))}<span class="corta" title="${esc(ev?`${ev.texto} · ${ev.por} · ${dataHoraCurta(ev.em)}`:"")}">${ev?`${esc(ev.texto)} · ${esc(nomeCurto(ev.por))}`:""}</span></div>`; }
+
 async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; EMAIL=a.email; } }catch(_){}
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||""; ADMIN=u.papel==="admin";
@@ -1556,12 +2225,12 @@ async function iniciar(){
   $("#btImportar").hidden=NIVEL<3; $("#btImportar").onclick=()=>ir("importar");
   $("#btRelatorio").onclick=()=>{ if(!FOTO) return alert("Nenhuma carteira importada ainda."); exportarRelatorio("relatorio_completo",FOTO.pedidos); };
   try{
-    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas()]);
+    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas(),carregarInteracoes()]);   // [v4.15] + CX × Compras
     CFG=cf.j&&cf.j.id?cf.j:null; CFG_DADOS=cfg(); DIAS=dias.j||[];
     if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; }
     else if(NIVEL>=3) secao="importar";
     $("#btRelatorio").hidden=!FOTO;
-    setStatus("ok"); render();
+    setStatus("ok"); render(); avisoAoEntrar();
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar a carteira.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
 }
