@@ -7,6 +7,9 @@
    • no perfil "Visualizar", impede que a tela tente gravar (o servidor já
      recusaria — aqui só evita a espera e explica o motivo);
    • quando o servidor recusa algo por permissão (403), mostra o motivo.
+   • [v4.16] PERMISSÃO POR ABA: PQI_ACESSO.abas = {aba: 0–4} deste sistema e
+     PQI_ACESSO.nivelAba("cx") devolve o nível daquela aba
+     (0 Sem acesso · 1 Visualizar · 2 Adicionar · 3 Editar · 4 Excluir).
    A regra de verdade fica no servidor (main.py + permissoes.py): este
    arquivo só deixa a experiência clara.
    ═══════════════════════════════════════════════════════════════════ */
@@ -20,8 +23,13 @@
     2: "Você pode incluir registros novos e completar campos vazios. O que outras pessoas registraram fica protegido.",
     3: "Você pode incluir, alterar e excluir neste sistema."
   };
-  var acesso = { nivel: 3, perfil: "", email: "", permissoes: {}, soAcesso: false, carregado: false };
+  var acesso = { nivel: 3, nivelSistema: 3, perfil: "", email: "", permissoes: {}, abas: null, soAcesso: false, carregado: false };
   window.PQI_ACESSO = acesso;
+  // [v4.16] nível de uma aba; sem a lista de abas (sistema sem abas), vale o nível do sistema (Editar = tudo)
+  acesso.nivelAba = function (id) {
+    if (acesso.abas && id in acesso.abas) return Number(acesso.abas[id]) || 0;
+    return acesso.nivelSistema >= 3 ? 4 : acesso.nivelSistema;
+  };
 
   var fetchOriginal = window.fetch.bind(window);
   acesso.pronto = fetchOriginal("/api/auth/me", { cache: "no-store" })
@@ -29,13 +37,18 @@
     .then(function (j) {
       if (!j) return acesso;
       acesso.permissoes = j.permissoes || {};
-      acesso.nivel = MODULO in acesso.permissoes ? acesso.permissoes[MODULO] : 3;
+      acesso.nivelSistema = MODULO in acesso.permissoes ? acesso.permissoes[MODULO] : 3;
+      acesso.abas = (j.abas && j.abas[MODULO]) || null;
+      // uma aba com nível maior que o sistema (ex.: sistema Visualizar, aba CX Adicionar) também libera gravar
+      var maxAba = 0;
+      if (acesso.abas) Object.keys(acesso.abas).forEach(function (k) { maxAba = Math.max(maxAba, Math.min(3, Number(acesso.abas[k]) || 0)); });
+      acesso.nivel = Math.max(acesso.nivelSistema, maxAba);
       acesso.perfil = j.perfil_nome || "";
       acesso.email = (j.usuario && j.usuario.email) || "";
       acesso.soAcesso = (j.so_acesso || []).indexOf(MODULO) >= 0;
       acesso.carregado = true;
       document.documentElement.dataset.pqiNivel = String(acesso.nivel);
-      if (!acesso.soAcesso && acesso.nivel < 3) selo();
+      if (!acesso.soAcesso && acesso.nivel < 3 && !acesso.abas) selo();
       document.dispatchEvent(new CustomEvent("pqi-acesso", { detail: acesso }));
       return acesso;
     })
