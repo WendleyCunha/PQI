@@ -8,6 +8,14 @@ import traceback
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 import time
+
+# [v4.18] HORÁRIO DE BRASÍLIA em todo o servidor: o Render roda em UTC; com isto, todo
+# datetime.now() (registros, históricos, vencimentos) já sai no horário de Brasília.
+os.environ["TZ"] = "America/Sao_Paulo"
+try:
+    time.tzset()
+except AttributeError:   # Windows (desenvolvimento local) não tem tzset — lá o relógio já é o local
+    pass
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response, JSONResponse, HTMLResponse
 from starlette.concurrency import run_in_threadpool
@@ -131,7 +139,7 @@ ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
-_CACHE_SEG = 30
+_CACHE_SEG = 300   # [v4.18] 5 min (era 30 s): toda mudança feita por aqui já limpa o cache na hora; economiza leituras do Firestore
 
 
 def _usuario_cacheado(email: str) -> Optional[dict]:
@@ -1926,9 +1934,19 @@ def _reserva_de_outro(chave: str, request: Request) -> Optional[dict]:
     return r if r and (r.get("email") or "").lower() != _email(request).lower() else None
 
 
+_RES_CACHE: dict = {"itens": None}   # [v4.18] reservas em memória (quem está tratando o quê) — a trava continua no Firestore
+
+
+def _res_lista() -> list:
+    if _RES_CACHE["itens"] is None:
+        _RES_CACHE["itens"] = {r.get("chave"): r for r in db.cart_reservas_ativas() if r.get("chave")}
+    agora = datetime.utcnow().isoformat()
+    return [r for r in _RES_CACHE["itens"].values() if str(r.get("expira") or "") > agora]
+
+
 @app.get("/api/carteira/reservas")
 def cart_reservas(request: Request):
-    return db.cart_reservas_ativas()
+    return _res_lista()
 
 
 @app.post("/api/carteira/reservas/{chave}")
@@ -1936,7 +1954,9 @@ def cart_reservar(chave: str, request: Request):
     """[v4.4] Pega o pedido para si. 409 se outra pessoa já está com ele."""
     if not _CHAVE_PEDIDO.fullmatch(chave):
         raise HTTPException(status_code=400, detail="Pedido inválido.")
-    ok, reg = db.cart_reservar(chave, _nome_de(request), _email(request))
+    ok, reg = db.cart_reservar(chave, _nome_de(request), _email(request))   # a regra "só um trata" é garantida aqui (transação no Firestore)
+    if _RES_CACHE["itens"] is not None and reg:
+        _RES_CACHE["itens"][chave] = reg
     if not ok:
         return JSONResponse({"detail": f"Este pedido já está sendo tratado por {reg.get('por') or reg.get('email')}.", "reserva": reg}, status_code=409)
     return reg
@@ -1946,12 +1966,58 @@ def cart_reservar(chave: str, request: Request):
 def cart_liberar(chave: str, request: Request):
     if not _CHAVE_PEDIDO.fullmatch(chave):
         raise HTTPException(status_code=400, detail="Pedido inválido.")
-    return {"liberado": db.cart_liberar(chave, _email(request), usuario_atual(request).get("papel") == "admin")}
+    ok = db.cart_liberar(chave, _email(request), usuario_atual(request).get("papel") == "admin")
+    if ok and _RES_CACHE["itens"] is not None:
+        _RES_CACHE["itens"].pop(chave, None)
+    return {"liberado": ok}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.18] CACHE DAS LISTAS DA CARTEIRA — economia do plano grátis do Firestore
+# A lista inteira (tratativas, CX × Compras) é lida do Firestore UMA vez quando o
+# servidor liga; depois, toda gravação passa por este servidor e atualiza a lista
+# em memória. Assim, abrir a Carteira ou atualizar a tela não gasta leitura.
+# (Vale com UM processo do servidor — que é o caso do Render com uvicorn.)
+# ──────────────────────────────────────────────────────────────────────────
+class _CacheColecao:
+    def __init__(self, colecao: str):
+        self.colecao, self.itens, self.trava = colecao, None, threading.Lock()
+
+    def listar(self) -> list:
+        with self.trava:
+            if self.itens is None:
+                self.itens = {d["id"]: d for d in db.docs_listar(self.colecao)}
+            return list(self.itens.values())
+
+    def obter(self, doc_id: str):
+        self.listar()
+        return self.itens.get(doc_id)
+
+    def por_chave(self, chave: str):
+        return next((d for d in self.listar() if (d.get("dados") or {}).get("chave") == chave), None)
+
+    def gravar(self, reg) -> None:
+        if self.itens is not None and isinstance(reg, dict) and reg.get("id"):
+            self.itens[reg["id"]] = reg
+
+    def esquecer(self) -> None:
+        self.itens = None
+
+
+_CACHE_TRAT = _CacheColecao(db.COLECAO_CART_TRATATIVAS)
+
+
+@app.post("/api/carteira/recarregar")
+def cart_recarregar(request: Request):
+    """[v4.18] Relê as listas do Firestore (use só se alguém mexeu direto no banco)."""
+    _CACHE_TRAT.esquecer()
+    _CACHE_INTER.esquecer()
+    return {"sucesso": True}
 
 
 @app.get("/api/carteira/tratativas")
 def cart_tratativas(request: Request):
-    return db.docs_listar(db.COLECAO_CART_TRATATIVAS)
+    return _CACHE_TRAT.listar()
 
 
 @app.post("/api/carteira/tratativas")
@@ -1964,6 +2030,7 @@ def cart_tratativa_criar(payload: ProcessoEntrada, request: Request):
     if outro:
         raise HTTPException(status_code=423, detail=f"Este pedido está sendo tratado por {outro.get('por') or outro.get('email')}.")
     reg = db.docs_criar(db.COLECAO_CART_TRATATIVAS, payload.dados, _nome_de(request), _email(request))
+    _CACHE_TRAT.gravar(reg)
     db.cart_liberar(payload.dados["chave"], _email(request))   # classificou: devolve o pedido
     return reg
 
@@ -1978,6 +2045,7 @@ def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
     if outro:
         raise HTTPException(status_code=423, detail=f"Este pedido está sendo tratado por {outro.get('por') or outro.get('email')}.")
     resultado, registro = db.docs_salvar(db.COLECAO_CART_TRATATIVAS, item_id, payload.dados, payload.versao, _nome_de(request))
+    _CACHE_TRAT.gravar(registro)   # [v4.18] (no conflito, devolve o atual — também atualiza a lista)
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Tratativa não encontrada.")
     if resultado == "conflito":
@@ -1993,6 +2061,25 @@ def cart_tratativa_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
 # triagem de propósito: CX e Compras gravam sem esperar a reserva da triagem.
 # ──────────────────────────────────────────────────────────────────────────
 COLECAO_CART_INTERACOES = "carteira_interacoes"
+_CACHE_INTER = _CacheColecao(COLECAO_CART_INTERACOES)   # [v4.18]
+
+
+def _inter_criar(dados: dict, request: Request):
+    """[v4.18] Cria com id FIXO por pedido ("i_loja-pedido"): se duas pessoas criarem ao mesmo
+    tempo, o Firestore aceita só a primeira — sem precisar ler a coleção inteira para conferir."""
+    agora = datetime.now().isoformat()
+    doc_id = "i_" + re.sub(r"[^0-9A-Za-z_-]", "_", str(dados["chave"]))
+    reg = {"dados": dados, "versao": 1, "excluido": False, "criado_por": _nome_de(request), "criado_por_email": _email(request),
+           "criado_em": agora, "atualizado_por": _nome_de(request), "atualizado_em": agora}
+    try:
+        db.get_db().collection(COLECAO_CART_INTERACOES).document(doc_id).create(reg, timeout=db.TIMEOUT_FS)
+    except Exception as e:
+        if "already exists" in str(e).lower() or "409" in str(e):
+            return None, doc_id
+        raise
+    publico = {"id": doc_id, "dados": dados, "versao": 1, "atualizado_por": reg["atualizado_por"], "atualizado_em": agora,
+               "criado_por": reg["criado_por"], "criado_em": agora}
+    return publico, doc_id
 
 
 def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
@@ -2023,6 +2110,8 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
     for i, x in sn.items():
         if i not in sa:
             pede(x.get("de") if x.get("de") in ("cx", "compras") else "cx", 2)
+        elif x.get("status") == "encerrada" and sa[i].get("status") == "aberta":
+            pede("importar", 3)   # [v4.18] encerrado pela planilha na importação
         elif j(x) != j(sa[i]):
             quem = x.get("para") if x.get("status") == "respondida" else x.get("de")
             pede(quem if quem in ("cx", "compras") else "cx", 2)
@@ -2030,6 +2119,9 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
         if i not in sn:
             pede(x.get("de") if x.get("de") in ("cx", "compras") else "cx", 4)
     for aba, n in precisa.items():
+        if aba == "importar":
+            _exigir_aba(request, "carteira", "importar", n, "Encerrar pela planilha")
+            continue
         _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + ("CX" if aba == "cx" else "Compras"))
         # [v4.17] quem abriu primeiro o pedido nesta área é quem trata — o outro espera ele sair
         r = db.cart_reserva_ativa(f"{novo.get('chave') or antes.get('chave')}|{aba}")
@@ -2039,7 +2131,7 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
 
 @app.get("/api/carteira/interacoes")
 def cart_interacoes(request: Request):
-    return db.docs_listar(COLECAO_CART_INTERACOES)
+    return _CACHE_INTER.listar()
 
 
 @app.post("/api/carteira/interacoes")
@@ -2048,10 +2140,16 @@ def cart_interacao_criar(payload: ProcessoEntrada, request: Request):
         raise HTTPException(status_code=400, detail="Registro inválido.")
     _checar_tamanho(payload.dados)
     _conferir_interacao(request, {}, payload.dados)   # [v4.16]
-    ja = next((d for d in db.docs_listar(COLECAO_CART_INTERACOES) if (d.get("dados") or {}).get("chave") == payload.dados["chave"]), None)
+    ja = _CACHE_INTER.por_chave(payload.dados["chave"])
     if ja:   # duas pessoas abriram o mesmo pedido ao mesmo tempo: devolve o que já existe para a tela juntar
         return JSONResponse({"detail": "conflito", "atual": ja}, status_code=409)
-    return db.docs_criar(COLECAO_CART_INTERACOES, payload.dados, _nome_de(request), _email(request))
+    reg, doc_id = _inter_criar(payload.dados, request)
+    if reg is None:
+        atual = db.docs_ler(COLECAO_CART_INTERACOES, doc_id)
+        _CACHE_INTER.gravar(atual)
+        return JSONResponse({"detail": "conflito", "atual": atual}, status_code=409)
+    _CACHE_INTER.gravar(reg)
+    return reg
 
 
 @app.put("/api/carteira/interacoes/{item_id}")
@@ -2059,10 +2157,11 @@ def cart_interacao_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Registro inválido.")
     _checar_tamanho(payload.dados)
-    atual = db.docs_ler(COLECAO_CART_INTERACOES, item_id)   # [v4.16] confere o que mudou (CX × Compras)
+    atual = _CACHE_INTER.obter(item_id) or db.docs_ler(COLECAO_CART_INTERACOES, item_id)   # [v4.16] confere o que mudou (CX × Compras)
     if atual:
         _conferir_interacao(request, atual.get("dados") or {}, payload.dados)
     resultado, registro = db.docs_salvar(COLECAO_CART_INTERACOES, item_id, payload.dados, payload.versao, _nome_de(request))
+    _CACHE_INTER.gravar(registro)   # [v4.18]
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Registro não encontrado.")
     if resultado == "conflito":
