@@ -30,6 +30,14 @@ MODULOS = [
         "url": "/carteira", "icone": "📦", "tipo": "nuvem",
         "paginas": ["/carteira"],
         "apis": ["/api/carteira"],
+        # [v4.16] abas do sistema — cada uma pode ter nível próprio por perfil e por pessoa.
+        # "min": nível do SISTEMA a partir do qual a aba aparece quando segue o sistema (ex.: Importar só p/ Editar).
+        "abas": [
+            {"id": "painel", "nome": "Painel"}, {"id": "triagem", "nome": "Triagem"}, {"id": "situacao", "nome": "Status do pedido"},
+            {"id": "carteira", "nome": "Carteira"}, {"id": "itens", "nome": "Itens"}, {"id": "filas", "nome": "Pendências por setor"},
+            {"id": "cx", "nome": "CX"}, {"id": "compras", "nome": "Compras"}, {"id": "solucoes", "nome": "Soluções"},
+            {"id": "historico", "nome": "Histórico"}, {"id": "importar", "nome": "Importar", "min": 3}, {"id": "config", "nome": "Configurar", "min": 3},
+        ],
     },
     {
         # [v4.1] Veio do Streamlit (cartas.py) para o Painel.
@@ -39,6 +47,10 @@ MODULOS = [
         "url": "/cartas", "icone": "📑", "tipo": "nuvem",
         "paginas": ["/cartas"],
         "apis": ["/api/cartas"],
+        "abas": [   # [v4.16]
+            {"id": "nova", "nome": "Nova carta", "min": 2}, {"id": "painel", "nome": "Painel"}, {"id": "fechamento", "nome": "Fechamento"},
+            {"id": "historico", "nome": "Histórico"}, {"id": "config", "nome": "Configurar"},
+        ],
     },
     {
         "id": "rg",
@@ -203,6 +215,76 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
     return saida
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [NOVO v4.16] PERMISSÃO POR ABA (dentro de cada sistema)
+# Níveis da aba: 0 Sem acesso (a aba some) · 1 Visualizar · 2 Adicionar ·
+#                3 Editar (sem excluir) · 4 Excluir (tudo)
+# Onde fica gravado (só as EXCEÇÕES):
+#   perfil["abas"]  = {"carteira": {"cx": 2, "importar": 0}}
+#   usuario["abas"] = {"carteira": {"compras": 3}}        ← vale mais que o perfil
+# Aba sem exceção SEGUE O SISTEMA: Editar no sistema (3, que sempre incluiu
+# excluir) vira 4 na aba; os outros níveis ficam iguais. Assim, no dia em que
+# isto entrou, ninguém perdeu nem ganhou acesso.
+# ──────────────────────────────────────────────────────────────────────────
+NIVEIS_ABA = {0: "Sem acesso", 1: "Visualizar", 2: "Adicionar", 3: "Editar", 4: "Excluir"}
+
+
+def abas_de(modulo_id: str) -> list:
+    m = POR_ID.get(modulo_id) or {}
+    return m.get("abas") or []
+
+
+def nivel_aba_herdado(aba: dict, nivel_sistema: int) -> int:
+    n = int(nivel_sistema or 0)
+    if n < int(aba.get("min", 1)):
+        return 0
+    return 4 if n >= 3 else n
+
+
+def _n_aba(v):
+    if isinstance(v, bool) or v is None:
+        return None
+    try:
+        return max(0, min(4, int(v)))
+    except (TypeError, ValueError):
+        return None
+
+
+def abas_do_usuario(usuario: dict, perfil, niveis: dict) -> dict:
+    """{sistema: {aba: nível 0–4}} — já resolvido (pessoa > perfil > herda do sistema)."""
+    saida = {}
+    admin = usuario.get("papel") == "admin"
+    for m in MODULOS:
+        abas = m.get("abas")
+        if not abas:
+            continue
+        ns = int(niveis.get(m["id"], 0))
+        dp = ((perfil or {}).get("abas") or {}).get(m["id"]) or {}
+        du = (usuario.get("abas") or {}).get(m["id"]) or {}
+        r = {}
+        for a in abas:
+            if admin:
+                r[a["id"]] = 4
+                continue
+            if ns <= 0:   # sem acesso ao sistema = nenhuma aba
+                r[a["id"]] = 0
+                continue
+            v = _n_aba(du.get(a["id"]))
+            if v is None:
+                v = _n_aba(dp.get(a["id"]))
+            r[a["id"]] = nivel_aba_herdado(a, ns) if v is None else v
+        saida[m["id"]] = r
+    return saida
+
+
+def nivel_efetivo_sistema(nivel_sistema: int, abas: dict) -> int:
+    """Para o porteiro: se uma aba tem nível MAIOR que o sistema (ex.: sistema Visualizar,
+    aba CX Adicionar), a pessoa precisa conseguir gravar — a rota confere a aba."""
+    if not abas:
+        return nivel_sistema
+    return max(int(nivel_sistema or 0), max((min(int(v), 3) for v in abas.values()), default=0))
+
+
 def modulo_da_rota(caminho: str):
     """Qual módulo protege este endereço? None = endereço não pertence a módulo nenhum."""
     for m in MODULOS:
@@ -224,4 +306,5 @@ def cards_do_usuario(usuario: dict, niveis: dict) -> list:
 
 
 def catalogo_publico() -> list:
-    return [{**{k: m[k] for k in ("id", "nome", "icone", "tipo", "descricao")}, "so_acesso": so_acesso(m)} for m in MODULOS]
+    return [{**{k: m[k] for k in ("id", "nome", "icone", "tipo", "descricao")}, "so_acesso": so_acesso(m),
+             "abas": m.get("abas") or []} for m in MODULOS]
