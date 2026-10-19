@@ -203,6 +203,27 @@ table.lista tr.pers td{background:color-mix(in srgb,var(--amber-soft) 45%,var(--
 table.lista select.sel-acesso.pers{border-color:var(--amber);font-weight:600}
 .tag-pers{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;background:var(--amber);color:#fff;vertical-align:1px}
 .chip-perfil .tag-pers{color:#fff;margin:2px 0 0;align-self:flex-start}
+/* [v4.2] liberações · sessões · configurações */
+.lib-btns{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle;flex-wrap:wrap}
+.btn.mini{padding:5px 10px;font-size:12.5px}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.perigo{color:var(--bad);border-color:var(--bad)}
+.cards-lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card-lib{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--amber);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.card-lib.liberado{border-left-color:var(--ok)} .card-lib.bloq{border-left-color:var(--bad)}
+.card-lib h4{margin:0;font:700 17px "IBM Plex Sans Condensed",sans-serif}
+.card-lib .meta{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+.kpis-lib{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+.kpi-lib{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 16px;min-width:150px}
+.kpi-lib b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif}
+.kpi-lib span{font-size:12.5px;color:var(--ink-3)}
+.cfg-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.cfg-item{display:flex;flex-direction:column;gap:4px;font-size:13.5px}
+.cfg-item small{color:var(--ink-3);font-size:12px;line-height:1.4}
+.cfg-item input[type=number]{max-width:140px}
+.chave{display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:14px}
+.chave input{width:18px;height:18px;margin-top:2px;accent-color:var(--steel)}
+.side-btn .n.alerta{background:var(--bad);color:#fff}
 </style>
 </head>
 <body>
@@ -239,7 +260,7 @@ function dataBR(v){ if(!v) return "—"; const d=new Date(v); return isNaN(d)?v:
 function iniciais(n){ const p=String(n||"").trim().split(/\s+/).filter(Boolean); return p.length?(p[0][0]+(p.length>1?p[p.length-1][0]:"")).toUpperCase():"?"; }
 const SIMBOLO={0:"✕",1:"👁",2:"＋",3:"✎"};
 const ETAPAS_DIAG=["inv","org","dia","ent","gem","mat","jou","val"];
-let D={usuarios:[],modulos:[],perfis:[],departamentos:[],niveis:{},papeis:{}}, USO={}, aba="usuarios", busca="";
+let D={usuarios:[],modulos:[],perfis:[],departamentos:[],niveis:{},papeis:{}}, USO={}, aba="usuarios", busca="", AVISOS_N=0;
 try{ aba=sessionStorage.getItem("seg_aba")||"usuarios"; }catch(_){}
 
 async function api(url,op={}){
@@ -251,17 +272,25 @@ async function api(url,op={}){
 function status(t,tipo){ const s=$("#salvo"); s.className="salvo "+(tipo||"ok"); s.querySelector("span").textContent=t; }
 async function carregar(){
   const [u,p]=await Promise.all([api("/api/admin/usuarios"),api("/api/admin/perfis")]);
-  D=u; USO=p.uso||{}; D.perfis=p.perfis; status(`${D.usuarios.length} usuário(s) · ${D.perfis.filter(x=>!x.arquivado).length} perfil(is) · ${D.departamentos.length} departamento(s)`);
+  D=u; USO=p.uso||{}; D.perfis=p.perfis;
+  AVISOS_N=D.usuarios.filter(x=>(x.pedido_senha&&x.pedido_senha.status==="pendente")||x.bloqueio).length;
+  status(`${D.usuarios.length} usuário(s) · ${D.perfis.filter(x=>!x.arquivado).length} perfil(is) · ${D.departamentos.length} departamento(s)`);
 }
 
 // ─── menu ───
 const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
 const ABAS=[["usuarios","Usuários",SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',renderUsuarios],
+  ["liberacoes","Libera­ções",SV+'<path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>',renderLiberacoes],
+  ["sessoes","Sessões",SV+'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',renderSessoes],
   ["permissoes","Permissões",SV+'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',renderPermissoes],
   ["departamentos","Departa­mentos",SV+'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-3h14v3"/></svg>',renderDepartamentos],
-  ["historico","Histórico",SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',renderHistorico]];
-function montarMenu(){ const m=$("#menu"); m.innerHTML=ABAS.map(([id,nome,ico])=>`<button type="button" class="side-btn${id===aba?" ativa":""}" data-a="${id}" title="${nome.replace(/­/g,"")}">${ico}<span>${nome}</span></button>`).join("");
-  m.querySelectorAll("button").forEach(b=>b.onclick=()=>{ aba=b.dataset.a; try{ sessionStorage.setItem("seg_aba",aba); }catch(_){} render(); }); }
+  ["historico","Histórico",SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',renderHistorico],
+  ["configuracoes","Configu­rações",SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',renderConfiguracoes]];
+function montarMenu(){ const m=$("#menu"); m.innerHTML=ABAS.map(([id,nome,ico])=>`<button type="button" class="side-btn${id===aba?" ativa":""}" data-a="${id}" title="${nome.replace(/­/g,"")}">${ico}<span>${nome}</span>${id==="liberacoes"&&AVISOS_N?`<span class="n alerta">${AVISOS_N}</span>`:""}</button>`).join("");
+  m.querySelectorAll("button").forEach(b=>b.onclick=()=>{ aba=b.dataset.a; try{ sessionStorage.setItem("seg_aba",aba); }catch(_){}
+    if(aba==="usuarios") carregar().then(render).catch(()=>render()); else render(); }); }   // [v4.2] Usuários sempre com os pedidos de senha atualizados
+// [v4.2] na aba Usuários, atualiza sozinho a cada minuto (pedidos de senha / bloqueios novos)
+setInterval(()=>{ if(aba==="usuarios"&&!dw&&!document.hidden&&!(document.activeElement&&document.activeElement.id==="uBusca")) carregar().then(render).catch(()=>{}); },60000);
 function render(){ montarMenu(); const c=$("#conteudo"); c.innerHTML=""; (ABAS.find(a=>a[0]===aba)||ABAS[0])[3](c); }
 
 // ─── níveis resultantes (mesma regra do servidor: modulos.niveis_do_usuario) ───
@@ -297,7 +326,7 @@ function renderUsuarios(c){
   c.innerHTML=`<h2>Usuários</h2><p class="cap">Cada pessoa tem um <b>perfil de acesso</b> (o que pode fazer em cada sistema) e, se quiser, uma lista de <b>departamentos</b> que ela enxerga no Diagnóstico e no Organograma. Administradores têm acesso total sempre.</p>
     <div class="ferr"><input class="inp" id="uBusca" placeholder="Buscar por nome, e-mail ou perfil..." value="${esc(busca)}"><button type="button" class="btn primary" id="uNovo">＋ Novo usuário</button></div>
     <div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Pessoa</th><th>Papel</th><th>Perfil de acesso</th><th>Departamentos</th><th>Situação</th><th>Último acesso</th></tr></thead><tbody>${
-      lst.map(u=>`<tr class="clic${u.ativo===false?" inativo":""}" data-e="${esc(u.email)}"><td><span class="av">${esc(iniciais(u.nome))}</span><b>${esc(u.nome)}</b><br><span class="cap" style="margin-left:42px">${esc(u.email)}</span></td>
+      lst.map(u=>`<tr class="clic${u.ativo===false?" inativo":""}" data-e="${esc(u.email)}"><td><span class="av">${esc(iniciais(u.nome))}</span><b>${esc(u.nome)}</b>${botoesLiberar(u)}<br><span class="cap" style="margin-left:42px">${esc(u.email)}</span></td>
         <td>${u.papel==="admin"?'<span class="pill p-azul">Administrador</span>':esc((D.papeis[u.papel]||u.papel).split(" —")[0])}</td>
         <td>${u.papel==="admin"?'<span class="cap">acesso total</span>':u.perfil?esc(u.perfil_nome):'<span class="pill p-amb">sem perfil</span> <span class="cap">módulos marcados</span>'}</td>
         <td>${u.papel==="admin"?"Todos":esc(nomeDeps(u.departamentos))}</td>
@@ -306,7 +335,8 @@ function renderUsuarios(c){
     ${D.usuarios.some(u=>u.papel!=="admin"&&!u.perfil)?'<p class="aviso">💡 Quem está <b>sem perfil</b> continua com o acesso antigo (Editar nos módulos que estavam marcados). Abra a pessoa e escolha um perfil para passar a usar a nova regra.</p>':""}`;
   const b=$("#uBusca",c); b.oninput=()=>{ busca=b.value; const pos=b.selectionStart; render(); const nb=$("#uBusca"); nb.focus(); nb.setSelectionRange(pos,pos); };
   $("#uNovo",c).onclick=()=>abrirUsuario(null);
-  c.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>abrirUsuario(D.usuarios.find(u=>u.email===tr.dataset.e)));
+  c.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=e=>{ if(e.target.closest(".lib-btns")) return; abrirUsuario(D.usuarios.find(u=>u.email===tr.dataset.e)); });
+  ligarBotoesLiberar(c);
 }
 let dw=null;
 function abrirUsuario(u){
@@ -455,6 +485,115 @@ function desenharSistema(){
   });
 }
 
+// ═══ [v4.2] LIBERAÇÕES — "Esqueci minha senha" e contas bloqueadas por senha errada ═══
+function avisarPainel(){ try{ if(window.parent&&window.parent!==window) window.parent.postMessage({pqi:"avisos-mudaram"},location.origin); }catch(_){} }
+function botoesLiberar(u){
+  const p=u.pedido_senha, b=u.bloqueio; let h="";
+  if(p&&p.status==="pendente") h+=`<button type="button" class="btn ok mini" data-lib="${esc(p.id)}" title="Pediu senha nova em ${esc(dataBR(p.criado_em))}">🔓 Liberar</button><button type="button" class="btn mini perigo" data-rec="${esc(p.id)}" title="Recusar o pedido">✕</button>`;
+  else if(p&&p.status==="liberado") h+=`<span class="pill p-ok" title="Liberado até ${esc(dataBR(p.liberado_ate))}">✓ liberado · aguardando a pessoa</span>`;
+  if(b) h+=`<button type="button" class="btn mini perigo" data-desb="${esc(b.chave)}" title="Bloqueado até ${esc(dataBR(b.ate))} por errar a senha">🔒 Desbloquear</button>`;
+  return h?`<span class="lib-btns">${h}</span>`:"";
+}
+function ligarBotoesLiberar(c){
+  c.querySelectorAll("[data-lib]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); b.disabled=true;
+    try{ const j=await api(`/api/admin/liberacoes/${encodeURIComponent(b.dataset.lib)}/liberar`,{method:"POST"}); status(`Liberado — a pessoa tem ${j.minutos} min para criar a senha nova na tela dela`); avisarPainel(); await carregar(); render(); }
+    catch(err){ status("Erro: "+err.message,"erro"); b.disabled=false; } });
+  c.querySelectorAll("[data-rec]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const motivo=prompt("Motivo da recusa (aparece na tela da pessoa — opcional):",""); if(motivo===null) return; b.disabled=true;
+    try{ await api(`/api/admin/liberacoes/${encodeURIComponent(b.dataset.rec)}/recusar`,{method:"POST",body:JSON.stringify({motivo})}); status("Pedido recusado"); avisarPainel(); await carregar(); render(); }
+    catch(err){ status("Erro: "+err.message,"erro"); b.disabled=false; } });
+  c.querySelectorAll("[data-desb]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); b.disabled=true;
+    try{ await api("/api/admin/bloqueios/desbloquear",{method:"POST",body:JSON.stringify({chave:b.dataset.desb})}); status("Desbloqueado — a pessoa já pode tentar entrar de novo"); avisarPainel(); await carregar(); render(); }
+    catch(err){ status("Erro: "+err.message,"erro"); b.disabled=false; } });
+}
+const ST_PED={pendente:["p-amb","Esperando liberação"],liberado:["p-ok","Liberado"],concluido:["p-azul","Senha criada"],recusado:["p-bad","Recusado"],expirado:["p-cinza","Venceu"],substituido:["p-cinza","Substituído"]};
+function navegadorCurto(ua){ ua=String(ua||""); const so=/Windows/.test(ua)?"Windows":/Android/.test(ua)?"Android":/iPhone|iPad/.test(ua)?"iPhone/iPad":/Mac OS/.test(ua)?"Mac":/Linux/.test(ua)?"Linux":"";
+  const nav=/Edg\//.test(ua)?"Edge":/OPR\//.test(ua)?"Opera":/Chrome\//.test(ua)?"Chrome":/Firefox\//.test(ua)?"Firefox":/Safari\//.test(ua)?"Safari":"navegador"; return so?`${nav} · ${so}`:nav; }
+let timerLib=null;
+async function renderLiberacoes(c){
+  clearTimeout(timerLib);
+  c.innerHTML=`<h2>Liberações</h2><p class="cap">Quem clicou em <b>“Esqueci minha senha”</b> na tela de login aparece aqui. Ao <b>liberar</b>, a tela da própria pessoa abre o campo para ela criar a senha nova — vale só no computador onde ela pediu e só por alguns minutos (ajuste em Configurações). Também aparecem as contas <b>bloqueadas</b> por errar a senha várias vezes. Esta tela se atualiza sozinha.</p><div id="libCorpo"><p class="cap">Carregando…</p></div>`;
+  try{
+    const j=await api("/api/admin/liberacoes"), L=$("#libCorpo"); if(!L) return;
+    const pend=j.abertos.filter(p=>p.status==="pendente"), lib=j.abertos.filter(p=>p.status==="liberado"), bl=j.bloqueios.filter(b=>b.tipo==="email"), blIp=j.bloqueios.filter(b=>b.tipo==="ip");
+    AVISOS_N=pend.length+bl.length; montarMenu();
+    const card=(p)=>`<div class="card-lib${p.status==="liberado"?" liberado":""}"><h4>🔑 ${esc(p.nome||p.email)}</h4>
+      <div class="meta">${esc(p.email)}<br>Pediu em <b>${esc(dataBR(p.criado_em))}</b> · ${esc(navegadorCurto(p.navegador))} · IP ${esc(p.ip||"?")}
+      ${p.status==="liberado"?`<br>✓ Liberado por <b>${esc(p.liberado_por_nome||"")}</b> — vale até <b>${esc(dataBR(p.liberado_ate))}</b>`:""}</div>
+      <div class="acoes" style="margin:4px 0 0">${p.status==="pendente"?`<button type="button" class="btn ok" data-lib="${esc(p.id)}">🔓 Liberar</button>`:""}<button type="button" class="btn perigo" data-rec="${esc(p.id)}">✕ ${p.status==="liberado"?"Cancelar liberação":"Recusar"}</button></div></div>`;
+    L.innerHTML=`<div class="kpis-lib"><div class="kpi-lib"><b style="color:var(--amber)">${pend.length}</b><span>esperando você liberar</span></div><div class="kpi-lib"><b style="color:var(--ok)">${lib.length}</b><span>liberados, esperando a pessoa</span></div><div class="kpi-lib"><b style="color:var(--bad)">${bl.length}</b><span>contas bloqueadas agora</span></div></div>
+      <section><header><h2>Pedidos de senha nova</h2><p>${j.abertos.length?"Libere só quando tiver certeza de que é a própria pessoa (ex.: ela te avisou no WhatsApp ou pessoalmente).":"Nenhum pedido em aberto."}</p></header>
+        ${j.abertos.length?`<div class="cards-lib">${[...pend,...lib].map(card).join("")}</div>`:'<p class="aviso">Tudo em dia. Quando alguém pedir, o sino do Painel avisa.</p>'}</section>
+      <section><header><h2>Contas bloqueadas por senha errada</h2><p>O bloqueio cai sozinho no horário indicado; “Desbloquear” libera na hora.</p></header>
+        ${bl.length||blIp.length?`<div class="cards-lib">${bl.map(b=>`<div class="card-lib bloq"><h4>🔒 ${esc(b.nome||b.valor)}</h4><div class="meta">${esc(b.valor)}<br>Bloqueado até <b>${esc(dataBR(b.ate))}</b></div><div class="acoes" style="margin:4px 0 0"><button type="button" class="btn" data-desb="${esc(b.chave)}">Desbloquear</button></div></div>`).join("")}${blIp.map(b=>`<div class="card-lib bloq"><h4>🌐 Computador (IP ${esc(b.valor)})</h4><div class="meta">Muitas tentativas erradas, em várias contas. Bloqueado até <b>${esc(dataBR(b.ate))}</b></div><div class="acoes" style="margin:4px 0 0"><button type="button" class="btn" data-desb="${esc(b.chave)}">Desbloquear</button></div></div>`).join("")}</div>`:'<p class="aviso">Nenhuma conta bloqueada agora.</p>'}</section>
+      <section><header><h2>Últimos pedidos</h2><p>Encerrados (senha criada, recusados, vencidos ou substituídos por um pedido mais novo).</p></header>
+        <div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Quando</th><th>Pessoa</th><th>Situação</th><th>Detalhe</th></tr></thead><tbody>${
+          j.recentes.map(p=>{ const [cl,t]=ST_PED[p.status]||["p-cinza",p.status];
+            const det=p.status==="concluido"?`Senha criada em ${dataBR(p.concluido_em)}${p.liberado_por_nome?" · liberado por "+p.liberado_por_nome:""}`:p.status==="recusado"?`Por ${p.recusado_por_nome||"?"}${p.motivo?" — "+p.motivo:""}`:p.status==="expirado"?`Venceu em ${dataBR(p.expirado_em)}`:p.status==="substituido"?"A pessoa pediu de novo":"";
+            return `<tr><td>${esc(dataBR(p.criado_em))}</td><td><b>${esc(p.nome||p.email)}</b><br><span class="cap">${esc(p.email)}</span></td><td><span class="pill ${cl}">${esc(t)}</span></td><td>${esc(det)}</td></tr>`; }).join("")||'<tr><td colspan="4" class="cap" style="text-align:center;padding:18px">Nenhum ainda.</td></tr>'}</tbody></table></div></section>`;
+    ligarBotoesLiberar(L);
+  }catch(e){ const L=$("#libCorpo"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
+  timerLib=setTimeout(()=>{ if(aba==="liberacoes"&&!dw) render(); },30000);
+}
+
+// ═══ [v4.2] SESSÕES ATIVAS — quem está logado agora ═══
+async function renderSessoes(c){
+  c.innerHTML=`<h2>Sessões ativas</h2><p class="cap">Cada login aberto (computador ou celular). <b>Derrubar</b> encerra aquela sessão na hora (até 30 s); <b>Derrubar todas</b> desloga a pessoa de todos os aparelhos. Logins feitos antes desta versão não aparecem aqui — eles vencem sozinhos em até 12 h.</p><div id="sesCorpo"><p class="cap">Carregando…</p></div>`;
+  try{
+    const j=await api("/api/admin/sessoes"), L=$("#sesCorpo"); if(!L) return;
+    const pessoas=new Set(j.sessoes.map(s=>s.email));
+    L.innerHTML=`<div class="kpis-lib"><div class="kpi-lib"><b>${j.sessoes.length}</b><span>sessões abertas</span></div><div class="kpi-lib"><b>${pessoas.size}</b><span>pessoas</span></div><div class="kpi-lib"><b>${j.sessoes.filter(s=>s.lembrar).length}</b><span>com “Lembrar de mim”</span></div></div>
+      <div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Pessoa</th><th>Aparelho</th><th>Entrou</th><th>Último uso</th><th>Vence</th><th></th></tr></thead><tbody>${
+        j.sessoes.map(s=>`<tr><td><span class="av">${esc(iniciais(s.nome))}</span><b>${esc(s.nome||s.email)}</b>${s.sid===j.minha?' <span class="pill p-azul">esta é você</span>':""}${s.fabrica?' <span class="pill p-amb">admin de fábrica</span>':""}<br><span class="cap" style="margin-left:42px">${esc(s.email)}</span></td>
+          <td>${esc(navegadorCurto(s.navegador))}<br><span class="cap">IP ${esc(s.ip||"?")}</span></td><td>${esc(dataBR(s.criado_em))}</td><td>${esc(dataBR(s.ultimo_uso))}</td>
+          <td>${esc(dataBR(s.expira_em))}${s.lembrar?'<br><span class="cap">lembrar de mim</span>':""}</td>
+          <td style="white-space:nowrap">${s.sid===j.minha?"":`<button type="button" class="btn mini perigo" data-der="${esc(s.sid)}">Derrubar</button>`}${s.fabrica||s.email===(j.sessoes.find(x=>x.sid===j.minha)||{}).email?"":` <button type="button" class="btn mini" data-dertodas="${esc(s.email)}" title="Desloga ${esc(s.nome||s.email)} de todos os aparelhos">Todas da pessoa</button>`}</td></tr>`).join("")||'<tr><td colspan="6" class="cap" style="text-align:center;padding:18px">Nenhuma sessão registrada ainda.</td></tr>'}</tbody></table></div>`;
+    L.querySelectorAll("[data-der]").forEach(b=>b.onclick=async()=>{ if(!confirm("Derrubar esta sessão? A pessoa volta para a tela de login.")) return; b.disabled=true;
+      try{ await api(`/api/admin/sessoes/${encodeURIComponent(b.dataset.der)}`,{method:"DELETE"}); status("Sessão derrubada"); render(); }catch(e){ status("Erro: "+e.message,"erro"); b.disabled=false; } });
+    L.querySelectorAll("[data-dertodas]").forEach(b=>b.onclick=async()=>{ if(!confirm("Derrubar TODAS as sessões desta pessoa?")) return; b.disabled=true;
+      try{ const r=await api("/api/admin/sessoes/derrubar-usuario",{method:"POST",body:JSON.stringify({email:b.dataset.dertodas})}); status(`${r.sessoes} sessão(ões) derrubada(s)`); render(); }catch(e){ status("Erro: "+e.message,"erro"); b.disabled=false; } });
+  }catch(e){ const L=$("#sesCorpo"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
+}
+
+// ═══ [v4.2] CONFIGURAÇÕES DA SEGURANÇA ═══
+const CFG_CAMPOS=[
+  ["Esqueci minha senha",[
+    ["esqueci_ativo","chave","Mostrar “Esqueci minha senha” na tela de login","Desligado: a tela volta a dizer “peça ao administrador”."],
+    ["liberacao_minutos","num","Depois de liberado, a pessoa tem (minutos)","Tempo para criar a senha nova na tela dela."],
+    ["pedido_validade_horas","num","Pedido não atendido vence em (horas)",""],
+    ["avisar_bloqueio","chave","Avisar no sino quando uma conta for bloqueada por senha errada",""]]],
+  ["Tentativas de login",[
+    ["tentativas_email","num","Senhas erradas seguidas para bloquear a conta",""],
+    ["bloqueio_email_min","num","A conta fica bloqueada por (minutos)",""],
+    ["tentativas_ip","num","Tentativas erradas do mesmo computador (várias contas)","Protege contra quem tenta adivinhar senhas de muita gente."],
+    ["bloqueio_ip_min","num","O computador fica bloqueado por (minutos)",""]]],
+  ["Sessão",[
+    ["sessao_horas","num","Sessão normal dura (horas)","Depois disso, pede login de novo."],
+    ["lembrar_ativo","chave","Mostrar “Lembrar de mim” na tela de login",""],
+    ["lembrar_dias","num","“Lembrar de mim” dura (dias)",""]]],
+  ["Regras de senha",[
+    ["senha_minimo","num","Mínimo de caracteres","Vale para senhas novas (as atuais continuam valendo)."],
+    ["senha_numero","chave","Exigir pelo menos um número",""],
+    ["senha_letra","chave","Exigir pelo menos uma letra",""]]]];
+async function renderConfiguracoes(c){
+  c.innerHTML=`<h2>Configurações</h2><p class="cap">Regras de acesso de <b>todos os sistemas do Painel</b> (Carteira, Cartas, Diário, Mapa…): o login é um só. Cada mudança é gravada ao clicar em Salvar e fica no Histórico.</p><div id="cfgCorpo"><p class="cap">Carregando…</p></div>`;
+  try{
+    const j=await api("/api/admin/configuracoes"), L=$("#cfgCorpo"); if(!L) return; const cfg={...j.config};
+    L.innerHTML=`${j.segredo_temporario?'<p class="erro-box">⚠️ <b>SESSION_SECRET</b> não está configurado no Render: todo mundo é deslogado a cada reinício do servidor.</p>':""}
+      <div class="box"><b>🛟 Administrador de fábrica</b><p class="cap" style="margin:6px 0 0">${j.fabrica?`Ligado (${esc(j.fabrica_email)}). Ele entra mesmo se o banco falhar ou se todos os admins perderem a senha. Para desligar, apague as variáveis do Render.`:`Desligado. Para ter uma “chave reserva” que nunca fica trancada de fora, crie no Render → Environment as variáveis <code>ADMIN_FABRICA_EMAIL</code> e <code>ADMIN_FABRICA_SENHA</code>. Ela não fica gravada no banco.`}</p></div>
+      ${CFG_CAMPOS.map(([tit,campos])=>`<div class="box"><b>${esc(tit)}</b><div class="cfg-grade" style="margin-top:12px">${campos.map(([k,tipo,rot,dica])=>{ const lim=j.limites[k];
+        return tipo==="chave"?`<label class="chave"><input type="checkbox" data-cfg="${k}" ${cfg[k]?"checked":""}><span>${esc(rot)}${dica?`<br><small class="cap" style="margin:0">${esc(dica)}</small>`:""}</span></label>`
+          :`<label class="cfg-item">${esc(rot)}<input class="inp" type="number" data-cfg="${k}" value="${esc(cfg[k])}" min="${lim[0]}" max="${lim[1]}"><small>${dica?esc(dica)+" · ":""}de ${lim[0]} a ${lim[1]} · padrão ${esc(j.padrao[k])}</small></label>`; }).join("")}</div></div>`).join("")}
+      <div class="acoes"><button type="button" class="btn primary" id="cfgSalvar">Salvar configurações</button><button type="button" class="btn" id="cfgPadrao">Voltar ao padrão</button><span class="msg" id="cfgMsg"></span></div>`;
+    const ler=()=>{ const o={}; L.querySelectorAll("[data-cfg]").forEach(i=>o[i.dataset.cfg]=i.type==="checkbox"?i.checked:Number(i.value)); return o; };
+    $("#cfgSalvar",L).onclick=async()=>{ const m=$("#cfgMsg"),b=$("#cfgSalvar"); b.disabled=true; m.className="msg"; m.textContent="Salvando…";
+      try{ await api("/api/admin/configuracoes",{method:"PUT",body:JSON.stringify(ler())}); m.className="msg ok"; m.textContent="✓ Salvo — já vale para todos os sistemas"; status("Configurações salvas"); }
+      catch(e){ m.className="msg erro"; m.textContent=e.message; } finally{ b.disabled=false; } };
+    $("#cfgPadrao",L).onclick=()=>{ L.querySelectorAll("[data-cfg]").forEach(i=>{ const v=j.padrao[i.dataset.cfg]; if(i.type==="checkbox") i.checked=!!v; else i.value=v; }); $("#cfgMsg").className="msg"; $("#cfgMsg").textContent="Valores padrão na tela — clique em Salvar para gravar."; };
+  }catch(e){ const L=$("#cfgCorpo"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
+}
+// O Painel (sino) pede para abrir uma aba específica
+window.addEventListener("message",e=>{ if(e.origin===location.origin&&e.data&&e.data.pqi==="seg-aba"&&ABAS.some(a=>a[0]===e.data.aba)){ aba=e.data.aba; try{ sessionStorage.setItem("seg_aba",aba); }catch(_){} carregar().then(render).catch(()=>render()); } });
+
 // ═══ DEPARTAMENTOS ═══
 async function renderDepartamentos(c){
   c.innerHTML=`<h2>Departamentos</h2><p class="cap">Departamento é o mesmo <b>setor do Organograma</b>: criado aqui, no Diagnóstico ou no Organograma, aparece nos três. O diagnóstico de cada departamento fica separado. Restrinja quem enxerga cada um na ficha do usuário.</p>
@@ -472,10 +611,10 @@ async function renderDepartamentos(c){
 
 // ═══ HISTÓRICO ═══
 async function renderHistorico(c){
-  c.innerHTML=`<h2>Histórico de permissões</h2><p class="cap">Toda mudança de perfil, nível, usuário e departamento — com quem fez e quando (últimas 200).</p><div id="hLista"><p class="cap">Carregando…</p></div>`;
+  c.innerHTML=`<h2>Histórico de permissões</h2><p class="cap">Toda mudança de perfil, nível, usuário, departamento, liberação de senha, sessão e configuração — com quem fez e quando (últimas 200).</p><div id="hLista"><p class="cap">Carregando…</p></div>`;
   try{ const j=await api("/api/admin/permissoes-log"), L=$("#hLista"); if(!L) return;
     L.innerHTML=j.historico.length?`<div class="tbl-wrap" style="max-height:none"><table class="lista"><thead><tr><th>Quando</th><th>Quem</th><th>Onde</th><th>O quê</th><th>Antes → depois</th></tr></thead><tbody>${
-      j.historico.map(h=>`<tr><td>${esc(dataBR(h.em))}</td><td>${esc(h.por_nome||h.por)}</td><td><span class="pill p-cinza">${esc({perfil:"Perfil",usuario:"Usuário",departamento:"Departamento",acesso:"Acesso individual"}[h.tipo]||h.tipo)}</span> ${esc(h.alvo)}</td><td>${esc(h.descricao)}</td>
+      j.historico.map(h=>`<tr><td>${esc(dataBR(h.em))}</td><td>${esc(h.por_nome||h.por)}</td><td><span class="pill p-cinza">${esc({perfil:"Perfil",usuario:"Usuário",departamento:"Departamento",acesso:"Acesso individual",senha:"Senha / liberação",sessao:"Sessão",config:"Configuração"}[h.tipo]||h.tipo)}</span> ${esc(h.alvo)}</td><td>${esc(h.descricao)}</td>
         <td>${h.antes!=null||h.depois!=null?`${esc(h.antes??"—")} → <b>${esc(h.depois??"—")}</b>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<p class="aviso">Nenhuma alteração registrada ainda.</p>';
   }catch(e){ const L=$("#hLista"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
 }
