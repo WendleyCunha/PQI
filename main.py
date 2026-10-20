@@ -183,8 +183,35 @@ def _niveis(u: dict) -> dict:
     return mods.niveis_do_usuario(u, _perfil_do(u), _perfis())
 
 
+_SETORES_OK = {"lido": False}
+
+
+def _abas_setores(dados) -> None:
+    """[v4.22] Cada SETOR da Carteira com motivo ativo vira uma aba (permissão por aba em Segurança)."""
+    try:
+        d = dados or {}
+        ativos = {x.get("setor") for x in (d.get("motivos") or []) if x.get("ativo", True) is not False}
+        mods.ABAS_EXTRA["carteira"] = [{"id": str(s.get("id")), "nome": str(s.get("nome") or s.get("id"))}
+                                       for s in (d.get("setores") or []) if s.get("id") in ativos and re.fullmatch(r"[0-9A-Za-z_]{1,30}", str(s.get("id")))]
+        _SETORES_OK["lido"] = True
+    except Exception:
+        pass
+
+
+def _garantir_abas_setores() -> None:
+    if _SETORES_OK["lido"]:
+        return
+    _SETORES_OK["lido"] = True
+    try:
+        lst = db.docs_listar(db.COLECAO_CART_CONFIG)
+        _abas_setores((lst[0] or {}).get("dados") if lst else None)
+    except Exception:
+        _SETORES_OK["lido"] = False
+
+
 def _abas(u: dict, niveis: Optional[dict] = None) -> dict:
     """[v4.16] Nível (0–4) de cada ABA de cada sistema — ver modulos.abas_do_usuario."""
+    _garantir_abas_setores()
     return mods.abas_do_usuario(u, _perfil_do(u), niveis if niveis is not None else _niveis(u))
 
 
@@ -1926,7 +1953,7 @@ def cart_dia_excluir(data: str, request: Request):
     return {"ok": True, "excluido": data, "por": _nome_de(request)}
 
 
-_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}(\|(cx|compras|logistica))?")   # [v4.17] + reserva por área: "loja-pedido|cx"
+_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}(\|[0-9A-Za-z_]{1,30})?")   # [v4.17] + reserva por área: "loja-pedido|cx"
 
 
 def _reserva_de_outro(chave: str, request: Request) -> Optional[dict]:
@@ -2106,15 +2133,16 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
     if any(i not in an for i in aa):
         pede("compras", 4)
     # [v4.20] "Resolver" da Triagem: cada área grava só a sua tabulação
-    for campo, aba in (("res_cx", "cx"), ("res_compras", "compras"), ("res_logistica", "logistica")):
+    # [v4.22] qualquer setor: res_<setor> é a tabulação daquele setor
+    for campo in {k for k in list(antes) + list(novo) if k.startswith("res_") and k != "res_hist"}:
         if j(antes.get(campo)) != j(novo.get(campo)):
-            pede(aba, 4 if antes.get(campo) and not novo.get(campo) else 2)
+            pede(campo[4:], 4 if antes.get(campo) and not novo.get(campo) else 2)
     ha, hn = antes.get("res_hist") or [], novo.get("res_hist") or []
     if len(hn) < len(ha):
         pede("cx", 4)
     for x in hn[len(ha):]:
-        if x.get("area") in ("cx", "compras", "logistica"):
-            pede(x.get("area"), 2)
+        if re.fullmatch(r"[0-9A-Za-z_]{1,30}", str(x.get("area") or "")):
+            pede(str(x.get("area")), 2)
     sa = {x.get("id"): x for x in antes.get("solicitacoes") or []}
     sn = {x.get("id"): x for x in novo.get("solicitacoes") or []}
     for i, x in sn.items():
@@ -2132,7 +2160,7 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
         if aba == "importar":
             _exigir_aba(request, "carteira", "importar", n, "Encerrar pela planilha")
             continue
-        _nome = {"cx": "CX", "compras": "Compras", "logistica": "Logística"}.get(aba, aba)
+        _nome = {"cx": "CX", "compras": "Compras", "logistica": "Logística"}.get(aba) or next((a.get("nome") for a in mods.abas_de("carteira") if a.get("id") == aba), "setor")
         _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + _nome)
         # [v4.17] quem abriu primeiro o pedido nesta área é quem trata — o outro espera ele sair
         r = db.cart_reserva_ativa(f"{novo.get('chave') or antes.get('chave')}|{aba}")
@@ -2183,6 +2211,8 @@ def cart_interacao_salvar(item_id: str, payload: ProcessoEntrada, request: Reque
 @app.get("/api/carteira/config")
 def cart_config(request: Request):
     lst = db.docs_listar(db.COLECAO_CART_CONFIG)
+    if lst:
+        _abas_setores((lst[0] or {}).get("dados"))
     return lst[0] if lst else None
 
 
@@ -2191,6 +2221,7 @@ def cart_config_criar(payload: ProcessoEntrada, request: Request):
     _exigir_editar_carteira(request, "config")
     if db.docs_listar(db.COLECAO_CART_CONFIG):
         raise HTTPException(status_code=409, detail="A configuração já existe — atualize em vez de criar.")
+    _abas_setores(payload.dados)
     return db.docs_criar(db.COLECAO_CART_CONFIG, payload.dados or {}, _nome_de(request), _email(request))
 
 
@@ -2203,6 +2234,7 @@ def cart_config_salvar(item_id: str, payload: ProcessoEntrada, request: Request)
         return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
     if resultado == "nao_existe":
         raise HTTPException(status_code=404, detail="Configuração não encontrada.")
+    _abas_setores(payload.dados)
     return registro
 
 
