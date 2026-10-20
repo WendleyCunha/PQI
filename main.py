@@ -1926,7 +1926,7 @@ def cart_dia_excluir(data: str, request: Request):
     return {"ok": True, "excluido": data, "por": _nome_de(request)}
 
 
-_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}(\|(cx|compras))?")   # [v4.17] + reserva por área: "loja-pedido|cx"
+_CHAVE_PEDIDO = re.compile(r"[0-9A-Za-z]{1,6}-[0-9A-Za-z]{1,20}(\|(cx|compras|logistica))?")   # [v4.17] + reserva por área: "loja-pedido|cx"
 
 
 def _reserva_de_outro(chave: str, request: Request) -> Optional[dict]:
@@ -2105,6 +2105,16 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
             pede("cx" if a.get("status") != aa[i].get("status") else "compras", 2)
     if any(i not in an for i in aa):
         pede("compras", 4)
+    # [v4.20] "Resolver" da Triagem: cada área grava só a sua tabulação
+    for campo, aba in (("res_cx", "cx"), ("res_compras", "compras"), ("res_logistica", "logistica")):
+        if j(antes.get(campo)) != j(novo.get(campo)):
+            pede(aba, 4 if antes.get(campo) and not novo.get(campo) else 2)
+    ha, hn = antes.get("res_hist") or [], novo.get("res_hist") or []
+    if len(hn) < len(ha):
+        pede("cx", 4)
+    for x in hn[len(ha):]:
+        if x.get("area") in ("cx", "compras", "logistica"):
+            pede(x.get("area"), 2)
     sa = {x.get("id"): x for x in antes.get("solicitacoes") or []}
     sn = {x.get("id"): x for x in novo.get("solicitacoes") or []}
     for i, x in sn.items():
@@ -2122,11 +2132,12 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
         if aba == "importar":
             _exigir_aba(request, "carteira", "importar", n, "Encerrar pela planilha")
             continue
-        _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + ("CX" if aba == "cx" else "Compras"))
+        _nome = {"cx": "CX", "compras": "Compras", "logistica": "Logística"}.get(aba, aba)
+        _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + _nome)
         # [v4.17] quem abriu primeiro o pedido nesta área é quem trata — o outro espera ele sair
         r = db.cart_reserva_ativa(f"{novo.get('chave') or antes.get('chave')}|{aba}")
         if r and (r.get("email") or "").lower() != _email(request).lower():
-            raise HTTPException(status_code=423, detail=f"Não é possível gravar: {r.get('por') or r.get('email')} já está tratando este pedido no {'CX' if aba == 'cx' else 'Compras'}.")
+            raise HTTPException(status_code=423, detail=f"Não é possível gravar: {r.get('por') or r.get('email')} já está tratando este pedido no {_nome}.")
 
 
 @app.get("/api/carteira/interacoes")
