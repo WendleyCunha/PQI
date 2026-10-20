@@ -332,6 +332,33 @@ button.kpi.ativo{box-shadow:inset 0 0 0 2px var(--kc,var(--steel))}
 .campo-prod button{padding:5px 9px;font-size:12px}
 th .seta{color:var(--steel);font-weight:700}
 table[style*="fixed"] td{overflow:hidden;text-overflow:ellipsis}
+
+/* ═══ [v4.20] Triagem inteligente + pedido em tela inteira ═══ */
+.tri-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:0 0 12px}
+.tri-kpi{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--ac);border-radius:10px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:4px;font:inherit;color:inherit;cursor:pointer}
+.tri-kpi>span{font-weight:600} .tri-kpi>b{font:700 30px/1 "IBM Plex Sans Condensed",sans-serif} .tri-kpi small{color:var(--ink-3);font-size:12.5px}
+.tri-kpi.ativo{box-shadow:inset 0 0 0 2px var(--ac);background:color-mix(in srgb,var(--ac) 6%,var(--sheet))}
+.tri-kpi .bar{display:block;height:6px;border-radius:3px;background:var(--rule-2)} .tri-kpi .bar b{display:block;height:100%;border-radius:3px;background:var(--ac)}
+table.tri-t{font-size:13.5px;min-width:1280px} table.tri-t td{vertical-align:top} table.tri-t td:first-child,table.dt-cx td:first-child{white-space:nowrap}
+body.pop-aberto{overflow:hidden}
+#popPed{position:fixed;inset:0;z-index:900;background:var(--paper);display:flex;flex-direction:column;overflow:hidden}
+.pop-cab{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sheet);border-bottom:1px solid var(--rule);padding:10px 16px}
+.pop-tit{flex:1 1 400px;font-size:15px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pop-x{font-size:18px;padding:4px 12px} .pop-areas{display:flex;gap:6px;align-items:center;font-size:13px;flex-wrap:wrap}
+.pop-corpo{flex:1;overflow:auto;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:14px;padding:14px 16px;align-items:start}
+@media (max-width:1000px){.pop-corpo{grid-template-columns:1fr}}
+.pop-dir{display:flex;flex-direction:column;gap:12px} .pop-esq{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pop-dl{display:grid;grid-template-columns:90px 1fr;gap:4px 10px;margin:8px 0 0;font-size:13.5px} .pop-dl dt{color:var(--ink-3)} .pop-dl dd{margin:0}
+table.pop-it{font-size:13px} table.pop-it tr.bl td{background:var(--bad-soft)}
+.rs-form{background:var(--sheet);border:2px solid var(--amber);border-radius:12px;padding:12px 14px} .rs-form h3{margin:0 0 8px;font-size:18px}
+.rs-opcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}
+.rs-opc{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--rule);border-radius:10px;padding:8px 10px;cursor:pointer;background:var(--paper)}
+.rs-opc input{margin-top:3px;accent-color:var(--steel)} .rs-opc small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+.rs-opc.sel{border-color:var(--steel);box-shadow:inset 0 0 0 1px var(--steel);background:var(--steel-soft)}
+.rs-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.rs-area{background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--ac);border-radius:10px;padding:10px 12px;font-size:13.5px;min-width:0}
+.rs-area.foco{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent)} .rs-cab{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px} .rs-cab .sub{flex-basis:100%}
+.rs-ult{line-height:1.5}
 </style>
 </head>
 <body>
@@ -581,7 +608,7 @@ async function carregarTratativas(){ const {j}=await api(`${API}/tratativas`); T
 
 // ═══ configuração: setores e motivos (classificação → motivo → setor) ═══
 const CORES=["#2E4A7A","#2B63B0","#2F7D4F","#C98A0B","#6B46A8","#B83232","#0F766E","#9D174D","#4A5568"];
-const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30,
+const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30,feriados_locais:"",feriados_facult:true,
   setores:[{id:"compras",nome:"Compras",cor:"#2B63B0"},{id:"cx",nome:"CX",cor:"#6B46A8"},{id:"logistica",nome:"Logística",cor:"#2F7D4F"},
     {id:"financeiro",nome:"Financeiro",cor:"#C98A0B"},{id:"loja",nome:"Comercial / Loja",cor:"#0F766E"}],
   motivos:[
@@ -642,7 +669,7 @@ function pendenteIndevido(t){ return !!(t&&t.dados.status==="indevido"); }
 // último encerramento feito por uma PESSOA (o encerramento automático pela planilha não conta)
 function encerramentoManual(t){ const h=[...((t&&t.dados.historico)||[])].reverse().find(x=>["ok","resolver","auto"].includes(x.acao));
   return h&&h.acao!=="auto"?{por:h.por||"",em:h.em||"",acao:h.acao}:null; }
-function analisado(k){ const t=TRAT.get(k); return !!t&&!["indevido","reposicao","retorno"].includes(t.dados.status); }   // [v4.18] "retorno" = voltou para a janela de 30 dias: nova triagem   // qualquer tratativa (aberta, resolvida ou "sem pendência") = já passou pela triagem · encerrado indevidamente volta para a triagem
+function analisado(k){ const t=TRAT.get(k); if(!!t&&!["indevido","reposicao","retorno"].includes(t.dados.status)) return true; const d=typeof interDe==="function"?interDe(k):null; return !!(d&&(d.res_cx||d.res_compras)); }   // [v4.20] o Resolver da Triagem também conta   // [v4.18] "retorno" = voltou para a janela de 30 dias: nova triagem   // qualquer tratativa (aberta, resolvida ou "sem pendência") = já passou pela triagem · encerrado indevidamente volta para a triagem
 function diasComSetor(t){ const h=(t.dados.historico||[]).filter(x=>x.setor); const ult=h[h.length-1]; return ult?Math.max(0,diasEntre(diaBR(ult.em),hojeISO())):0; }
 async function gravarTratativa(p, mudar){
   // mudar: {acao:"classificar"|"nota"|"resolver"|"reabrir", motivo_id, nota}
@@ -696,21 +723,24 @@ const ICO={
   filas:SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>',
   solucoes:SV+'<path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
   cx:SV+'<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>',
+  logistica:SV+'<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
   compras:SV+'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 002 1.6h9.7a2 2 0 002-1.6L23 6H6"/></svg>',
   historico:SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
   importar:SV+'<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
   config:SV+'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
 };
-const SECOES=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],["cx","CX",1],["compras","Compras",1],["solucoes","Soluções",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
+const SECOES=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],["cx","CX",1],["compras","Compras",1],["logistica","Logística",1],["solucoes","Soluções",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
 let secao="painel";
 try{ secao=sessionStorage.getItem("cart_secao")||"painel"; }catch(_){}
 function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ liberar(estT.reservado); estT.reservado=""; estT.aberto=""; }
   if(typeof soltarAreas==="function"&&s!==secao){ soltarAreas(); if(typeof CXS!=="undefined") CXS.aberto=""; if(typeof COS!=="undefined") COS.aberto=""; Object.keys(estPG||{}).forEach(x=>delete estPG[x]); }   // [v4.17] saiu da aba: libera o pedido   // saiu da triagem: devolve o pedido
+  if(typeof POP!=="undefined"&&POP.k) fecharPopup(true);
   secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
-  const abertas=[...TRAT.values()].filter(aberta).length, _pa=pendenciasAreas();   // [v4.15] contadores do CX e do Compras
+  const abertas=[...TRAT.values()].filter(aberta).length, _pa=pendenciasAreas(), _pt=FOTO_ATUAL?pendenciasTriagem():{logistica:0};
+  { const m=FOTO_ATUAL?minhasAreasT():[]; _pt.minhas=(m.length?m:AREAS_T.map(x=>x[0])).reduce((s,a)=>s+(_pt[a]||0),0); }   // [v4.15] contadores do CX e do Compras
   $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||nivelAba(x[0])>=1).map(x=>x==="sep"?'<div class="side-sep"></div>':
-    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&FOTO&&faltaTriarTodas().length?`<span class="n" style="background:var(--prog)" title="Falta triar (todas as etapas)">${faltaTriarTodas().length}</span>`:""}${x[0]==="cx"&&_pa.paraCX?`<span class="n" style="background:${corArea("cx")}">${_pa.paraCX}</span>`:""}${x[0]==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<span class="n" style="background:${corArea("compras")}">${_pa.paraCompras+_pa.vencidas}</span>`:""}</button>`).join("");
+    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&_pt.minhas?`<span class="n" style="background:var(--bad)" title="Pendentes ou que falharam nas suas áreas">${_pt.minhas}</span>`:""}${x[0]==="logistica"&&_pt.logistica?`<span class="n" style="background:${corArea("logistica")}">${_pt.logistica}</span>`:""}${x[0]==="cx"&&_pa.paraCX?`<span class="n" style="background:${corArea("cx")}">${_pa.paraCX}</span>`:""}${x[0]==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<span class="n" style="background:${corArea("compras")}">${_pa.paraCompras+_pa.vencidas}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 }
 function render(){
@@ -721,8 +751,9 @@ function render(){
   if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
   const vd=$("#vdVoltar",c); if(vd) vd.onclick=()=>{ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; render(); };
   const box=el("div"); c.appendChild(box);
-  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,cx:renderCx,compras:renderCompras,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
+  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,cx:renderCx,compras:renderCompras,logistica:renderLogistica,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
   if(NIVEL<2) c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil na Carteira permite consultar, sem classificar.</p>');
+  if(typeof POP!=="undefined"&&POP.k) desenharPopup();   // [v4.20] o popup do pedido acompanha o que foi gravado
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1197,7 +1228,7 @@ async function abrirNaTriagem(k){
   if(!r.ok){ toast(r.por?`🔒 O pedido ${esc(k.split("-")[1])} já está sendo tratado por <b>${esc(r.por)}</b>.`:`⚠ ${esc(r.erro||"não consegui reservar o pedido")}`); if(estT.aberto===k) estT.aberto=""; if(secao==="triagem") render(); return; }
   estT.reservado=k; estT.aberto=k; if(secao==="triagem") render();
 }
-setInterval(async()=>{ if(secao!=="triagem"||!FOTO) return; await carregarReservas();
+setInterval(async()=>{ if(secao!=="triagem"||!FOTO||(typeof POP!=="undefined"&&POP.k)) return; await carregarReservas();
   if(!document.activeElement||!document.activeElement.closest(".pp")) render(); },20000);                    // vê quem pegou o quê
 setInterval(()=>{ if(estT.reservado) reservar(estT.reservado); },5*60000);                                    // mantém a sua reserva viva
 window.addEventListener("pagehide",()=>{ if(estT.reservado) liberar(estT.reservado); });
@@ -1211,7 +1242,8 @@ function faltaTriar(){ return FOTO?FOTO.pedidos.filter(p=>escopoTriagem(p)&&!ana
 function faltaTriarTodas(){ return FOTO?FOTO.pedidos.filter(p=>escopoTriagem(p,"todos")&&!analisado(p.k)):[]; }   // [v4.17] menu e Painel: total, não só a etapa aberta
 function ordemUrgencia(a,b){ const pa=prazo(a), pb=prazo(b), r=x=>x.cls==="atrasado"?0:x.cls==="alerta"?1:x.cls==="emdia"?2:3;
   return r(pa)-r(pb)||((pa.n??9999)-(pb.n??9999))||((b.v||0)-(a.v||0)); }
-function renderTriagem(c){
+function renderTriagemAntiga(c){   // [v4.20] substituída pela Triagem inteligente (fica só como referência)
+
   const doEscopo=FOTO.pedidos.filter(p=>escopoTriagem(p)), feitos=doEscopo.filter(p=>analisado(p.k)).length, total=doEscopo.length, pct=total?Math.round(feitos/total*100):100, t=nrm(estT.busca);
   const hoje=hojeISO(), hojeN=[...TRAT.values()].filter(x=>diaBR(((x.dados.historico||[])[0]||{}).em)===hoje).length;
   const fila=faltaTriar().filter(p=>(!estT.loja||p.l===estT.loja)&&(!estT.sit||situacao(p)===estT.sit)&&pedTemProduto(p,estT.prod)&&(!t||[p.p,p.n,p.c,...p.it.map(i=>i[IT.desc])].some(x=>nrm(x).includes(t)))).sort((a,b)=>(pendenteIndevido(tratDe(b.k))-pendenteIndevido(tratDe(a.k)))||ordemUrgencia(a,b));   // encerrados indevidamente primeiro
@@ -1616,6 +1648,8 @@ function renderConfig(c){
     <div class="grade" style="max-width:860px"><label class="f">Atrasado = entrega em até (dias)<input type="number" min="0" id="cfDias" value="${esc(D.dias_alerta)}"></label>
       <label class="f">Alerta = entrega em até (dias)<input type="number" min="1" id="cfAviso" value="${esc(D.dias_aviso??13)}"></label>
       <label class="f" title="Com Qtd Bloq = 1 e entrega acima disto, o pedido é CARTEIRA (não é bloqueado ainda).">Bloqueado = entrega em até (dias) · acima = CARTEIRA<input type="number" min="1" id="cfCart" value="${esc(D.dias_carteira??30)}"></label>
+      <label class="f" title="Os feriados nacionais já contam sozinhos. Coloque aqui os da cidade/estado, separados por vírgula: 25/01, 09/07, 20/11/2026">Feriados locais (dias úteis da Triagem)<input id="cfFer" value="${esc(D.feriados_locais||"")}" placeholder="25/01, 09/07"></label>
+      <label class="chk" style="align-self:end"><input type="checkbox" id="cfFac"${D.feriados_facult!==false?" checked":""}> Carnaval e Corpus Christi não são dia útil</label>
       <label class="f" title="Pedidos com número menor que este (ex.: 000476) são sujeira de sistema e ficam fora da apuração. 0 = não filtrar.">Ignorar pedido com número menor que<input type="number" min="0" id="cfMin" value="${esc(D.pedido_minimo??10000)}"></label>
       <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label></div>
     ${(()=>{ const sj=(FOTO&&FOTO.sujeira)||[]; return `<div class="box" style="max-width:none"><b>🧹 Sujeira de sistema</b> <span class="muted">· carteira de ${FOTO_DATA?dataBR(FOTO_DATA):"—"}</span>
@@ -1657,6 +1691,7 @@ function renderConfig(c){
     D.dias_alerta=Number($("#cfDias").value)||4; D.ano_ficticio=Number($("#cfAno").value)||2030;
     D.dias_aviso=Math.max(D.dias_alerta+1,Number($("#cfAviso").value)||13);
     D.dias_carteira=Math.max(D.dias_aviso,Number($("#cfCart").value)||30);
+    D.feriados_locais=tx($("#cfFer").value); D.feriados_facult=$("#cfFac").checked;
     D.pedido_minimo=Math.max(0,Number($("#cfMin").value)||0);
     D.setores=D.setores.filter(s=>tx(s.nome)).map(s=>({...s,nome:tx(s.nome)})); D.motivos=D.motivos.filter(x=>tx(x.motivo)).map(x=>({...x,classe:tx(x.classe)||"Outros",motivo:tx(x.motivo)}));
     try{ await salvarConfig(D); m.className="msg ok"; m.textContent="✓ Configuração salva."; render(); toast("✓ Configuração salva."); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
@@ -1877,10 +1912,10 @@ setInterval(()=>{ AREA_RES.forEach(key=>reservar(key)); },5*60000);   // mantém
 window.addEventListener("pagehide",()=>soltarAreas());
 function areaDoForm(f,d){ if(f.startsWith("co:")||f==="alt"||f==="sol:cx") return "compras"; if(f==="cx"||f==="sol:compras") return "cx";
   if(f.startsWith("resp:")){ const s=((d&&d.solicitacoes)||[]).find(x=>x.id===f.slice(5)); return s?s.para:"cx"; } return ""; }
-function liEvento(e){ const c=e.setor?corArea(e.setor):"var(--idle)"; return `<li style="--sc:${c}"><b>${e.setor?(e.setor==="cx"?"CX":"Compras"):"—"}</b> · ${esc(e.texto)}<small>${dataHoraBR(e.em)} · ${esc(e.por||"—")}</small></li>`; }
+function liEvento(e){ const c=e.setor?corArea(e.setor):"var(--idle)"; return `<li style="--sc:${c}"><b>${e.setor?({cx:"CX",compras:"Compras",logistica:"Logística"}[e.setor]||e.setor):"—"}</b> · ${esc(e.texto)}<small>${dataHoraBR(e.em)} · ${esc(e.por||"—")}</small></li>`; }
 function montarInteracao(box,p,foco){
   // [v4.17] na aba CX só se trata a parte do CX; na aba Compras, só a do Compras (a outra parte fica só para ver)
-  const usaCo=foco!=="cx", usaCx=foco!=="compras", tCo=travaArea(p.k,"compras"), tCx=travaArea(p.k,"cx");
+  const usaCo=foco!=="cx"&&foco!=="nenhum", usaCx=foco!=="compras"&&foco!=="nenhum", tCo=travaArea(p.k,"compras"), tCx=travaArea(p.k,"cx");
   const d=interDe(p.k)||novaInter(p), podeCo=usaCo&&!tCo&&nivelAba("compras")>=2&&!p.fora, podeCx=usaCx&&!tCx&&nivelAba("cx")>=2&&!p.fora, podeArea=a=>a==="cx"?podeCx:podeCo, F=estPG[p.k]||"", bl=itensDoBloqueio(p), cx=d.cx||null;
   const avisoTrava=(t,a)=>t?`<div class="trava">🔒 Não é possível tratar no ${a==="cx"?"CX":"Compras"}: <b>${esc(t.por||t.email)}</b> já está tratando este pedido${t.em?` desde ${dataHoraCurta(t.em)}`:""}. Assim que ele(a) sair, libera para você.</div>`:"";
   const sols=(d.solicitacoes||[]).slice().reverse(), ab=sols.filter(s=>s.status==="aberta"), fe=sols.filter(s=>s.status!=="aberta");
@@ -2157,9 +2192,9 @@ function renderCxDevolutiva(c,L){
       <div class="filtros-rodape"><label class="chk"><input type="checkbox" id="cxPend"${CXS.soPend?" checked":""}> Só esperando o CX (pedido do Compras / alternativo)</label>
         ${aba.tipo==="previsao"?`<label class="chk"><input type="checkbox" id="cxNova"${CXS.soNova?" checked":""}> Só com nova previsão aceita</label><label class="chk"><input type="checkbox" id="cxVenc"${CXS.soVencida?" checked":""}> Só previsão vencida</label>`:""}
         ${CXS.produto?`<span class="chip-f">${esc(CXS.produto.slice(0,40))}<button type="button" data-tira="produto">✕</button></span>`:""}${CXS.prev!=null?`<span class="chip-f">Previsão ${CXS.prev?dataBR(CXS.prev):"vazia"}<button type="button" data-tira="prev">✕</button></span>`:""}${CXS.acao?`<span class="chip-f">${esc(CXS.acao)}<button type="button" data-tira="acao">✕</button></span>`:""}</div>
-      <div class="tbl-wrap arrasta" id="cxWrap" style="max-height:640px"><table class="dt-cx"><thead><tr>${thx("pedido","Pedido")}${thx("produto","Produto bloqueado")}${thx("previsao","Previsão (Compras)")}${thx("nova","Nova previsão (CX)")}${thx("rean","Reanálise")}${thx("acao","Devolutiva CX")}${thx("pend","Pendente com")}${thx("cliente","Cliente")}${thx("colab","Colaborador")}${thx("loja","Loja")}${thx("tipo","Tipo")}${thx("obs","Observação")}</tr></thead><tbody>${
+      <div class="tbl-wrap arrasta" id="cxWrap" style="max-height:640px"><table class="dt-cx"><thead><tr><th>Resolver</th>${thx("pedido","Pedido")}${thx("produto","Produto bloqueado")}${thx("previsao","Previsão (Compras)")}${thx("nova","Nova previsão (CX)")}${thx("rean","Reanálise")}${thx("acao","Devolutiva CX")}${thx("pend","Pendente com")}${thx("cliente","Cliente")}${thx("colab","Colaborador")}${thx("loja","Loja")}${thx("tipo","Tipo")}${thx("obs","Observação")}</tr></thead><tbody>${
         lst.slice(0,CXS.limite).map(l=>{ const p=l.p, d=l.d, dv=l.previsao&&l.nova?diasEntre(l.previsao,l.nova):null, i0=l.itens[0];
-          return `<tr class="clic${CXS.aberto===p.k?" sel":""}${solAbertas(d,"cx").length?" tr-pend":""}" data-k="${esc(p.k)}"><td class="nw"><b>${esc(p.p)}</b><span class="sub">${p.en?`entrega ${dataBR(p.en).slice(0,5)}`:""}${l.dataAcao?` · ação ${dataBR(l.dataAcao).slice(0,5)}`:""}</span></td>
+          return `<tr class="clic${CXS.aberto===p.k?" sel":""}${solAbertas(d,"cx").length?" tr-pend":""}" data-k="${esc(p.k)}"><td>${noFluxo(p)&&nivelAba("cx")>=2?`<button type="button" class="peq primary" data-rescx>✔ Resolver</button>${precisaDe(estadoArea(p,"cx",d))?'<span class="sub txt-bad">pendente</span>':""}`:'<span class="muted">—</span>'}</td><td class="nw"><b>${esc(p.p)}</b><span class="sub">${p.en?`entrega ${dataBR(p.en).slice(0,5)}`:""}${l.dataAcao?` · ação ${dataBR(l.dataAcao).slice(0,5)}`:""}</span></td>
             <td>${i0?`${esc(i0[IT.desc]||i0[IT.prod])}<span class="sub">${esc(i0[IT.prod])} · qtd ${int(i0[IT.qtd])}${l.itens.length>1?` · +${l.itens.length-1} item(ns)`:""}</span>`:p.fora?'<span class="muted">saiu da carteira</span>':'<span class="muted">liberado</span>'}</td>
             <td class="nw${l.previsao&&l.previsao<hoje&&l.bloq?" txt-bad":""}">${l.previsao?dataBR(l.previsao):"—"}</td>
             <td class="nw">${l.nova?`<span class="newdate">${dataBR(l.nova)}</span>${dv?`<span class="sub">${dv>0?"+":""}${dv} dia(s) vs previsão</span>`:""}`:"—"}</td>
@@ -2173,7 +2208,7 @@ function renderCxDevolutiva(c,L){
   $("#cxColab",c).onchange=e=>{ CXS.colab=e.target.value; render(); };
   ligarProduto(c,"cxProd",v=>{ CXS.prodF=v; CXS.aberto=""; });
   c.querySelectorAll("th[data-ocx]").forEach(h=>h.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const k=h.dataset.ocx; if(CXS.ord===k) CXS.dir*=-1; else { CXS.ord=k; CXS.dir=1; } render(); });
-  turbinarTabela($("#cxWrap table",c),"cx",false);
+  turbinarTabela($("#cxWrap table",c),"cx2",false);
   c.querySelectorAll("table.pv,table.mx").forEach((t,ix)=>turbinarTabela(t,"cx_t"+ix,true));
   $("#cxRean",c).onchange=e=>{ CXS.fRean=e.target.value; render(); };
   $("#cxPend",c).onchange=e=>{ CXS.soPend=e.target.checked; render(); };
@@ -2186,7 +2221,8 @@ function renderCxDevolutiva(c,L){
   const pb=$("#cxProdBusca",c); if(pb) pb.oninput=()=>{ CXS.prodBusca=pb.value; clearTimeout(pb._t); pb._t=setTimeout(()=>{ const pos=pb.selectionStart; render(); const n2=$("#cxProdBusca"); if(n2){ n2.focus(); n2.setSelectionRange(pos,pos); } },250); };
   c.querySelectorAll("tr.prodrow").forEach(r=>r.onclick=()=>{ CXS.produto=CXS.produto===r.dataset.prod?"":r.dataset.prod; render(); $("#cxPedidos").scrollIntoView({behavior:"smooth",block:"start"}); });
   arrastarTela($("#cxWrap",c),"cart_cx_scroll");
-  $("#cxWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=async e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; const k=tr.dataset.k, abrir=CXS.aberto!==k;
+  $("#cxWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(_arrastou||Date.now()-_fimRedim<300) return; if(e.target.closest("a,input,select,textarea")) return; abrirPopup(tr.dataset.k,"cx",!!e.target.closest("[data-rescx]")); });   // [v4.20] pedido em tela inteira
+  if(0) $("#cxWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=async e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; const k=tr.dataset.k, abrir=CXS.aberto!==k;
     soltarAreas(); Object.keys(estPG).forEach(x=>delete estPG[x]); CXS.aberto=abrir?k:"";
     if(abrir&&nivelAba("cx")>=2){ await carregarReservas(); await pegarArea(k,"cx"); }   // [v4.17] quem abre primeiro trata
     render(); });
@@ -2311,9 +2347,9 @@ function renderCompras(c){
       ${campoProduto("coProd",COS.prod,T.map(l=>l.p))}
       <input class="busca" id="coBusca" placeholder="Buscar pedido, cliente, código, produto, fornecedor, motivo..." value="${esc(COS.busca)}"></div>
     <p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> item(ns) · clique na linha para registrar · clique no título da coluna para ordenar</p>
-    <div class="tbl-wrap arrasta" id="coWrap" style="max-height:660px"><table class="dt-cx"><thead><tr>${th("pedido","Pedido")}${th("cliente","Cliente")}${th("entrega","Entrega / prazo")}${th("item","Item bloqueado")}${th("grupo","Grupo · local")}${th("dias","Triagem (com o setor há)")}${th("sit","Situação Compras")}${th("forn","Fornecedor")}${th("cobr","Última cobrança")}${th("data","Nova data")}${th("alt","Alternativo")}${th("cx","CX")}${th("pend","Pendente com")}</tr></thead><tbody>${
+    <div class="tbl-wrap arrasta" id="coWrap" style="max-height:660px"><table class="dt-cx"><thead><tr><th>Resolver</th>${th("pedido","Pedido")}${th("cliente","Cliente")}${th("entrega","Entrega / prazo")}${th("item","Item bloqueado")}${th("grupo","Grupo · local")}${th("dias","Triagem (com o setor há)")}${th("sit","Situação Compras")}${th("forn","Fornecedor")}${th("cobr","Última cobrança")}${th("data","Nova data")}${th("alt","Alternativo")}${th("cx","CX")}${th("pend","Pendente com")}</tr></thead><tbody>${
       lst.slice(0,COS.limite).map(l=>{ const p=l.p, pz=prazo(p), t=l.t, kk=p.k+"|"+l.prod;
-        return `<tr class="clic${COS.aberto===kk?" sel":""}${l.scI.length?" tr-pend":""}" data-k="${esc(kk)}"><td class="nw"><b>${esc(p.p)}</b><span class="sub">loja ${esc(p.l)}</span></td><td>${esc(nomeCurto(p.n))}<span class="sub">cód. ${esc(p.c||"—")}</span></td>
+        return `<tr class="clic${COS.aberto===kk?" sel":""}${l.scI.length?" tr-pend":""}" data-k="${esc(kk)}"><td>${noFluxo(p)&&nivelAba("compras")>=2?`<button type="button" class="peq primary" data-resco>✔ Resolver</button>${precisaDe(estadoArea(p,"compras",l.d))?`<span class="sub txt-bad">${estadoArea(p,"compras",l.d).st==="falhou"?"FALHOU":"pendente"}</span>`:""}`:'<span class="muted">—</span>'}</td><td class="nw"><b>${esc(p.p)}</b><span class="sub">loja ${esc(p.l)}</span></td><td>${esc(nomeCurto(p.n))}<span class="sub">cód. ${esc(p.c||"—")}</span></td>
           <td class="nw">${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"} <span class="pill ${pz.pill}">${pz.rot}</span></td>
           <td>${l.i?`<b>${esc(l.prod)}</b> · ${esc(l.i[IT.desc])}<span class="sub">qtd ${int(l.i[IT.qtd])}</span>`:'<span class="muted">sem detalhe de itens</span>'}</td><td>${l.i?`${esc(l.i[IT.grupo]||"—")}<span class="sub">${esc(l.i[IT.local]||"")}</span>`:"—"}</td>
           <td>${t&&aberta(t)?`${pillsSetores(t)} <span class="sub">${esc(t.dados.classe)} · ${esc(t.dados.motivo)} · ${diasComSetor(t)} d</span>`:t?'<span class="pill p-ok">resolvida na triagem</span>':'<span class="pill p-azul">não triado</span>'}</td>
@@ -2333,12 +2369,13 @@ function renderCompras(c){
   c.querySelectorAll("[data-forn]").forEach(r=>r.onclick=()=>{ COS.forn=r.dataset.forn; COS.escopo="todos"; render(); window.scrollTo({top:0,behavior:"smooth"}); });
   const bb=$("#coBusca",c); bb.oninput=()=>{ COS.busca=bb.value; clearTimeout(bb._t); bb._t=setTimeout(()=>{ const pos=bb.selectionStart; render(); const n=$("#coBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
   ligarProduto(c,"coProd",v=>{ COS.prod=v; COS.aberto=""; });
-  turbinarTabela($("#coWrap table",c),"compras",false);
+  turbinarTabela($("#coWrap table",c),"compras2",false);
   c.querySelectorAll("table.mx").forEach((t,ix)=>turbinarTabela(t,"co_t"+ix,true));
   c.querySelectorAll("th[data-oc]").forEach(h=>h.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const kk=h.dataset.oc; if(COS.ord===kk) COS.dir*=-1; else { COS.ord=kk; COS.dir=kk==="dias"||kk==="cobr"?-1:1; } render(); });
   const mais=$("#coMais",c); if(mais) mais.onclick=()=>{ COS.limite+=200; render(); };
   arrastarTela($("#coWrap",c),"cart_co_scroll");
-  $("#coWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=async e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; const kk=tr.dataset.k, abrir=COS.aberto!==kk, k=kk.split("|")[0];
+  $("#coWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(_arrastou||Date.now()-_fimRedim<300) return; if(e.target.closest("a,input,select,textarea")) return; abrirPopup(tr.dataset.k.split("|")[0],"compras",!!e.target.closest("[data-resco]")); });   // [v4.20] pedido em tela inteira
+  if(0) $("#coWrap",c).querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=async e=>{ if(e.target.closest("button,a,input,select,textarea")||_arrastou) return; const kk=tr.dataset.k, abrir=COS.aberto!==kk, k=kk.split("|")[0];
     soltarAreas(); Object.keys(estPG).forEach(x=>delete estPG[x]); COS.aberto=abrir?kk:""; COS.autoForm=false;
     if(abrir&&nivelAba("compras")>=2){ await carregarReservas(); COS.autoForm=await pegarArea(k,"compras"); }   // [v4.17] quem abre primeiro trata
     render(); });
@@ -2354,10 +2391,11 @@ function renderCompras(c){
 // atualiza sozinho: o que a outra área gravou aparece sem recarregar (a cada 60 s, se ninguém estiver digitando)
 setInterval(async()=>{
   if(document.hidden||!FOTO) return;
+  if(POP.k){ await carregarReservas(); return; }   // [v4.20] com o pedido aberto em tela inteira não redesenha (não perde o que está sendo digitado)
   await Promise.all([carregarInteracoes().catch(()=>{}),carregarReservas()]);
   atualizarMenu(); desenharLembrete();
   const ativo=document.activeElement, digitando=ativo&&ativo.closest&&ativo.closest("#root")&&/INPUT|TEXTAREA|SELECT/.test(ativo.tagName);
-  if(["cx","compras"].includes(secao)&&!digitando&&!Object.keys(estPG).length) render();
+  if(["cx","compras","triagem","logistica"].includes(secao)&&!digitando&&!Object.keys(estPG).length) render();
 },120000);   // [v4.18] a cada 2 min — o servidor responde da memória (não gasta leitura do Firestore)
 // coluna "CX · Compras" da lista de Pendências por setor
 function celInter(p){ const d=interDe(p.k), b=bolaDe(p), ev=d&&d.eventos&&d.eventos[d.eventos.length-1];
@@ -2414,6 +2452,281 @@ function turbinarTabela(tab,chave,ordenarDom){
     th.classList.add("ord"); if(!th.title) th.title="Clique para ordenar A–Z / Z–A";
     th.addEventListener("click",()=>{ if(Date.now()-_fimRedim<300) return; ord=ord&&ord.i===i?{i,d:-ord.d}:{i,d:1}; try{ sessionStorage.setItem(KO,JSON.stringify(ord)); }catch(_){} aplicar(); }); });
   if(ord) aplicar();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// [v4.20] TRIAGEM INTELIGENTE — cada área faz a sua etapa ("Resolver")
+//   Entram no fluxo: pedidos BLOQUEADOS (Qtd Bloq) em ATRASO (mesma régua da 1ª etapa / Painel)
+//   + qualquer bloqueado com item do grupo 9999 FORA DE LINHA (dentro dos 30 dias).
+//   Cada área grava a sua tabulação no registro do pedido (res_cx / res_compras / res_logistica)
+//   e o histórico em res_hist. A planilha nova é quem diz se a ação deu certo:
+//   se o pedido continua BLOQUEADO depois do prazo da tabulação → FALHOU e volta para a área.
+// ═══════════════════════════════════════════════════════════════════
+const AREAS_T=[["cx","📞 CX"],["compras","🛒 Compras"],["logistica","🚚 Logística"]];
+const NOME_AREA_T={cx:"CX",compras:"Compras",logistica:"Logística"};
+const RES_OPC={
+  compras:[
+    ["transito","A · Trânsito","NF a classificar, envio do fornecedor no dia seguinte ou detalhe simples que se resolve até D+1 útil. Sai das pendências do Compras; o pedido continua atrasado até sumir da planilha. Se em 2 dias úteis a planilha ainda mostrar o pedido BLOQUEADO, volta ao Compras como FALHOU."],
+    ["fornecedor","B · Fornecedor atrasado","O fornecedor foi cobrado e a peça chega em no máximo 4 dias úteis. Some das pendências do Compras por 4 dias úteis; se depois disso a planilha ainda mostrar BLOQUEADO, volta como FALHOU."],
+    ["foralinha","C · Produto fora de linha","Ofertar um ALTERNATIVO ao CX e retirar o item da venda. O CX altera o pedido com o cliente."]],
+  cx:[
+    ["ciente","A · Cliente ciente do atraso","Informe a data limite que o cliente aceitou aguardar. Essa data vira pendência para o Compras responder."],
+    ["cancelamento","B · Cliente solicitou cancelamento","O pedido deve sair da planilha. Se em 2 dias úteis continuar BLOQUEADO, volta ao CX como FALHOU."],
+    ["sem_sucesso","C · Contato sem sucesso","Não conseguiu falar com o cliente. Volta para nova tentativa no próximo dia útil."],
+    ["transferencia","D · Transferência de armazém","Existe peça em outro armazém/pedido. Vai para a LOGÍSTICA fazer a transferência."],
+    ["alterado","E · Produto alterado / aceitou o alternativo","Para fora de linha: o cliente aceitou trocar o produto. Se em 2 dias úteis continuar BLOQUEADO, volta como FALHOU."]],
+  logistica:[
+    ["andamento","A · Transferência em andamento","Informe a data prevista. Se a planilha depois dessa data ainda mostrar BLOQUEADO, volta como FALHOU."],
+    ["concluida","B · Transferência concluída","Se a planilha do próximo dia útil ainda mostrar BLOQUEADO, volta como FALHOU."],
+    ["sem_saldo","C · Sem saldo / não foi possível","Devolve para o CX e o Compras fazerem nova tratativa."]]};
+function rotRes(a,cod){ return ((RES_OPC[a]||[]).find(x=>x[0]===cod)||[0,cod])[1]; }
+
+// ─── dias úteis (seg–sex, sem feriados nacionais + os que estiverem em Configurar) ───
+let _fer={k:"",anos:{}};
+function pascoa(y){ const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1; return new Date(Date.UTC(y,mes-1,dia)); }
+function isoUTC(d){ return d.toISOString().slice(0,10); }
+function feriadosDoAno(y){
+  const C=cfg(), k=JSON.stringify([C.feriados_locais||"",C.feriados_facult!==false]); if(_fer.k!==k) _fer={k,anos:{}};
+  if(_fer.anos[y]) return _fer.anos[y];
+  const s=new Set(["01-01","04-21","05-01","09-07","10-12","11-02","11-15","11-20","12-25"].map(x=>`${y}-${x}`));
+  const P=pascoa(y), mais=n=>{ const d=new Date(P); d.setUTCDate(d.getUTCDate()+n); return isoUTC(d); };
+  s.add(mais(-2));                                                   // Sexta-feira Santa
+  if(C.feriados_facult!==false){ s.add(mais(-48)); s.add(mais(-47)); s.add(mais(60)); }   // Carnaval (seg e ter) e Corpus Christi
+  String(C.feriados_locais||"").split(/[\s,;]+/).forEach(t=>{ const m=t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/); if(!m) return;
+    if(m[3]&&+m[3]!==y) return; s.add(`${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`); });
+  return (_fer.anos[y]=s);
+}
+function diaUtil(iso){ const d=new Date(iso+"T12:00:00Z"), w=d.getUTCDay(); return w!==0&&w!==6&&!feriadosDoAno(d.getUTCFullYear()).has(iso); }
+function somaUteis(iso,n){ let d=new Date(iso+"T12:00:00Z"), c=0; while(c<n){ d.setUTCDate(d.getUTCDate()+1); if(diaUtil(isoUTC(d))) c++; } return isoUTC(d); }
+function fotoDia(){ return (FOTO_ATUAL&&FOTO_ATUAL.data)||hojeISO(); }
+
+// ─── quem entra no fluxo ───
+function foraLinhaPed(p){ return itensDoBloqueio(p).some(foraDeLinha); }
+function noFluxo(p){ return !!p&&!p.fora&&bloqueado(p)&&(prazo(p).cls==="atrasado"||foraLinhaPed(p)); }
+function resDe(d,a){ return (d&&d["res_"+a])||null; }
+function depois(a,b){ return !!a&&(!b||String(a.em)>String(b.em)); }   // a é mais novo que b?
+function tentativasCX(d){ return ((d&&d.res_hist)||[]).filter(h=>h.area==="cx"&&h.cod==="sem_sucesso").length; }
+// estado de uma área num pedido: st = pendente | falhou | ok | aguarda | na
+function estadoArea(p,a,d){
+  if(!noFluxo(p)) return {st:"na",txt:"—"};
+  d=d===undefined?interDe(p.k):d;
+  const r=resDe(d,a), cx=resDe(d,"cx"), co=resDe(d,"compras"), lg=resDe(d,"logistica"), fd=fotoDia(), fl=foraLinhaPed(p);
+  const P=t=>({st:"pendente",txt:t,r}), X=t=>({st:"falhou",txt:t,r}), K=t=>({st:"ok",txt:t,r}), A=t=>({st:"aguarda",txt:t,r});
+  if(a==="compras"){
+    if(lg&&lg.cod==="sem_saldo"&&depois(lg,co)) return P("Logística sem saldo para transferir — nova tratativa");
+    if(cx&&cx.cod==="ciente"&&depois(cx,co)) return P(`CX: cliente aceita aguardar até ${dataBR(cx.limite)} — responder`);
+    if(fl&&!(co&&co.cod==="foralinha")) return P("Fora de linha — ofertar ALTERNATIVO e retirar o item da venda");
+    if(!co) return P("Sem tratativa do Compras");
+    if(co.cod==="transito"){ const v=somaUteis(diaBR(co.em),2); return fd>=v?X(`Trânsito falhou — ainda BLOQUEADO na planilha de ${dataBR(fd)}`):K(`Trânsito · confere na planilha até ${dataBR(v)}`); }
+    if(co.cod==="fornecedor"){ const v=somaUteis(diaBR(co.em),4); return fd>v?X(`Fornecedor não entregou em 4 dias úteis (até ${dataBR(v)})`):K(`Fornecedor cobrado · chega até ${dataBR(v)}`); }
+    if(co.cod==="foralinha") return K(`Alternativo ${co.alt_prod||""} ofertado · item retirado da venda`);
+    return K(rotRes(a,co.cod));
+  }
+  if(a==="cx"){
+    if(lg&&lg.cod==="sem_saldo"&&depois(lg,cx)) return P("Logística sem saldo para transferir — falar de novo com o cliente");
+    if(fl&&!(cx&&["alterado","cancelamento"].includes(cx.cod)))
+      return P(co&&co.cod==="foralinha"?`Pendente alteração do produto — Compras ofertou o alternativo ${co.alt_prod||""}`:"Pendente alteração do produto (aguardando alternativo do Compras)");
+    if(!cx) return P("Falar com o cliente e tabular");
+    if(cx.cod==="ciente") return fd>cx.limite?X(`Passou a data aceita pelo cliente (${dataBR(cx.limite)}) e segue BLOQUEADO`):K(`Cliente aguarda até ${dataBR(cx.limite)}`);
+    if(cx.cod==="cancelamento"||cx.cod==="alterado"){ const v=somaUteis(diaBR(cx.em),2); return fd>=v?X(`${cx.cod==="cancelamento"?"Cancelamento":"Alteração"} não refletiu — ainda BLOQUEADO em ${dataBR(fd)}`):K(`${rotRes(a,cx.cod).slice(4)} · confere até ${dataBR(v)}`); }
+    if(cx.cod==="sem_sucesso"){ const v=somaUteis(diaBR(cx.em),1), n=tentativasCX(d); return hojeISO()>=v?P(`Nova tentativa de contato (${n} sem sucesso)`):A(`${n}ª tentativa sem sucesso · tentar de novo em ${dataBR(v)}`); }
+    if(cx.cod==="transferencia") return K("Transferência de armazém com a Logística");
+    return K(rotRes(a,cx.cod));
+  }
+  // logística: só quando o CX pediu transferência
+  if(!(cx&&cx.cod==="transferencia")) return {st:"na",txt:"—"};
+  if(!lg||depois(cx,lg)) return P("Transferência de armazém pedida pelo CX");
+  if(lg.cod==="andamento") return fd>lg.prevista?X(`Transferência não concluída até ${dataBR(lg.prevista)}`):K(`Em andamento · previsão ${dataBR(lg.prevista)}`);
+  if(lg.cod==="concluida"){ const v=somaUteis(diaBR(lg.em),1); return fd>=v?X(`Concluída, mas ainda BLOQUEADO na planilha de ${dataBR(fd)}`):K(`Concluída · confere na planilha de ${dataBR(v)}`); }
+  if(lg.cod==="sem_saldo") return K("Sem saldo — devolvido ao CX e ao Compras");
+  return K(rotRes(a,lg.cod));
+}
+const ST_T={pendente:["⏳ Pendente","p-warn"],falhou:["✕ FALHOU","p-bad"],ok:["✓ Feito","p-ok"],aguarda:["🕒 Aguardando","p-azul"],na:["—","p-cinza"]};
+function pillEst(e){ if(e.st==="na") return '<span class="muted">—</span>'; const [r,c]=ST_T[e.st]; return `<span class="pill ${c}" title="${esc(e.txt)}">${r}</span><span class="sub">${esc(e.txt)}</span>`; }
+function precisaDe(e){ return e.st==="pendente"||e.st==="falhou"; }
+function pedidosFluxo(){ return ((FOTO_ATUAL&&FOTO_ATUAL.foto.pedidos)||[]).filter(noFluxo); }
+function pendenciasTriagem(){ const r={cx:0,compras:0,logistica:0,falhou:{cx:0,compras:0,logistica:0}};
+  pedidosFluxo().forEach(p=>{ const d=interDe(p.k); AREAS_T.forEach(([a])=>{ const e=estadoArea(p,a,d); if(precisaDe(e)) r[a]++; if(e.st==="falhou") r.falhou[a]++; }); }); return r; }
+function minhasAreasT(){ return AREAS_T.map(x=>x[0]).filter(a=>nivelAba(a)>=2&&nivelAba("triagem")>=1); }
+
+// ─── gravar o "Resolver" ───
+async function salvarResolver(p,a,cod,x){
+  const agora=new Date().toISOString(), bl=itensDoBloqueio(p);
+  await gravarInteracao(p,dd=>{
+    const reg={area:a,cod,rot:rotRes(a,cod),em:agora,por:USUARIO,email:EMAIL,obs:x.obs||"",foto:fotoDia()};
+    if(x.limite) reg.limite=x.limite; if(x.prevista) reg.prevista=x.prevista; if(x.fornecedor) reg.fornecedor=x.fornecedor;
+    if(x.alt_prod) reg.alt_prod=x.alt_prod; if(x.alt_desc) reg.alt_desc=x.alt_desc; if(x.alt_item) reg.alt_item=x.alt_item; if(x.retirou) reg.retirou=true;
+    if(x.armazem) reg.armazem=x.armazem; if(x.sol_txt) reg.sol_txt=x.sol_txt;
+    dd.res_hist=Array.isArray(dd.res_hist)?dd.res_hist:[]; dd.res_hist.push(reg); dd["res_"+a]=reg;
+    const det=[reg.limite?`aceita até ${dataBR(reg.limite)}`:"",reg.prevista?`previsão ${dataBR(reg.prevista)}`:"",reg.fornecedor?`fornecedor ${reg.fornecedor}`:"",reg.alt_prod?`alternativo ${reg.alt_prod} ${reg.alt_desc||""}`:"",reg.armazem?`de: ${reg.armazem}`:"",reg.obs?`“${reg.obs}”`:""].filter(Boolean).join(" · ");
+    evento(dd,a,"resolver",`Resolver: ${reg.rot}${det?" — "+det:""}`);
+    // mantém as abas CX e Compras coerentes com a tabulação
+    if(a==="compras"&&(cod==="transito"||cod==="fornecedor")){ const v=somaUteis(hojeISO(),cod==="transito"?1:4);
+      bl.forEach(i=>{ const prod=i[IT.prod], c={...coDe(dd,prod)}; c.situacao=cod==="transito"?"transito":"atraso"; c.nova_data=v; if(x.fornecedor) c.fornecedor=x.fornecedor; c.em=agora; c.por=USUARIO; c.email=EMAIL; c.desc=i[IT.desc]||c.desc||""; if(x.obs) c.obs=x.obs;
+        if(cod==="fornecedor") c.cobrancas=[...(c.cobrancas||[]),{em:agora,por:USUARIO,email:EMAIL,obs:x.obs||"",fornecedor:c.fornecedor||""}]; dd.compras[prod]=c; }); }
+    if(a==="compras"&&cod==="foralinha"){
+      dd.alternativos.push({id:uid(),item:x.alt_item||"",prod:x.alt_prod||"",desc:x.alt_desc||"",prazo:"",obs:x.obs||"",status:"sugerido",por:USUARIO,email:EMAIL,em:agora});
+      const c={...coDe(dd,x.alt_item)}; if(x.alt_item){ c.situacao="sem_solucao"; c.em=agora; c.por=USUARIO; c.email=EMAIL; c.motivo="Fora de linha — item retirado da venda"; dd.compras[x.alt_item]=c; } }
+    if(a==="cx"){ const dev={ciente:"Aceitou aguardar o prazo",cancelamento:"Solicitou cancelamento",sem_sucesso:"Sem sucesso",alterado:"Aceitou alterar"}[cod];
+      if(dev) registrarDevolutiva(dd,p,{colab:USUARIO,devolutiva:dev,nova_previsao:x.limite||"",data_acao:hojeISO(),obs:x.obs||""});
+      if(cod==="alterado"&&x.alt_id){ const al=dd.alternativos.find(z=>z.id===x.alt_id); if(al) Object.assign(al,{status:"aceito",resp_por:USUARIO,resp_em:agora}); } }
+  });
+}
+
+// ─── POPUP DO PEDIDO (tela inteira) ───
+const POP={k:"",area:"",resolver:false,cod:"",trava:null};
+async function abrirPopup(k,area,resolver){
+  if(POP.k&&POP.k!==k) fecharPopup(true);
+  Object.assign(POP,{k,area:area||"",resolver:!!resolver,cod:"",trava:null});
+  const atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto;
+  if(area&&atual&&nivelAba(area)>=2&&nivelAba("triagem")>=1){ await carregarReservas(); const t=travaArea(k,area);
+    if(t) POP.trava=t; else if(!(await pegarArea(k,area))) POP.trava=reservaDeOutro(k+"|"+area)||{por:"outra pessoa"}; }
+  desenharPopup();
+}
+function fecharPopup(semRender){ if(!POP.k) return; if(POP.area) soltarArea(POP.k,POP.area); delete estPG[POP.k]; POP.k=""; const o=$("#popPed"); if(o) o.remove(); document.body.classList.remove("pop-aberto"); if(!semRender) render(); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&POP.k&&!document.querySelector("#popPed .pg-form, #popPed .rs-form:focus-within")) fecharPopup(); });
+function desenharPopup(){
+  if(!POP.k) return;
+  const p=pedidoDeChave(POP.k), d=interDe(p.k), a=POP.area, atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto;
+  let o=$("#popPed"); if(!o){ o=el("div"); o.id="popPed"; o.setAttribute("role","dialog"); o.setAttribute("aria-modal","true"); document.body.appendChild(o); document.body.classList.add("pop-aberto"); }
+  const pz=p.fora?{rot:"saiu da planilha",pill:"p-cinza"}:prazo(p), bl=itensDoBloqueio(p), blS=new Set(bl.map(i=>i[IT.prod]));
+  const pode=a&&atual&&!POP.trava&&nivelAba(a)>=2&&nivelAba("triagem")>=1&&noFluxo(p);
+  const cards=AREAS_T.map(([ar,nm])=>{ const e=estadoArea(p,ar,d), r=resDe(d,ar), hist=((d&&d.res_hist)||[]).filter(h=>h.area===ar).slice().reverse();
+    return `<div class="rs-area${ar===a?" foco":""}" style="--ac:${corArea(ar)}"><div class="rs-cab"><b>${nm}</b> ${pillEst(e)}</div>
+      ${r?`<div class="rs-ult"><b>${esc(r.rot)}</b>${r.limite?` · cliente aceita até <b class="newdate">${dataBR(r.limite)}</b>`:""}${r.prevista?` · previsão <b>${dataBR(r.prevista)}</b>`:""}${r.fornecedor?` · fornecedor <b>${esc(r.fornecedor)}</b>`:""}${r.alt_prod?` · alternativo <b>${esc(r.alt_prod)}</b> ${esc(r.alt_desc||"")}${r.retirou?" · item retirado da venda":""}`:""}${r.armazem?` · de: ${esc(r.armazem)}`:""}${r.obs?`<br><span class="muted">“${esc(r.obs)}”</span>`:""}<br><small class="muted">${esc(r.por)} · ${dataHoraBR(r.em)}</small></div>`:'<p class="cap" style="margin:4px 0 0">Nenhuma tabulação ainda.</p>'}
+      ${hist.length>1?`<details class="pg-det"><summary>histórico (${hist.length})</summary><ul class="hist">${hist.map(h=>`<li style="--sc:${corArea(ar)}">${esc(h.rot)}${h.limite?` · até ${dataBR(h.limite)}`:""}${h.prevista?` · previsão ${dataBR(h.prevista)}`:""}${h.obs?` — “${esc(h.obs)}”`:""}<small>${dataHoraBR(h.em)} · ${esc(h.por)}</small></li>`).join("")}</ul></details>`:""}</div>`; }).join("");
+  const sol=a==="cx"&&bl.length&&!p.fora?solucaoPara(p):null, alts=((d&&d.alternativos)||[]).filter(x=>x.status==="sugerido");
+  const opc=a?(RES_OPC[a]||[]):[];
+  const extra=cod=>{ if(a==="compras"&&cod==="fornecedor") return `<label class="f">Fornecedor<input data-r="fornecedor" placeholder="Nome do fornecedor"></label><p class="cap" style="grid-column:1/-1;margin:0">A peça chega até <b>${dataBR(somaUteis(hojeISO(),4))}</b> (4 dias úteis).</p>`;
+    if(a==="compras"&&cod==="transito") return `<p class="cap" style="grid-column:1/-1;margin:0">Resolve até <b>${dataBR(somaUteis(hojeISO(),1))}</b> (D+1 útil). Se a planilha de <b>${dataBR(somaUteis(hojeISO(),2))}</b> ainda mostrar BLOQUEADO, volta como FALHOU.</p>`;
+    if(a==="compras"&&cod==="foralinha") return `<label class="f">Item fora de linha<select data-r="alt_item">${bl.map(i=>`<option value="${esc(i[IT.prod])}"${foraDeLinha(i)?" selected":""}>${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>
+      <label class="f">Código do alternativo *<input data-r="alt_prod" placeholder="Código"></label><label class="f">Descrição do alternativo<input data-r="alt_desc" placeholder="Descrição"></label>
+      <label class="chk" style="grid-column:1/-1"><input type="checkbox" data-r="retirou"> Confirmo que <b>retirei o item da venda</b> *</label>`;
+    if(a==="cx"&&cod==="ciente") return `<label class="f">Data limite que o cliente aceita aguardar *<input type="date" data-r="limite" min="${hojeISO()}"></label><p class="cap" style="grid-column:1/-1;margin:0">Essa data vai para o <b>Compras</b> como pendência de resposta.</p>`;
+    if(a==="cx"&&cod==="transferencia") return `<label class="f" style="grid-column:1/-1">De onde vem a peça (armazém / pedido doador)<input data-r="armazem" value="${esc(sol?textoSolucao(sol):"")}" placeholder="Ex.: CD 2 / pedido 123456"></label>`;
+    if(a==="cx"&&cod==="alterado") return alts.length?`<label class="f" style="grid-column:1/-1">Alternativo aceito<select data-r="alt_id"><option value="">— outro / não está na lista —</option>${alts.map(x=>`<option value="${esc(x.id)}">${esc(x.prod)} · ${esc(x.desc)} (no lugar de ${esc(x.item)})</option>`).join("")}</select></label>`:"";
+    if(a==="logistica"&&cod==="andamento") return `<label class="f">Data prevista *<input type="date" data-r="prevista" min="${hojeISO()}"></label>`;
+    return ""; };
+  const precisaObs=cod=>(a==="logistica"&&cod==="sem_saldo")||(a==="cx"&&cod==="cancelamento");
+  const formRes=pode?`<div class="rs-form"><h3>✔ Resolver — ${esc(NOME_AREA_T[a])}</h3>
+      ${a==="cx"&&sol?`<div class="alerta" style="margin:0 0 8px">💡 <b>Soluções</b> encontrou peça para liberar este pedido: ${esc(textoSolucao(sol))}. <button type="button" class="peq" data-usasol>Usar → Transferência de armazém</button></div>`:""}
+      <div class="rs-opcs" role="radiogroup">${opc.filter(([c])=>!(a==="cx"&&c==="alterado"&&!foraLinhaPed(p)&&!alts.length)).map(([c,r,dica])=>`<label class="rs-opc${POP.cod===c?" sel":""}"><input type="radio" name="rsop" value="${c}"${POP.cod===c?" checked":""}><span><b>${esc(r)}</b><small>${esc(dica)}</small></span></label>`).join("")}</div>
+      ${POP.cod?`<div class="pg-form" style="border-color:${corArea(a)}">${extra(POP.cod)}<label class="f" style="grid-column:1/-1">Observação${precisaObs(POP.cod)?" *":""}<textarea data-r="obs" rows="2" placeholder="O que foi feito / combinado"></textarea></label>
+        <div class="pg-bts"><button type="button" class="primary" data-rsalvar>Salvar tabulação</button><span class="msg" data-msg></span></div></div>`:""}</div>`
+    :a&&POP.trava?`<div class="trava">🔒 Não é possível tratar no ${esc(NOME_AREA_T[a])}: <b>${esc(POP.trava.por||POP.trava.email)}</b> já está tratando este pedido${POP.trava.em?` desde ${dataHoraCurta(POP.trava.em)}`:""}. Assim que ele(a) sair, libera para você.</div>`
+    :a&&!noFluxo(p)?'<p class="aviso">Este pedido não está no fluxo da Triagem (não está bloqueado em atraso nem é fora de linha).</p>'
+    :a&&!atual?'<p class="aviso">Você está vendo uma carteira do histórico — o Resolver só funciona na carteira atual.</p>':"";
+  o.innerHTML=`<div class="pop-cab"><button type="button" class="pop-x" data-popx aria-label="Fechar (Esc)">✕</button>
+      <div class="pop-tit"><b>Pedido ${esc(p.p)}</b> <span class="muted">loja ${esc(p.l)} ${esc(p.ln||"")}</span> · <b>${esc(p.n||"—")}</b> <span class="cod-cli">cód. ${esc(p.c||"—")}</span>
+      · entrega <b>${p.en?dataBR(p.en):"—"}</b> <span class="pill ${pz.pill}">${esc(pz.rot)}</span> ${p.fora?"":`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`} ${foraLinhaPed(p)?'<span class="pill p-roxo">9999 · fora de linha</span>':""} <span class="est-v">${moeda(p.v)}</span></div>
+      ${AREAS_T.filter(([x])=>nivelAba(x)>=1).length>1?`<div class="pop-areas">Tratar como: ${AREAS_T.filter(([x])=>nivelAba(x)>=2).map(([x,nm])=>`<button type="button" class="peq${x===a?" primary":""}" data-poparea="${x}">${nm}</button>`).join("")}</div>`:""}</div>
+    <div class="pop-corpo">
+      <div class="pop-esq">
+        ${formRes}
+        <div class="rs-areas">${cards}</div>
+        <div data-popinter></div>
+      </div>
+      <div class="pop-dir">
+        <div class="box"><b>Dados do pedido</b><dl class="pop-dl">
+          <dt>Emissão</dt><dd>${p.em?dataBR(p.em):"—"}</dd><dt>Tipo</dt><dd>${esc(p.tp||"—")}</dd><dt>Status</dt><dd>${esc(p.sp||p.st||"—")}</dd><dt>Agenda</dt><dd>${esc(p.ag||"—")}</dd>
+          <dt>Cidade</dt><dd>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</dd><dt>Telefone</dt><dd>${esc((p.t||[]).join(" · ")||"—")}</dd>${p.ob?`<dt>Obs.</dt><dd>${esc(p.ob)}</dd>`:""}</dl></div>
+        <div class="box"><b>Itens</b> <span class="muted">· ${bl.length} bloqueado(s)</span><div class="tbl-wrap"><table class="pop-it"><thead><tr><th>Produto</th><th>Descrição</th><th>Grupo</th><th>Local</th><th class="num">Qtd</th><th>Status</th></tr></thead><tbody>
+          ${(p.it||[]).map(i=>`<tr class="${blS.has(i[IT.prod])?"bl":""}"><td><b>${esc(i[IT.prod])}</b></td><td>${esc(i[IT.desc])}</td><td>${foraDeLinha(i)?'<span class="pill p-roxo">'+esc(i[IT.grupo])+"</span>":esc(i[IT.grupo])}</td><td>${esc(i[IT.local]||"—")}</td><td class="num">${int(i[IT.qtd])}</td><td>${esc(i[IT.st]||"")}</td></tr>`).join("")||'<tr><td colspan="6" class="muted">Sem itens (pedido fora da carteira atual).</td></tr>'}
+        </tbody></table></div></div>
+      </div>
+    </div>`;
+  o.querySelector("[data-popx]").onclick=()=>fecharPopup();
+  o.querySelectorAll("[data-poparea]").forEach(b=>b.onclick=()=>{ const k=POP.k; if(POP.area) soltarArea(k,POP.area); abrirPopup(k,b.dataset.poparea,true); });
+  o.querySelectorAll('input[name="rsop"]').forEach(r=>r.onchange=()=>{ POP.cod=r.value; desenharPopup(); const f=o.querySelector(".rs-form .pg-form input:not([type=checkbox]),.rs-form .pg-form select,.rs-form .pg-form textarea"); if(f) f.focus(); });
+  const us=o.querySelector("[data-usasol]"); if(us) us.onclick=()=>{ POP.cod="transferencia"; desenharPopup(); };
+  const bs=o.querySelector("[data-rsalvar]"); if(bs) bs.onclick=async()=>{ const f=bs.closest(".pg-form"), v=k=>{ const i=f.querySelector(`[data-r="${k}"]`); return i?(i.type==="checkbox"?i.checked:tx(i.value)):""; }, msg=f.querySelector("[data-msg]");
+    const erro=t=>{ msg.className="msg erro"; msg.textContent=t; }, c=POP.cod;
+    if(c==="ciente"&&!v("limite")) return erro("Informe a data limite que o cliente aceitou.");
+    if(c==="ciente"&&v("limite")<hojeISO()) return erro("A data limite não pode ser no passado.");
+    if(c==="andamento"&&!v("prevista")) return erro("Informe a data prevista da transferência.");
+    if(c==="foralinha"&&!v("alt_prod")) return erro("Informe o código do produto alternativo.");
+    if(c==="foralinha"&&!v("retirou")) return erro("Confirme que o item foi retirado da venda.");
+    if(precisaObs(c)&&!v("obs")) return erro("Escreva a observação.");
+    bs.disabled=true;
+    try{ const x={obs:v("obs"),limite:v("limite"),prevista:v("prevista"),fornecedor:v("fornecedor"),alt_prod:v("alt_prod"),alt_desc:v("alt_desc"),alt_item:v("alt_item"),retirou:v("retirou"),armazem:v("armazem"),alt_id:v("alt_id")};
+      if(c==="transferencia"&&sol) x.sol_txt=textoSolucao(sol);
+      await salvarResolver(p,a,c,x); toast(`✔ ${esc(NOME_AREA_T[a])}: <b>${esc(rotRes(a,c))}</b> registrado no pedido ${esc(p.p)}.`); fecharPopup(); }
+    catch(e){ erro(e.message); bs.disabled=false; } };
+  const bx=o.querySelector("[data-popinter]"); if(bx&&(nivelAba("cx")>=1||nivelAba("compras")>=1)) montarInteracao(bx,p,a==="cx"||a==="compras"?a:"nenhum");
+}
+
+// ─── ABA TRIAGEM (nova) ───
+const TRI={area:"",st:"acao",busca:"",prod:"",loja:"",lim:300};
+function renderTriagem(c){
+  if(!TRI.area){ const m=minhasAreasT(); TRI.area=m.find(minhaArea)||m[0]||"todas"; }
+  const atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto, base=FOTO.pedidos.filter(noFluxo), q=nrm(TRI.busca);
+  const L=base.map(p=>{ const d=interDe(p.k), e={}; AREAS_T.forEach(([a])=>e[a]=estadoArea(p,a,d)); return {p,d,e}; });
+  const kp=AREAS_T.map(([a,nm])=>{ const l=L.filter(x=>x.e[a].st!=="na"), pe=l.filter(x=>x.e[a].st==="pendente").length, fa=l.filter(x=>x.e[a].st==="falhou").length, ok=l.length-pe-fa, pct=l.length?Math.round(ok/l.length*100):100;
+    const hoje=hojeISO(), feitosHoje=L.reduce((s,x)=>s+((x.d&&x.d.res_hist)||[]).filter(h=>h.area===a&&diaBR(h.em)===hoje).length,0);
+    return `<button type="button" class="tri-kpi${TRI.area===a?" ativo":""}" style="--ac:${corArea(a)}" data-tarea="${a}"><span>${nm}</span><b>${int(pe+fa)}</b><small>pendente(s)${fa?` · <span class="txt-bad">${fa} falharam</span>`:""}</small>
+      <i class="bar"><b style="width:${pct}%"></b></i><small>${pct}% da etapa feita · ${int(ok)} de ${int(l.length)} · ${int(feitosHoje)} tabulação(ões) hoje</small></button>`; }).join("");
+  const lojas=[...new Map(base.map(p=>[p.l,p.ln])).entries()].sort((x,y)=>COLL.compare(x[0],y[0]));
+  const ar=TRI.area==="todas"?null:TRI.area;
+  const fil=L.filter(({p,e})=>{ const est=ar?[e[ar]]:Object.values(e);
+      if(TRI.st==="acao"&&!est.some(precisaDe)) return false; if(TRI.st==="falhou"&&!est.some(x=>x.st==="falhou")) return false;
+      if(TRI.st==="ok"&&!(ar?["ok","aguarda"].includes(e[ar].st):!Object.values(e).some(precisaDe))) return false;
+      if(ar&&e[ar].st==="na") return false;
+      if(TRI.loja&&p.l!==TRI.loja) return false; if(!pedTemProduto(p,TRI.prod)) return false;
+      return !q||[p.p,p.n,p.c,...p.it.flatMap(i=>[i[IT.prod],i[IT.desc]])].some(x=>nrm(x).includes(q)); })
+    .sort((x,y)=>{ const r=z=>{ const s=ar?[z.e[ar].st]:Object.values(z.e).map(v=>v.st); return s.includes("falhou")?0:s.includes("pendente")?1:2; };
+      return r(x)-r(y)||(prazo(x.p).n??999)-(prazo(y.p).n??999)||(numPedido(x.p)||0)-(numPedido(y.p)||0); });
+  const podeRes=a=>atual&&nivelAba(a)>=2&&nivelAba("triagem")>=1;
+  const cel=(l,a)=>{ const t=travaArea(l.p.k,a); return `<td data-v="${({falhou:0,pendente:1,aguarda:2,ok:3,na:4})[l.e[a].st]}">${pillEst(l.e[a])}${t?`<span class="sub">🔒 ${esc(nomeCurto(t.por||t.email))} tratando</span>`:""}</td>`; };
+  c.innerHTML=`<section><header><h2>Triagem</h2><p>Pedidos <b>bloqueados em atraso</b> (mesma régua do Painel) e todo <b>fora de linha (9999)</b>. Cada área faz a sua etapa no <b>✔ Resolver</b> — a planilha nova confere se deu certo.</p></header>
+    <div class="tri-kpis">${kp}<button type="button" class="tri-kpi${TRI.area==="todas"?" ativo":""}" style="--ac:var(--ink-3)" data-tarea="todas"><span>Todas as áreas</span><b>${int(L.length)}</b><small>pedido(s) no fluxo · ${int(L.filter(x=>foraLinhaPed(x.p)).length)} fora de linha</small></button></div>
+    <div class="filtros" style="grid-template-columns:minmax(200px,1fr) minmax(170px,1fr) minmax(220px,1.3fr) minmax(220px,2fr)">
+      <select id="tStat" aria-label="Situação"><option value="acao"${TRI.st==="acao"?" selected":""}>Precisa de ação (pendente ou falhou)</option><option value="falhou"${TRI.st==="falhou"?" selected":""}>Só os que FALHARAM</option><option value="ok"${TRI.st==="ok"?" selected":""}>Já feitos / aguardando</option><option value="todos"${TRI.st==="todos"?" selected":""}>Todos do fluxo</option></select>
+      <select id="tLoja" aria-label="Loja"><option value="">Loja: todas</option>${lojas.map(([l,n])=>`<option value="${esc(l)}"${l===TRI.loja?" selected":""}>${esc(l)}${n?" · "+esc(n):""}</option>`).join("")}</select>
+      ${campoProduto("tProd",TRI.prod,base)}
+      <input class="busca" id="tBusca" placeholder="Buscar pedido, cliente, código, produto..." value="${esc(TRI.busca)}"></div>
+    ${atual?"":'<p class="aviso">Você está vendo uma carteira do histórico — o Resolver só funciona na carteira atual.</p>'}
+    <p class="cap" style="margin:0 0 6px"><b>${int(fil.length)}</b> pedido(s)${ar?` · visão <b>${esc(NOME_AREA_T[ar])}</b>`:""} · clique na linha para abrir o pedido em tela inteira</p>
+    <div class="tbl-wrap" id="tWrap"><table class="tri-t"><thead><tr><th>Resolver</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Entrega / prazo</th><th>Produto bloqueado</th>${AREAS_T.map(([a,nm])=>`<th>${nm}</th>`).join("")}<th>Loja</th><th class="num">Valor</th></tr></thead><tbody>
+    ${fil.slice(0,TRI.lim).map(l=>{ const p=l.p, pz=prazo(p), bl=itensDoBloqueio(p), aR=ar||AREAS_T.map(x=>x[0]).find(a=>podeRes(a)&&precisaDe(l.e[a]))||"";
+      return `<tr class="clic" data-tk="${esc(p.k)}" data-ta="${aR}"><td>${aR&&podeRes(aR)&&l.e[aR].st!=="na"?`<button type="button" class="peq primary" data-tres="${esc(p.k)}" data-ta="${aR}">✔ Resolver</button>`:'<span class="muted">—</span>'}</td>
+        <td data-v="${numPedido(p)||0}"><b>${esc(p.p)}</b></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td>
+        <td data-v="${pz.n??999}">${p.en?dataBR(p.en):"—"}<br><span class="pill ${pz.pill}">${esc(pz.rot)}</span></td>
+        <td>${bl.slice(0,2).map(i=>`${foraDeLinha(i)?'<span class="pill p-roxo">9999</span> ':""}<b>${esc(i[IT.prod])}</b> ${esc(i[IT.desc])}`).join("<br>")}${bl.length>2?`<span class="sub">+${bl.length-2} item(ns)</span>`:""}</td>
+        ${AREAS_T.map(([a])=>cel(l,a)).join("")}<td>${esc(p.l)}</td><td class="num" data-v="${p.v||0}">${moeda(p.v)}</td></tr>`; }).join("")||`<tr><td colspan="11" class="muted" style="padding:18px">✅ Nada ${TRI.st==="acao"?"precisando de ação":"com esses filtros"}${ar?` no ${esc(NOME_AREA_T[ar])}`:""}.</td></tr>`}
+    </tbody></table></div>${fil.length>TRI.lim?`<div class="mais"><button type="button" id="tMais">Mostrar mais ${Math.min(300,fil.length-TRI.lim)}</button></div>`:""}</section>`;
+  c.querySelectorAll("[data-tarea]").forEach(b=>b.onclick=()=>{ TRI.area=b.dataset.tarea; render(); });
+  $("#tStat",c).onchange=e=>{ TRI.st=e.target.value; render(); };
+  $("#tLoja",c).onchange=e=>{ TRI.loja=e.target.value; render(); };
+  ligarProduto(c,"tProd",v=>{ TRI.prod=v; });
+  $("#tBusca",c).oninput=e=>{ TRI.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#tBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },300); };
+  const mm=$("#tMais",c); if(mm) mm.onclick=()=>{ TRI.lim+=300; render(); };
+  c.querySelectorAll("tr[data-tk]").forEach(tr=>tr.onclick=e=>{ if(Date.now()-_fimRedim<300) return; const b=e.target.closest("[data-tres]"); abrirPopup(tr.dataset.tk,tr.dataset.ta||"",!!b); });
+  turbinarTabela($("#tWrap table",c),"triagem420",true);
+}
+
+// ─── ABA LOGÍSTICA ───
+const LGS={st:"acao",busca:""};
+function renderLogistica(c){
+  const atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto, q=nrm(LGS.busca);
+  const L=FOTO.pedidos.filter(noFluxo).map(p=>({p,d:interDe(p.k)})).map(x=>({...x,e:estadoArea(x.p,"logistica",x.d)})).filter(x=>x.e.st!=="na");
+  const pe=L.filter(x=>x.e.st==="pendente").length, fa=L.filter(x=>x.e.st==="falhou").length, ok=L.length-pe-fa;
+  const fil=L.filter(x=>(LGS.st==="todos"||(LGS.st==="acao"?precisaDe(x.e):LGS.st==="falhou"?x.e.st==="falhou":!precisaDe(x.e)))&&(!q||[x.p.p,x.p.n,x.p.c,...x.p.it.flatMap(i=>[i[IT.prod],i[IT.desc]])].some(v=>nrm(v).includes(q))))
+    .sort((a,b)=>(a.e.st==="falhou"?0:a.e.st==="pendente"?1:2)-(b.e.st==="falhou"?0:b.e.st==="pendente"?1:2)||(prazo(a.p).n??999)-(prazo(b.p).n??999));
+  const pode=atual&&nivelAba("logistica")>=2&&nivelAba("triagem")>=1;
+  c.innerHTML=`<section><header><h2>🚚 Logística</h2><p>Transferências de armazém pedidas pelo CX no Resolver da Triagem. A planilha nova confere se a transferência liberou o pedido.</p></header>
+    <div class="kpis"><div class="kpi"><span>Pendentes</span><b>${int(pe)}</b><small>transferência(s) para fazer</small></div><div class="kpi"><span>Falharam</span><b class="txt-bad">${int(fa)}</b><small>ainda BLOQUEADO depois do prazo</small></div><div class="kpi"><span>Feitas / em andamento</span><b>${int(ok)}</b><small>aguardando a planilha confirmar</small></div></div>
+    <div class="filtros" style="grid-template-columns:minmax(220px,1fr) minmax(240px,2fr)"><select id="lgSt"><option value="acao"${LGS.st==="acao"?" selected":""}>Precisa de ação</option><option value="falhou"${LGS.st==="falhou"?" selected":""}>Só os que falharam</option><option value="ok"${LGS.st==="ok"?" selected":""}>Feitos / em andamento</option><option value="todos"${LGS.st==="todos"?" selected":""}>Todos</option></select>
+      <input class="busca" id="lgBusca" placeholder="Buscar pedido, cliente, produto..." value="${esc(LGS.busca)}"></div>
+    <div class="tbl-wrap" id="lgWrap"><table><thead><tr><th>Resolver</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Entrega / prazo</th><th>Produto bloqueado</th><th>De onde vem a peça</th><th>Situação</th><th>Pedido pelo CX</th><th>Loja</th></tr></thead><tbody>
+    ${fil.map(({p,d,e})=>{ const pz=prazo(p), cx=resDe(d,"cx"), t=travaArea(p.k,"logistica");
+      return `<tr class="clic" data-lk="${esc(p.k)}"><td>${pode?`<button type="button" class="peq primary" data-lres>✔ Resolver</button>`:'<span class="muted">—</span>'}</td><td data-v="${numPedido(p)||0}"><b>${esc(p.p)}</b></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td>
+        <td data-v="${pz.n??999}">${p.en?dataBR(p.en):"—"}<br><span class="pill ${pz.pill}">${esc(pz.rot)}</span></td><td>${itensDoBloqueio(p).slice(0,2).map(i=>`<b>${esc(i[IT.prod])}</b> ${esc(i[IT.desc])}`).join("<br>")}</td>
+        <td>${esc((cx&&(cx.armazem||cx.sol_txt))||"—")}</td><td>${pillEst(e)}${t?`<span class="sub">🔒 ${esc(nomeCurto(t.por||t.email))} tratando</span>`:""}</td><td>${cx?`${esc(nomeCurto(cx.por))}<span class="sub">${dataHoraCurta(cx.em)}</span>`:"—"}</td><td>${esc(p.l)}</td></tr>`; }).join("")||'<tr><td colspan="10" class="muted" style="padding:18px">✅ Nenhuma transferência com esse filtro.</td></tr>'}
+    </tbody></table></div></section>`;
+  $("#lgSt",c).onchange=e=>{ LGS.st=e.target.value; render(); };
+  $("#lgBusca",c).oninput=e=>{ LGS.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#lgBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },300); };
+  c.querySelectorAll("tr[data-lk]").forEach(tr=>tr.onclick=e=>{ if(Date.now()-_fimRedim<300) return; abrirPopup(tr.dataset.lk,"logistica",!!e.target.closest("[data-lres]")); });
+  turbinarTabela($("#lgWrap table",c),"logistica",true);
 }
 
 async function iniciar(){
