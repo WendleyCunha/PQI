@@ -35,7 +35,7 @@ MODULOS = [
         "abas": [
             {"id": "painel", "nome": "Painel"}, {"id": "triagem", "nome": "Triagem"}, {"id": "situacao", "nome": "Status do pedido"},
             {"id": "carteira", "nome": "Carteira"}, {"id": "itens", "nome": "Itens"}, {"id": "filas", "nome": "Pendências por setor"},
-            {"id": "cx", "nome": "CX"}, {"id": "compras", "nome": "Compras"}, {"id": "solucoes", "nome": "Soluções"},
+            {"id": "cx", "nome": "CX"}, {"id": "compras", "nome": "Compras"}, {"id": "logistica", "nome": "Logística"}, {"id": "solucoes", "nome": "Soluções"},
             {"id": "historico", "nome": "Histórico"}, {"id": "importar", "nome": "Importar", "min": 3}, {"id": "config", "nome": "Configurar", "min": 3},
         ],
     },
