@@ -229,9 +229,19 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
 NIVEIS_ABA = {0: "Sem acesso", 1: "Visualizar", 2: "Adicionar", 3: "Editar", 4: "Excluir"}
 
 
+# [v4.22] abas criadas pela própria configuração do sistema (ex.: um SETOR novo na Carteira vira aba)
+ABAS_EXTRA: dict = {}
+
+
+def _abas_mod(m: dict) -> list:
+    base = list(m.get("abas") or [])
+    ids = {a["id"] for a in base}
+    return base + [a for a in ABAS_EXTRA.get(m.get("id"), []) if a.get("id") not in ids]
+
+
 def abas_de(modulo_id: str) -> list:
     m = POR_ID.get(modulo_id) or {}
-    return m.get("abas") or []
+    return _abas_mod(m)
 
 
 def nivel_aba_herdado(aba: dict, nivel_sistema: int) -> int:
@@ -255,7 +265,7 @@ def abas_do_usuario(usuario: dict, perfil, niveis: dict) -> dict:
     saida = {}
     admin = usuario.get("papel") == "admin"
     for m in MODULOS:
-        abas = m.get("abas")
+        abas = _abas_mod(m)
         if not abas:
             continue
         ns = int(niveis.get(m["id"], 0))
@@ -307,4 +317,4 @@ def cards_do_usuario(usuario: dict, niveis: dict) -> list:
 
 def catalogo_publico() -> list:
     return [{**{k: m[k] for k in ("id", "nome", "icone", "tipo", "descricao")}, "so_acesso": so_acesso(m),
-             "abas": m.get("abas") or []} for m in MODULOS]
+             "abas": _abas_mod(m)} for m in MODULOS]
