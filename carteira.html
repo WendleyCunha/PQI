@@ -359,6 +359,8 @@ table.pop-it{font-size:13px} table.pop-it tr.bl td{background:var(--bad-soft)}
 .rs-area{background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--ac);border-radius:10px;padding:10px 12px;font-size:13.5px;min-width:0}
 .rs-area.foco{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent)} .rs-cab{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px} .rs-cab .sub{flex-basis:100%}
 .rs-ult{line-height:1.5}
+.area-tabs{margin:0 0 14px}
+table.ar-t{min-width:1400px} table.ar-t td{vertical-align:top}
 </style>
 </head>
 <body>
@@ -737,10 +739,10 @@ function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ li
   if(typeof POP!=="undefined"&&POP.k) fecharPopup(true);
   secao=s; try{ sessionStorage.setItem("cart_secao",s); }catch(_){} window.scrollTo(0,0); render(); }
 function atualizarMenu(){
-  const abertas=[...TRAT.values()].filter(aberta).length, _pa=pendenciasAreas(), _pt=FOTO_ATUAL?pendenciasTriagem():{logistica:0};
+  const abertas=[...TRAT.values()].filter(aberta).length, _pt=FOTO_ATUAL?pendenciasTriagem():{cx:0,compras:0,logistica:0};
   { const m=FOTO_ATUAL?minhasAreasT():[]; _pt.minhas=(m.length?m:AREAS_T.map(x=>x[0])).reduce((s,a)=>s+(_pt[a]||0),0); }   // [v4.15] contadores do CX e do Compras
   $("#menu").innerHTML=SECOES.filter(x=>x==="sep"||nivelAba(x[0])>=1).map(x=>x==="sep"?'<div class="side-sep"></div>':
-    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&_pt.minhas?`<span class="n" style="background:var(--bad)" title="Pendentes ou que falharam nas suas áreas">${_pt.minhas}</span>`:""}${x[0]==="logistica"&&_pt.logistica?`<span class="n" style="background:${corArea("logistica")}">${_pt.logistica}</span>`:""}${x[0]==="cx"&&_pa.paraCX?`<span class="n" style="background:${corArea("cx")}">${_pa.paraCX}</span>`:""}${x[0]==="compras"&&(_pa.paraCompras+_pa.vencidas)?`<span class="n" style="background:${corArea("compras")}">${_pa.paraCompras+_pa.vencidas}</span>`:""}</button>`).join("");
+    `<button type="button" class="side-btn${x[0]===secao?" ativo":""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${x[0]==="filas"&&abertas?`<span class="n">${abertas}</span>`:""}${x[0]==="solucoes"&&reposAbertas().length?`<span class="n" style="background:var(--block)">${reposAbertas().length}</span>`:""}${x[0]==="triagem"&&_pt.minhas?`<span class="n" style="background:var(--bad)" title="Pendentes ou que falharam nas suas áreas">${_pt.minhas}</span>`:""}${x[0]==="logistica"&&_pt.logistica?`<span class="n" style="background:${corArea("logistica")}">${_pt.logistica}</span>`:""}${x[0]==="cx"&&_pt.cx?`<span class="n" style="background:${corArea("cx")}">${_pt.cx}</span>`:""}${x[0]==="compras"&&_pt.compras?`<span class="n" style="background:${corArea("compras")}">${_pt.compras}</span>`:""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>ir(b.dataset.s));
 }
 function render(){
@@ -751,7 +753,7 @@ function render(){
   if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
   const vd=$("#vdVoltar",c); if(vd) vd.onclick=()=>{ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; render(); };
   const box=el("div"); c.appendChild(box);
-  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,cx:renderCx,compras:renderCompras,logistica:renderLogistica,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
+  ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,cx:renderArea("cx"),compras:renderArea("compras"),logistica:renderArea("logistica"),solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
   if(NIVEL<2) c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 <b>Somente visualização</b> — seu perfil na Carteira permite consultar, sem classificar.</p>');
   if(typeof POP!=="undefined"&&POP.k) desenharPopup();   // [v4.20] o popup do pedido acompanha o que foi gravado
 }
@@ -1865,6 +1867,7 @@ function pendenciasAreas(){
 }
 function desenharLembrete(){
   const box=$("#lembreteAreas"); if(!box) return;
+  box.innerHTML=""; box.hidden=true; return;   // [v4.21] não mostra mais o quadro "Pendências entre áreas" — cada aba de área tem o seu aviso
   const r=pendenciasAreas(), min=(()=>{ try{ return sessionStorage.getItem("cart_lembrete_min")==="1"; }catch(_){ return false; } })();
   const co=[r.paraCompras?`<b>${r.paraCompras}</b> pedido(s) do CX esperando resposta`:"",r.vencidas?`<b>${r.vencidas}</b> previsão(ões) vencida(s)`:"",r.semCompras?`<b>${r.semCompras}</b> pedido(s) com Compras sem tratativa`:""].filter(Boolean);
   const cx=[r.paraCX?`<b>${r.paraCX}</b> pedido(s) do Compras esperando devolutiva`:"",r.alt?`<b>${r.alt}</b> produto(s) alternativo(s) para oferecer`:""].filter(Boolean);
@@ -1878,7 +1881,7 @@ function desenharLembrete(){
   const mx=$("#lbMax",box); if(mx) mx.onclick=()=>{ try{ sessionStorage.removeItem("cart_lembrete_min"); }catch(_){} desenharLembrete(); };
 }
 // aviso ao abrir a Carteira: a pessoa da área vê na hora o que está esperando por ela
-function avisoAoEntrar(){
+function avisoAoEntrar(){ return;   // [v4.21] desligado (era o aviso do pingue-pongue antigo)
   try{ if(sessionStorage.getItem("cart_aviso_areas")) return; sessionStorage.setItem("cart_aviso_areas","1"); }catch(_){}
   const r=pendenciasAreas(), m=[];
   if(minhaArea("compras")&&nivelAba("compras")>=1&&(r.paraCompras||r.vencidas)) m.push(`🛒 <b>Compras:</b> ${r.paraCompras} pedido(s) do CX esperando resposta${r.vencidas?` e ${r.vencidas} previsão(ões) vencida(s)`:""}.`);
@@ -2094,7 +2097,7 @@ function filtrarPeriodo(L){ return L.filter(l=>(!CXS.fMes||(l.mes||"Sem mês")==
 function contarDev(L){ const c={}; L.forEach(l=>c[l.acao]=(c[l.acao]||0)+1); return c; }
 function barraEmpilhada(c){ return `<div class="stack">${ordenarDev(Object.keys(c)).map(k=>`<span title="${esc(k)}: ${c[k]}" style="flex:${c[k]};background:${corDev(k)}"></span>`).join("")}</div>`; }
 function legendaDev(ks){ return `<div class="legenda" style="margin:8px 0 12px">${ordenarDev(ks).map(a=>`<span><i style="background:${corDev(a)}"></i>${esc(a)}</span>`).join("")}</div>`; }
-function renderCx(c){
+function renderCxFluxo(c){
   const TODAS=linhasCX(), L=filtrarPeriodo(TODAS), pend=pendenciasAreas();
   c.innerHTML=`<section><header><h2>📞 CX — Fluxo da Carteira</h2><p>Contato com o cliente dos pedidos <b>bloqueados</b> da carteira oficial (as duas planilhas do BI). O CX registra a devolutiva direto no pedido; o Compras informa o andamento do estoque.</p>
       <span class="direita"><button type="button" class="peq" id="cxXls">⬇️ Excel</button></span></header>
@@ -2316,7 +2319,7 @@ function linhasCompras(){
       L.push({p,i,prod,d,t,c,u,venc,scI,alt,naTri,semReg:!c.situacao&&!(c.cobrancas||[]).length,pend:scI.length>0||venc||(naTri&&!c.situacao&&!(c.cobrancas||[]).length)}); }); });
   return L;
 }
-function renderCompras(c){
+function renderComprasItens(c){
   const T=linhasCompras(), pend=pendenciasAreas(), hoje=hojeISO();
   const k={itens:T.length,pend:new Set(T.filter(l=>l.pend).map(l=>l.p.k)).size,sol:new Set(T.filter(l=>l.scI.length).map(l=>l.p.k)).size,semReg:new Set(T.filter(l=>l.naTri&&l.semReg).map(l=>l.p.k)).size,
     cob:T.filter(l=>l.u).length,cobHoje:T.filter(l=>l.u&&diaBR(l.u.em)===hoje).length,venc:T.filter(l=>l.venc).length,alt:T.filter(l=>l.alt.some(a=>a.status==="sugerido")).length,comData:T.filter(l=>l.c.nova_data).length};
@@ -2619,7 +2622,7 @@ function desenharPopup(){
   o.innerHTML=`<div class="pop-cab"><button type="button" class="pop-x" data-popx aria-label="Fechar (Esc)">✕</button>
       <div class="pop-tit"><b>Pedido ${esc(p.p)}</b> <span class="muted">loja ${esc(p.l)} ${esc(p.ln||"")}</span> · <b>${esc(p.n||"—")}</b> <span class="cod-cli">cód. ${esc(p.c||"—")}</span>
       · entrega <b>${p.en?dataBR(p.en):"—"}</b> <span class="pill ${pz.pill}">${esc(pz.rot)}</span> ${p.fora?"":`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`} ${foraLinhaPed(p)?'<span class="pill p-roxo">9999 · fora de linha</span>':""} <span class="est-v">${moeda(p.v)}</span></div>
-      ${AREAS_T.filter(([x])=>nivelAba(x)>=1).length>1?`<div class="pop-areas">Tratar como: ${AREAS_T.filter(([x])=>nivelAba(x)>=2).map(([x,nm])=>`<button type="button" class="peq${x===a?" primary":""}" data-poparea="${x}">${nm}</button>`).join("")}</div>`:""}</div>
+</div>
     <div class="pop-corpo">
       <div class="pop-esq">
         ${formRes}
@@ -2728,6 +2731,105 @@ function renderLogistica(c){
   c.querySelectorAll("tr[data-lk]").forEach(tr=>tr.onclick=e=>{ if(Date.now()-_fimRedim<300) return; abrirPopup(tr.dataset.lk,"logistica",!!e.target.closest("[data-lres]")); });
   turbinarTabela($("#lgWrap table",c),"logistica",true);
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// [v4.21] ABAS DAS ÁREAS NO MESMO PADRÃO (CX · Compras · Logística)
+//   📋 Pedidos      → o que está com a área (Resolver), igual ao layout do Compras
+//   📊 Indicadores  → a produtividade da área
+//   + a visão detalhada que já existia (CX: Fluxo da carteira · Compras: Itens / fornecedor)
+// ═══════════════════════════════════════════════════════════════════
+const AREA_V={cx:"pedidos",compras:"pedidos",logistica:"pedidos"};
+try{ Object.assign(AREA_V,JSON.parse(localStorage.getItem("cart_area_v")||"{}")); }catch(_){}
+const AREA_F={cx:{esc:"pendentes",busca:"",prod:""},compras:{esc:"pendentes",busca:"",prod:""},logistica:{esc:"pendentes",busca:"",prod:""}};
+const AREA_INFO={
+  cx:{tit:"📞 CX — contato com o cliente",txt:"Cada pedido <b>bloqueado em atraso</b> ou <b>fora de linha</b>: o CX fala com o cliente e tabula no <b>✔ Resolver</b> (ciente com data limite, cancelamento, sem sucesso, transferência de armazém, produto alterado). Tudo aparece na hora para o Compras e a Logística.",
+    extra:["fluxo","📈 Fluxo da carteira"]},
+  compras:{tit:"🛒 Compras — andamento do estoque",txt:"Cada pedido <b>bloqueado em atraso</b> ou <b>fora de linha</b>: o Compras tabula no <b>✔ Resolver</b> (trânsito, fornecedor atrasado, fora de linha com alternativo). A cobrança por item continua no card do pedido e em <b>Itens · fornecedor</b>.",
+    extra:["itens","📦 Itens · fornecedor"]},
+  logistica:{tit:"🚚 Logística — transferência de armazém",txt:"Pedidos que o CX mandou com <b>Transferência de armazém</b>: a Logística tabula no <b>✔ Resolver</b> (em andamento com data, concluída, sem saldo). A planilha nova confere se liberou.",extra:null}};
+function escoposArea(a){
+  const base=[["pendentes",`Pendentes com ${a==="logistica"?"a":"o"} `+NOME_AREA_T[a],"k-bad",l=>precisaDe(l.e)],["falhou","Falharam","k-bad",l=>l.e.st==="falhou"],["sem","Sem tabulação","k-warn",l=>!l.r]];
+  const esp={compras:[["resp","📞 Respostas ao CX","k-roxo",l=>precisaDe(l.e)&&/^CX:/.test(l.e.txt)],["fora","Fora de linha","k-roxo",l=>foraLinhaPed(l.p)]],
+    cx:[["tent","Nova tentativa","k-warn",l=>l.r&&l.r.cod==="sem_sucesso"],["fora","Fora de linha — alterar produto","k-roxo",l=>foraLinhaPed(l.p)]],
+    logistica:[["and","Em andamento","k-azul",l=>l.r&&l.r.cod==="andamento"&&!precisaDe(l.e)]]}[a]||[];
+  return [...base,...esp,["feitos","Feitos / aguardando planilha","k-ok",l=>!precisaDe(l.e)],["todos",a==="logistica"?"Transferências no fluxo":"Pedidos no fluxo","k-cinza",()=>true]];
+}
+function linhasArea(a){ return (FOTO?FOTO.pedidos:[]).filter(noFluxo).map(p=>{ const d=interDe(p.k); return {p,d,e:estadoArea(p,a,d),r:resDe(d,a)}; }).filter(l=>l.e.st!=="na"); }
+function histArea(a){ const h=[]; INTER.forEach(doc=>{ const d=doc.dados; ((d&&d.res_hist)||[]).forEach(x=>{ if(x.area===a) h.push({...x,chave:d.chave,pedido:d.pedido,cliente:d.cliente}); }); }); return h; }
+function renderArea(a){ return c=>{
+  const ex=AREA_INFO[a].extra, vs=[["pedidos","📋 Pedidos"],...(ex?[ex]:[]),["ind","📊 Indicadores"]];
+  if(!vs.some(v=>v[0]===AREA_V[a])) AREA_V[a]="pedidos";
+  const nav=el("div"); nav.innerHTML=`<div class="tabs-cx area-tabs" role="tablist">${vs.map(([id,r])=>`<button type="button" role="tab" class="tab-cx" aria-selected="${AREA_V[a]===id}" data-av="${id}">${r}</button>`).join("")}</div>`;
+  c.appendChild(nav); const box=el("div"); c.appendChild(box);
+  nav.querySelectorAll("[data-av]").forEach(b=>b.onclick=()=>{ AREA_V[a]=b.dataset.av; try{ localStorage.setItem("cart_area_v",JSON.stringify(AREA_V)); }catch(_){} render(); });
+  if(AREA_V[a]==="fluxo") return renderCxFluxo(box);
+  if(AREA_V[a]==="itens") return renderComprasItens(box);
+  if(AREA_V[a]==="ind") return renderIndicadoresArea(box,a);
+  renderPedidosArea(box,a); }; }
+function renderPedidosArea(c,a){
+  const S=AREA_F[a], L=linhasArea(a), E=escoposArea(a), q=nrm(S.busca), atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto, hoje=hojeISO();
+  const pode=atual&&nivelAba(a)>=2&&nivelAba("triagem")>=1, ehoje=histArea(a).filter(h=>diaBR(h.em)===hoje).length;
+  const fe=E.find(x=>x[0]===S.esc)||E[0];
+  const lst=L.filter(fe[3]).filter(l=>pedTemProduto(l.p,S.prod)&&(!q||[l.p.p,l.p.n,l.p.c,l.p.l,...l.p.it.flatMap(i=>[i[IT.prod],i[IT.desc]]),l.r&&l.r.obs,l.e.txt].some(x=>nrm(x).includes(q))))
+    .sort((x,y)=>({falhou:0,pendente:1,aguarda:2,ok:3})[x.e.st]-({falhou:0,pendente:1,aguarda:2,ok:3})[y.e.st]||(prazo(x.p).n??999)-(prazo(y.p).n??999)||(numPedido(x.p)||0)-(numPedido(y.p)||0));
+  const nPend=L.filter(l=>precisaDe(l.e)).length, nFal=L.filter(l=>l.e.st==="falhou").length;
+  const outras=AREAS_T.map(x=>x[0]).filter(x=>x!==a);
+  c.insertAdjacentHTML("beforeend",`<section><header><h2>${AREA_INFO[a].tit}</h2><p>${AREA_INFO[a].txt}</p><span class="direita"><button type="button" class="peq" id="arXls">⬇️ Excel</button></span></header>
+    ${nPend?`<div class="lembrete-area" style="--ac:${corArea(a)}">🔔 <b>Esperando ${a==="logistica"?"a":"o"} ${esc(NOME_AREA_T[a])}:</b> ${int(nPend)} pedido(s)${nFal?` · <b class="txt-bad">${int(nFal)} falharam</b> (a planilha ainda mostra BLOQUEADO)`:""}.</div>`:""}
+    <div class="kpis">${E.map(([id,rot,cls,fn])=>`<button type="button" class="kpi ${cls}${S.esc===id?" ativo":""}" data-aesc="${id}"><span>${esc(rot)}</span><b>${int(L.filter(fn).length)}</b><small>${id==="feitos"?`${int(ehoje)} tabulação(ões) hoje`:id==="todos"?`${L.length?Math.round(L.filter(l=>!precisaDe(l.e)).length/L.length*100):100}% da etapa feita`:"pedido(s)"}</small></button>`).join("")}</div>
+    <div class="filtros" style="grid-template-columns:minmax(220px,1fr) minmax(220px,1.4fr) minmax(240px,2fr)">
+      <select id="arEsc">${E.map(([id,rot])=>`<option value="${id}"${id===S.esc?" selected":""}>${esc(rot)}</option>`).join("")}</select>
+      ${campoProduto("arProd",S.prod,L.map(l=>l.p))}
+      <input class="busca" id="arBusca" placeholder="Buscar pedido, cliente, código, produto, observação..." value="${esc(S.busca)}"></div>
+    ${atual?"":'<p class="aviso">Você está vendo uma carteira do histórico — o Resolver só funciona na carteira atual.</p>'}
+    <p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> pedido(s) · clique na linha para abrir o pedido em tela inteira · arraste a borda do título para ajustar a coluna</p>
+    <div class="tbl-wrap" id="arWrap" style="max-height:660px"><table class="dt-cx ar-t"><thead><tr><th style="min-width:120px">Resolver</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Entrega / prazo</th><th>Produto bloqueado</th><th>Situação ${esc(NOME_AREA_T[a])}</th><th>Última tabulação</th>${outras.map(x=>`<th>${esc(NOME_AREA_T[x])}</th>`).join("")}<th>Loja</th><th class="num">Valor</th></tr></thead><tbody>
+    ${lst.slice(0,400).map(l=>{ const p=l.p, pz=prazo(p), bl=itensDoBloqueio(p), t=travaArea(p.k,a), r=l.r;
+      return `<tr class="clic${precisaDe(l.e)?" tr-pend":""}" data-ak="${esc(p.k)}"><td>${pode?`<button type="button" class="peq primary" data-ares>✔ Resolver</button>`:'<span class="muted">—</span>'}</td>
+        <td class="nw" data-v="${numPedido(p)||0}"><b>${esc(p.p)}</b><span class="sub">loja ${esc(p.l)}</span></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td>
+        <td data-v="${pz.n??999}">${p.en?dataBR(p.en):"—"}<br><span class="pill ${pz.pill}">${esc(pz.rot)}</span></td>
+        <td>${bl.slice(0,2).map(i=>`${foraDeLinha(i)?'<span class="pill p-roxo">9999</span> ':""}<b>${esc(i[IT.prod])}</b> ${esc(i[IT.desc])}`).join("<br>")}${bl.length>2?`<span class="sub">+${bl.length-2} item(ns)</span>`:""}</td>
+        <td data-v="${({falhou:0,pendente:1,aguarda:2,ok:3})[l.e.st]}">${pillEst(l.e)}${t?`<span class="sub">🔒 ${esc(nomeCurto(t.por||t.email))} tratando</span>`:""}</td>
+        <td>${r?`<b>${esc(r.rot)}</b>${r.limite?` · até ${dataBR(r.limite)}`:""}${r.prevista?` · previsão ${dataBR(r.prevista)}`:""}<span class="sub">${esc(nomeCurto(r.por))} · ${dataHoraCurta(r.em)}${r.obs?` · “${esc(r.obs)}”`:""}</span>`:'<span class="muted">—</span>'}</td>
+        ${outras.map(x=>{ const e=estadoArea(p,x,l.d); return `<td>${e.st==="na"?'<span class="muted">—</span>':`<span class="pill ${ST_T[e.st][1]}" title="${esc(e.txt)}">${ST_T[e.st][0]}</span>`}</td>`; }).join("")}
+        <td>${esc(p.l)}</td><td class="num" data-v="${p.v||0}">${moeda(p.v)}</td></tr>`; }).join("")||`<tr><td colspan="${10+outras.length}" class="muted" style="padding:18px">✅ Nada com esse filtro ${a==="logistica"?"na":"no"} ${esc(NOME_AREA_T[a])}.</td></tr>`}
+    </tbody></table></div>${lst.length>400?'<p class="cap">Mostrando 400 — use os filtros ou o Excel para ver todos.</p>':""}</section>`);
+  c.querySelectorAll("[data-aesc]").forEach(b=>b.onclick=()=>{ S.esc=b.dataset.aesc; render(); });
+  $("#arEsc",c).onchange=e=>{ S.esc=e.target.value; render(); };
+  ligarProduto(c,"arProd",v=>{ S.prod=v; });
+  $("#arBusca",c).oninput=e=>{ S.busca=e.target.value; clearTimeout(e.target._t); e.target._t=setTimeout(()=>{ const pos=e.target.selectionStart; render(); const n=$("#arBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },300); };
+  c.querySelectorAll("tr[data-ak]").forEach(tr=>tr.onclick=e=>{ if(Date.now()-_fimRedim<300) return; abrirPopup(tr.dataset.ak,a,!!e.target.closest("[data-ares]")); });
+  turbinarTabela($("#arWrap table",c),"area_"+a,true);
+  $("#arXls",c).onclick=()=>exportarXlsx(`${a}_pedidos`,[{nome:NOME_AREA_T[a],cols:[["Pedido",l=>l.p.p],["Loja",l=>l.p.l],["Cliente",l=>l.p.n],["Código",l=>l.p.c],["Entrega",l=>l.p.en?dataBR(l.p.en):""],["Prazo",l=>prazo(l.p).rot],
+    ["Produto bloqueado",l=>itensDoBloqueio(l.p).map(i=>`${i[IT.prod]} ${i[IT.desc]}`).join(" | ")],["Situação",l=>ST_T[l.e.st][0].replace(/^\W+\s*/,"")],["Detalhe",l=>l.e.txt],["Última tabulação",l=>l.r?l.r.rot:""],["Por",l=>l.r?l.r.por:""],["Quando",l=>l.r?dataHoraBR(l.r.em):""],["Obs.",l=>l.r?l.r.obs:""],
+    ...outras.map(x=>[NOME_AREA_T[x],l=>{ const e=estadoArea(l.p,x,l.d); return e.st==="na"?"":e.txt; }]),["Valor",l=>l.p.v||0]],linhas:lst}]);
+}
+function renderIndicadoresArea(c,a){
+  const L=linhasArea(a), H=histArea(a), hoje=hojeISO(), d7=somaDias(hoje,-6), d30=somaDias(hoje,-29);
+  const nPend=L.filter(l=>l.e.st==="pendente").length, nFal=L.filter(l=>l.e.st==="falhou").length, feito=L.length-nPend-nFal, pct=L.length?Math.round(feito/L.length*100):100;
+  const h7=H.filter(h=>diaBR(h.em)>=d7), h30=H.filter(h=>diaBR(h.em)>=d30), hH=H.filter(h=>diaBR(h.em)===hoje);
+  const dias=[...Array(14)].map((_,i)=>somaDias(hoje,i-13)), porDia=dias.map(dd=>H.filter(h=>diaBR(h.em)===dd).length);
+  const col={}; H.forEach(h=>{ const n=h.por||"—", x=col[n]||(col[n]={n,hoje:0,s7:0,s30:0,tipos:{},ult:""}); const dd=diaBR(h.em); if(dd===hoje) x.hoje++; if(dd>=d7) x.s7++; if(dd>=d30){ x.s30++; x.tipos[h.cod]=(x.tipos[h.cod]||0)+1; } if(String(h.em)>x.ult) x.ult=h.em; });
+  const cols=Object.values(col).filter(x=>x.s30).sort((x,y)=>y.s30-x.s30||y.hoje-x.hoje);
+  const opc=RES_OPC[a]||[], cor=["var(--prog)","var(--amber)","var(--block)","#0F766E","var(--bad)"];
+  const falPorTipo=cod=>L.filter(l=>l.e.st==="falhou"&&l.r&&l.r.cod===cod).length;
+  c.insertAdjacentHTML("beforeend",`<section><header><h2>📊 Indicadores — ${esc(NOME_AREA_T[a])}</h2><p>Produtividade da área no fluxo da Triagem: quanto da etapa está feita, quanto falhou na planilha e quem tabulou o quê.</p></header>
+    <div class="kpis">
+      <div class="kpi k-ok"><span>Etapa feita</span><b>${pct}%</b><small>${int(feito)} de ${int(L.length)} pedido(s) no fluxo</small></div>
+      <div class="kpi k-warn"><span>Pendentes</span><b>${int(nPend)}</b><small>sem tabulação ou esperando nova ação</small></div>
+      <div class="kpi k-bad"><span>Falharam</span><b>${int(nFal)}</b><small>a planilha ainda mostra BLOQUEADO</small></div>
+      <div class="kpi k-azul"><span>Tabulações hoje</span><b>${int(hH.length)}</b><small>${int(new Set(hH.map(h=>h.chave)).size)} pedido(s)</small></div>
+      <div class="kpi k-cinza"><span>Últimos 7 dias</span><b>${int(h7.length)}</b><small>${int(h30.length)} em 30 dias</small></div></div>
+    <div class="grid2" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:start">
+      <div class="box"><b>Tabulações por dia (14 dias)</b><div class="graf">${graficoLinhas([{nome:"Tabulações",cor:corArea(a),v:porDia}],dias.map(dd=>dataBR(dd).slice(0,5)))}</div></div>
+      <div class="box"><b>Por tipo de tabulação (30 dias)</b><div style="margin-top:8px">${barras(opc.map(([cod,rot],i)=>({rot,v:h30.filter(h=>h.cod===cod).length,cor:cor[i%cor.length]})),h30.length)}</div>
+        <p class="cap" style="margin:8px 0 0">Falhas atuais por tipo: ${opc.map(([cod,rot])=>`${esc(rot.split("·")[0].trim())} <b>${falPorTipo(cod)}</b>`).join(" · ")}</p></div></div>
+    <div class="box" style="margin-top:14px"><b>Por colaborador</b><div class="tbl-wrap" id="indWrap"><table><thead><tr><th>Colaborador</th><th class="num">Hoje</th><th class="num">7 dias</th><th class="num">30 dias</th>${opc.map(([,rot])=>`<th class="num">${esc(rot.split("·")[0].trim())}</th>`).join("")}<th>Última tabulação</th></tr></thead><tbody>
+      ${cols.map(x=>`<tr><td><b>${esc(x.n)}</b></td><td class="num">${int(x.hoje)}</td><td class="num">${int(x.s7)}</td><td class="num">${int(x.s30)}</td>${opc.map(([cod])=>`<td class="num">${x.tipos[cod]?int(x.tipos[cod]):'<span class="muted">—</span>'}</td>`).join("")}<td>${dataHoraBR(x.ult)}</td></tr>`).join("")||`<tr><td colspan="${5+opc.length}" class="muted" style="padding:14px">Ninguém tabulou no ${esc(NOME_AREA_T[a])} nos últimos 30 dias.</td></tr>`}
+      </tbody></table></div><p class="cap" style="margin:6px 0 0">Legenda: ${opc.map(([,rot])=>esc(rot)).join(" · ")}</p></div></section>`);
+  const t=$("#indWrap table",c); if(t) turbinarTabela(t,"ind_"+a,true);
+}
+function somaDias(iso,n){ const d=new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return isoUTC(d); }
 
 async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ NIVEL=a.nivel; NIVEL_SIS=a.nivelSistema!=null?a.nivelSistema:a.nivel; ABAS_N=a.abas||null; EMAIL=a.email; } }catch(_){}
