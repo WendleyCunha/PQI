@@ -494,14 +494,14 @@ function desenharSistema(){
         return chip(g,nomeGrupo(g),us.length,g==="__admin"?"acesso total":p?`neste sistema: ${esc(rotuloNivel(m,resolverExcecao(m,"perfil:"+g)))}`:"módulos marcados (antigo)"); }).join("")}</div>
     <div class="ferr"><input class="inp" id="sisBusca" placeholder="Buscar colaborador por nome, e-mail ou perfil..." value="${esc(estSis.busca)}">
       <label class="chk" style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" id="sisPers" ${estSis.soPers?"checked":""}> Só quem tem acesso personalizado (${pers.length})</label></div>
-    <div class="tbl-wrap" style="max-height:60vh"><table class="lista"><thead><tr><th>Colaborador</th><th>Perfil</th><th>Pelo perfil</th><th>Acesso neste sistema</th><th>Vale</th><th>Alterado</th>${(m.abas||[]).length?"<th>Abas</th>":""}</tr></thead><tbody>${
+    <div class="tbl-wrap" style="max-height:60vh"><table class="lista"><thead><tr><th>Colaborador</th><th>Perfil</th><th>Pelo perfil</th><th>Acesso neste sistema</th><th>Vale</th><th>Alterado</th>${m.id==="carteira"?'<th title="Esteira automática: quantos atendimentos ficam com a pessoa (perfil Colaborador). Vazio = 10.">Qtd</th>':""}${(m.abas||[]).length?"<th>Abas</th>":""}</tr></thead><tbody>${
       lst.map(u=>{ const base=niveisDe({...u,acessos:{}},u.perfil)[m.id], vale=niveisDe(u,u.perfil)[m.id], tem=temExcecao(u,m.id), inf=((u.acessos_info||{})[m.id])||null;
         return `<tr class="${u.ativo===false?"inativo ":""}${tem?"pers":""}"><td><span class="av">${esc(iniciais(u.nome))}</span><b>${esc(u.nome||u.email)}</b>${tem?'<span class="tag-pers">PERSONALIZADO</span>':""}<br><span class="cap" style="margin-left:42px">${esc(u.email)}${u.ativo===false?" · inativo":""}</span></td>
           <td>${u.papel==="admin"?'<span class="pill p-azul">Administrador</span>':u.perfil?esc(nomeGrupo(u.perfil)):'<span class="pill p-amb">sem perfil</span>'}</td>
           <td>${pillNivel(m,base)}</td>
           <td>${u.papel==="admin"?'<span class="cap">Administrador — acesso total sempre</span>':`<select class="sel-acesso${tem?" pers":""}" data-email="${esc(u.email)}" aria-label="Acesso de ${esc(u.nome)} em ${esc(m.nome)}">${opcoesAcesso(m,u)}</select>`}</td>
           <td>${pillNivel(m,vale)}</td>
-          <td>${tem&&inf?`<span class="cap" style="margin:0">${esc(inf.por_nome||inf.por||"")}<br>${esc(dataBR(inf.em))}</span>`:'<span class="cap" style="margin:0">—</span>'}</td>${celAbasPessoa(m,u)}</tr>${linhaAbasPessoa(m,u)}`; }).join("")||'<tr><td colspan="7" class="cap" style="text-align:center;padding:20px">Ninguém com esses filtros.</td></tr>'}</tbody></table></div></div>`;
+          <td>${tem&&inf?`<span class="cap" style="margin:0">${esc(inf.por_nome||inf.por||"")}<br>${esc(dataBR(inf.em))}</span>`:'<span class="cap" style="margin:0">—</span>'}</td>${m.id==="carteira"?`<td>${u.papel==="admin"?'<span class="cap">—</span>':`<input type="number" min="0" max="200" class="inp qtd-fila" data-qtd="${esc(u.email)}" value="${esc((u.fila_qtd||{})[m.id]??"")}" placeholder="10" style="width:70px" title="Atendimentos na esteira automática (perfil Colaborador)">`}</td>`:""}${celAbasPessoa(m,u)}</tr>${linhaAbasPessoa(m,u)}`; }).join("")||'<tr><td colspan="7" class="cap" style="text-align:center;padding:20px">Ninguém com esses filtros.</td></tr>'}</tbody></table></div></div>`;
   $("#sisFechar",box).onclick=()=>{ estSis.mod=""; render(); };
   box.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ estSis.perfil=b.dataset.g; desenharSistema(); });
   $("#sisPers",box).onchange=e=>{ estSis.soPers=e.target.checked; desenharSistema(); };
@@ -513,6 +513,12 @@ function desenharSistema(){
       u.abas={...(u.abas||{}),[m.id]:{...((u.abas||{})[m.id]||{}),[aid]:v===""?null:Number(v)}}; if(j.abas) u.abas_ef={...(u.abas_ef||{}),[m.id]:j.abas};
       status(`${u.nome} · ${(m.abas.find(a=>a.id===aid)||{}).nome}: ${v===""?"segue o perfil":NOME_ABA[v]} — gravado`); desenharSistema(); }
     catch(e){ status("Erro: "+e.message,"erro"); s.disabled=false; } });
+  box.querySelectorAll("input[data-qtd]").forEach(i=>i.onchange=async()=>{ const u=D.usuarios.find(x=>x.email===i.dataset.qtd), v=i.value.trim(), q=v===""?null:Math.max(0,Math.min(200,Number(v)||0));
+    i.disabled=true; status("Salvando…","salvando");
+    try{ await api(`/api/admin/fila-qtd/${encodeURIComponent(m.id)}/${encodeURIComponent(u.email)}`,{method:"PUT",body:JSON.stringify({qtd:q})});
+      u.fila_qtd={...(u.fila_qtd||{}),[m.id]:q}; status(`${u.nome} · esteira automática: ${q==null?"10 (padrão)":q} atendimento(s) — gravado`); }
+    catch(e){ status("Erro: "+e.message,"erro"); }
+    i.disabled=false; });
   box.querySelectorAll("select.sel-acesso").forEach(s=>s.onchange=async()=>{
     const u=D.usuarios.find(x=>x.email===s.dataset.email), v=s.value, corpo=v.startsWith("p:")?{perfil:v.slice(2)}:v.startsWith("n:")?{nivel:Number(v.slice(2))}:{};
     s.disabled=true; status("Salvando…","salvando");
