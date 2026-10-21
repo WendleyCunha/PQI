@@ -373,7 +373,7 @@ def usuario_atual(request: Request) -> dict:
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
                                    "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos",
-                                   "acessos", "acessos_info", "fabrica", "abas", "fila_qtd")}
+                                   "acessos", "acessos_info", "fabrica", "abas", "fila_qtd", "ver_tudo")}
 
 
 def _sessao_publica(u: dict) -> dict:
@@ -1088,6 +1088,31 @@ def admin_acesso_individual(modulo_id: str, email: str, payload: AcessoIndividua
     _log(request, "acesso", f"{alvo.get('nome') or email} · {m['nome']}", "Acesso individual no sistema",
          _texto_acesso(m, antes), _texto_acesso(m, novo))
     return {"sucesso": True, "niveis": _niveis({**alvo, "acessos": acessos})}
+
+
+class VerTudo(BaseModel):
+    ver_tudo: bool = False
+
+
+@app.put("/api/admin/ver-tudo/{modulo_id}/{email}")
+def admin_ver_tudo(modulo_id: str, email: str, payload: VerTudo, request: Request):
+    """[v4.25] Marcado = vê todos os atendimentos. Desmarcado = trabalha só a fila (Qtd). Não depende do perfil."""
+    if modulo_id not in mods.IDS_VALIDOS:
+        raise HTTPException(status_code=404, detail="Sistema inexistente.")
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    vt = dict(alvo.get("ver_tudo") or {})
+    antes = bool(vt.get(modulo_id))
+    if antes == payload.ver_tudo:
+        return {"sucesso": True}
+    vt[modulo_id] = bool(payload.ver_tudo)
+    db.usuario_atualizar(email, {"ver_tudo": vt, "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+    _esquecer_cache(email)
+    txt = lambda v: "Vê tudo" if v else "Só a fila (Qtd)"
+    _log(request, "acesso", f"{alvo.get('nome') or email} · {mods.POR_ID[modulo_id]['nome']}", "Ver tudo", txt(antes), txt(payload.ver_tudo))
+    return {"sucesso": True}
 
 
 class FilaQtd(BaseModel):
