@@ -393,8 +393,7 @@ def _perfil_no_sistema(u: dict, modulo_id: str):
     v = (u.get("acessos") or {}).get(modulo_id)
     if isinstance(v, str) and v.startswith("perfil:"):
         return v[7:]
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
-        return None
+    # [v4.26] nível individual (ex.: "＋ Adicionar" no acesso por pessoa) muda só o NÍVEL — o perfil da pessoa continua valendo
     return u.get("perfil") or None
 
 
