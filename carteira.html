@@ -2919,16 +2919,17 @@ async function classificarLote(lst,depois){
 
 // ═══════════════════════════════════════════════════════════════════
 // [v4.23] ESTEIRA AUTOMÁTICA (perfil Colaborador) + PRODUTIVIDADE POR DIA
-//   • Colaborador (perfil "Colaborador" na Carteira, em Segurança → acesso por pessoa) recebe
-//     sozinho N atendimentos (Qtd, padrão 10) do setor dele e sempre fica com N: terminou um, chega o próximo.
-//   • Ele só vê os atendimentos dele (Triagem e aba do setor) — sem Fluxo da carteira nem Indicadores.
+//   • [v4.25] NÃO depende mais do perfil: quem está SEM "Ver tudo" (Segurança → Carteira → acesso por pessoa)
+//     recebe sozinho N atendimentos (Qtd, padrão 10) do setor dele e sempre fica com N: terminou um, chega o próximo.
+//   • Essa pessoa só vê os atendimentos dela (Triagem e aba do setor) — sem Fluxo da carteira nem Indicadores.
+//   • Com "Ver tudo" marcado (e administrador) vê a esteira inteira, como antes.
 //   • Sem contato conta como atendimento e o pedido volta para a fila geral (no próximo dia útil
 //     qualquer colaborador pode recebê-lo). Pedido que saiu da esteira libera a vaga sem contar.
 //   • Analista ou acima: produtividade por dia (online, atribuídos, tratados) em CX → Fluxo da carteira → Equipe.
 // ═══════════════════════════════════════════════════════════════════
-let PERFIL_SIS=null;
+let PERFIL_SIS=null, VER_TUDO=true;
 let ATR={dia:"",itens:[],qtd:10};
-function filaOn(){ return !ADMIN&&PERFIL_SIS==="colaborador"; }
+function filaOn(){ return !ADMIN&&!VER_TUDO; }   // [v4.25] pela opção "Ver tudo", não pelo perfil
 function analistaMais(){ return ADMIN||["analista","gestor","supervisor"].includes(PERFIL_SIS)||NIVEL_SIS>=3; }
 function eu(x){ return nrm(x.email)===nrm(EMAIL); }
 function areasFila(){ const st=setoresEsteira().map(s=>s.id), m=st.filter(minhaArea); return m.length?m:(st.includes("cx")?["cx"]:st.slice(0,1)); }
@@ -3015,7 +3016,7 @@ function blocoProdutividade(box){
 // [v4.23] gravar na parte de qualquer setor: liberado para quem acessa a Carteira (a trava de quem já está tratando continua)
 function podeGravar(a){ return true; }
 async function iniciar(){
-  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ PERFIL_SIS=a.perfilSistema||null; NIVEL=a.nivel; NIVEL_SIS=a.nivelSistema!=null?a.nivelSistema:a.nivel; ABAS_N=a.abas||null; EMAIL=a.email; } }catch(_){}
+  try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ PERFIL_SIS=a.perfilSistema||null; VER_TUDO=!!a.verTudo; NIVEL=a.nivel; NIVEL_SIS=a.nivelSistema!=null?a.nivelSistema:a.nivel; ABAS_N=a.abas||null; EMAIL=a.email; } }catch(_){}
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||""; ADMIN=u.papel==="admin";
       const deps=u.departamentos||[];
       if(deps.length){ const b=await fetch("/api/base/cadastros",{cache:"no-store"}); if(b.ok){ const bj=await b.json(); MEUS_SETORES=(bj.setores||[]).filter(s=>deps.includes(s.id)).map(s=>s.nome); } } } }catch(_){}
