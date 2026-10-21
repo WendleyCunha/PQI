@@ -136,7 +136,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
 ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
-_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca")
+_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
@@ -2272,6 +2272,75 @@ def cart_produtividade(request: Request, de: str = "", ate: str = ""):
     agora = datetime.now()
     online = {e: {**p, "online": (agora - datetime.fromisoformat(p["ultimo"])).total_seconds() < 300} for e, p in _PRESENCA.items() if p.get("dia") == hoje}
     return {"dias": dias, "online": online, "hoje": hoje}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.27] ABA "ADM · EQUIPE" da Carteira — Analista/Gestor ajustam SÓ "Ver tudo" e "Qtd"
+#   (criar e editar usuários continua só em Segurança)
+# ──────────────────────────────────────────────────────────────────────────
+def _pode_adm_equipe(u: dict) -> bool:
+    return u.get("papel") == "admin" or _perfil_no_sistema(u, "carteira") in ("analista", "gestor")
+
+
+class EquipeAjuste(BaseModel):
+    ver_tudo: Optional[bool] = None
+    qtd: Optional[int] = None
+    qtd_padrao: Optional[bool] = False   # true = volta para o padrão (10)
+
+
+@app.get("/api/carteira/equipe")
+def cart_equipe(request: Request):
+    u = usuario_atual(request)
+    if not _pode_adm_equipe(u):
+        raise HTTPException(status_code=403, detail="A aba ADM é só para os perfis Analista e Gestor.")
+    nomes_dep = {d["id"]: (d.get("dados") or {}).get("nome", "") for d in _todos_setores()}
+    saida = []
+    for x in db.usuarios_listar():
+        if x.get("ativo") is False:
+            continue
+        if int(_niveis(x).get("carteira", 0) or 0) < 1 and x.get("papel") != "admin":
+            continue
+        saida.append({"email": x.get("email"), "nome": x.get("nome") or x.get("email"), "perfil": _nome_perfil(x),
+                      "admin": x.get("papel") == "admin", "ver_tudo": x.get("papel") == "admin" or bool((x.get("ver_tudo") or {}).get("carteira")),
+                      "qtd": (x.get("fila_qtd") or {}).get("carteira"), "departamentos": [nomes_dep.get(i, "?") for i in (x.get("departamentos") or [])]})
+    saida.sort(key=lambda r: (r["nome"] or "").lower())
+    return {"usuarios": saida}
+
+
+@app.put("/api/carteira/equipe/{email}")
+def cart_equipe_ajustar(email: str, payload: EquipeAjuste, request: Request):
+    u = usuario_atual(request)
+    if not _pode_adm_equipe(u):
+        raise HTTPException(status_code=403, detail="A aba ADM é só para os perfis Analista e Gestor.")
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo or alvo.get("ativo") is False:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if alvo.get("papel") == "admin":
+        raise HTTPException(status_code=400, detail="Administrador sempre vê tudo.")
+    if int(_niveis(alvo).get("carteira", 0) or 0) < 1:
+        raise HTTPException(status_code=400, detail="Esta pessoa não tem acesso à Carteira.")
+    campos, nome = {}, alvo.get("nome") or email
+    if payload.ver_tudo is not None:
+        vt = dict(alvo.get("ver_tudo") or {})
+        antes = bool(vt.get("carteira"))
+        if antes != payload.ver_tudo:
+            vt["carteira"] = bool(payload.ver_tudo)
+            campos["ver_tudo"] = vt
+            _log(request, "acesso", f"{nome} · Carteira de Encomendas (aba ADM)", "Ver tudo", "Vê tudo" if antes else "Só a fila (Qtd)", "Vê tudo" if payload.ver_tudo else "Só a fila (Qtd)")
+    if payload.qtd is not None or payload.qtd_padrao:
+        fq = dict(alvo.get("fila_qtd") or {})
+        antes = fq.get("carteira")
+        novo = None if payload.qtd_padrao else max(0, min(200, int(payload.qtd)))
+        if antes != novo:
+            fq["carteira"] = novo
+            campos["fila_qtd"] = fq
+            _log(request, "acesso", f"{nome} · Carteira de Encomendas (aba ADM)", "Qtd da esteira automática", str(antes if antes is not None else "10 (padrão)"), str(novo if novo is not None else "10 (padrão)"))
+    if campos:
+        campos.update(alterado_em=datetime.now().isoformat(), alterado_por=_email(request))
+        db.usuario_atualizar(email, campos)
+        _esquecer_cache(email)
+    return {"sucesso": True}
 
 
 @app.get("/api/carteira/reservas")
