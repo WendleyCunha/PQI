@@ -736,6 +736,7 @@ const ICO={
   filas:SV+'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg>',
   solucoes:SV+'<path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
   cx:SV+'<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>',
+  adm:SV+'<circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 016-6h2"/><circle cx="18" cy="17" r="3"/><path d="M18 12v2M18 20v2M13 17h2M21 17h2"/></svg>',
   logistica:SV+'<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
   compras:SV+'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 002 1.6h9.7a2 2 0 002-1.6L23 6H6"/></svg>',
   historico:SV+'<path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
@@ -744,7 +745,10 @@ const ICO={
 };
 const SECOES_BASE=[["painel","Painel",1],["triagem","Triagem",1],["situacao","Status do pedido",1],["carteira","Carteira",1],["itens","Itens",1],["filas","Pendências por setor",1],"__setores__",["solucoes","Soluções",1],"sep",["historico","Histórico",1],["importar","Importar",3],["config","Configurar",3]];
 // [v4.22] cada setor da esteira (com motivo ativo) vira uma aba do menu
-function secoes(){ const st=typeof setoresEsteira==="function"?setoresEsteira().map(x=>[x.id,x.nome,1]):[]; return SECOES_BASE.flatMap(x=>x==="__setores__"?st:[x]); }
+function secoes(){ const st=typeof setoresEsteira==="function"?setoresEsteira().map(x=>[x.id,x.nome,1]):[];
+  const l=SECOES_BASE.flatMap(x=>x==="__setores__"?st:[x]);
+  if(typeof podeAdmEquipe==="function"&&podeAdmEquipe()) l.splice(l.indexOf("sep"),0,["adm","ADM · equipe",1]);   // [v4.27] só Analista / Gestor / Admin
+  return l; }
 let secao="painel";
 try{ secao=sessionStorage.getItem("cart_secao")||"painel"; }catch(_){}
 function ir(s){ if(s!=="triagem"&&typeof estT!=="undefined"&&estT.reservado){ liberar(estT.reservado); estT.reservado=""; estT.aberto=""; }
@@ -762,10 +766,12 @@ function render(){
   if(nivelAba(secao)<1){ const prim=secoes().find(x=>x!=="sep"&&nivelAba(x[0])>=1); if(prim) secao=prim[0]; }   // [v4.16] aba sem acesso: vai para a primeira liberada
   aplicarNivelAba();
   atualizarMenu(); desenharLembrete(); const c=$("#root"); c.innerHTML="";
-  if(!FOTO&&!["importar","config","historico"].includes(secao)){ c.innerHTML=`<div class="aviso"><b>Nenhuma carteira importada ainda.</b> ${NIVEL>=3?'Use <b>⤒ Importar a carteira do dia</b> e arraste as duas planilhas do BI.':"Peça a quem tem o perfil Editar no módulo para importar a carteira do dia."}</div>`; return; }
+  if(!FOTO&&!["importar","config","historico","adm"].includes(secao)){ c.innerHTML=`<div class="aviso"><b>Nenhuma carteira importada ainda.</b> ${NIVEL>=3?'Use <b>⤒ Importar a carteira do dia</b> e arraste as duas planilhas do BI.':"Peça a quem tem o perfil Editar no módulo para importar a carteira do dia."}</div>`; return; }
   if(FOTO&&FOTO_DATA!==(FOTO_ATUAL&&FOTO_ATUAL.data)&&secao!=="importar") c.insertAdjacentHTML("beforeend",`<div class="ver-dia">🕒 Você está vendo a carteira de <b>${dataBR(FOTO_DATA)}</b> (histórico). <button type="button" class="peq" id="vdVoltar">Voltar para a carteira atual</button></div>`);
   const vd=$("#vdVoltar",c); if(vd) vd.onclick=()=>{ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; render(); };
   const box=el("div"); c.appendChild(box);
+  if(secao==="adm"&&!podeAdmEquipe()){ secao="painel"; }
+  if(secao==="adm") renderAdmEquipe(box); else
   if(setoresEsteira().some(x=>x.id===secao)) renderArea(secao)(box); else
   ({painel:renderPainel,triagem:renderTriagem,situacao:renderSituacao,carteira:renderCarteira,itens:renderItens,filas:renderFilas,solucoes:renderSolucoes,historico:renderHistorico,importar:renderImportar,config:renderConfig}[secao]||renderPainel)(box);
   if(NIVEL<2) c.insertAdjacentHTML("afterbegin",'<p class="aviso">👁 Seu perfil na Carteira é de <b>consulta</b>: você pode tabular no <b>✔ Resolver</b> e responder os pedidos entre setores; o resto é só para ver.</p>');
@@ -3013,6 +3019,36 @@ function blocoProdutividade(box){
   if(PROD.chave!==de+"|"+ate||!PROD.dados||ate===hojeISO()) carregar(); else desenhar();
 }
 
+// ═══ [v4.27] ABA ADM · EQUIPE — Analista/Gestor ajustam só "Ver tudo" e "Qtd" de quem está na Carteira ═══
+function podeAdmEquipe(){ return ADMIN||["analista","gestor"].includes(PERFIL_SIS); }
+const ADMQ={lista:null,busca:"",erro:""};
+async function carregarEquipe(){ try{ const {j}=await api(`${API}/equipe`); ADMQ.lista=(j&&j.usuarios)||[]; ADMQ.erro=""; }catch(e){ ADMQ.erro=e.message; ADMQ.lista=ADMQ.lista||[]; } }
+function renderAdmEquipe(c){
+  if(ADMQ.lista==null){ c.innerHTML='<p class="cap">Carregando a equipe…</p>'; carregarEquipe().then(()=>{ if(secao==="adm") render(); }); return; }
+  const q=nrm(ADMQ.busca), L=ADMQ.lista.filter(u=>!q||[u.nome,u.email,u.perfil,...(u.departamentos||[])].some(x=>nrm(x).includes(q)));
+  const nVt=ADMQ.lista.filter(u=>u.ver_tudo).length;
+  c.innerHTML=`<section><header><h2>⚙️ ADM · equipe</h2><p>Quem está na Carteira de Encomendas. Aqui você ajusta <b>só duas coisas</b>: <b>Ver tudo</b> (marcado = vê todos os atendimentos; desmarcado = vê só a fila dela) e <b>Qtd</b> (quantos atendimentos a fila mantém; vazio = 10). Criar ou editar usuários continua em <b>Segurança</b>.</p></header>
+    ${ADMQ.erro?`<p class="aviso">${esc(ADMQ.erro)}</p>`:""}
+    <div class="kpis"><div class="kpi k-cinza"><span>Pessoas na Carteira</span><b>${int(ADMQ.lista.length)}</b><small>ativas</small></div><div class="kpi k-azul"><span>Vê tudo</span><b>${int(nVt)}</b><small>veem todos os atendimentos</small></div><div class="kpi k-roxo"><span>Só a fila</span><b>${int(ADMQ.lista.length-nVt)}</b><small>recebem a Qtd automática</small></div></div>
+    <div class="filtros" style="grid-template-columns:minmax(260px,1fr) auto"><input class="busca" id="admBusca" placeholder="Buscar por nome, e-mail, perfil ou departamento..." value="${esc(ADMQ.busca)}"><button type="button" class="peq" id="admRec">↻ Atualizar</button></div>
+    <div class="tbl-wrap" id="admWrap"><table><thead><tr><th>Colaborador</th><th>Perfil</th><th>Departamentos</th><th>Ver tudo</th><th>Qtd</th><th>Na fila agora</th></tr></thead><tbody>
+    ${L.map(u=>{ const ab=ATR.itens.filter(x=>nrm(x.email)===nrm(u.email)&&x.status==="aberta").length, ft=ATR.itens.filter(x=>nrm(x.email)===nrm(u.email)&&x.status==="feita").length;
+      return `<tr><td><b>${esc(u.nome)}</b><span class="sub">${esc(u.email)}</span></td><td>${esc(u.perfil||"—")}</td><td>${esc((u.departamentos||[]).join(", ")||"Todos")}</td>
+        <td>${u.admin?'<span class="cap">administrador · sempre</span>':`<label class="chk"><input type="checkbox" data-avt="${esc(u.email)}"${u.ver_tudo?" checked":""}> ${u.ver_tudo?"vê tudo":"só a fila"}</label>`}</td>
+        <td>${u.admin?'<span class="muted">—</span>':`<input type="number" min="0" max="200" data-aqt="${esc(u.email)}" value="${u.qtd??""}" placeholder="10" style="width:80px${u.ver_tudo?";opacity:.45":""}" title="${u.ver_tudo?"Sem efeito enquanto Ver tudo estiver marcado":"Atendimentos na fila"}">`}</td>
+        <td>${u.ver_tudo?'<span class="muted">—</span>':`${int(ab)} aberto(s) · ${int(ft)} feito(s) hoje`}</td></tr>`; }).join("")||'<tr><td colspan="6" class="muted" style="padding:14px">Ninguém encontrado.</td></tr>'}
+    </tbody></table></div><p class="cap" style="margin:6px 0 0">Cada ajuste grava na hora e fica no Histórico de permissões (Segurança). A pessoa vê a mudança em até 5 minutos ou ao entrar de novo.</p></section>`;
+  const b=$("#admBusca",c); b.oninput=()=>{ ADMQ.busca=b.value; clearTimeout(b._t); b._t=setTimeout(()=>{ const pos=b.selectionStart; render(); const n=$("#admBusca"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } },250); };
+  $("#admRec",c).onclick=async()=>{ ADMQ.lista=null; render(); };
+  const salvar=async(email,corpo,el)=>{ el.disabled=true; setStatus("salvando");
+    try{ await api(`${API}/equipe/${encodeURIComponent(email)}`,{method:"PUT",body:JSON.stringify(corpo)}); const u=ADMQ.lista.find(x=>x.email===email);
+      if(u){ if("ver_tudo" in corpo) u.ver_tudo=corpo.ver_tudo; if("qtd" in corpo) u.qtd=corpo.qtd; if(corpo.qtd_padrao) u.qtd=null; }
+      setStatus("ok"); toast(`✓ ${esc((u&&u.nome)||email)}: ${"ver_tudo" in corpo?(corpo.ver_tudo?"vê todos os atendimentos":"vê só a fila dela"):`fila com ${corpo.qtd_padrao?"10 (padrão)":corpo.qtd} atendimento(s)`}.`); render(); }
+    catch(e){ setStatus("erro",e.message); alert(e.message); el.disabled=false; } };
+  c.querySelectorAll("[data-avt]").forEach(i=>i.onchange=()=>salvar(i.dataset.avt,{ver_tudo:i.checked},i));
+  c.querySelectorAll("[data-aqt]").forEach(i=>i.onchange=()=>{ const v=i.value.trim(); salvar(i.dataset.aqt,v===""?{qtd_padrao:true}:{qtd:Math.max(0,Math.min(200,Number(v)||0))},i); });
+  turbinarTabela($("#admWrap table",c),"adm_equipe",true);
+}
 // [v4.23] gravar na parte de qualquer setor: liberado para quem acessa a Carteira (a trava de quem já está tratando continua)
 function podeGravar(a){ return true; }
 async function iniciar(){
