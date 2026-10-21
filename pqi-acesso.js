@@ -44,6 +44,8 @@
       if (acesso.abas) Object.keys(acesso.abas).forEach(function (k) { maxAba = Math.max(maxAba, Math.min(3, Number(acesso.abas[k]) || 0)); });
       acesso.nivel = Math.max(acesso.nivelSistema, maxAba);
       acesso.perfil = j.perfil_nome || "";
+      acesso.perfilSistema = (j.perfil_sistema && j.perfil_sistema[MODULO]) || null;   // [v4.23]
+      acesso.filaQtd = (j.usuario && j.usuario.fila_qtd && j.usuario.fila_qtd[MODULO]) || null;
       acesso.email = (j.usuario && j.usuario.email) || "";
       acesso.soAcesso = (j.so_acesso || []).indexOf(MODULO) >= 0;
       acesso.carregado = true;
@@ -63,7 +65,9 @@
   window.fetch = function (url, op) {
     var metodo = ((op && op.method) || "GET").toUpperCase();
     var alvo = typeof url === "string" ? url : (url && url.url) || "";
-    if (acesso.carregado && !acesso.soAcesso && acesso.nivel <= 1 && ehGravacao(alvo, metodo) && alvo.indexOf("/api/auth/") < 0) {
+    // [v4.23] tabular / responder / fila da Carteira: liberado para quem acessa o sistema (o servidor confere)
+    var livre = /\/api\/carteira\/(interacoes|reservas|atribuicoes|presenca)/.test(alvo);
+    if (acesso.carregado && !acesso.soAcesso && acesso.nivel <= 1 && !livre && ehGravacao(alvo, metodo) && alvo.indexOf("/api/auth/") < 0) {
       aviso("Seu acesso neste sistema é “Visualizar” — nada foi gravado.");
       return Promise.resolve(new Response(JSON.stringify({ detail: "Seu perfil neste sistema é “Visualizar”: você pode consultar, mas não gravar." }),
         { status: 403, headers: { "Content-Type": "application/json" } }));
