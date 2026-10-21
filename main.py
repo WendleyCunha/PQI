@@ -6,7 +6,7 @@ import urllib.error
 import threading
 import traceback
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import time
 
 # [v4.18] HORÁRIO DE BRASÍLIA em todo o servidor: o Render roda em UTC; com isto, todo
@@ -136,6 +136,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
 ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
+_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
@@ -352,6 +353,8 @@ async def porteiro(request: Request, call_next):
         return _negar(eh_api, 403, f"Você não tem acesso ao módulo “{modulo['nome']}”. Peça liberação ao administrador.")
     metodo = request.method.upper()
     precisa = perm.VISUALIZAR if metodo in ("GET", "HEAD", "OPTIONS") else (perm.EDITAR if metodo == "DELETE" else perm.ADICIONAR)
+    if modulo["id"] == "carteira" and caminho.startswith(_CART_GRAVA_LIVRE) and metodo != "DELETE":
+        precisa = perm.VISUALIZAR   # [v4.23] tabular / responder / fila: quem acessa a Carteira pode gravar
     if nivel < precisa:
         if nivel == perm.VISUALIZAR:
             return _negar(eh_api, 403, f"Seu perfil em “{modulo['nome']}” é “Visualizar”: você pode consultar, mas não gravar.")
@@ -370,7 +373,7 @@ def usuario_atual(request: Request) -> dict:
 def _usuario_publico(u: dict) -> dict:
     return {k: u.get(k) for k in ("email", "nome", "papel", "modulos", "ativo", "trocar_senha",
                                    "criado_em", "criado_por", "ultimo_login", "perfil", "departamentos",
-                                   "acessos", "acessos_info", "fabrica", "abas")}
+                                   "acessos", "acessos_info", "fabrica", "abas", "fila_qtd")}
 
 
 def _sessao_publica(u: dict) -> dict:
@@ -379,7 +382,28 @@ def _sessao_publica(u: dict) -> dict:
     efetivos = {k: mods.nivel_efetivo_sistema(v, abas.get(k)) for k, v in niveis.items()}
     return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, efetivos), "permissoes": niveis,
             "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO),
-            "abas": abas, "niveis_aba": mods.NIVEIS_ABA}   # [v4.16] permissão por aba
+            "abas": abas, "niveis_aba": mods.NIVEIS_ABA,   # [v4.16] permissão por aba
+            "perfil_sistema": {mid: _perfil_no_sistema(u, mid) for mid in niveis}}   # [v4.23]
+
+
+def _perfil_no_sistema(u: dict, modulo_id: str):
+    """[v4.23] Perfil que vale para a pessoa NESTE sistema ("perfil:x" no acesso por pessoa, senão o perfil dela)."""
+    if u.get("papel") == "admin":
+        return "admin"
+    v = (u.get("acessos") or {}).get(modulo_id)
+    if isinstance(v, str) and v.startswith("perfil:"):
+        return v[7:]
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return None
+    return u.get("perfil") or None
+
+
+def _fila_qtd(u: dict, modulo_id: str = "carteira") -> int:
+    try:
+        v = (u.get("fila_qtd") or {}).get(modulo_id)
+        return 10 if v is None else max(0, min(200, int(v)))
+    except (TypeError, ValueError):
+        return 10
 
 
 def _email(request: Request) -> str:
@@ -1015,6 +1039,31 @@ def admin_acesso_individual(modulo_id: str, email: str, payload: AcessoIndividua
     _log(request, "acesso", f"{alvo.get('nome') or email} · {m['nome']}", "Acesso individual no sistema",
          _texto_acesso(m, antes), _texto_acesso(m, novo))
     return {"sucesso": True, "niveis": _niveis({**alvo, "acessos": acessos})}
+
+
+class FilaQtd(BaseModel):
+    qtd: Optional[int] = None   # None = padrão (10)
+
+
+@app.put("/api/admin/fila-qtd/{modulo_id}/{email}")
+def admin_fila_qtd(modulo_id: str, email: str, payload: FilaQtd, request: Request):
+    """[v4.23] Quantos atendimentos a esteira automática mantém com o colaborador."""
+    if modulo_id not in mods.IDS_VALIDOS:
+        raise HTTPException(status_code=404, detail="Sistema inexistente.")
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    novo = None if payload.qtd is None else max(0, min(200, int(payload.qtd)))
+    fq = dict(alvo.get("fila_qtd") or {})
+    antes = fq.get(modulo_id)
+    if antes == novo:
+        return {"sucesso": True, "qtd": novo}
+    fq[modulo_id] = novo
+    db.usuario_atualizar(email, {"fila_qtd": fq, "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+    _esquecer_cache(email)
+    _log(request, "acesso", f"{alvo.get('nome') or email} · {mods.POR_ID[modulo_id]['nome']}", "Qtd da esteira automática", str(antes if antes is not None else "10 (padrão)"), str(novo if novo is not None else "10 (padrão)"))
+    return {"sucesso": True, "qtd": novo}
 
 
 class AcessoAba(BaseModel):
@@ -1971,6 +2020,187 @@ def _res_lista() -> list:
     return [r for r in _RES_CACHE["itens"].values() if str(r.get("expira") or "") > agora]
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.23] ESTEIRA AUTOMÁTICA — atribuição de N atendimentos por colaborador
+#   carteira_atribuicoes : 1 doc por (dia|setor|pedido), criado com create() → nunca vai para 2 pessoas
+#   carteira_atrib_dia   : 1 doc por dia com o resumo por pessoa (atribuídos, tratados, sem contato,
+#                          primeiro/último acesso) → a produtividade de um mês custa ~22 leituras
+#   Presença "online agora" fica só na memória (heartbeat a cada 2 min).
+# ──────────────────────────────────────────────────────────────────────────
+COL_ATR = "carteira_atribuicoes"
+COL_ATR_DIA = "carteira_atrib_dia"
+_ATR = {"dia": "", "itens": None}
+_ATR_DIA = {}
+_PRESENCA = {}
+_ATR_LOCK = threading.Lock()
+
+
+def _dia_br() -> str:
+    return datetime.now().date().isoformat()   # TZ do processo = America/Sao_Paulo
+
+
+def _id_atr(dia: str, area: str, chave: str) -> str:
+    return re.sub(r"[^0-9A-Za-z_|-]", "_", f"{dia}|{area}|{chave}")
+
+
+def _atr_lista() -> dict:
+    dia = _dia_br()
+    if _ATR["dia"] != dia or _ATR["itens"] is None:
+        itens = {}
+        try:
+            q = db.get_db().collection(COL_ATR).where("dia", "==", dia)
+            for d in q.stream(timeout=db.TIMEOUT_FS):
+                r = d.to_dict() or {}
+                itens[d.id] = {**r, "id": d.id}
+        except Exception as e:
+            print(f"[AVISO] atribuições: {e!r}")
+        _ATR.update(dia=dia, itens=itens)
+    return _ATR["itens"]
+
+
+def _resumo_dia(dia: str) -> dict:
+    if dia in _ATR_DIA:
+        return _ATR_DIA[dia]
+    r = {}
+    try:
+        snap = db.get_db().collection(COL_ATR_DIA).document(dia).get(timeout=db.TIMEOUT_FS)
+        if snap.exists:
+            r = (snap.to_dict() or {}).get("usuarios") or {}
+    except Exception as e:
+        print(f"[AVISO] resumo do dia {dia}: {e!r}")
+    _ATR_DIA[dia] = r
+    return r
+
+
+def _somar_dia(email: str, nome: str, **inc) -> None:
+    dia = _dia_br()
+    r = _resumo_dia(dia)
+    u = r.setdefault(email, {"nome": nome, "atribuidos": 0, "tratados": 0, "sem_contato": 0, "primeiro": "", "ultimo": ""})
+    u["nome"] = nome or u.get("nome")
+    agora = datetime.now().isoformat(timespec="seconds")
+    for k, v in inc.items():
+        u[k] = int(u.get(k) or 0) + int(v)
+    if not u.get("primeiro"):
+        u["primeiro"] = agora
+    u["ultimo"] = agora
+    try:
+        db.get_db().collection(COL_ATR_DIA).document(dia).set({"dia": dia, "usuarios": {email: u}}, merge=True, timeout=db.TIMEOUT_FS)
+    except Exception as e:
+        print(f"[AVISO] resumo do dia: {e!r}")
+
+
+class AtrCompletar(BaseModel):
+    area: str
+    candidatos: List[str] = []
+
+
+class AtrConcluir(BaseModel):
+    area: str
+    chave: str
+    cod: Optional[str] = ""
+    sem_contato: Optional[bool] = False
+    auto: Optional[bool] = False   # pedido saiu da esteira sem a pessoa tabular: libera a vaga sem contar
+
+
+@app.get("/api/carteira/atribuicoes")
+def cart_atribuicoes(request: Request):
+    u = usuario_atual(request)
+    return {"dia": _dia_br(), "itens": list(_atr_lista().values()), "qtd": _fila_qtd(u)}
+
+
+@app.post("/api/carteira/atribuicoes/completar")
+def cart_atr_completar(payload: AtrCompletar, request: Request):
+    """Completa a fila da pessoa até a Qtd dela, na ordem da esteira que a tela mandou."""
+    u = usuario_atual(request)
+    email, nome = _email(request).lower(), _nome_de(request)
+    area = re.sub(r"[^0-9A-Za-z_]", "", payload.area or "")[:30]
+    if not area:
+        raise HTTPException(status_code=400, detail="Setor inválido.")
+    qtd, dia = _fila_qtd(u), _dia_br()
+    novos = 0
+    with _ATR_LOCK:
+        itens = _atr_lista()
+        meus = [x for x in itens.values() if x.get("area") == area and x.get("email") == email and x.get("status") == "aberta"]
+        falta = max(0, qtd - len(meus))
+        ocupados = {x.get("chave") for x in itens.values() if x.get("area") == area}
+        for chave in payload.candidatos[:500]:
+            if falta <= 0:
+                break
+            if not _CHAVE_PEDIDO.fullmatch(chave or "") or "|" in chave or chave in ocupados:
+                continue
+            doc_id = _id_atr(dia, area, chave)
+            reg = {"dia": dia, "area": area, "chave": chave, "email": email, "por": nome, "status": "aberta",
+                   "em": datetime.now().isoformat(timespec="seconds"), "fim_em": "", "cod": ""}
+            try:
+                db.get_db().collection(COL_ATR).document(doc_id).create(reg, timeout=db.TIMEOUT_FS)
+            except Exception as e:
+                if "already exists" in str(e).lower() or "409" in str(e):
+                    ocupados.add(chave)
+                    continue
+                raise
+            itens[doc_id] = {**reg, "id": doc_id}
+            ocupados.add(chave)
+            falta -= 1
+            novos += 1
+    if novos:
+        _somar_dia(email, nome, atribuidos=novos)
+    return {"dia": dia, "qtd": qtd, "novos": novos, "itens": [x for x in _atr_lista().values() if x.get("email") == email]}
+
+
+@app.post("/api/carteira/atribuicoes/concluir")
+def cart_atr_concluir(payload: AtrConcluir, request: Request):
+    email, nome = _email(request).lower(), _nome_de(request)
+    with _ATR_LOCK:
+        itens = _atr_lista()
+        alvo = next((x for x in itens.values() if x.get("chave") == payload.chave and x.get("area") == payload.area and x.get("email") == email and x.get("status") == "aberta"), None)
+        if not alvo:
+            return {"sucesso": False}
+        mud = {"status": "liberada" if payload.auto else "feita", "fim_em": datetime.now().isoformat(timespec="seconds"), "cod": (payload.cod or "")[:40]}
+        try:
+            db.get_db().collection(COL_ATR).document(alvo["id"]).update(mud, timeout=db.TIMEOUT_FS)
+        except Exception as e:
+            print(f"[AVISO] concluir atribuição: {e!r}")
+        alvo.update(mud)
+    if not payload.auto:
+        _somar_dia(email, nome, tratados=1, sem_contato=1 if payload.sem_contato else 0)
+    return {"sucesso": True}
+
+
+@app.post("/api/carteira/presenca")
+def cart_presenca(request: Request):
+    email, nome = _email(request).lower(), _nome_de(request)
+    agora = datetime.now()
+    p = _PRESENCA.get(email) or {}
+    _PRESENCA[email] = {"nome": nome, "ultimo": agora.isoformat(timespec="seconds"), "dia": _dia_br()}
+    r = _resumo_dia(_dia_br()).get(email) or {}
+    ult = str(r.get("ultimo") or "")
+    if not r or not ult or (agora - datetime.fromisoformat(ult)).total_seconds() > 900:   # grava no máx. a cada 15 min
+        _somar_dia(email, nome)
+    return {"sucesso": True}
+
+
+@app.get("/api/carteira/produtividade")
+def cart_produtividade(request: Request, de: str = "", ate: str = ""):
+    """Resumo por pessoa e por dia (atribuídos, tratados, sem contato, primeiro/último acesso) + quem está online agora."""
+    hoje = _dia_br()
+    try:
+        d0 = date.fromisoformat(de or hoje)
+        d1 = date.fromisoformat(ate or de or hoje)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Data inválida.")
+    if (d1 - d0).days > 62 or d1 < d0:
+        raise HTTPException(status_code=400, detail="Período de até 62 dias.")
+    dias = {}
+    d = d0
+    while d <= d1:
+        k = d.isoformat()
+        dias[k] = _resumo_dia(k)   # dias passados ficam em memória (não mudam mais)
+        d += timedelta(days=1)
+    agora = datetime.now()
+    online = {e: {**p, "online": (agora - datetime.fromisoformat(p["ultimo"])).total_seconds() < 300} for e, p in _PRESENCA.items() if p.get("dia") == hoje}
+    return {"dias": dias, "online": online, "hoje": hoje}
+
+
 @app.get("/api/carteira/reservas")
 def cart_reservas(request: Request):
     return _res_lista()
@@ -2161,7 +2391,7 @@ def _conferir_interacao(request: Request, antes: dict, novo: dict) -> None:
             _exigir_aba(request, "carteira", "importar", n, "Encerrar pela planilha")
             continue
         _nome = {"cx": "CX", "compras": "Compras", "logistica": "Logística"}.get(aba) or next((a.get("nome") for a in mods.abas_de("carteira") if a.get("id") == aba), "setor")
-        _exigir_aba(request, "carteira", aba, n, "Gravar na parte do " + _nome)
+        # [v4.23] a pedido do Wendley: sem exigir a aba do setor para gravar — só a trava de quem já está tratando
         # [v4.17] quem abriu primeiro o pedido nesta área é quem trata — o outro espera ele sair
         r = db.cart_reserva_ativa(f"{novo.get('chave') or antes.get('chave')}|{aba}")
         if r and (r.get("email") or "").lower() != _email(request).lower():
