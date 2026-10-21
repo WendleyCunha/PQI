@@ -238,6 +238,7 @@ table.matriz tr.sub-aba th small{font-size:11.5px}
 .grade-abas select{font:inherit;font-size:13px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:5px 7px}
 .grade-abas select.pers{border-color:var(--amber);font-weight:600}
 tr.linha-abas td{background:color-mix(in srgb,var(--amber-soft) 35%,var(--sheet))}
+.modelo-box{border:1px dashed var(--rule,#C9CED8);border-radius:10px;padding:10px 12px;background:rgba(43,99,176,.05)}
 </style>
 </head>
 <body>
@@ -373,12 +374,18 @@ function desenharGaveta(){
     ${dw.novo?`<label class="f">E-mail (login)<input id="fEmail" type="email" value="${esc(u.email)}"></label>`:""}
     <label class="f">Papel<select id="fPapel">${Object.entries(D.papeis).map(([k,v])=>`<option value="${k}"${k===u.papel?" selected":""}>${esc(v)}</option>`).join("")}</select></label>
     ${u.papel==="admin"?'<p class="aviso">Administrador tem <b>acesso total</b> a todos os sistemas e departamentos, e gerencia a Segurança.</p>':`
-    <label class="f">Perfil de acesso<select id="fPerfil">${!u.perfil?'<option value="">— sem perfil (módulos marcados, cadastro antigo) —</option>':""}${perfisAtivos.map(p=>`<option value="${p.id}"${p.id===u.perfil?" selected":""}>${esc(p.nome)}</option>`).join("")}</select></label>
+    <label class="f">Perfil de acesso${dw.novo?' <span class="cap">— escolha um perfil-modelo para nascer idêntico</span>':""}<select id="fPerfil">${!u.perfil?'<option value="">— sem perfil (módulos marcados, cadastro antigo) —</option>':""}${perfisAtivos.map(p=>`<option value="${p.id}"${p.id===u.perfil?" selected":""}>${esc(p.nome)}${p.modelo_de?" · modelo":""}</option>`).join("")}</select></label>
+    ${(()=>{ const pf=D.perfis.find(x=>x.id===u.perfil); return pf&&pf.modelo_de?`<p class="cap" style="margin:-4px 0 0">📋 Perfil criado a partir de <b>${esc((D.usuarios.find(x=>x.email===pf.modelo_de)||{}).nome||pf.modelo_de)}</b>${(pf.departamentos||[]).length?` · traz os departamentos: ${esc(nomeDeps(pf.departamentos))}`:""}.</p>`:""; })()}
     <div><div class="cap" style="margin:0 0 4px">Acesso resultante</div><div class="resultado-acesso">${D.modulos.map(m=>`<span>${m.icone} ${esc(m.nome)}${temExcecao(u,m.id)?'<span class="tag-pers" title="Acesso individual neste sistema (aba Permissões → clique no sistema)">PERSONALIZADO</span>':""}</span>${pillNivel(m,nv[m.id])}`).join("")}</div>
       ${D.modulos.some(m=>temExcecao(u,m.id))?'<div class="cap" style="margin:4px 0 0">Os sistemas marcados como <b>PERSONALIZADO</b> não seguem o perfil — ajuste em <b>Permissões → clique no sistema</b>.</div>':""}</div>
     <div><div class="cap" style="margin:0 0 4px">Departamentos que enxerga (Diagnóstico e Organograma)</div>
       <div class="radio"><label><input type="radio" name="fDepModo" value="todos" ${!restrito?"checked":""}> Todos</label><label><input type="radio" name="fDepModo" value="alguns" ${restrito?"checked":""}> Somente estes:</label></div>
       ${restrito?`<div class="multi" style="margin-top:6px">${D.departamentos.map(d=>`<label><input type="checkbox" data-dep="${d.id}" ${(u.departamentos||[]).includes(d.id)?"checked":""}> ${esc(d.nome)}</label>`).join("")||'<span class="cap">Nenhum departamento cadastrado ainda.</span>'}</div>`:""}</div>`}
+    ${!dw.novo&&u.papel!=="admin"?`<div class="modelo-box"><b>📋 Usar esta pessoa como modelo</b>
+      <p class="cap" style="margin:2px 0 6px">Cria um <b>perfil</b> com exatamente os acessos dela hoje (sistemas, abas e departamentos). Depois é só criar usuários com esse perfil — nascem idênticos. Ajustar o perfil muda todos que usam.</p>
+      <label class="f">Nome do perfil<input id="fModNome" placeholder="Ex.: CX Back Office — Atendente"></label>
+      <label class="chk" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin:6px 0"><input type="checkbox" id="fModAplicar" checked> ${esc(u.nome||"Esta pessoa")} também passa a usar o perfil novo (recomendado)</label>
+      <button type="button" class="btn" id="fModSalvar">Salvar como perfil</button> <span class="msg" id="fModMsg"></span></div>`:""}
     <label class="chk" style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="fAtivo" ${u.ativo!==false?"checked":""}> Ativo (pode entrar)</label>
     <div><label class="f">${dw.novo?"Senha inicial":"Nova senha (opcional — obriga a trocar no próximo acesso)"}<input id="fSenha" value="${esc(dw.senha)}" autocomplete="new-password"></label>
       <button type="button" class="btn" id="fGerar" style="margin-top:6px">Gerar senha aleatória</button></div>`;
@@ -386,7 +393,16 @@ function desenharGaveta(){
   $("#fNome",C).oninput=e=>u.nome=e.target.value;
   const em=$("#fEmail",C); if(em) em.oninput=e=>u.email=e.target.value;
   $("#fPapel",C).onchange=e=>{ u.papel=e.target.value; desenharGaveta(); };
-  const fp=$("#fPerfil",C); if(fp) fp.onchange=e=>{ u.perfil=e.target.value; desenharGaveta(); };
+  const fp=$("#fPerfil",C); if(fp) fp.onchange=e=>{ u.perfil=e.target.value; const pf=D.perfis.find(x=>x.id===u.perfil);
+    if(dw.novo&&pf&&(pf.departamentos||[]).length) u.departamentos=[...pf.departamentos];   // [v4.24] perfil-modelo traz os departamentos
+    desenharGaveta(); };
+  const ms=$("#fModSalvar",C); if(ms) ms.onclick=async()=>{ const nome=$("#fModNome",C).value.trim(), msg=$("#fModMsg",C);
+    if(!nome){ msg.className="msg erro"; msg.textContent="Dê um nome ao perfil."; return; }
+    ms.disabled=true; msg.className="msg"; msg.textContent="Criando…";
+    try{ const j=await api(`/api/admin/usuarios/${encodeURIComponent(u.email)}/salvar-como-perfil`,{method:"POST",body:JSON.stringify({nome,aplicar:$("#fModAplicar",C).checked})});
+      await carregar(); const nu=D.usuarios.find(x=>x.email===u.email); if(nu){ dw.u=JSON.parse(JSON.stringify(nu)); } desenharGaveta(); render();
+      status(`Perfil “${nome}” criado a partir de ${u.nome} — já aparece em “Perfil de acesso” ao criar usuário`); }
+    catch(e){ msg.className="msg erro"; msg.textContent=e.message; ms.disabled=false; } };
   C.querySelectorAll('input[name="fDepModo"]').forEach(r=>r.onchange=()=>{ u.departamentos = r.value==="todos" ? [] : (u.departamentos&&u.departamentos.length?u.departamentos:(D.departamentos[0]?[D.departamentos[0].id]:[])); desenharGaveta(); });
   C.querySelectorAll("[data-dep]").forEach(i=>i.onchange=()=>{ const s=new Set(u.departamentos||[]); i.checked?s.add(i.dataset.dep):s.delete(i.dataset.dep); u.departamentos=[...s]; });
   $("#fAtivo",C).onchange=e=>u.ativo=e.target.checked;
