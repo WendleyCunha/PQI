@@ -46,6 +46,8 @@
       acesso.perfil = j.perfil_nome || "";
       acesso.perfilSistema = (j.perfil_sistema && j.perfil_sistema[MODULO]) || null;   // [v4.23]
       acesso.filaQtd = (j.usuario && j.usuario.fila_qtd && j.usuario.fila_qtd[MODULO]) || null;
+      // [v4.25] "Ver tudo" por pessoa (Segurança → acesso por pessoa). Desmarcado = só a fila (Qtd). Admin vê tudo.
+      acesso.verTudo = !!(j.usuario && (j.usuario.papel === "admin" || (j.usuario.ver_tudo && j.usuario.ver_tudo[MODULO] === true)));
       acesso.email = (j.usuario && j.usuario.email) || "";
       acesso.soAcesso = (j.so_acesso || []).indexOf(MODULO) >= 0;
       acesso.carregado = true;
