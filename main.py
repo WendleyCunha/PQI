@@ -774,6 +774,8 @@ def admin_criar(payload: UsuarioNovo, request: Request):
         raise HTTPException(status_code=400, detail=erro)
     _validar_papel_modulos(payload.papel, payload.modulos)
     _validar_perfil_deps(payload.perfil, payload.departamentos)
+    if payload.perfil and not payload.departamentos:   # [v4.24] perfil-modelo traz os departamentos
+        payload.departamentos = list((_perfis().get(payload.perfil) or {}).get("departamentos") or [])
     criado = db.usuario_criar(email, {
         "email": email, "nome": payload.nome.strip(), "papel": payload.papel,
         "modulos": sorted(set(payload.modulos)), "ativo": payload.ativo,
@@ -960,6 +962,53 @@ def admin_perfil_editar(perfil_id: str, payload: PerfilEdicao, request: Request)
         db.perfil_gravar(perfil_id, campos)
         _esquecer_perfis()
     return {"sucesso": True}
+
+
+class PerfilDeUsuario(BaseModel):
+    nome: str
+    descricao: str = ""
+    aplicar: bool = True   # a própria pessoa passa a usar o perfil novo (sem exceções)
+
+
+@app.post("/api/admin/usuarios/{email}/salvar-como-perfil")
+def admin_salvar_como_perfil(email: str, payload: PerfilDeUsuario, request: Request):
+    """[v4.24] Transforma os acessos de UMA pessoa (perfil + acessos por sistema + abas) num PERFIL novo.
+    Quem for criado com ele fica idêntico; ajustar o perfil depois muda todo mundo que usa."""
+    email = email.strip().lower()
+    alvo = db.usuario_ler(email)
+    if not alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    if alvo.get("papel") == "admin":
+        raise HTTPException(status_code=400, detail="Administrador tem acesso total — não serve de modelo.")
+    nome = payload.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome do perfil.")
+    if any((p.get("nome") or "").strip().lower() == nome.lower() for p in _perfis().values()):
+        raise HTTPException(status_code=409, detail="Já existe um perfil com esse nome.")
+    niveis = {k: int(v or 0) for k, v in _niveis(alvo).items()}
+    base_abas = (_perfil_do(alvo) or {}).get("abas") or {}
+    abas = {}
+    for mid in set(base_abas) | set(alvo.get("abas") or {}):
+        r = {k: v for k, v in (base_abas.get(mid) or {}).items() if v is not None}
+        r.update({k: v for k, v in ((alvo.get("abas") or {}).get(mid) or {}).items() if v is not None})
+        if r:
+            abas[mid] = r
+    base = re.sub(r"[^a-z0-9]+", "-", nome.lower()).strip("-")[:40] or "perfil"
+    pid, i = base, 2
+    while pid in _perfis():
+        pid, i = f"{base}-{i}", i + 1
+    db.perfil_gravar(pid, {"nome": nome, "descricao": payload.descricao.strip() or f"Criado a partir de {alvo.get('nome') or email}",
+                           "niveis": niveis, "abas": abas, "departamentos": sorted(set(alvo.get("departamentos") or [])),
+                           "modelo_de": email, "arquivado": False, "ordem": 50,
+                           "criado_em": datetime.now().isoformat(), "criado_por": _email(request)})
+    _esquecer_perfis()
+    _log(request, "perfil", nome, f"Perfil criado a partir de {alvo.get('nome') or email} (mesmos acessos, abas e departamentos)")
+    if payload.aplicar:
+        db.usuario_atualizar(email, {"perfil": pid, "acessos": {}, "acessos_info": {}, "abas": {},
+                                     "alterado_em": datetime.now().isoformat(), "alterado_por": _email(request)})
+        _esquecer_cache(email)
+        _log(request, "usuario", email, f"Passou a usar o perfil “{nome}” (acessos individuais viraram o perfil)")
+    return {"sucesso": True, "id": pid}
 
 
 @app.post("/api/admin/perfis/{perfil_id}/arquivar")
