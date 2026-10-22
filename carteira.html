@@ -3089,50 +3089,122 @@ function classePed(p){
 function ultCX(d){ const r=resDe(d,"cx"); return r?(motivoRes(r.cod)||{}).acao||r.acao||"":""; }
 function critico(p,cl){ cl=cl||classePed(p); if(cl.k!=="acao") return true; const a=ultCX(cl.d); return a==="sem_sucesso"||a==="cancelamento"; }
 function pedidosAtrasados(){ return FOTO.pedidos.filter(p=>bloqueado(p)&&prazo(p).cls==="atrasado"); }
-// árvore do fluxograma
+// [v4.29] árvore do fluxograma — SEMPRE por setor (a ação de um setor nunca soma com a de outro)
+//   Atrasados → setor → Vencidos | D+1..D+4 → Com ação EFETIVA | Não efetivo | Não cumprido | Sem ação → cada tabulação → pedidos
+//   "Não efetivo" = tabulação que não resolve nada sozinha (motivo com "Ao vencer: tentar de novo", ex.: Contato sem sucesso)
+const CAT_SETOR={
+  acao:{rot:"✓ Com ação efetiva",sub:"o setor tabulou e o alinhamento está valendo (resolvido até a data)",cor:"var(--ok)"},
+  nefet:{rot:"📵 Não efetivo",sub:"o setor tentou, mas não resolveu (ex.: contato sem sucesso) — volta no próximo dia útil",cor:"var(--amber)"},
+  nc:{rot:"✕ Alinhamento não cumprido",sub:"passou a data combinada e continua bloqueado — voltou para o setor",cor:"var(--bad)"},
+  sem:{rot:"⏳ Sem ação",sub:"o setor ainda não tabulou (ou recebeu de outro setor e precisa tratar)",cor:"var(--idle)"}};
+function naoEfetivo(r){ return !!r&&regras(r).vencer==="repetir"; }
+function catSetor(e){
+  if(e.st==="falhou") return "nc";
+  if(e.r&&naoEfetivo(e.r)&&!/— tratar$/.test(e.txt)) return "nefet";
+  if(e.r&&(e.st==="ok"||e.st==="aguarda")) return "acao";
+  return "sem";
+}
+function tentativas(p,a,r){ const d=interDe(p.k); return ((d&&d.res_hist)||[]).filter(h=>h.area===a&&h.cod===(r&&r.cod)).length; }
+function linhasSetor(a,peds){ const out=[]; (peds||pedidosAtrasados()).forEach(p=>{ const e=estadoArea(p,a); if(e.st!=="na") out.push({p,e,c:catSetor(e)}); }); return out; }
 function noFluxoPainel(path){
-  const lim=Number(cfg().dias_alerta||4), base=pedidosAtrasados().map(p=>({p,cl:classePed(p)}));
-  const N={id:"atr",rot:`🔴 Bloqueados ATRASADOS`,sub:`entrega em até D+${lim} ou vencida`,L:base,cor:"var(--bad)"};
-  const filhos=n=>{
-    const id=n.id;
-    if(id==="atr") return [{id:"venc",rot:"Vencidos (até hoje)",sub:"já passou ou vence hoje — o que ficou para trás",L:n.L.filter(x=>(prazo(x.p).n??0)<=0),cor:"var(--bad)"},
+  const lim=Number(cfg().dias_alerta||4), atr=pedidosAtrasados();
+  const N={id:"atr",rot:"🔴 Bloqueados ATRASADOS",sub:`entrega em até D+${lim} ou vencida`,L:atr.map(p=>({p})),cor:"var(--bad)"};
+  let setor="";
+  const filhos=(n,nivel)=>{
+    if(nivel===0) return setoresEsteira().map(s=>{ const L=linhasSetor(s.id,atr), ef=L.filter(x=>x.c==="acao").length;
+      return {id:"s:"+s.id,setor:s.id,rot:`${ICO_SETOR[s.id]||"📌"} ${s.nome}`,sub:`passam pelo setor · efetividade ${fmtPct(ef,L.length)} (${int(ef)} com ação efetiva)`,L,cor:s.cor||corArea(s.id),pctBase:atr.length}; }).filter(f=>f.L.length);
+    if(nivel===1) return [{id:"venc",rot:"Vencidos (até hoje)",sub:"já passou ou vence hoje — o que ficou para trás",L:n.L.filter(x=>(prazo(x.p).n??0)<=0),cor:"var(--bad)"},
       {id:"d4",rot:`D+1 a D+${lim}`,sub:"ainda dá para cumprir o prazo",L:n.L.filter(x=>(prazo(x.p).n??0)>0),cor:"var(--amber)"}];
-    if(id==="venc"||id==="d4"||id==="todos") return [{id:"acao",rot:"✓ Com ação",sub:"algum setor tabulou e o alinhamento está valendo",L:n.L.filter(x=>x.cl.k==="acao"),cor:"var(--ok)"},
-      {id:"nc",rot:"✕ Alinhamento não cumprido",sub:"passou a data combinada e continua bloqueado",L:n.L.filter(x=>x.cl.k==="nc"),cor:"var(--bad)"},
-      {id:"sem",rot:"⏳ Sem ação",sub:"nenhum setor tabulou ainda",L:n.L.filter(x=>x.cl.k==="sem"),cor:"var(--amber)"}];
-    if(id==="acao"||id==="nc"){ const out=[];   // por setor → por tabulação
-      setoresEsteira().forEach(s=>{ const m=new Map();
-        n.L.forEach(x=>{ const e=x.cl.es.find(z=>z.a===s.id); const r=e&&e.e.r; const vale=r&&(id==="nc"?e.e.st==="falhou":(e.e.st==="ok"||e.e.st==="aguarda"));
-          const k=vale?r.cod:"__sem"; const o=m.get(k)||{L:[],rot:vale?rotCurto(r):`sem ação ${art(s.id)==="a"?"da":"do"} ${nomeSetor(s.id)}`,classe:vale?(r.classe||""):""}; o.L.push(x); m.set(k,o); });
-        if([...m.keys()].some(k=>k!=="__sem")) [...m.entries()].sort((a,b)=>(a[0]==="__sem")-(b[0]==="__sem")||b[1].L.length-a[1].L.length)
-          .forEach(([k,o])=>out.push({id:`${s.id}:${k}`,setor:s.id,rot:o.rot,sub:o.classe,L:o.L,cor:k==="__sem"?"var(--idle)":corArea(s.id)})); });
-      return out; }
+    if(nivel===2) return Object.entries(CAT_SETOR).map(([k,c])=>({id:k,...c,L:n.L.filter(x=>x.c===k)}));
+    if(nivel===3){ const m=new Map();
+      n.L.forEach(x=>{ const r=x.e.r; let k,rot,sub="";
+        if(n.id==="sem"){ k=/— tratar$/.test(x.e.txt)?"enc":/^Fora de linha/.test(x.e.txt)?"fl":"semtab"; rot=k==="enc"?"↪ Recebeu de outro setor — tratar":k==="fl"?"9999 · Fora de linha — tratar":"Sem tabulação"; }
+        else if(n.id==="nefet"){ const t=tentativas(x.p,setor,r); k=`${r.cod}#${Math.min(t,3)}`; rot=`${rotCurto(r)} · ${t>=3?"3ª tentativa ou mais":t+"ª tentativa"}`; sub=r.classe||""; }
+        else { k=r?r.cod:"?"; rot=r?rotCurto(r):"—"; sub=(r&&r.classe)||""; }
+        const o=m.get(k)||{id:"c:"+k,rot,sub,L:[],cor:CAT_SETOR[n.id].cor}; o.L.push(x); m.set(k,o); });
+      return [...m.values()].sort((a,b)=>b.L.length-a.L.length); }
     return [];
   };
-  const niveis=[{n:N,filhos:filhos(N)}]; let cur=N;
-  for(const id of path.slice(1)){ const f=filhos(cur).find(x=>x.id===id); if(!f) break; cur=f; niveis.push({n:cur,filhos:filhos(cur)}); }
-  return niveis;
+  const niveis=[{n:N,filhos:filhos(N,0)}]; let cur=N;
+  path.slice(1).forEach((id,i)=>{ if(niveis.length!==i+1) return; const f=filhos(cur,i).find(x=>x.id===id); if(!f) return; if(i===0) setor=f.setor; cur=f; niveis.push({n:cur,filhos:filhos(cur,i+1)}); });
+  return {niveis,setor};
 }
 function blocoFluxograma(box){
   if(!PNL.path.length) PNL.path=["atr"];
-  const niveis=noFluxoPainel(PNL.path), ult=niveis[niveis.length-1];
+  const {niveis,setor}=noFluxoPainel(PNL.path), ult=niveis[niveis.length-1], nm=setor?nomeSetor(setor):"";
   const card=(f,pai,sel,nivel)=>`<button type="button" class="fx-card${sel?" sel":""}" style="--fc:${f.cor}" data-fx="${nivel}|${esc(f.id)}">
-      ${f.setor?`<span class="fx-setor">${esc(nomeSetor(f.setor))}</span>`:""}<span class="fx-rot">${esc(f.rot)}</span><b>${int(f.L.length)}</b>
-      <span class="fx-pct">${fmtPct(f.L.length,pai.L.length)}</span><small>${esc(f.sub||"")}</small><i class="fx-bar"><i style="width:${pct(f.L.length,pai.L.length)}%"></i></i></button>`;
-  const porSetor=lv=>{ const g=new Map(); lv.filhos.forEach(f=>{ const k=f.setor||""; (g.get(k)||g.set(k,[]).get(k)).push(f); }); return g; };
-  box.innerHTML=`<div class="box fx"><div class="sectionhead"><b>🧭 Fluxograma dos atrasados — clique para abrir</b>
-      <span class="fx-trilha">${niveis.map((lv,i)=>`<button type="button" class="peq${i===niveis.length-1?" primary":""}" data-fxt="${i}">${esc(lv.n.rot.replace(/^[^\wÀ-ú]+/,""))} · ${int(lv.n.L.length)}</button>`).join(" › ")}</span></div>
-    <p class="cap" style="margin:4px 0 10px">Cada nível é 100% do que está acima. Ex.: de 100 atrasados com 50 tratados → 50 com ação e 50 sem ação; ao abrir os 50 com ação, eles viram os 100% e aparece quantos tiveram cada ação.</p>
+      <span class="fx-rot">${esc(f.rot)}</span><b>${int(f.L.length)}</b>
+      <span class="fx-pct">${fmtPct(f.L.length,pai.L.length)}${nivel===0?" dos atrasados":""}</span><small>${esc(f.sub||"")}</small><i class="fx-bar"><i style="width:${pct(f.L.length,pai.L.length)}%"></i></i></button>`;
+  const expl=i=>i===0?"Escolha o setor. Cada setor é visto separado — a ação de um setor nunca soma com a de outro (o Compras cobrar o fornecedor não é o CX falar com o cliente). Um pedido passa por mais de um setor, por isso os setores não somam 100% entre si."
+    :i===1?`Atrasados que passam ${art(setor)==="a"?"pela":"pelo"} ${esc(nm)} = 100%: o que já ficou para trás × o que ainda está no D+${cfg().dias_alerta}.`
+    :i===2?`O que ${art(setor)==="a"?"a":"o"} ${esc(nm)} fez com esses pedidos — as 4 caixas somam 100%. <b>Efetividade = com ação efetiva ÷ total</b>. Não efetivo (ex.: contato sem sucesso) não conta como efetividade.`
+    :"Cada tabulação do setor — somadas, dão exatamente o total da caixa de cima.";
+  box.innerHTML=`<div class="box fx"><div class="sectionhead"><b>🧭 Fluxograma dos atrasados — por setor · clique para abrir</b>
+      <span class="fx-trilha">${niveis.map((lv,i)=>`<button type="button" class="peq${i===niveis.length-1?" primary":""}" data-fxt="${i}">${esc(lv.n.rot.replace(/^[^\wÀ-ú0-9]+/,""))} · ${int(lv.n.L.length)}</button>`).join(" › ")}</span></div>
     ${niveis.map((lv,i)=>{ if(!lv.filhos.length) return "";
-      const prox=niveis[i+1]&&niveis[i+1].n.id, agrup=(lv.n.id==="acao"||lv.n.id==="nc");
-      return `<div class="fx-nivel"><div class="fx-pai">${esc(lv.n.rot)} <b>${int(lv.n.L.length)}</b> = 100%</div>
-        ${agrup?[...porSetor(lv).entries()].map(([s,fs])=>`<div class="fx-grupo"><div class="fx-gtit" style="--fc:${corArea(s)}">${esc(nomeSetor(s))}</div><div class="fx-linha">${fs.map(f=>card(f,lv.n,f.id===prox,i)).join("")}</div></div>`).join("")
-          :`<div class="fx-linha">${lv.filhos.map(f=>card(f,lv.n,f.id===prox,i)).join("")}</div>`}
-        ${agrup?'<p class="cap" style="margin:4px 0 0">Um pedido pode ter ação de mais de um setor — cada setor soma 100% dentro do seu bloco.</p>':""}</div>`; }).join('<div class="fx-seta">▼</div>')}
+      const prox=niveis[i+1]&&niveis[i+1].n.id, ef=i===2?lv.filhos.find(f=>f.id==="acao"):null;
+      return `<div class="fx-nivel"><div class="fx-pai">${esc(lv.n.rot)} <b>${int(lv.n.L.length)}</b> = 100%${ef?` · <b style="color:var(--ok)">efetividade ${esc(nm)}: ${fmtPct(ef.L.length,lv.n.L.length)}</b>`:""}</div>
+        <p class="cap" style="margin:0 0 8px">${expl(i)}</p>
+        <div class="fx-linha">${lv.filhos.map(f=>card(f,lv.n,f.id===prox,i)).join("")}</div></div>`; }).join('<div class="fx-seta">▼</div>')}
     <div id="fxLista"></div></div>`;
   box.querySelectorAll("[data-fx]").forEach(b=>b.onclick=()=>{ const [i,id]=b.dataset.fx.split("|"); PNL.path=PNL.path.slice(0,Number(i)+1).concat(id); render(); setTimeout(()=>{ const z=$("#pnFlux"); if(z) z.scrollIntoView({block:"start"}); },0); });
   box.querySelectorAll("[data-fxt]").forEach(b=>b.onclick=()=>{ PNL.path=PNL.path.slice(0,Number(b.dataset.fxt)+1); render(); });
-  if(niveis.length>1||!ult.filhos.length) listaPedidosPainel($("#fxLista",box),ult.n.L.map(x=>x.p),`${ult.n.rot}${ult.n.setor?` (${nomeSetor(ult.n.setor)})`:""}`);
+  if(niveis.length>2) listaPedidosPainel($("#fxLista",box),ult.n.L.map(x=>x.p),`${nm} · ${ult.n.rot.replace(/^[^\wÀ-ú0-9]+/,"")}`);
+}
+
+// ═══ [v4.29] EVOLUÇÃO DOS DEPARTAMENTOS ═══
+//   Foto por setor gravada no servidor (1 por dia, a última do dia vale) + ações por dia reconstruídas das tabulações.
+const EVO={lista:null,carregando:false,ultEnvio:0,setor:"",dias:30};
+function fotoEvolucaoSetores(){
+  const base=FOTO_ATUAL&&FOTO_ATUAL.foto; if(!base) return null;
+  const atr=base.pedidos.filter(p=>bloqueado(p)&&prazo(p).cls==="atrasado"), mapa=new Map(base.pedidos.map(p=>[p.k,p])), out={};
+  setoresEsteira().forEach(s=>{ const L=linhasSetor(s.id,atr), c={tot:L.length,acao:0,nefet:0,nc:0,sem:0,venc:0}; L.forEach(x=>{ c[x.c]++; if((prazo(x.p).n??0)<=0) c.venc++; });
+    let res=0; INTER.forEach((doc,k)=>{ const d=doc.dados; if(!d||!(d.res_hist||[]).some(h=>h.area===s.id&&!naoEfetivo(h))) return; const p=mapa.get(k); if(!p||!temBloqueio(p)) res++; });
+    c.res_acum=res; out[s.id]=c; });
+  return {setores:out,foto:FOTO_ATUAL.data};
+}
+async function salvarEvolucao(forcar){
+  if(!FOTO_ATUAL||FOTO!==FOTO_ATUAL.foto||!INTER) return;   // só com a carteira atual na tela
+  if(!forcar&&Date.now()-EVO.ultEnvio<15*60000) return; EVO.ultEnvio=Date.now();
+  const dados=fotoEvolucaoSetores(); if(!dados) return;
+  try{ await api(`${API}/evolucao`,{method:"POST",body:JSON.stringify({dia:hojeISO(),dados})});
+    if(EVO.lista){ EVO.lista=EVO.lista.filter(x=>x.dia!==hojeISO()).concat([{dia:hojeISO(),dados}]); } }catch(_){}
+}
+async function carregarEvolucao(){ if(EVO.carregando) return; EVO.carregando=true;
+  try{ const {j}=await api(`${API}/evolucao?dias=90`); EVO.lista=j||[]; }catch(_){ EVO.lista=[]; }
+  EVO.carregando=false; if(secao==="painel") render(); }
+setInterval(()=>{ if(!document.hidden) salvarEvolucao(); },5*60000);
+function acoesPorDia(a){ const m=new Map();
+  INTER.forEach(doc=>{ ((doc.dados&&doc.dados.res_hist)||[]).forEach(h=>{ if(h.area!==a) return; const d=diaBR(h.em); const x=m.get(d)||{ef:0,ne:0}; naoEfetivo(h)?x.ne++:x.ef++; m.set(d,x); }); });
+  return m; }
+function blocoEvolucaoSetores(box){
+  if(EVO.lista===null){ box.innerHTML='<div class="box"><b>📈 Evolução dos departamentos</b><p class="cap">Carregando…</p></div>'; carregarEvolucao(); return; }
+  const st=setoresEsteira(); if(!st.length){ box.innerHTML=""; return; }
+  if(!st.some(s=>s.id===EVO.setor)) EVO.setor=st[0].id;
+  const a=EVO.setor, nm=nomeSetor(a), hoje=hojeISO(), ini=somaDias(hoje,-(EVO.dias-1));
+  const fotos=new Map(EVO.lista.filter(x=>x.dados&&x.dados.setores).map(x=>[x.dia,x.dados.setores[a]]).filter(x=>x[1]));
+  const agora=fotoEvolucaoSetores(); if(agora&&agora.setores[a]) fotos.set(hoje,agora.setores[a]);   // hoje = ao vivo
+  const acoes=acoesPorDia(a), dias=[]; for(let d=ini;d<=hoje;d=somaDias(d,1)) if(fotos.has(d)||acoes.has(d)) dias.push(d);
+  let antRes=null; const L=dias.map(d=>{ const f=fotos.get(d), x=acoes.get(d)||{ef:0,ne:0}; const r={d,f,ef:x.ef,ne:x.ne,resDia:null};
+    if(f&&f.res_acum!=null){ if(antRes!=null) r.resDia=Math.max(0,f.res_acum-antRes); antRes=f.res_acum; } return r; });
+  const comFoto=L.filter(x=>x.f), rot=l=>l.map(x=>dataBR(x.d).slice(0,5));
+  box.innerHTML=`<div class="box"><div class="sectionhead"><b>📈 Evolução dos departamentos — controle da carteira e efetividade das ações</b>
+      <span class="direita">${[15,30,60,90].map(n=>`<button type="button" class="peq${EVO.dias===n?" primary":""}" data-evd="${n}">${n} dias</button>`).join("")}</span></div>
+    <div class="tabs-cx area-tabs" role="tablist" style="margin:8px 0">${st.map(s=>`<button type="button" role="tab" class="tab-cx" aria-selected="${s.id===a}" data-evs="${s.id}">${esc(ICO_SETOR[s.id]||"📌")} ${esc(s.nome)}</button>`).join("")}</div>
+    <div class="grid2">
+      <div><b style="font-size:13px">Atrasados ${art(a)==="a"?"da":"do"} ${esc(nm)} — situação no fim de cada dia</b>
+        <p class="cap" style="margin:2px 0 6px">Mesmo cálculo do fluxograma: com ação efetiva, não efetivo, não cumprido e sem ação (somam o total do dia).</p>
+        <div class="graf">${comFoto.length<2?`<p class="cap">A linha aparece a partir do 2º dia gravado (começou a gravar na v4.29${comFoto.length?`; 1º dia: ${dataBR(comFoto[0].d)}`:""}).</p>`
+          :graficoLinhas([{nome:"Com ação efetiva",cor:"#2F7D4F",v:comFoto.map(x=>x.f.acao)},{nome:"Não efetivo",cor:"#C98A0B",v:comFoto.map(x=>x.f.nefet)},{nome:"Não cumprido",cor:"#B83232",v:comFoto.map(x=>x.f.nc)},{nome:"Sem ação",cor:"#8A93A3",v:comFoto.map(x=>x.f.sem)}],rot(comFoto))}</div></div>
+      <div><b style="font-size:13px">Ações ${art(a)==="a"?"da":"do"} ${esc(nm)} por dia</b>
+        <p class="cap" style="margin:2px 0 6px">Tabulações feitas no dia (inclui o passado) e pedidos que saíram do bloqueio depois de uma ação efetiva do setor (a partir da v4.29).</p>
+        <div class="graf">${L.length<2?'<p class="cap">Ainda não há dias suficientes.</p>':graficoLinhas([{nome:"Ações efetivas (cobranças, alinhamentos…)",cor:"#2F7D4F",v:L.map(x=>x.ef)},{nome:"Ações não efetivas",cor:"#C98A0B",v:L.map(x=>x.ne)},{nome:"Resolvidos (saíram do bloqueio)",cor:"#2B63B0",v:L.map(x=>x.resDia||0)}],rot(L))}</div></div></div>
+    <div class="tbl-wrap" style="max-height:360px;margin-top:10px"><table class="dt-cx"><thead><tr><th>Dia</th><th title="Atrasados que passam pelo setor">Atrasados do setor</th><th>Com ação efetiva</th><th title="Com ação efetiva ÷ atrasados do setor — o mesmo número do fluxograma">Efetividade na carteira</th><th>Não efetivo</th><th>Não cumprido</th><th>Sem ação</th><th title="Tabulações efetivas feitas no dia (ex.: cobrança ao fornecedor, cliente ciente)">Ações efetivas no dia</th><th>Ações não efetivas no dia</th><th title="Pedidos que saíram do bloqueio (liberou, sumiu da planilha, trocou por alternativo…) depois de uma ação efetiva do setor">Resolvidos no dia</th></tr></thead><tbody>
+      ${L.slice().reverse().map(x=>`<tr><td class="nw"><b>${dataBR(x.d)}</b>${x.d===hoje?' <span class="pill p-azul">ao vivo</span>':""}</td>${x.f?`<td>${int(x.f.tot)}</td><td>${int(x.f.acao)}</td><td><b style="color:var(--ok)">${fmtPct(x.f.acao,x.f.tot)}</b></td><td>${int(x.f.nefet)}</td><td>${int(x.f.nc)}</td><td>${int(x.f.sem)}</td>`:'<td colspan="6" class="muted">sem foto gravada neste dia</td>'}
+        <td>${int(x.ef)}</td><td>${int(x.ne)}</td><td>${x.resDia==null?'<span class="muted">—</span>':int(x.resDia)}</td></tr>`).join("")||'<tr><td colspan="10" class="muted" style="padding:12px">Sem dados no período.</td></tr>'}</tbody></table></div>
+    <p class="cap" style="margin:6px 0 0"><b>Como ler:</b> <b>efetividade na carteira</b> = dos atrasados que passam pelo setor, quantos estão com ação efetiva valendo. <b>Ações efetivas</b> são as tabulações que resolvem ou encaminham (cobrança ao fornecedor, cliente ciente, transferência…); <b>não efetivas</b> são as que não resolvem sozinhas (ex.: contato sem sucesso). <b>Resolvidos</b> = o pedido sumiu da planilha ou liberou depois de uma ação efetiva do setor — também é efetividade. Cada setor é medido separado.</p></div>`;
+  box.querySelectorAll("[data-evs]").forEach(b=>b.onclick=()=>{ EVO.setor=b.dataset.evs; render(); });
+  box.querySelectorAll("[data-evd]").forEach(b=>b.onclick=()=>{ EVO.dias=Number(b.dataset.evd); render(); });
 }
 // lista de pedidos reutilizável (abre o pedido)
 function listaPedidosPainel(box,peds,titulo,extra){
@@ -3245,6 +3317,7 @@ function renderPainel(c){
     if(det.open) renderFilas($("#pnPendL",det));
     ps.querySelectorAll('[data-pset=""]').forEach(b=>b.onclick=()=>{ PNL.verPend=true; PFS.setor=""; render(); setTimeout(()=>{ const z=$("#pnPendL"); if(z) z.scrollIntoView({behavior:"smooth",block:"start"}); },0); }); }
   // Status do pedido (era uma aba) — no fim do Painel
+  const ev=el("div"); ev.id="pnEvo"; c.appendChild(ev); blocoEvolucaoSetores(ev); salvarEvolucao();   // [v4.29]
   const st=el("div"); st.className="pn-status"; c.appendChild(st); renderSituacao(st);
 }
 // [v4.28] Carteira + Itens numa aba só
