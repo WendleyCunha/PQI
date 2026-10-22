@@ -33,8 +33,8 @@ MODULOS = [
         # [v4.16] abas do sistema — cada uma pode ter nível próprio por perfil e por pessoa.
         # "min": nível do SISTEMA a partir do qual a aba aparece quando segue o sistema (ex.: Importar só p/ Editar).
         "abas": [
-            {"id": "painel", "nome": "Painel"}, {"id": "triagem", "nome": "Triagem"}, {"id": "situacao", "nome": "Status do pedido"},
-            {"id": "carteira", "nome": "Carteira"}, {"id": "itens", "nome": "Itens"}, {"id": "filas", "nome": "Pendências por setor"},
+            # [v4.28] Triagem, Status do pedido e Pendências por setor foram para o Painel; Itens virou visão dentro da Carteira
+            {"id": "painel", "nome": "Painel"}, {"id": "carteira", "nome": "Carteira"},
             {"id": "cx", "nome": "CX"}, {"id": "compras", "nome": "Compras"}, {"id": "logistica", "nome": "Logística"}, {"id": "solucoes", "nome": "Soluções"},
             {"id": "historico", "nome": "Histórico"}, {"id": "importar", "nome": "Importar", "min": 3}, {"id": "config", "nome": "Configurar", "min": 3},
         ],
