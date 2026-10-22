@@ -136,7 +136,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
 ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
-_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe")
+_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
@@ -2272,6 +2272,58 @@ def cart_produtividade(request: Request, de: str = "", ate: str = ""):
     agora = datetime.now()
     online = {e: {**p, "online": (agora - datetime.fromisoformat(p["ultimo"])).total_seconds() < 300} for e, p in _PRESENCA.items() if p.get("dia") == hoje}
     return {"dias": dias, "online": online, "hoje": hoje}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.29] EVOLUÇÃO DOS DEPARTAMENTOS — 1 doc por dia em "carteira_evolucao"
+#   O próprio Painel calcula a foto de cada setor (com ação, não efetivo, não cumprido,
+#   sem ação, resolvidos) e grava aqui no máx. a cada 15 min. Só o dia de hoje pode ser gravado.
+#   Leitura: 1 consulta por período, guardada em memória (dias passados não mudam).
+# ──────────────────────────────────────────────────────────────────────────
+COL_EVO = "carteira_evolucao"
+_EVO = {}   # dia -> doc
+
+
+class EvolucaoEntrada(BaseModel):
+    dia: str
+    dados: dict
+
+
+@app.get("/api/carteira/evolucao")
+def cart_evolucao(request: Request, dias: int = 60):
+    dias = max(1, min(int(dias or 60), 180))
+    hoje = _dia_br()
+    d0 = (date.fromisoformat(hoje) - timedelta(days=dias)).isoformat()
+    faltam = [k for k in [(date.fromisoformat(d0) + timedelta(days=i)).isoformat() for i in range(dias + 1)] if k not in _EVO or k == hoje]
+    if faltam:
+        try:
+            q = db.get_db().collection(COL_EVO).where("dia", ">=", min(faltam))
+            achados = {}
+            for d in q.stream(timeout=db.TIMEOUT_FS):
+                r = d.to_dict() or {}
+                if r.get("dia"):
+                    achados[r["dia"]] = r
+            for k in faltam:
+                _EVO[k] = achados.get(k)
+        except Exception as e:
+            print(f"[AVISO] evolução: {e!r}")
+    return [_EVO[k] for k in sorted(_EVO) if k >= d0 and _EVO.get(k)]
+
+
+@app.post("/api/carteira/evolucao")
+def cart_evolucao_gravar(payload: EvolucaoEntrada, request: Request):
+    usuario_atual(request)
+    hoje = _dia_br()
+    if payload.dia != hoje:
+        raise HTTPException(status_code=400, detail="Só a evolução de hoje pode ser gravada.")
+    _checar_tamanho(payload.dados)
+    doc = {"dia": hoje, "dados": payload.dados or {}, "em": datetime.now().isoformat(timespec="seconds"), "por": _nome_de(request)}
+    try:
+        db.get_db().collection(COL_EVO).document(hoje).set(doc, timeout=db.TIMEOUT_FS)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Não consegui gravar a evolução: {e}")
+    _EVO[hoje] = doc
+    return {"sucesso": True}
 
 
 # ──────────────────────────────────────────────────────────────────────────
