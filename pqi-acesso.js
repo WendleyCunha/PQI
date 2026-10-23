@@ -68,7 +68,7 @@
     var metodo = ((op && op.method) || "GET").toUpperCase();
     var alvo = typeof url === "string" ? url : (url && url.url) || "";
     // [v4.23] tabular / responder / fila da Carteira: liberado para quem acessa o sistema (o servidor confere)
-    var livre = /\/api\/carteira\/(interacoes|reservas|atribuicoes|presenca)/.test(alvo);
+    var livre = /\/api\/carteira\/(interacoes|reservas|atribuicoes|presenca|evolucao|transferencias)/.test(alvo);
     if (acesso.carregado && !acesso.soAcesso && acesso.nivel <= 1 && !livre && ehGravacao(alvo, metodo) && alvo.indexOf("/api/auth/") < 0) {
       aviso("Seu acesso neste sistema é “Visualizar” — nada foi gravado.");
       return Promise.resolve(new Response(JSON.stringify({ detail: "Seu perfil neste sistema é “Visualizar”: você pode consultar, mas não gravar." }),
