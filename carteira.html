@@ -2861,8 +2861,15 @@ function escoposArea(a){
   const chega=["chegou","↪ Encaminhados por outro setor","k-roxo",l=>precisaDe(l.e)&&/ — tratar$/.test(l.e.txt)];
   const fl=ms.some(m=>m.fl)?[["fora","Fora de linha","k-roxo",l=>foraLinhaPed(l.p)]]:[];
   const rep=ms.filter(m=>m.vencer==="repetir").map(m=>["rep_"+m.id,m.motivo+" — nova tentativa","k-warn",l=>l.r&&l.r.cod===m.id]);
-  return [...base,chega,...fl,...rep,["feitos","Feitos / aguardando planilha","k-ok",l=>!precisaDe(l.e)],["todos","Pedidos no fluxo","k-cinza",()=>true]];
+  const tent=a==="cx"?[["tent","📵 Tentativas de contato hoje","k-warn",l=>tentativasPed(l.d)>0]]:[];   // [v4.31]
+  return [...base,chega,...fl,...rep,...tent,["feitos","Feitos / aguardando planilha","k-ok",l=>!precisaDe(l.e)],["todos","Pedidos no fluxo","k-cinza",()=>true]];
 }
+// [v4.31] TENTATIVAS DE CONTATO do CX — cada "Sem sucesso" (devolutiva ou ✔ Resolver "Contato sem sucesso") é 1 tentativa
+function tentativasPed(d){ return ((d&&d.cx_hist)||[]).filter(h=>h.tentativa>0||/sem sucesso/i.test(h.devolutiva||"")).length; }
+function contarTentativas(soEmail){ const hoje=hojeISO(); let dia=0, tot=0; const peds=new Set(), pedsDia=new Set();
+  INTER.forEach((doc,k)=>{ ((doc.dados&&doc.dados.cx_hist)||[]).forEach(h=>{ if(!(h.tentativa>0||/sem sucesso/i.test(h.devolutiva||""))) return; if(soEmail&&h.email!==soEmail) return;
+    tot++; peds.add(k); if(diaBR(h.em)===hoje){ dia++; pedsDia.add(k); } }); });
+  return {dia,tot,peds:peds.size,pedsDia:pedsDia.size}; }
 function linhasArea(a){ return (FOTO?FOTO.pedidos:[]).filter(noFluxo).map(p=>{ const d=interDe(p.k); return {p,d,e:estadoArea(p,a,d),r:resDe(d,a)}; }).filter(l=>l.e.st!=="na"); }
 function histArea(a){ const h=[]; INTER.forEach(doc=>{ const d=doc.dados; ((d&&d.res_hist)||[]).forEach(x=>{ if(x.area===a) h.push({...x,chave:d.chave,pedido:d.pedido,cliente:d.cliente}); }); }); return h; }
 function renderArea(a){ return c=>{
@@ -2888,7 +2895,7 @@ function renderPedidosArea(c,a){
   c.insertAdjacentHTML("beforeend",`<section><header><h2>${esc(txt)}</h2><p>Pedidos da esteira com ${oa} <b>${esc(nm)}</b>: cada um é tabulado no <b>✔ Resolver</b> (${motivosSetor(a).map(m=>esc(rotMot(m))).join(" · ")}). Tudo aparece na hora para os outros setores e no Painel.</p><span class="direita"><button type="button" class="peq" id="arXls">⬇️ Excel</button></span></header>
     ${FL?`<div class="lembrete-area" style="--ac:${corArea(a)}">📥 <b>Sua fila de hoje:</b> ${int(minhasAtr(a,"aberta").length)} aberto(s) de ${int(ATR.qtd)} · ${int(minhasAtr(a,"feita").length)} feito(s). Terminou um, chega o próximo sozinho.</div>`:""}
     ${nPend?`<div class="lembrete-area" style="--ac:${corArea(a)}">🔔 <b>Esperando ${oa} ${esc(nm)}:</b> ${int(nPend)} pedido(s)${nFal?` · <b class="txt-bad">${int(nFal)} não cumprido(s)</b> (a planilha ainda mostra BLOQUEADO)`:""}.${pode?' <button type="button" class="peq primary" data-aest style="margin-left:auto">▶ Começar a esteira</button>':""}</div>`:""}
-    <div class="kpis">${E.map(([id,rot,cls,fn])=>`<button type="button" class="kpi ${cls}${S.esc===id?" ativo":""}" data-aesc="${id}"><span>${esc(rot)}</span><b>${int(L.filter(fn).length)}</b><small>${id==="feitos"?`${int(ehoje)} tabulação(ões) hoje`:id==="todos"?`${L.length?Math.round(L.filter(l=>!precisaDe(l.e)).length/L.length*100):100}% da etapa feita`:"pedido(s)"}</small></button>`).join("")}</div>
+    <div class="kpis">${E.map(([id,rot,cls,fn])=>id==="tent"?(()=>{ const T=contarTentativas(FL?EMAIL:""); return `<button type="button" class="kpi ${cls}${S.esc===id?" ativo":""}" data-aesc="${id}" title="Cada contato sem sucesso registrado (devolutiva 'Sem sucesso no contato' ou ✔ Resolver 'Contato sem sucesso') conta 1 tentativa. Clique para ver os pedidos com tentativa."><span>${esc(rot)}</span><b>${int(T.dia)}</b><small>em ${int(T.pedsDia)} pedido(s) hoje${FL?" (suas)":""}<br>total: ${int(T.tot)} tentativa(s) em ${int(T.peds)} pedido(s)</small></button>`; })():`<button type="button" class="kpi ${cls}${S.esc===id?" ativo":""}" data-aesc="${id}"><span>${esc(rot)}</span><b>${int(L.filter(fn).length)}</b><small>${id==="feitos"?`${int(ehoje)} tabulação(ões) hoje`:id==="todos"?`${L.length?Math.round(L.filter(l=>!precisaDe(l.e)).length/L.length*100):100}% da etapa feita`:"pedido(s)"}</small></button>`).join("")}</div>
     <div class="filtros" style="grid-template-columns:minmax(220px,1fr) minmax(220px,1.4fr) minmax(240px,2fr)">
       <select id="arEsc">${E.map(([id,rot])=>`<option value="${id}"${id===S.esc?" selected":""}>${esc(rot)}</option>`).join("")}</select>
       ${campoProduto("arProd",S.prod,L.map(l=>l.p))}
