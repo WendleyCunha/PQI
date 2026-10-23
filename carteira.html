@@ -384,6 +384,14 @@ table.ar-t{min-width:1400px} table.ar-t td{vertical-align:top}
 .fx-bar{grid-column:1/-1;display:block;height:5px;border-radius:3px;background:color-mix(in srgb,var(--fc) 15%,transparent);margin-top:4px}.fx-bar i{display:block;height:100%;border-radius:3px;background:var(--fc)}
 .fx-grupo{margin:6px 0}.fx-gtit{font-weight:700;font-size:12.5px;color:var(--fc);margin:2px 0 6px}.fx-lista{margin-top:10px}
 .resumo-exec{white-space:pre-wrap;font:13px/1.5 inherit;background:var(--bg,#f6f7f9);border-radius:8px;padding:12px;margin:10px 0}
+
+/* [v4.30] transferências */
+.trf-box .trf-lin{padding:6px 0;border-top:1px solid var(--line,#e3e6ec);font-size:13px}.trf-box .trf-lin:first-of-type{border-top:0}.trf-box small{display:block;color:var(--muted,#667)}
+.trf-doa{display:flex;flex-direction:column;gap:4px}.trf-doa .chk{font-size:13px}
+#popTrf{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+#popTrf .trf-caixa{background:var(--paper,#fff);color:inherit;border-radius:14px;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+#popTrf h3{margin:4px 0}.trf-av{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line,#e3e6ec);border-left:6px solid var(--amber,#C98A0B);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px}
+.trf-av.ok{border-left-color:var(--ok,#2F7D4F)}.trf-av.bad{border-left-color:var(--bad,#B83232)}.trf-av small{display:block;color:var(--muted,#667);margin-top:2px}.trf-bts{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -501,15 +509,15 @@ function montarFoto(itens, pedidos){
     else if(x.fo==="pedidos") x.fo="ambas";
     if(!x.sp) x.sp=campo(r,"Status Pedido");
     x.it.push([campo(r,"Item"),campo(r,"Produto"),campo(r,"Descrição","Descricao"),campo(r,"Grupo Produto"),campo(r,"Local"),numBR(campo(r,"QTD")),numBR(campo(r,"Total")),campo(r,"Status"),campo(r,"Filial")]); });
-  const {limpos,sujeira}=separarSujeira([...P.values()]);
-  return {pedidos:limpos,conflitos,sujeira};
+  const {limpos,sujeira,internos}=separarSujeira([...P.values()]);
+  return {pedidos:limpos,conflitos,sujeira,internos};
 }
 // índices do item: [item, produto, descrição, grupo, local, qtd, total, status]
 const IT={item:0,prod:1,desc:2,grupo:3,local:4,qtd:5,total:6,st:7,fil:8};   // fil = coluna "Filial" da planilha de itens
 function tels(p){ return [...new Set((p.t||[]).filter(Boolean))]; }
 
 // ═══ regras ═══
-let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30};
+let CFG_DADOS={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30,clientes_fora:"0NG5EE"};
 function prazo(p){   // [v4.19] guardado por pedido enquanto o dia e a configuração não mudam
   const sig=hojeISO()+"|"+CFG_DADOS.dias_alerta+"|"+CFG_DADOS.dias_aviso+"|"+CFG_DADOS.ano_ficticio;
   if(p._pz&&p._pzs===sig) return p._pz;
@@ -619,21 +627,25 @@ async function enviarFoto(data, meta, partes, aoProgredir){
 async function carregarFoto(data){
   const {j}=await api(`${API}/dias/${data}`);
   const f=await descompactar(j.partes,j.meta.formato);
-  const {limpos,sujeira}=separarSujeira(f.pedidos||[]);   // fotos antigas também ficam limpas, sem reimportar
-  f.pedidos=limpos; f.sujeira=sujeira.length?sujeira:((j.meta&&j.meta.sujeira)||[]);
+  const {limpos,sujeira,internos}=separarSujeira(f.pedidos||[]);   // fotos antigas também ficam limpas, sem reimportar
+  f.pedidos=limpos; f.internos=internos; f.sujeira=sujeira.length?sujeira:((j.meta&&j.meta.sujeira)||[]);
   f.meta=j.meta; return f;
 }
 // [v4.14] SUJEIRA DE SISTEMA: pedido com número menor que o limite (padrão 10000 = até 4 dígitos, ex.: 000476)
 // não entra na apuração — fica numa lista separada para o TI limpar a base.
 function numPedido(p){ const d=String(p&&p.p||"").replace(/\D/g,""); return d?parseInt(d,10):NaN; }
 function ehSujeira(p){ const lim=Number(CFG_DADOS.pedido_minimo??10000); const n=numPedido(p); return lim>0&&!isNaN(n)&&n<lim; }
-function separarSujeira(peds){ const limpos=[], sujeira=[]; peds.forEach(p=>(ehSujeira(p)?sujeira:limpos).push(p)); return {limpos,sujeira}; }
+// [v4.30] CLIENTES FORA DA OPERAÇÃO (padrão 0NG5EE): os pedidos desses códigos de cliente não aparecem para tratativa
+// (Painel, Carteira, setores, totais) — ficam numa lista própria com Excel. Continuam podendo ser DOADORES nas Soluções.
+function clientesFora(){ return new Set(String(CFG_DADOS.clientes_fora??"0NG5EE").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean)); }
+function ehInterno(p,cf){ return (cf||clientesFora()).has(String(p&&p.c||"").trim().toUpperCase()); }
+function separarSujeira(peds){ const limpos=[], sujeira=[], internos=[], cf=clientesFora(); peds.forEach(p=>(ehSujeira(p)?sujeira:ehInterno(p,cf)?internos:limpos).push(p)); return {limpos,sujeira,internos}; }
 function resumoSujeira(l){ return (l||[]).slice(0,1000).map(p=>p.k?{k:p.k,p:p.p,l:p.l,ln:p.ln,c:p.c,n:p.n,em:p.em,en:p.en,v:p.v||0,st:p.st,sp:p.sp,it:(p.it||[]).length}:p); }
 async function carregarTratativas(){ const {j}=await api(`${API}/tratativas`); TRAT=new Map((j||[]).map(t=>[t.dados.chave,t])); }
 
 // ═══ configuração: setores e motivos (classificação → motivo → setor) ═══
 const CORES=["#2E4A7A","#2B63B0","#2F7D4F","#C98A0B","#6B46A8","#B83232","#0F766E","#9D174D","#4A5568"];
-const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30,feriados_locais:"",feriados_facult:true,
+const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo:10000,dias_carteira:30,clientes_fora:"0NG5EE",feriados_locais:"",feriados_facult:true,
   setores:[{id:"compras",nome:"Compras",cor:"#2B63B0"},{id:"cx",nome:"CX",cor:"#6B46A8"},{id:"logistica",nome:"Logística",cor:"#2F7D4F"},
     {id:"financeiro",nome:"Financeiro",cor:"#C98A0B"},{id:"loja",nome:"Comercial / Loja",cor:"#0F766E"}],
   motivos:[
@@ -649,7 +661,7 @@ const CONFIG_PADRAO={ano_ficticio:2030,dias_alerta:4,dias_aviso:13,pedido_minimo
     {id:"m10",classe:"Pendente logística",motivo:"Reagendar entrega",setor:"logistica",sla:1,ativo:true},
     {id:"m11",classe:"Pendente financeiro",motivo:"Pagamento / liberação pendente",setor:"financeiro",sla:2,ativo:true},
     {id:"m12",classe:"Cancelamento",motivo:"Cliente solicitou cancelamento",setor:"cx",sla:2,ativo:true}]};
-function cfg(){ const d=migrarEsteira((CFG&&CFG.dados)||CONFIG_PADRAO); if(d.dias_aviso==null) d.dias_aviso=13; if(d.pedido_minimo==null) d.pedido_minimo=10000; if(d.dias_carteira==null) d.dias_carteira=30; return d; }
+function cfg(){ const d=migrarEsteira((CFG&&CFG.dados)||CONFIG_PADRAO); if(d.dias_aviso==null) d.dias_aviso=13; if(d.pedido_minimo==null) d.pedido_minimo=10000; if(d.dias_carteira==null) d.dias_carteira=30; if(d.clientes_fora==null) d.clientes_fora="0NG5EE"; return d; }
 function setorPor(id){ return cfg().setores.find(s=>s.id===id)||{id,nome:id||"—",cor:"#8A93A3"}; }
 function motivoPor(id){ return cfg().motivos.find(m=>m.id===id)||null; }
 async function salvarConfig(dados){
@@ -1345,6 +1357,7 @@ function naoExecutado(k){ const d=typeof interDe==="function"?interDe(k):null; r
 let SOL_VER=0;
 const SOL={prod:"",aba:"sugestoes",escopo:"urgentes",busca:"",tipo:"todos",repoSt:"aberta",repoBusca:""};
 const DIAS_DOADOR_LIBERADO=15;
+const ORD_DOADOR={interno:0,bloqueado:1,liberado:2};   // [v4.30] cliente fora da operação (ex.: 0NG5EE) é o 1º doador sugerido
 const linhaLiberada=i=>nrm(i[IT.st])!=="bloqueado";
 function chaveEnt(p){ const pz=prazo(p); return pz.cls==="semdata"||!p.en?"9999-12-31":p.en; }
 function todasReposicoes(){ const l=[]; TRAT.forEach(t=>(t.dados.reposicoes||[]).forEach(r=>l.push({t,r}))); return l; }
@@ -1354,19 +1367,20 @@ function retiradasDaFoto(){ const doado=new Map(), servidos=new Set();
   todasReposicoes().forEach(({t,r})=>{ if(r.foto!==FOTO_DATA) return; const k=t.dados.chave+"|"+r.produto; doado.set(k,(doado.get(k)||0)+(Number(r.qtd)||0)); servidos.add(r.para_chave); });
   return {doado,servidos}; }
 function montarSolucoes(escopo){
-  const P=FOTO.pedidos, {doado,servidos}=retiradasDaFoto();
+  const P=FOTO.pedidos, INT=new Set((FOTO.internos||[]).map(p=>p.k)), {doado,servidos}=retiradasDaFoto();
   const alvo=p=>{ const c=prazo(p).cls; return escopo==="atrasados"?c==="atrasado":escopo==="urgentes"?(c==="atrasado"||c==="alerta"):true; };
   // OFERTA: por pedido + produto, as unidades LIBERADAS que podem sair
   const oferta=new Map();   // produto → [{p,tipo,rem,local,desc}]
-  P.forEach(p=>{ const pz=prazo(p), b=bloqueado(p);
-    const tipo=b?"bloqueado":(pz.cls==="semdata"||(pz.n!=null&&pz.n>DIAS_DOADOR_LIBERADO))?"liberado":null;
+  P.concat(FOTO.internos||[]).forEach(p=>{ const pz=prazo(p), b=bloqueado(p);
+    if(trfAtivaDoador(p.k)) return;   // [v4.30] doador já com transferência solicitada: ninguém mais pede dele
+    const tipo=INT.has(p.k)?"interno":b?"bloqueado":(pz.cls==="semdata"||(pz.n!=null&&pz.n>DIAS_DOADOR_LIBERADO))?"liberado":null;
     if(!tipo) return;
     const porProd=new Map();
     p.it.forEach(i=>{ if(!linhaLiberada(i)) return; const k=i[IT.prod]; const x=porProd.get(k)||{q:0,local:i[IT.local],desc:i[IT.desc]}; x.q+=Number(i[IT.qtd])||0; porProd.set(k,x); });
     porProd.forEach((x,prod)=>{ const rem=x.q-(doado.get(p.k+"|"+prod)||0); if(rem<=0) return;
       if(!oferta.has(prod)) oferta.set(prod,[]); oferta.get(prod).push({p,tipo,rem,local:x.local,desc:x.desc}); }); });
   // RECEBEDORES: bloqueados (atrasados primeiro), cada um precisa das linhas bloqueadas
-  const receb=P.filter(p=>bloqueado(p)&&alvo(p)&&!servidos.has(p.k)&&!naoExecutado(p.k)&&p.it.some(i=>!linhaLiberada(i)))
+  const receb=P.filter(p=>bloqueado(p)&&alvo(p)&&!servidos.has(p.k)&&!naoExecutado(p.k)&&!trfDoReceptor(p.k).some(t=>TRF_ATIVAS.includes(t.status))&&p.it.some(i=>!linhaLiberada(i)))
     .sort((a,b)=>chaveEnt(a).localeCompare(chaveEnt(b))||((b.v||0)-(a.v||0)));
   const tirado=new Map(), planejados=new Set(), sols=[];
   for(const r of receb){
@@ -1375,8 +1389,8 @@ function montarSolucoes(escopo){
     tirado.forEach((q,k)=>{ const [pk,prod]=k.split("|"); if(pk===r.k&&q>0){ need.set(prod,(need.get(prod)||0)+q); } });   // se ele já doou nesta rodada, precisa repor
     const moves=[]; let ok=need.size>0;
     for(const [prod,q] of need){
-      const cands=(oferta.get(prod)||[]).filter(o=>o.rem>0&&o.p.k!==r.k&&!planejados.has(o.p.k)&&(o.tipo==="liberado"||chaveEnt(o.p)>chaveEnt(r)))
-        .sort((a,b)=>(a.tipo===b.tipo?0:a.tipo==="bloqueado"?-1:1)||chaveEnt(b.p).localeCompare(chaveEnt(a.p)));
+      const cands=(oferta.get(prod)||[]).filter(o=>o.rem>0&&o.p.k!==r.k&&!planejados.has(o.p.k)&&(o.tipo!=="bloqueado"||chaveEnt(o.p)>chaveEnt(r)))
+        .sort((a,b)=>(ORD_DOADOR[a.tipo]-ORD_DOADOR[b.tipo])||chaveEnt(b.p).localeCompare(chaveEnt(a.p)));
       let falta=q; const usar=[];
       for(const o of cands){ if(falta<=0) break; const t=Math.min(o.rem,falta); usar.push([o,t]); falta-=t; }
       if(falta>0){ ok=false; break; }
@@ -1435,14 +1449,14 @@ function renderSugestoes(c){
       <div class="kpi k-warn"><span>🧩 Produtos com peça presa</span><b>${int(presas.length)}</b><small>liberada em pedido que não sai agora</small></div></div>
     <div class="filtros">${campoProduto("solProd",SOL.prod,FOTO.pedidos.filter(bloqueado))}<input class="busca" id="solBusca" placeholder="Buscar pedido, cliente, código, produto..." value="${esc(SOL.busca)}">
       <select id="solEsc"><option value="atrasados"${SOL.escopo==="atrasados"?" selected":""}>Liberar: só atrasados</option><option value="urgentes"${SOL.escopo==="urgentes"?" selected":""}>Liberar: atrasados + alerta</option><option value="todos"${SOL.escopo==="todos"?" selected":""}>Liberar: todos os bloqueados</option></select>
-      <select id="solTipo"><option value="todos">Doador: qualquer</option><option value="bloqueado"${SOL.tipo==="bloqueado"?" selected":""}>Doador: só bloqueados</option><option value="liberado"${SOL.tipo==="liberado"?" selected":""}>Doador: só liberados &gt; ${DIAS_DOADOR_LIBERADO} dias</option></select></div>
+      <select id="solTipo"><option value="todos">Doador: qualquer</option><option value="bloqueado"${SOL.tipo==="bloqueado"?" selected":""}>Doador: só bloqueados</option><option value="interno"${SOL.tipo==="interno"?" selected":""}>Doador: só clientes fora da operação</option><option value="liberado"${SOL.tipo==="liberado"?" selected":""}>Doador: só liberados &gt; ${DIAS_DOADOR_LIBERADO} dias</option></select></div>
     <p class="cap">Prioridade: o pedido com entrega mais próxima recebe primeiro. Doador preferido: pedido que já está bloqueado e com entrega mais distante; depois, liberado com entrega acima de ${DIAS_DOADOR_LIBERADO} dias. A mesma peça nunca é usada duas vezes. ${NIVEL>=3?"Depois de fazer a movimentação no ERP, clique em <b>✓ Retirei</b>.":"🔒 Registrar a retirada exige o perfil <b>Editar</b>."}</p>
     <div id="solLista">${sols.length?sols.slice(0,200).map((s,ix)=>`<div class="box sol" style="border-left:6px solid var(--ok)">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill p-ok">✅ libera</span> ${pedCurto(s.r)} <span class="muted">· ${moeda(s.r.v)}</span>
         <span style="margin-left:auto;display:flex;gap:6px">${NIVEL>=2?`<button type="button" class="peq" data-nexec="${ix}" title="Não vamos fazer este transplante agora — some até a próxima planilha">✕ Não executado</button>`:""}${NIVEL>=3?`<button type="button" class="primary peq" data-ret="${ix}">✓ Retirei — registrar reposição</button>`:""}</span></div>
       <div class="tbl-wrap" style="margin-top:8px"><table class="uma-linha" style="width:100%;table-layout:auto"><thead><tr><th>Peça</th><th class="num">Qtd</th><th>Retirar do pedido</th><th>Situação do doador</th><th>Local</th></tr></thead><tbody>${
         s.moves.map(m=>`<tr><td><b>${esc(m.prod)}</b> · ${esc(m.desc)}</td><td class="num"><b>${int(m.t)}</b></td><td>${pedCurto(m.o.p)}</td>
-          <td>${m.o.tipo==="bloqueado"?'<span class="pill p-warn">bloqueado (falta outra peça)</span>':`<span class="pill p-azul">liberado · entrega &gt; ${DIAS_DOADOR_LIBERADO} d</span>`}</td>
+          <td>${m.o.tipo==="interno"?'<span class="pill p-roxo">🏢 cliente fora da operação</span>':m.o.tipo==="bloqueado"?'<span class="pill p-warn">bloqueado (falta outra peça)</span>':`<span class="pill p-azul">liberado · entrega &gt; ${DIAS_DOADOR_LIBERADO} d</span>`}</td>
           <td>${esc(m.localDe||"—")}${m.localPara&&m.localDe&&m.localPara!==m.localDe?` → ${esc(m.localPara)} <span class="pill p-roxo">transferir</span>`:""}</td></tr>`).join("")}</tbody></table></div></div>`).join("")
       :`<p class="aviso">Nenhuma troca que libere um pedido inteiro com esses filtros.${SOL.escopo!=="todos"?" Experimente “Liberar: todos os bloqueados”.":""}</p>`}
       ${sols.length>200?`<p class="cap">Mostrando 200 de ${int(sols.length)}.</p>`:""}</div>
@@ -1629,6 +1643,7 @@ function renderImportar(c){
       :`<p class="alerta">⚠ O total do BI diz <b>${int(imp.itens.totais.TOTAL)}</b> itens, mas foram lidos <b>${int(r.itens)}</b>. Confira se a planilha veio completa.</p>`):""}
     ${!imp.itens||!imp.pedidos?`<p class="alerta">Falta a planilha de <b>${!imp.itens?"itens":"pedidos"}</b>. Dá para gravar assim, mas a foto fica incompleta.</p>`:""}
     ${(pv.sujeira||[]).length?`<p class="aviso">🧹 <b>${int(pv.sujeira.length)}</b> pedido(s) com número abaixo de ${int(cfg().pedido_minimo)} (sujeira de sistema, ex.: ${pv.sujeira.slice(0,5).map(p=>esc(p.p)).join(", ")}) <b>não entram</b> na carteira nem nos totais. A lista fica em <b>Configurar → Sujeira de sistema</b> para o TI.</p>`:""}
+    ${(pv.internos||[]).length?`<p class="aviso">🏢 <b>${int(pv.internos.length)}</b> pedido(s) do(s) cliente(s) <b>${esc([...clientesFora()].join(", "))}</b> ficaram <b>fora da operação</b> (não aparecem para tratativa nem nos totais), mas continuam como sugestão de <b>doador</b> nas Soluções. A lista e o Excel ficam em <b>Configurar → Clientes fora da operação</b>.</p>`:""}
     ${pv.conflitos.length?`<p class="alerta">${pv.conflitos.length} pedido(s) repetido(s) na mesma loja dentro da planilha de pedidos — ficou a última linha: ${pv.conflitos.slice(0,10).map(esc).join(", ")}${pv.conflitos.length>10?"…":""}</p>`:""}
     ${r.corrigidos_qtd_bloq?`<p class="aviso">⛔ <b>${int(r.corrigidos_qtd_bloq)}</b> pedido(s) com <b>Qtd Bloq = 1</b> estavam como LIBERADO/CARTEIRA no Status e foram considerados <b>BLOQUEADO</b>.</p>`:""}
     ${U.length?`<div class="aviso"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="impFechar" ${imp.fechar?"checked":""} style="width:16px;height:16px;margin-top:3px"><span><b>Atualizar automaticamente ${U.length} pendência(s) aberta(s) pela planilha:</b><br>
@@ -1645,14 +1660,14 @@ function renderImportar(c){
     if(ex&&!confirm(`Substituir a carteira de ${dataBR(imp.data)} que já está gravada?`)) return;
     b.disabled=true; m.className="msg"; m.textContent="Compactando e gravando…";
     try{
-      const foto={versao:1,data:imp.data,pedidos:pv.pedidos}, {partes,formato}=await compactar(foto);
+      const foto={versao:1,data:imp.data,pedidos:pv.pedidos}, {partes,formato}=await compactar({...foto,pedidos:pv.pedidos.concat(pv.internos||[])});   // [v4.30] os de cliente fora da operação ficam gravados (servem de doador)
       const corta=a=>a.length>6000?a.slice(0,6000):a;
       const meta={resumo:pv.resumo,novos:corta(pv.novos),sairam:corta(pv.sairam),primeira:pv.primeira,formato,sujeira:resumoSujeira(pv.sujeira),
         arquivos:{itens:imp.itens&&imp.itens.nome,pedidos:imp.pedidos&&imp.pedidos.nome},origem:{ambas:pv.ambas,so_pedidos:pv.soPed,so_itens:pv.soIt},conflitos:pv.conflitos.slice(0,200)};
       setStatus("salvando");
       await enviarFoto(imp.data,meta,partes,t=>{ m.textContent=t; });
       const {j}=await api(`${API}/dias`); DIAS=j||[];
-      if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; foto.sujeira=pv.sujeira||[]; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
+      if(!FOTO_ATUAL||imp.data>=FOTO_ATUAL.data){ foto.meta={...meta,data:imp.data,importado_em:new Date().toISOString(),importado_por:USUARIO}; foto.sujeira=pv.sujeira||[]; foto.internos=pv.internos||[]; FOTO_ATUAL={data:imp.data,foto}; FOTO=foto; FOTO_DATA=imp.data; }
       let fechadas=0, mudaram=0;
       if(U.length&&imp.fechar) for(const x of U){ const quando=`foto de ${dataBR(imp.data)}`;
         try{ if(x.tipo==="saiu"){ await gravarTratativa(pedidoDaTrat(x.t),{acao:"auto",nota:`Saiu da carteira na ${quando}`}); fechadas++; }
@@ -1689,13 +1704,20 @@ function renderConfig(c){
       <label class="f" title="Os feriados nacionais já contam sozinhos. Coloque aqui os da cidade/estado, separados por vírgula: 25/01, 09/07, 20/11/2026">Feriados locais (dias úteis da Triagem)<input id="cfFer" value="${esc(D.feriados_locais||"")}" placeholder="25/01, 09/07"></label>
       <label class="chk" style="align-self:end"><input type="checkbox" id="cfFac"${D.feriados_facult!==false?" checked":""}> Carnaval e Corpus Christi não são dia útil</label>
       <label class="f" title="Pedidos com número menor que este (ex.: 000476) são sujeira de sistema e ficam fora da apuração. 0 = não filtrar.">Ignorar pedido com número menor que<input type="number" min="0" id="cfMin" value="${esc(D.pedido_minimo??10000)}"></label>
-      <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label></div>
+      <label class="f">Sem data = entrega a partir do ano<input type="number" min="2026" id="cfAno" value="${esc(D.ano_ficticio)}"></label>
+      <label class="f" title="Códigos de cliente separados por vírgula. Os pedidos deles não aparecem para tratativa, mas podem ser doadores nas Soluções.">Clientes fora da operação (código)<input id="cfFora" value="${esc(D.clientes_fora??"0NG5EE")}" placeholder="0NG5EE"></label></div>
     ${(()=>{ const sj=(FOTO&&FOTO.sujeira)||[]; return `<div class="box" style="max-width:none"><b>🧹 Sujeira de sistema</b> <span class="muted">· carteira de ${FOTO_DATA?dataBR(FOTO_DATA):"—"}</span>
       <p class="cap" style="margin:2px 0 8px">Pedidos com número abaixo de <b>${int(D.pedido_minimo??10000)}</b> (até ${String(Math.max(1,(D.pedido_minimo??10000)-1)).length} dígitos) não entram na carteira, nos blocos do Painel, na Triagem nem nas Soluções. Esta lista é para o TI limpar a base. Mudou o limite? Salve e recarregue a página.</p>
       ${sj.length?`<div class="acoes" style="margin:0 0 8px"><b>${int(sj.length)}</b> pedido(s) · ${moeda(sj.reduce((a,p)=>a+(p.v||0),0))}<button type="button" class="peq" id="cfSujXls">⬇️ Excel para o TI</button></div>
         <div class="tbl-wrap" style="max-height:260px"><table><thead><tr><th>Loja</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Emissão</th><th>Entrega</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody>${
           sj.slice().sort((a,b)=>numPedido(a)-numPedido(b)).map(p=>`<tr><td>${esc(p.l)} ${esc(p.ln||"")}</td><td><b>${esc(p.p)}</b></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td><td>${p.em?dataBR(p.em):"—"}</td><td>${p.en?dataBR(p.en):"—"}</td><td>${esc(p.st||p.sp||"—")}</td><td class="num">${moeda(p.v)}</td></tr>`).join("")}</tbody></table></div>`
         :'<p class="cap" style="margin:0">Nenhum pedido de sujeira na carteira aberta. 👌</p>'}</div>`; })()}
+    ${(()=>{ const it=(FOTO&&FOTO.internos)||[]; return `<div class="box" style="max-width:none"><b>🏢 Clientes fora da operação</b> <span class="muted">· ${esc(D.clientes_fora??"0NG5EE")} · carteira de ${FOTO_DATA?dataBR(FOTO_DATA):"—"}</span>
+      <p class="cap" style="margin:2px 0 8px">Pedidos desses códigos de cliente <b>não aparecem para a operação</b> (Painel, Carteira, setores e totais). Ficam só nesta lista e <b>continuam podendo ser doadores</b> nas Soluções. Mudou os códigos? Salve e recarregue a página.</p>
+      ${it.length?`<div class="acoes" style="margin:0 0 8px"><b>${int(it.length)}</b> pedido(s) · ${int(it.filter(temBloqueio).length)} com Qtd Bloq · ${moeda(it.reduce((a,p)=>a+(p.v||0),0))}<button type="button" class="peq" id="cfForaXls">⬇️ Excel</button></div>
+        <div class="tbl-wrap" style="max-height:260px"><table><thead><tr><th>Loja</th><th>Pedido</th><th>Cliente</th><th>Código</th><th>Emissão</th><th>Entrega</th><th>Status</th><th>Itens</th><th class="num">Valor</th></tr></thead><tbody>${
+          it.slice().sort((a,b)=>numPedido(a)-numPedido(b)).map(p=>`<tr><td>${esc(p.l)} ${esc(p.ln||"")}</td><td><b>${esc(p.p)}</b></td><td>${esc(p.n||"—")}</td><td>${esc(p.c||"—")}</td><td>${p.em?dataBR(p.em):"—"}</td><td>${p.en?dataBR(p.en):"—"}</td><td>${esc(statusReal(p))}</td><td>${int((p.it||[]).length)}</td><td class="num">${moeda(p.v)}</td></tr>`).join("")}</tbody></table></div>`
+        :'<p class="cap" style="margin:0">Nenhum pedido desses clientes na carteira aberta.</p>'}</div>`; })()}
     <h3>Setores</h3><div id="cfSet"></div><div class="acoes"><button type="button" class="peq" id="cfSetAdd">＋ Setor</button></div>
     <h3>Motivos (opções do ✔ Resolver)</h3><p class="cap">A <b>classificação</b> agrupa (ex.: Pendente fornecedor); o <b>motivo</b> detalha e vira a opção do Resolver; o <b>setor</b> é com quem fica a pendência; o <b>prazo</b> é quantos dias úteis o setor tem antes da planilha conferir — se o pedido continuar BLOQUEADO, volta como <b>alinhamento não cumprido</b> para o setor. <b>Encaminha para</b> deixa o pedido pendente com outro setor (ex.: Transferência de armazém → Logística).</p>
     <datalist id="dlClasses">${[...new Set(D.motivos.map(m=>m.classe))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
@@ -1741,6 +1763,8 @@ function renderConfig(c){
     q("[data-md]").forEach(b=>b.onclick=()=>{ const m=M(b.dataset.md); if(!confirm(`Excluir o motivo “${m.motivo||"(sem nome)"}”? As tabulações já feitas continuam no histórico.`)) return; D.motivos.splice(+b.dataset.md,1); desMot(); desSet(); });
     q("[data-madd]").forEach(b=>b.onclick=()=>{ D.motivos.push({id:uid(),setor:b.dataset.madd,classe:"",motivo:"",tipo:"dias",sla:1,vencer:"falhou",envia:[],ativo:true}); desMot(); desSet(); }); };
   desSet(); desMot();
+  { const fx=$("#cfForaXls",c); if(fx) fx.onclick=()=>exportarXlsx("clientes_fora_da_operacao",[{nome:"Fora da operação",cols:[["Loja",p=>p.l],["Nome loja",p=>p.ln||""],["Pedido",p=>p.p],["Cliente",p=>p.n||""],["Código",p=>p.c||""],["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],["Status",p=>statusReal(p)],["Status Pedido",p=>p.sp||""],["Qtd Bloq",p=>p.qb??""],["Valor",p=>p.v||0]],linhas:(FOTO.internos||[]).slice().sort((a,b)=>numPedido(a)-numPedido(b))},
+    {nome:"Itens",cols:[["Pedido",x=>x.p.p],["Loja",x=>x.p.l],["Item",x=>x.i[IT.item]],["Produto",x=>x.i[IT.prod]],["Descrição",x=>x.i[IT.desc]],["Grupo",x=>x.i[IT.grupo]],["Local",x=>x.i[IT.local]],["Qtd",x=>x.i[IT.qtd]],["Status",x=>x.i[IT.st]]],linhas:(FOTO.internos||[]).flatMap(p=>(p.it||[]).map(i=>({p,i})))}]); }
   const sx=$("#cfSujXls",c); if(sx) sx.onclick=()=>exportarXlsx("sujeira_sistema",[{nome:"Sujeira de sistema",cols:[["Loja",p=>p.l],["Nome loja",p=>p.ln||""],["Pedido",p=>p.p],["Cliente",p=>p.n||""],["Código",p=>p.c||""],
     ["Emissão",p=>p.em?dataBR(p.em):""],["Entrega",p=>p.en?dataBR(p.en):""],["Status",p=>p.st||""],["Status Pedido",p=>p.sp||""],["Valor",p=>p.v||0]],linhas:(FOTO.sujeira||[]).slice().sort((a,b)=>numPedido(a)-numPedido(b))}]);
   $("#cfSetAdd",c).onclick=()=>{ D.setores.push({id:"s"+uid(),nome:"Novo setor",cor:CORES[D.setores.length%CORES.length],recebe:"encaminhado"}); desSet(); desMot(); };
@@ -1750,7 +1774,7 @@ function renderConfig(c){
     D.dias_aviso=Math.max(D.dias_alerta+1,Number($("#cfAviso").value)||13);
     D.dias_carteira=Math.max(D.dias_aviso,Number($("#cfCart").value)||30);
     D.feriados_locais=tx($("#cfFer").value); D.feriados_facult=$("#cfFac").checked;
-    D.pedido_minimo=Math.max(0,Number($("#cfMin").value)||0);
+    D.pedido_minimo=Math.max(0,Number($("#cfMin").value)||0); { const fo=$("#cfFora"); if(fo) D.clientes_fora=tx(fo.value).toUpperCase(); }
     D.setores=D.setores.filter(s=>tx(s.nome)).map(s=>({...s,nome:tx(s.nome)})); D.motivos=D.motivos.filter(x=>tx(x.motivo)).map(x=>({...x,classe:tx(x.classe)||"Outros",motivo:tx(x.motivo),dica:tx(x.dica||""),envia:(x.envia||[]).filter(id=>D.setores.some(s=>s.id===id))})); D.esteira_v=1;
     try{ await salvarConfig(D); m.className="msg ok"; m.textContent="✓ Configuração salva."; render(); toast("✓ Configuração salva."); }catch(e){ m.className="msg erro"; m.textContent=e.message; } };
 }
@@ -2544,19 +2568,28 @@ var MOTIVOS_ESTEIRA=[
     dica:"O pedido deve sair da planilha. Se em 2 dias úteis continuar BLOQUEADO, volta ao CX como FALHOU."},
   {id:"sem_sucesso",setor:"cx",classe:"Sem contato",motivo:"Contato sem sucesso",acao:"sem_sucesso",tipo:"dias",sla:1,vencer:"repetir",envia:[],ativo:true,
     dica:"Não conseguiu falar com o cliente. Volta para nova tentativa no próximo dia útil."},
-  {id:"transferencia",setor:"cx",classe:"Transferência de armazém",motivo:"Transferência de armazém",acao:"transferencia",tipo:"dias",sla:0,vencer:"nada",envia:["logistica"],ativo:true,
-    dica:"Existe peça em outro armazém/pedido. Vai para a LOGÍSTICA fazer a transferência."},
+  {id:"transferencia",setor:"cx",classe:"Transferência de armazém",motivo:"Transferência de armazém",acao:"transferencia",tipo:"dias",sla:0,vencer:"nada",envia:["compras"],ativo:true,
+    dica:"Existe peça em outro armazém/pedido. Vai para o COMPRAS fazer a transferência — o pedido doador fica travado para outra transferência."},
   {id:"alterado",setor:"cx",classe:"Alteração de produto",motivo:"Produto alterado / aceitou o alternativo",acao:"alterado",tipo:"dias",sla:1,vencer:"falhou",envia:[],fl:true,ativo:true,
     dica:"Fora de linha: o cliente aceitou trocar o produto. Se em 2 dias úteis continuar BLOQUEADO, volta como FALHOU."},
-  {id:"andamento",setor:"logistica",classe:"Transferência em andamento",motivo:"Transferência em andamento",acao:"andamento",tipo:"data",rotulo_data:"Data prevista da transferência",sla:0,vencer:"falhou",envia:[],ativo:true,
+  {id:"andamento",setor:"compras",so_transf:true,classe:"Transferência em andamento",motivo:"Transferência em andamento",acao:"andamento",tipo:"data",rotulo_data:"Data prevista da transferência",sla:0,vencer:"falhou",envia:[],ativo:true,
     dica:"Informe a data prevista. Se a planilha depois dessa data ainda mostrar BLOQUEADO, volta como FALHOU."},
-  {id:"concluida",setor:"logistica",classe:"Transferência concluída",motivo:"Transferência concluída",acao:"concluida",tipo:"dias",sla:0,vencer:"falhou",envia:[],ativo:true,
+  {id:"concluida",setor:"compras",so_transf:true,classe:"Transferência efetuada",motivo:"Transferência efetuada",acao:"concluida",tipo:"dias",sla:0,vencer:"falhou",envia:[],ativo:true,
     dica:"Se a planilha do próximo dia útil ainda mostrar BLOQUEADO, volta como FALHOU."},
-  {id:"sem_saldo",setor:"logistica",classe:"Sem saldo",motivo:"Sem saldo / não foi possível",acao:"sem_saldo",tipo:"dias",sla:0,vencer:"nada",envia:["cx","compras"],obs:true,ativo:true,
-    dica:"Devolve para o CX e o Compras fazerem nova tratativa."}];
+  {id:"sem_saldo",setor:"compras",so_transf:true,classe:"Sem saldo",motivo:"Transferência não foi possível",acao:"sem_saldo",tipo:"dias",sla:0,vencer:"nada",envia:["cx"],obs:true,ativo:true,
+    dica:"Não deu para transferir (sem saldo, peça não está lá…). Avisa quem pediu, libera o pedido doador e devolve para o CX fazer nova tratativa."}];
 var _cfgMigrada=false;
 // [v4.22] limpa os motivos antigos da triagem e deixa os da esteira (uma vez só)
-function migrarEsteira(d){
+function migrarEsteira(d){ return migrarTransf(migrarEsteira1(d)); }
+// [v4.30] transferência sai da Logística e vai para o Compras (só aparece nos pedidos com transferência solicitada)
+function migrarTransf(d){
+  if(!d||Number(d.esteira_v)>=2) return d;
+  (d.motivos||[]).forEach(m=>{ if(m.acao==="transferencia"){ m.envia=["compras"]; m.dica="Existe peça em outro armazém/pedido. Vai para o COMPRAS fazer a transferência — o pedido doador fica travado para outra transferência."; }
+    if(["andamento","concluida","sem_saldo"].includes(m.acao)&&m.setor==="logistica"){ m.setor="compras"; m.so_transf=true;
+      if(m.acao==="concluida"){ m.motivo="Transferência efetuada"; m.classe="Transferência efetuada"; }
+      if(m.acao==="sem_saldo"){ m.motivo="Transferência não foi possível"; m.envia=["cx"]; m.dica="Não deu para transferir (sem saldo, peça não está lá…). Avisa quem pediu, libera o pedido doador e devolve para o CX fazer nova tratativa."; } } });
+  d.esteira_v=2; _cfgMigrada=true; return d; }
+function migrarEsteira1(d){
   if(!d||Number(d.esteira_v)>=1) return d;
   d.setores=Array.isArray(d.setores)?d.setores:[];
   const garante=(id,nome,cor,recebe)=>{ let s=d.setores.find(x=>x.id===id)||d.setores.find(x=>nrm(x.nome)===nrm(nome)); if(!s){ s={id,nome,cor}; d.setores.push(s); } if(s.id!==id){ s.id=id; } s.recebe=s.recebe||recebe; };
@@ -2572,7 +2605,7 @@ function art(a){ return /(a|ção|ão|ade|agem)$/i.test(tx(nomeSetor(a)))?"a":"o
 function letraDe(m){ const i=motivosSetor(m.setor).findIndex(x=>x.id===m.id); return String.fromCharCode(65+Math.max(0,i)); }
 function rotMot(m){ return `${letraDe(m)} · ${m.motivo}`; }
 function motivoRes(id){ return ((cfg().motivos)||[]).find(m=>m.id===id)||null; }
-function regras(r){ const m=motivoRes(r&&r.cod)||{}; return {tipo:r.tipo||m.tipo||"dias",sla:Number(r.sla??m.sla??0)||0,vencer:r.vencer||m.vencer||"falhou",envia:r.envia||m.envia||[],fl:r.fl??m.fl??false,acao:r.acao||m.acao||""}; }
+function regras(r){ const m=motivoRes(r&&r.cod)||{}; return {tipo:r.tipo||m.tipo||"dias",sla:Number(r.sla??m.sla??0)||0,vencer:r.vencer||m.vencer||"falhou",envia:(m.id?m.envia:r.envia)||[],fl:r.fl??m.fl??false,acao:r.acao||m.acao||""}; }
 function dataReg(r){ return (r&&(r.data||r.limite||r.prevista))||""; }
 function rotCurto(r){ return String((r&&r.rot)||"").replace(/^[A-Z] · /,""); }
 function dicaMot(m){ if(tx(m.dica)) return m.dica;
@@ -2648,7 +2681,7 @@ async function salvarResolver(p,a,m,x){
       em:agora,por:USUARIO,email:EMAIL,obs:x.obs||"",foto:fotoDia()};
     if(x.data) reg.data=x.data; if(x.fornecedor) reg.fornecedor=x.fornecedor;
     if(x.alt_prod) reg.alt_prod=x.alt_prod; if(x.alt_desc) reg.alt_desc=x.alt_desc; if(x.alt_item) reg.alt_item=x.alt_item; if(x.retirou) reg.retirou=true;
-    if(x.armazem) reg.armazem=x.armazem; if(x.sol_txt) reg.sol_txt=x.sol_txt;
+    if(x.armazem) reg.armazem=x.armazem; if(x.sol_txt) reg.sol_txt=x.sol_txt; if(x.doadores&&x.doadores.length) reg.doadores=x.doadores;
     dd.res_hist=Array.isArray(dd.res_hist)?dd.res_hist:[]; dd.res_hist.push(reg); dd["res_"+a]=reg;
     const det=[reg.data?`data ${dataBR(reg.data)}`:"",reg.fornecedor?`fornecedor ${reg.fornecedor}`:"",reg.alt_prod?`alternativo ${reg.alt_prod} ${reg.alt_desc||""}`:"",reg.armazem?`de: ${reg.armazem}`:"",reg.obs?`“${reg.obs}”`:""].filter(Boolean).join(" · ");
     evento(dd,a,"resolver",`${reg.rot}${det?" — "+det:""}`);
@@ -2700,13 +2733,17 @@ function desenharPopup(){
     if(m.alt) h+=`<label class="f">Item que sai<select data-r="alt_item">${bl.map(i=>`<option value="${esc(i[IT.prod])}"${foraDeLinha(i)?" selected":""}>${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>
       <label class="f">Código do alternativo *<input data-r="alt_prod" placeholder="Código"></label><label class="f">Descrição do alternativo<input data-r="alt_desc" placeholder="Descrição"></label>
       <label class="chk" style="grid-column:1/-1"><input type="checkbox" data-r="retirou"> Confirmo que <b>retirei o item da venda</b> *</label>`;
-    if(m.acao==="transferencia") h+=`<label class="f" style="grid-column:1/-1">De onde vem a peça (armazém / pedido doador)<input data-r="armazem" value="${esc(sol?textoSolucao(sol):"")}" placeholder="Ex.: CD 2 / pedido 123456"></label>`;
+    if(m.acao==="transferencia"){ const ds=sol?[...new Map(sol.moves.map(mv=>[mv.o.p.k,mv.o])).values()]:[];
+      h+=`<div class="f trf-doa" style="grid-column:1/-1"><span>Pedido(s) doador(es) <small class="muted">— o doador fica travado: ninguém mais pede transferência dele</small></span>
+        ${ds.map(o=>{ const t=trfAtivaDoador(o.p.k); return `<label class="chk"><input type="checkbox" data-doa="${esc(o.p.k)}"${t?" disabled":" checked"}> pedido <b>${esc(o.p.p)}</b> · loja ${esc(o.p.l)} · ${esc(nomeCurto(o.p.n))} ${o.tipo==="interno"?'<span class="pill p-roxo">🏢 fora da operação</span>':""} <span class="muted">— ${esc(pecasDoDoador(sol,o.p.k))}</span>${t?` <span class="pill p-bad">🔒 já solicitada por ${esc(t.solicitado_por)}</span>`:""}</label>`; }).join("")||'<p class="cap" style="margin:0">As Soluções não acharam doador automático — informe o número abaixo, se houver.</p>'}
+        <label class="f" style="max-width:280px">Outro pedido doador (nº)<input data-r="doador_num" placeholder="Ex.: 123456" inputmode="numeric"></label></div>
+        <label class="f" style="grid-column:1/-1">Armazém / de onde vem a peça<input data-r="armazem" value="${esc(sol?textoSolucao(sol):"")}" placeholder="Ex.: CD 2"></label>`; }
     if(m.fl&&!m.alt&&alts.length) h+=`<label class="f" style="grid-column:1/-1">Alternativo aceito<select data-r="alt_id"><option value="">— outro / não está na lista —</option>${alts.map(x=>`<option value="${esc(x.id)}">${esc(x.prod)} · ${esc(x.desc)} (no lugar de ${esc(x.item)})</option>`).join("")}</select></label>`;
     return h; };
   const fila=POP.fila||[], pos=fila.indexOf(p.k);
   const formRes=pode?`<div class="rs-form" style="--ac:${corArea(a)}"><div class="rs-tit"><h3>✔ Resolver — ${esc(nomeSetor(a))}</h3>${fila.length>1?`<span class="muted">esteira: ${pos+1} de ${fila.length}</span><button type="button" class="peq" data-pular>Pular →</button>`:""}</div>
       ${sol?`<div class="alerta" style="margin:0 0 8px">💡 <b>Soluções</b> encontrou peça para liberar este pedido: ${esc(textoSolucao(sol))}. <button type="button" class="peq" data-usasol>Usar → ${esc((ms.find(x=>x.acao==="transferencia")||{}).motivo||"Transferência")}</button></div>`:""}
-      <div class="rs-opcs" role="radiogroup">${ms.filter(x=>!(x.acao==="alterado"&&!foraLinhaPed(p)&&!alts.length)).map(x=>`<label class="rs-opc${POP.cod===x.id?" sel":""}"><input type="radio" name="rsop" value="${esc(x.id)}"${POP.cod===x.id?" checked":""}><span><b>${esc(rotMot(x))}</b><small>${esc(dicaMot(x))}</small></span></label>`).join("")}</div>
+      <div class="rs-opcs" role="radiogroup">${ms.filter(x=>!(x.acao==="alterado"&&!foraLinhaPed(p)&&!alts.length)&&!(x.so_transf&&!transfPendente(p,d))).map(x=>`<label class="rs-opc${POP.cod===x.id?" sel":""}"><input type="radio" name="rsop" value="${esc(x.id)}"${POP.cod===x.id?" checked":""}><span><b>${esc(rotMot(x))}</b><small>${esc(dicaMot(x))}</small></span></label>`).join("")}</div>
       ${m?`<div class="pg-form" style="border-color:${corArea(a)}">${extra()}<label class="f" style="grid-column:1/-1">Observação${m.obs?" *":""}<textarea data-r="obs" rows="2" placeholder="O que foi feito / combinado"></textarea></label>
         <div class="pg-bts"><button type="button" class="primary" data-rsalvar>${fila.length>1?"Salvar e ir para o próximo →":"Salvar tabulação"}</button>${fila.length>1?'<button type="button" data-rsalvar="fim">Salvar e fechar</button>':""}<span class="msg" data-msg></span></div></div>`:""}</div>`
     :a&&POP.trava?`<div class="trava">🔒 Não é possível tratar ${art(a)==="a"?"na":"no"} ${esc(nomeSetor(a))}: <b>${esc(POP.trava.por||POP.trava.email)}</b> já está tratando este pedido${POP.trava.em?` desde ${dataHoraCurta(POP.trava.em)}`:""}. Assim que ele(a) sair, libera para você.${fila.length>1?' <button type="button" class="peq" data-pular>Próximo da esteira →</button>':""}</div>`
@@ -2717,7 +2754,7 @@ function desenharPopup(){
       · entrega <b>${p.en?dataBR(p.en):"—"}</b> <span class="pill ${pz.pill}">${esc(pz.rot)}</span> ${p.fora?"":`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`} ${foraLinhaPed(p)?'<span class="pill p-roxo">9999 · fora de linha</span>':""} <span class="est-v">${moeda(p.v)}</span></div></div>
     <div class="pop-corpo">
       <div class="pop-esq">${formRes}<div class="rs-areas">${cards}</div><div data-popinter></div></div>
-      <div class="pop-dir">
+      <div class="pop-dir">${boxTransfPedido(p)}
         <div class="box"><b>Dados do pedido</b><dl class="pop-dl">
           <dt>Emissão</dt><dd>${p.em?dataBR(p.em):"—"}</dd><dt>Tipo</dt><dd>${esc(p.tp||"—")}</dd><dt>Status</dt><dd>${esc(p.sp||p.st||"—")}</dd><dt>Agenda</dt><dd>${esc(p.ag||"—")}</dd>
           <dt>Cidade</dt><dd>${esc([p.ci,p.ba].filter(Boolean).join(" · ")||"—")}</dd><dt>Telefone</dt><dd>${esc((p.t||[]).join(" · ")||"—")}</dd>${p.ob?`<dt>Obs.</dt><dd>${esc(p.ob)}</dd>`:""}</dl></div>
@@ -2728,6 +2765,7 @@ function desenharPopup(){
   o.onclick=e=>{ if(e.target===o) fecharPopup(); };
   o.querySelector("[data-popx]").onclick=()=>fecharPopup();
   o.querySelectorAll("[data-pular]").forEach(b=>b.onclick=()=>seguirEsteira());
+  o.querySelectorAll("[data-trfcanc]").forEach(b=>b.onclick=async()=>{ if(!confirm("Cancelar a solicitação de transferência? O pedido doador fica livre.")) return; b.disabled=true; try{ await cancelarTransf(b.dataset.trfcanc); desenharPopup(); toast("Solicitação de transferência cancelada."); }catch(e){ alert(e.message); b.disabled=false; } });
   o.querySelectorAll('input[name="rsop"]').forEach(r=>r.onchange=()=>{ POP.cod=r.value; desenharPopup(); const f=o.querySelector(".rs-form .pg-form input:not([type=checkbox]),.rs-form .pg-form select,.rs-form .pg-form textarea"); if(f) f.focus(); });
   const us=o.querySelector("[data-usasol]"); if(us) us.onclick=()=>{ POP.cod=(ms.find(x=>x.acao==="transferencia")||{}).id||""; desenharPopup(); };
   o.querySelectorAll("[data-rsalvar]").forEach(bs=>bs.onclick=async()=>{ const f=bs.closest(".pg-form"), v=k=>{ const i=f.querySelector(`[data-r="${k}"]`); return i?(i.type==="checkbox"?i.checked:tx(i.value)):""; }, msg=f.querySelector("[data-msg]");
@@ -2737,10 +2775,21 @@ function desenharPopup(){
     if(m.alt&&!v("alt_prod")) return erro("Informe o código do produto alternativo.");
     if(m.alt&&!v("retirou")) return erro("Confirme que o item foi retirado da venda.");
     if(m.obs&&!v("obs")) return erro("Escreva a observação.");
+    // [v4.30] transferência: trava o(s) pedido(s) doador(es) antes de gravar
+    let doadores=[];
+    if(m.acao==="transferencia"){
+      f.querySelectorAll("[data-doa]:checked").forEach(cb=>{ const o=sol&&sol.moves.find(mv=>mv.o.p.k===cb.dataset.doa); if(o) doadores.push(o.o.p); });
+      if(v("doador_num")){ const ach=acharPedidoNumero(v("doador_num")).filter(x=>x.k!==p.k); if(!ach.length) return erro(`Pedido doador ${v("doador_num")} não está na carteira atual.`); doadores.push(ach[0]); }
+      doadores=[...new Map(doadores.map(x=>[x.k,x])).values()];
+      if(!doadores.length&&!v("armazem")) return erro("Informe o pedido doador ou o armazém de onde vem a peça.");
+      const tv=doadores.map(x=>[x,trfAtivaDoador(x.k)]).find(([x,t])=>t&&t.receptor_chave!==p.k);
+      if(tv) return erro(`O pedido doador ${tv[0].p} já tem transferência solicitada por ${tv[1].solicitado_por} (para o pedido ${tv[1].receptor_pedido}).`); }
     f.querySelectorAll("[data-rsalvar]").forEach(b=>b.disabled=true);
-    try{ const x={obs:v("obs"),data:v("data"),fornecedor:v("fornecedor"),alt_prod:v("alt_prod"),alt_desc:v("alt_desc"),alt_item:v("alt_item"),retirou:v("retirou"),armazem:v("armazem"),alt_id:v("alt_id")};
+    try{ if(doadores.length){ const pc={}; doadores.forEach(x=>pc[x.k]=pecasDoDoador(sol,x.k)); await solicitarTransf(p,doadores,pc,v("obs")); }
+      const x={doadores:doadores.map(z=>z.p),obs:v("obs"),data:v("data"),fornecedor:v("fornecedor"),alt_prod:v("alt_prod"),alt_desc:v("alt_desc"),alt_item:v("alt_item"),retirou:v("retirou"),armazem:v("armazem"),alt_id:v("alt_id")};
       if(m.acao==="transferencia"&&sol) x.sol_txt=textoSolucao(sol);
-      await salvarResolver(p,a,m,x); await concluirAtr(p.k,a,m); toast(`✔ ${esc(nomeSetor(a))}: <b>${esc(rotMot(m))}</b> registrado no pedido ${esc(p.p)}.`);
+      await salvarResolver(p,a,m,x); await concluirAtr(p.k,a,m);
+      if(a==="compras"&&m.so_transf){ const st={concluida:"efetuada",andamento:"andamento",sem_saldo:"nao_foi"}[m.acao]; if(st) await responderTransf(p.k,st,x.obs,x.data); } toast(`✔ ${esc(nomeSetor(a))}: <b>${esc(rotMot(m))}</b> registrado no pedido ${esc(p.p)}.`);
       if(bs.dataset.rsalvar!=="fim"&&fila.length>1) await seguirEsteira(); else fecharPopup(); }
     catch(e){ erro(e.message); f.querySelectorAll("[data-rsalvar]").forEach(b=>b.disabled=false); } });
   const bx=o.querySelector("[data-popinter]"); if(bx&&(nivelAba("cx")>=1||nivelAba("compras")>=1)) montarInteracao(bx,p,a==="cx"||a==="compras"?a:"nenhum");
@@ -2926,7 +2975,7 @@ function renderFilas(c){
 function celTrat(p){ if(!noFluxo(p)){ const d=interDe(p.k); return algumaRes(d)?'<span class="pill p-ok">✓ saiu da esteira</span>':'<span class="muted">—</span>'; }
   const d=interDe(p.k); return `<div class="cel">${areasT().map(([a])=>{ const e=estadoArea(p,a,d); return e.st==="na"?"":`<span class="pill ${ST_T[e.st][1]}" title="${esc(nomeSetor(a))}: ${esc(e.txt)}">${esc(nomeSetor(a))} ${ST_T[e.st][0].split(" ")[0]}</span>`; }).join(" ")}</div>`; }
 function opcoesMotivo(atual){
-  return `<option value="">— escolha a tabulação —</option>`+setoresEsteira().map(s=>`<optgroup label="${esc(s.nome)}">${motivosSetor(s.id).filter(m=>!m.alt&&m.tipo!=="data").map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(rotMot(m))}${m.classe?` · ${esc(m.classe)}`:""}</option>`).join("")}</optgroup>`).join(""); }
+  return `<option value="">— escolha a tabulação —</option>`+setoresEsteira().map(s=>`<optgroup label="${esc(s.nome)}">${motivosSetor(s.id).filter(m=>!m.alt&&m.tipo!=="data"&&!m.so_transf).map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(rotMot(m))}${m.classe?` · ${esc(m.classe)}`:""}</option>`).join("")}</optgroup>`).join(""); }
 async function classificarLote(lst,depois){
   const mid=$("#ltMot").value, msg=$("#ltMsg"), nota=tx($("#ltNota").value), m=motivoRes(mid);
   if(!m){ msg.className="msg erro"; msg.textContent="Escolha a tabulação."; return; }
@@ -3330,6 +3379,79 @@ function renderCarteiraUni(c){
   if(CART_V==="item") renderItens(box); else renderCarteira(box);
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// [v4.30] TRANSFERÊNCIAS — CX solicita, COMPRAS efetua
+//   • 1 registro por PEDIDO DOADOR no servidor: enquanto "solicitada / em andamento / efetuada",
+//     ninguém mais pede transferência desse doador. "Não foi possível" (ou cancelar) libera.
+//   • Popup para quem é do Compras: transferência solicitada.
+//   • Popup para quem solicitou: transferência efetuada ou não foi possível.
+// ═══════════════════════════════════════════════════════════════════
+let TRANSF=[];
+const TRF_ATIVAS=["solicitada","andamento","efetuada"];
+const TRF_ROT={solicitada:["↪ Solicitada","p-warn"],andamento:["🚚 Em andamento","p-azul"],efetuada:["✅ Efetuada","p-ok"],nao_foi:["✕ Não foi possível","p-bad"],cancelada:["Cancelada","p-cinza"]};
+async function carregarTransf(){ try{ const {j}=await api(`${API}/transferencias`); const ant=JSON.stringify(TRANSF.map(t=>t.id+t.status)); TRANSF=Array.isArray(j)?j:[]; if(JSON.stringify(TRANSF.map(t=>t.id+t.status))!==ant&&typeof SOL_VER!=="undefined") SOL_VER++; }catch(_){} }
+function trfAtivaDoador(k){ return TRANSF.find(t=>t.doador_chave===k&&TRF_ATIVAS.includes(t.status))||null; }
+function trfDoReceptor(k){ return TRANSF.filter(t=>t.receptor_chave===k).sort((a,b)=>String(b.em).localeCompare(String(a.em))); }
+function pillTrf(t){ const [r,c]=TRF_ROT[t.status]||[t.status,"p-cinza"]; return `<span class="pill ${c}">${r}</span>`; }
+function todosPedidos(){ const f=FOTO_ATUAL&&FOTO_ATUAL.foto; return f?f.pedidos.concat(f.internos||[]):[]; }
+function acharPedidoNumero(txt){ const n=parseInt(String(txt||"").replace(/\D/g,""),10); if(!n) return []; return todosPedidos().filter(p=>numPedido(p)===n); }
+async function solicitarTransf(receptor,doadores,pecas,obs){   // doadores: [pedido]
+  const feitos=[];
+  for(const d of doadores){
+    try{ const {j}=await api(`${API}/transferencias`,{method:"POST",body:JSON.stringify({doador_chave:d.k,doador_pedido:d.p,doador_cliente:d.n||"",receptor_chave:receptor.k,receptor_pedido:receptor.p,receptor_cliente:receptor.n||"",pecas:pecas[d.k]||"",obs:obs||""})}); feitos.push(j); }
+    catch(e){ for(const f of feitos){ try{ await api(`${API}/transferencias/${encodeURIComponent(f.id)}`,{method:"PUT",body:JSON.stringify({status:"cancelada",obs:"desfeita: outro doador estava travado"})}); }catch(_){} }
+      await carregarTransf(); const t=trfAtivaDoador(d.k);
+      throw new Error(t?`O pedido doador ${d.p} já tem transferência ${t.status==="efetuada"?"efetuada":"solicitada"} por ${t.solicitado_por} em ${dataHoraBR(t.em)} (para o pedido ${t.receptor_pedido}). Escolha outro doador.`:(e.message||"Não consegui travar o pedido doador.")); } }
+  await carregarTransf(); return feitos; }
+async function responderTransf(receptorK,status,obs,data){
+  const ab=trfDoReceptor(receptorK).filter(t=>t.status==="solicitada"||t.status==="andamento");
+  for(const t of ab){ try{ await api(`${API}/transferencias/${encodeURIComponent(t.id)}`,{method:"PUT",body:JSON.stringify({status,obs:obs||"",data:data||""})}); }catch(_){} }
+  if(ab.length) await carregarTransf(); return ab.length; }
+async function cancelarTransf(id){ await api(`${API}/transferencias/${encodeURIComponent(id)}`,{method:"PUT",body:JSON.stringify({status:"cancelada",obs:"cancelada por quem solicitou"})}); await carregarTransf(); }
+// quadro dentro do popup do pedido (receptor e doador)
+function boxTransfPedido(p){
+  const rec=trfDoReceptor(p.k).slice(0,6), doa=TRANSF.filter(t=>t.doador_chave===p.k&&TRF_ATIVAS.includes(t.status));
+  if(!rec.length&&!doa.length) return "";
+  return `<div class="box trf-box"><b>↪ Transferências</b>
+    ${rec.map(t=>`<div class="trf-lin">${pillTrf(t)} <b>do pedido ${esc(t.doador_pedido)}</b>${t.doador_cliente?` <span class="muted">(${esc(nomeCurto(t.doador_cliente))})</span>`:""}${t.pecas?` · ${esc(t.pecas)}`:""}
+      <small>solicitada por <b>${esc(t.solicitado_por)}</b> em ${dataHoraBR(t.em)}${t.resp_em&&t.status!=="solicitada"?` · ${esc(t.resp_por)} em ${dataHoraBR(t.resp_em)}${t.data_prevista?` · prevista ${dataBR(t.data_prevista)}`:""}${t.resp_obs?` — “${esc(t.resp_obs)}”`:""}`:""}</small>
+      ${t.status==="solicitada"&&t.solicitado_email===EMAIL?`<button type="button" class="peq" data-trfcanc="${esc(t.id)}">Cancelar solicitação</button>`:""}</div>`).join("")}
+    ${doa.map(t=>`<div class="trf-lin">🔒 Este pedido é <b>doador</b> de uma transferência ${pillTrf(t)} para o pedido <b>${esc(t.receptor_pedido)}</b> <small>por ${esc(t.solicitado_por)} em ${dataHoraBR(t.em)} — ninguém mais pode pedir transferência dele.</small></div>`).join("")}</div>`; }
+// ── popups de aviso ──
+function avisosTransf(){
+  const compras=minhaArea("compras");
+  const solic=TRANSF.filter(t=>t.status==="solicitada"&&compras&&t.solicitado_email!==EMAIL&&!(t.vistos_compras||[]).includes(EMAIL));
+  const resp=TRANSF.filter(t=>t.solicitado_email===EMAIL&&(t.status==="efetuada"||t.status==="nao_foi")&&!t.visto_solic);
+  return {solic,resp}; }
+async function marcarVistoTransf(lst){ for(const t of lst){ try{ await api(`${API}/transferencias/${encodeURIComponent(t.id)}/visto`,{method:"POST",body:"{}"}); }catch(_){} } await carregarTransf(); }
+function checarAvisosTransf(){
+  if(!FOTO_ATUAL||$("#popTrf")||(typeof POP!=="undefined"&&POP.k)) return;
+  const {solic,resp}=avisosTransf(); if(!solic.length&&!resp.length) return;
+  const o=el("div"); o.id="popTrf"; o.setAttribute("role","alertdialog"); o.setAttribute("aria-modal","true");
+  const lin=(t,tipo)=>`<div class="trf-av ${tipo==="resp"?(t.status==="efetuada"?"ok":"bad"):""}">
+      <div>${pillTrf(t)} Pedido <b>${esc(t.receptor_pedido)}</b>${t.receptor_cliente?` · ${esc(nomeCurto(t.receptor_cliente))}`:""} ← doador <b>${esc(t.doador_pedido)}</b>${t.pecas?`<br><span class="muted">${esc(t.pecas)}</span>`:""}
+        <small>${tipo==="solic"?`solicitada por <b>${esc(t.solicitado_por)}</b> em ${dataHoraBR(t.em)}${t.obs?` — “${esc(t.obs)}”`:""}`:`${t.status==="efetuada"?"efetuada":"não foi possível"} por <b>${esc(t.resp_por||"Compras")}</b> em ${dataHoraBR(t.resp_em)}${t.resp_obs?` — “${esc(t.resp_obs)}”`:""}`}</small></div>
+      <div class="trf-bts"><button type="button" class="peq primary" data-trfabrir="${esc(t.id)}" data-trftipo="${tipo}">Abrir pedido</button><button type="button" class="peq" data-trfok="${esc(t.id)}">${tipo==="solic"?"Ciente":"OK"}</button></div></div>`;
+  o.innerHTML=`<div class="trf-caixa">
+    ${solic.length?`<h3>↪ Transferência solicitada (${int(solic.length)})</h3><p class="cap">O CX pediu transferência de peça. Efetue e responda no ✔ Resolver do Compras (Transferência efetuada / em andamento / não foi possível).</p>${solic.map(t=>lin(t,"solic")).join("")}`:""}
+    ${resp.length?`<h3>${resp.every(t=>t.status==="efetuada")?"✅ Transferência efetuada":"↪ Resposta da transferência"} (${int(resp.length)})</h3><p class="cap">O Compras respondeu a transferência que você solicitou.${resp.some(t=>t.status==="nao_foi")?" Quando não foi possível, o pedido volta para o CX fazer nova tratativa.":""}</p>${resp.map(t=>lin(t,"resp")).join("")}`:""}
+    <div class="acoes" style="justify-content:flex-end"><button type="button" class="primary" data-trftodos>Ciente de todos</button></div></div>`;
+  document.body.appendChild(o);
+  const todos=[...solic,...resp], fechar=()=>o.remove();
+  o.querySelector("[data-trftodos]").onclick=async()=>{ fechar(); await marcarVistoTransf(todos); };
+  o.querySelectorAll("[data-trfok]").forEach(b=>b.onclick=async()=>{ const t=todos.find(x=>x.id===b.dataset.trfok); b.closest(".trf-av").remove(); if(!o.querySelector(".trf-av")) fechar(); await marcarVistoTransf([t]); });
+  o.querySelectorAll("[data-trfabrir]").forEach(b=>b.onclick=async()=>{ const t=todos.find(x=>x.id===b.dataset.trfabrir); fechar(); await marcarVistoTransf([t]);
+    const p=FOTO_ATUAL.foto.pedidos.find(x=>x.k===t.receptor_chave); if(!p) return toast("O pedido não está mais na carteira atual.");
+    if(FOTO!==FOTO_ATUAL.foto){ FOTO=FOTO_ATUAL.foto; FOTO_DATA=FOTO_ATUAL.data; }
+    abrirPopup(p.k,b.dataset.trftipo==="solic"?"compras":"cx",true); });
+}
+setInterval(async()=>{ if(document.hidden||!FOTO_ATUAL) return; await carregarTransf(); checarAvisosTransf(); },60000);
+
+function pecasDoDoador(sol,k){ return sol?sol.moves.filter(mv=>mv.o.p.k===k).map(mv=>`${mv.t}× ${mv.prod} ${mv.desc}`).join(", "):""; }
+function transfPendente(p,d){ if(trfDoReceptor(p.k).some(t=>t.status==="solicitada"||t.status==="andamento")) return true; const r=resDe(d,"cx"); const rc=resDe(d,"compras");
+  return !!(r&&regras(r).acao==="transferencia"&&(!rc||String(rc.em)<String(r.em))); }
+
 async function iniciar(){
   try{ const a=window.PQI_ACESSO?await PQI_ACESSO.pronto:null; if(a&&a.carregado){ PERFIL_SIS=a.perfilSistema||null; VER_TUDO=!!a.verTudo; NIVEL=a.nivel; NIVEL_SIS=a.nivelSistema!=null?a.nivelSistema:a.nivel; ABAS_N=a.abas||null; EMAIL=a.email; } }catch(_){}
   try{ const r=await fetch("/api/auth/me",{cache:"no-store"}); if(r.ok){ const j=await r.json(), u=j.usuario||{}; USUARIO=u.nome||u.email||""; EMAIL=EMAIL||u.email||""; ADMIN=u.papel==="admin";
@@ -3338,14 +3460,14 @@ async function iniciar(){
   $("#btImportar").hidden=nivelAba("importar")<3||filaOn(); $("#btImportar").onclick=()=>ir("importar");
   $("#btRelatorio").onclick=()=>{ if(!FOTO) return alert("Nenhuma carteira importada ainda."); exportarRelatorio("relatorio_completo",FOTO.pedidos); };
   try{
-    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas(),carregarInteracoes()]);   // [v4.15] + CX × Compras
+    const [cf,dias]=await Promise.all([api(`${API}/config`),api(`${API}/dias`),carregarTratativas(),carregarReservas(),carregarInteracoes(),carregarTransf()]);   // [v4.15] + CX × Compras · [v4.30] + transferências
     CFG=cf.j&&cf.j.id?cf.j:null; CFG_DADOS=cfg(); DIAS=dias.j||[];
-    if(_cfgMigrada&&nivelAba("config")>=3){ _cfgMigrada=false; salvarConfig(cfg()).then(()=>toast("⚙ Motivos antigos limpos — a configuração agora segue a esteira (CX · Compras · Logística).")).catch(()=>{}); }
+    if(_cfgMigrada&&nivelAba("config")>=3){ _cfgMigrada=false; salvarConfig(cfg()).then(()=>toast("⚙ Configuração atualizada — a transferência agora é feita pelo Compras.")).catch(()=>{}); }
     if(DIAS.length){ const ult=DIAS[DIAS.length-1].data, f=await carregarFoto(ult); FOTO=f; FOTO_DATA=ult; FOTO_ATUAL={data:ult,foto:f}; }
     else if(NIVEL>=3) secao="importar";
     $("#btRelatorio").hidden=!FOTO||filaOn();
     setStatus("ok"); render(); avisoAoEntrar();
-    pingPresenca(); await carregarAtribuicoes(); if(filaOn()){ await completarFila(); render(); }
+    pingPresenca(); setTimeout(checarAvisosTransf,1500); await carregarAtribuicoes(); if(filaOn()){ await completarFila(); render(); }
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar a carteira.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
 }
