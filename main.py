@@ -136,7 +136,7 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
 ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
-_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao")
+_CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 
 _cache_usuarios: dict = {}
@@ -2272,6 +2272,127 @@ def cart_produtividade(request: Request, de: str = "", ate: str = ""):
     agora = datetime.now()
     online = {e: {**p, "online": (agora - datetime.fromisoformat(p["ultimo"])).total_seconds() < 300} for e, p in _PRESENCA.items() if p.get("dia") == hoje}
     return {"dias": dias, "online": online, "hoje": hoje}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# [v4.30] TRANSFERÊNCIAS (CX solicita → Compras efetua) — 1 doc por PEDIDO DOADOR
+#   Enquanto a transferência está "solicitada", "andamento" ou "efetuada", o doador fica TRAVADO:
+#   ninguém mais pede transferência dele. "nao_foi" (Compras: não foi possível) ou "cancelada" libera.
+#   vistos_compras / visto_solic controlam os popups de aviso.
+# ──────────────────────────────────────────────────────────────────────────
+COL_TRF = "carteira_transferencias"
+_TRF = {"itens": None}
+_TRF_LOCK = threading.Lock()
+_TRF_ATIVAS = ("solicitada", "andamento", "efetuada")
+
+
+def _trf_todas() -> dict:
+    if _TRF["itens"] is None:
+        itens = {}
+        try:
+            for d in db.get_db().collection(COL_TRF).stream(timeout=db.TIMEOUT_FS):
+                itens[d.id] = {**(d.to_dict() or {}), "id": d.id}
+        except Exception as e:
+            print(f"[AVISO] transferências: {e!r}")
+            return {}
+        _TRF["itens"] = itens
+    return _TRF["itens"]
+
+
+def _trf_id(chave: str) -> str:
+    return re.sub(r"[^0-9A-Za-z_-]", "_", chave or "")
+
+
+def _trf_gravar(doc: dict) -> None:
+    corpo = {k: v for k, v in doc.items() if k != "id"}
+    db.get_db().collection(COL_TRF).document(doc["id"]).set(corpo, timeout=db.TIMEOUT_FS)
+    _trf_todas()[doc["id"]] = doc
+
+
+class TransfEntrada(BaseModel):
+    doador_chave: str
+    doador_pedido: str = ""
+    doador_cliente: str = ""
+    receptor_chave: str
+    receptor_pedido: str = ""
+    receptor_cliente: str = ""
+    pecas: str = ""
+    obs: str = ""
+
+
+class TransfResposta(BaseModel):
+    status: str
+    obs: str = ""
+    data: str = ""
+
+
+@app.get("/api/carteira/transferencias")
+def cart_transferencias(request: Request, dias: int = 45):
+    limite = (datetime.now() - timedelta(days=max(1, min(int(dias or 45), 365)))).isoformat()
+    return [x for x in _trf_todas().values() if x.get("status") in _TRF_ATIVAS or str(x.get("resp_em") or x.get("em", "")) >= limite]
+
+
+@app.post("/api/carteira/transferencias")
+def cart_transf_solicitar(payload: TransfEntrada, request: Request):
+    if not payload.doador_chave or not payload.receptor_chave or payload.doador_chave == payload.receptor_chave:
+        raise HTTPException(status_code=400, detail="Informe o pedido doador e o pedido que recebe (diferentes).")
+    i = _trf_id(payload.doador_chave)
+    with _TRF_LOCK:
+        atual = _trf_todas().get(i)
+        if atual and atual.get("status") in _TRF_ATIVAS and atual.get("receptor_chave") != payload.receptor_chave:
+            return JSONResponse({"detail": "doador_travado", "atual": atual}, status_code=409)
+        agora = datetime.now().isoformat(timespec="seconds")
+        doc = {"id": i, **(payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()), "status": "solicitada", "em": agora,
+               "solicitado_por": _nome_de(request), "solicitado_email": _email(request),
+               "vistos_compras": [], "visto_solic": False, "hist": ((atual or {}).get("hist") or [])[-20:]}
+        doc["hist"].append({"em": agora, "por": _nome_de(request), "status": "solicitada", "receptor": payload.receptor_pedido})
+        try:
+            _trf_gravar(doc)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Não consegui gravar a transferência: {e}")
+    return doc
+
+
+@app.put("/api/carteira/transferencias/{item_id}")
+def cart_transf_responder(item_id: str, payload: TransfResposta, request: Request):
+    if payload.status not in ("andamento", "efetuada", "nao_foi", "cancelada"):
+        raise HTTPException(status_code=400, detail="Status inválido.")
+    u = usuario_atual(request)
+    with _TRF_LOCK:
+        doc = _trf_todas().get(item_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Transferência não encontrada.")
+        if payload.status == "cancelada" and doc.get("solicitado_email") != _email(request) and u.get("papel") != "admin":
+            raise HTTPException(status_code=403, detail="Só quem solicitou pode cancelar.")
+        agora = datetime.now().isoformat(timespec="seconds")
+        doc = {**doc, "status": payload.status, "resp_por": _nome_de(request), "resp_email": _email(request), "resp_em": agora,
+               "resp_obs": payload.obs, "data_prevista": payload.data or doc.get("data_prevista", ""),
+               "visto_solic": payload.status in ("andamento", "cancelada")}
+        doc["hist"] = (doc.get("hist") or [])[-20:] + [{"em": agora, "por": _nome_de(request), "status": payload.status, "obs": payload.obs}]
+        try:
+            _trf_gravar(doc)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Não consegui gravar a resposta: {e}")
+    return doc
+
+
+@app.post("/api/carteira/transferencias/{item_id}/visto")
+def cart_transf_visto(item_id: str, request: Request):
+    email = _email(request)
+    with _TRF_LOCK:
+        doc = _trf_todas().get(item_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Transferência não encontrada.")
+        doc = {**doc}
+        if doc.get("solicitado_email") == email and doc.get("status") in ("efetuada", "nao_foi"):
+            doc["visto_solic"] = True
+        else:
+            doc["vistos_compras"] = sorted(set((doc.get("vistos_compras") or []) + [email]))
+        try:
+            _trf_gravar(doc)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=str(e))
+    return {"sucesso": True}
 
 
 # ──────────────────────────────────────────────────────────────────────────
