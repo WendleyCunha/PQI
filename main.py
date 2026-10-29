@@ -3247,6 +3247,7 @@ PAGINAS = {
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
+    "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
     "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
 }
 
@@ -3267,6 +3268,11 @@ def _criar_rota_pagina(nome_arquivo: str):
 @app.get("/pqi-acesso.js", include_in_schema=False)
 def acesso_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-acesso.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+# [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
+import qualidade as qld
+qld.ligar(app, usuario_atual=usuario_atual, exigir_aba=_exigir_aba, nivel_aba=_nivel_aba)
 
 
 for _rota, _arquivo in PAGINAS.items():
