@@ -106,6 +106,26 @@ MODULOS = [
         "paginas": ["/organograma"],
         "apis": ["/api/organograma"],
     },
+    {
+        # [v5.0] QUALIDADE — o Mapa de Entregas sem papel: conferência no celular, validação,
+        # ajustes com novo PDF, retorno e GAP das trocas. Ninguém ganha acesso sozinho:
+        # o administrador libera em Segurança (sistema e abas).
+        "id": "qualidade",
+        "nome": "Qualidade — Conferência de Cargas",
+        "descricao": "Mapa de Entregas digital: conferência do palete no celular, validação, ajustes, retorno e GAP das trocas.",
+        "url": "/qualidade", "icone": "✅", "tipo": "nuvem",
+        "paginas": ["/qualidade"],
+        "apis": ["/api/qualidade"],
+        "abas": [
+            {"id": "painel", "nome": "Painel"},
+            {"id": "conferencia", "nome": "Conferência", "min": 2},
+            {"id": "retorno", "nome": "Retorno", "min": 2},
+            {"id": "validacao", "nome": "Validação e importação", "min": 3},
+            {"id": "ajustes", "nome": "Ajustes"},
+            {"id": "gap", "nome": "GAP das trocas"},
+            {"id": "cadastros", "nome": "Cadastros", "min": 3},
+        ],
+    },
 ]
 
 # Só aparece pra quem é admin (não precisa liberar — vem junto com o papel).
