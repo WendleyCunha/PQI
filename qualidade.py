@@ -843,6 +843,64 @@ def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
     return {"resultado": "ok", "item": item}
 
 
+def retorno_lote(c: dict, q: dict, dados: dict) -> dict:
+    """Retorno de um PEDIDO de uma vez: o pedido inteiro ou só algumas linhas/quantidades
+    (entrega parcial). Um motivo, estado e destino para o lote; cada unidade vira um registro
+    próprio (vai para o GAP peça por peça). Linhas cujo SKU tem EAN continuam exigindo a leitura."""
+    _exigir_status(c, "validada", "em_retorno")
+    L = listas()
+    pv = str(dados.get("pv") or "")
+    ped = next((p for p in c.get("pedidos") or [] if num_chave(p.get("pv")) == num_chave(pv)), None)
+    if not ped:
+        raise HTTPException(404, "Pedido não encontrado nesta carga.")
+    motivo, estado, destino = str(dados.get("motivo") or "").strip(), dados.get("estado"), str(dados.get("destino") or "").strip()
+    if not motivo or estado not in ("ok", "avariada") or not destino or (estado == "avariada" and not dados.get("avaria")):
+        raise HTTPException(400, "Informe motivo, estado da peça e destino.")
+    pend = {x["i"]: x for x in _candidatos_retorno(c, "nao_entregue") if num_chave(x["pv"]) == num_chave(ped.get("pv"))}
+    pedidas = {}
+    for ln in dados.get("linhas") or []:
+        try:
+            i, n = int(ln.get("i")), int(ln.get("qtd") or 0)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            pedidas[i] = pedidas.get(i, 0) + n
+    if not pedidas:
+        raise HTTPException(400, "Marque ao menos uma peça que voltou.")
+    exige = []
+    for i, n in pedidas.items():
+        x = pend.get(i)
+        if not x or n > x["faltam"]:
+            raise HTTPException(409, "Quantidade maior do que a pendente em uma das linhas — atualize a tela.")
+        if tem_ean(x.get("sku")):
+            exige.append(x["desc"])
+    if exige:
+        raise HTTPException(409, "Estes produtos têm EAN cadastrado e precisam ter o código lido: " + "; ".join(exige) + ".")
+    ret = c.get("retorno") or {"inicio": agora(), "por": q["por"], "email": q["email"], "itens": [], "fim": None}
+    c["retorno"] = ret
+    lote, em = uuid.uuid4().hex[:8], agora()
+    novos = []
+    for i, n in sorted(pedidas.items()):
+        x = pend[i]
+        for _ in range(n):
+            item = {"id": uuid.uuid4().hex[:8], "pv": x["pv"], "seq": x["seq"], "i": i, "sku": x.get("sku"), "desc": x["desc"], "nome": x.get("nome"),
+                    "origem": "nao_entregue", "motivo": motivo[:120], "estado": estado,
+                    "avaria": str(dados.get("avaria") or "")[:120] if estado == "avariada" else "",
+                    "destino": destino[:120], "obs": str(dados.get("obs") or "")[:300], "modo": "lote", "lote": lote, "codigo": "",
+                    "por": q["por"], "email": q["email"], "em": em, "tabulacao": None}
+            ret["itens"].append(item)
+            novos.append(item)
+    if c["status"] == "validada":
+        c["status"] = "em_retorno"
+        hist(c, q, "retorno iniciado")
+    total_ped = sum(int(i.get("qtd") or 0) for i in ped.get("entregar") or [])
+    voltaram = sum(1 for r in ret["itens"] if r["origem"] == "nao_entregue" and r["pv"] == ped.get("pv"))
+    hist(c, q, "pedido não entregue" if voltaram >= total_ped else "entrega parcial",
+         f"PV {ped.get('pv')} · {ped.get('nome')} · {len(novos)} peça(s) · {motivo}")
+    gravar(c)
+    return {"resultado": "ok", "itens": novos, "lote": lote}
+
+
 def situacao_pedidos(c: dict) -> list:
     """Por cliente: entregue / parcial / não entregue · trocas: retirada feita?"""
     ret = (c.get("retorno") or {})
@@ -1277,6 +1335,13 @@ def rota_retorno(numero: str, payload: dict, request: Request):
         return ler_retorno(carga(numero), quem(request), payload or {})
 
 
+@router.post("/cargas/{numero}/retorno/lote")
+def rota_retorno_lote(numero: str, payload: dict, request: Request):
+    exigir(request, "retorno", 2, "Registrar retorno")
+    with TRAVA:
+        return retorno_lote(carga(numero), quem(request), payload or {})
+
+
 @router.post("/cargas/{numero}/retorno/remover")
 def rota_retorno_remover(numero: str, payload: Texto, request: Request):
     exigir(request, "retorno", 2, "Remover item do retorno")
@@ -1285,12 +1350,14 @@ def rota_retorno_remover(numero: str, payload: Texto, request: Request):
         c = carga(numero)
         _exigir_status(c, "em_retorno")
         ret = c["retorno"]
-        it = next((x for x in ret["itens"] if x["id"] == payload.texto), None)
-        if not it:
+        alvo = str(payload.texto or "")
+        its = [x for x in ret["itens"] if x.get("lote") == alvo[5:]] if alvo.startswith("lote:") else [x for x in ret["itens"] if x["id"] == alvo]
+        if not its:
             raise HTTPException(status_code=404, detail="Item não encontrado.")
-        if it.get("email") != q["email"] and nivel(request, "pcl") < 3:
+        if any(it.get("email") != q["email"] for it in its) and nivel(request, "pcl") < 3:
             raise HTTPException(status_code=403, detail="Só quem registrou (ou o PCL) pode remover.")
-        ret["itens"].remove(it)
+        for it in its:
+            ret["itens"].remove(it)
         gravar(c)
         return {"ok": True}
 
