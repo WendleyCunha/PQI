@@ -500,7 +500,75 @@ const MAPA = (() => {
 
   const PSEUDO = /^MAPA PARA RETIRADA DO PRODUTO EM LOJA/;
 
+  /* PDF REAL DO PROTHEUS: cada pedido vem em 3 colunas lado a lado — dados do pedido (esq.),
+     cliente (meio) e produtos (dir.) — e o PDF entrega tudo misturado na mesma linha
+     ("Tipo Nome ALESSANDRO… BOX SUEDE MARROM… 2"). Aqui as palavras são separadas pela
+     posição (x) e devolvidas na ordem do formato texto, que o leitor abaixo já entende. */
+  const LARGOS = /^(Endere[cç]o:|Fones\b|Transportadora\b|Pto\.|Prot\.|Origem:|DESPESAS|Observa[cç][aã]o)/i;
+  function reorganizar(linhas) {
+    const out = [], txt = cs => limpa(cs.map(c => c.s).join(" "));
+    let bloco = [], ultItens = 0;
+    const fechar = () => {
+      if (!bloco.length) return;
+      const temSeq = bloco.some(l => /^Seq\.?:/i.test(limpa(l.t)));
+      if (!temSeq) {
+        // lista de produtos que CONTINUA na página seguinte (só palavras na coluna dos produtos)
+        bloco.forEach(l => { const cs = l.cols || [];
+          out.push(ultItens && cs.length && cs.every(c => c.x >= ultItens - 3) ? { t: l.t, cols: cs, cont: true } : { t: l.t }); });
+        bloco = []; return;
+      }
+      // posições das colunas, tiradas do próprio bloco
+      let xItens = 0, xMeio = 0;
+      bloco.forEach(l => (l.cols || []).forEach((c, i) => {
+        if (/^Descri[cç][aã]o$/i.test(c.s) && !xItens) xItens = c.x;
+        if (/^(Cliente|Nome)$/i.test(c.s) && i > 0 && !xMeio) xMeio = c.x;
+      }));
+      xItens = xItens || 340; xMeio = xMeio || 170; ultItens = xItens;
+      // colunas de quantidade e da 2ª coluna (retirar), pelo título do bloco
+      let xQ1 = 0, xCol2 = 0;
+      bloco.forEach(l => { const cs = l.cols || [], d = cs.findIndex(c => /^Descri[cç][aã]o$/i.test(c.s)); if (d < 0) return;
+        cs.forEach((c, i) => { if (i > d && /^Qtde$/i.test(c.s) && !xQ1) xQ1 = c.x; if (i > d + 2 && /^Produto$/i.test(c.s) && !xCol2) xCol2 = c.x; }); });
+      // um produto de verdade tem a quantidade embaixo do "Qtde" (ou algo na coluna de retirar);
+      // texto comprido do cliente que "vaza" para a direita (ex.: complemento) não é produto
+      const ehProduto = dir => dir.some(c => (xCol2 && c.x >= xCol2 - 3) || (/^\d{1,4}$/.test(c.s) && (!xQ1 || Math.abs(c.x - xQ1) < 30)));
+      const esq = [], meio = [], largos = [], itens = [], obs = [];
+      let cab = null, emObs = false;
+      bloco.forEach(l => {
+        const cols = l.cols || [];
+        const t = limpa(l.t);
+        if (!cols.length) { (emObs ? obs : largos).push(l); return; }
+        if (/^Observa[cç][aã]o/i.test(t) || (emObs && cols[0].x < xMeio)) { emObs = true; obs.push({ t, cols: [] }); return; }
+        let dir = cols.filter(c => c.x >= xItens - 3), resto = cols.filter(c => c.x < xItens - 3);
+        if (dir.length && !dir.some(c => /^Descri[cç][aã]o$/i.test(c.s)) && !ehProduto(dir)) { resto = cols; dir = []; }
+        if (dir.length) {
+          if (dir.some(c => /^Descri[cç][aã]o$/i.test(c.s))) cab = { t: txt(dir), cols: dir };
+          else itens.push({ t: txt(dir), cols: dir });
+        }
+        if (!resto.length) return;
+        const r = txt(resto);
+        if (LARGOS.test(r)) { largos.push({ t: r }); return; }
+        const e = resto.filter(c => c.x < xMeio - 3), m = resto.filter(c => c.x >= xMeio - 3);
+        if (e.length) esq.push({ t: txt(e) });
+        if (m.length) meio.push({ t: txt(m) });
+      });
+      const end = largos.filter(l => /^Endere/i.test(limpa(l.t))), outrosLargos = largos.filter(l => !/^Endere/i.test(limpa(l.t)));
+      [...esq, ...outrosLargos, ...meio, ...end].forEach(l => out.push(l));
+      if (cab) out.push(cab);
+      itens.forEach(l => out.push(l));
+      obs.forEach(l => out.push(l));
+      bloco = [];
+    };
+    for (const l of linhas) {
+      const t = limpa(l.t);
+      if (ehSep(t) || /^(Carga:|Data:|Mapa de Entregas|Pagina:|Hora:|Conferente:)/i.test(t)) { fechar(); out.push({ t: l.t }); continue; }
+      bloco.push(l);
+    }
+    fechar();
+    return out;
+  }
+
   function ler(linhas) {
+    if (linhas.some(l => l.cols && l.cols.length > 1)) linhas = reorganizar(linhas);
     const out = { data_mapa: "", hora: "", cargas: [], avisos: [] };
     const cargas = new Map();
     let carga = null, ped = null, modo = "", ultimoNf = "", xs = {};
@@ -513,17 +581,25 @@ const MAPA = (() => {
         if (mc) c.cubagem = parseFloat(mc[1].replace(/\./g, "").replace(",", ".")) || 0;
         cargas.set(num, c); out.cargas.push(c);
       }
-      carga = cargas.get(num); ped = null; modo = "";
+      const mesma = carga && carga.numero === num;
+      carga = cargas.get(num); if (!mesma) ped = null; modo = "";
     };
     for (const ln of linhas) {
       const t = limpa(ln.t), T = sem(t);
       if (!t) continue;
       let m;
-      if ((m = t.match(/^Mapa de Entregas\s+Data:\s*(\d{2}\/\d{2}\/\d{4})/i))) { out.data_mapa = out.data_mapa || m[1]; modo = ""; continue; }
+      if ((m = t.match(/^(?:Mapa de Entregas\s+)?Data:\s*(\d{2}\/\d{2}\/\d{4})/i))) { out.data_mapa = out.data_mapa || m[1]; modo = ""; continue; }
+      if (/^Mapa de Entregas$/i.test(t)) { modo = ""; continue; }
       if (/^Pagina:/i.test(t) || /^Conferente:/i.test(t)) { modo = ""; continue; }
       if ((m = t.match(/^Hora:\s*(\S+)/i))) { out.hora = out.hora || m[1]; continue; }
       if ((m = t.match(/^Carga:\s*(\d+)\s*(.*)$/i))) { novaCarga(m[1], m[2]); continue; }
       if (ehSep(t)) { modo = ""; continue; }
+      if (ln.cont && ped && xs.col2 !== undefined) {   // produtos que continuaram da página anterior
+        const { esq, dir } = partirItem(t, ln.cols, xs);
+        if (esq) (PSEUDO.test(sem(esq.desc)) ? ped.pseudo : ped.entregar).push(esq);
+        if (dir) (PSEUDO.test(sem(dir.desc)) ? ped.pseudo : ped.col2).push(dir);
+        continue;
+      }
       if (!carga) continue;
       if ((m = t.match(/^Seq\.?:\s*(\d+)/i))) {
         ped = { seq: m[1], tipo: "", pv: "", nf: "", serie: "", pv_retira: "", nf_troca: "", serie_troca: "", fones: "", transportadora: "",
@@ -1447,12 +1523,16 @@ async function rCadastros(c) {
       try { await put("/cadastros/placa", { placa: p.placa, motorista: $(`[data-mo="${b.dataset.smo}"]`, c).value }); toast("Motorista gravado."); } catch (e) { toast(e.message, true); } });
   } else {
     const ITENS = [["destinos", "Destinos da peça (retorno)"], ["motivos_retorno", "Motivos de retorno"], ["avarias", "Tipos de avaria"], ["classificacoes", "Classificação real (GAP)"], ["responsaveis", "Responsáveis (GAP)"], ["motivos_divergencia", "Motivos de divergência"], ["motivos_ajuste", "Motivos de ajuste"]];
-    corpo += `<p class="cap">Uma opção por linha. Mudar o nome de uma opção não muda o que já foi registrado.</p><div class="q-form">
+    corpo += `<div class="box" style="border-left:6px solid var(--amber)"><label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer">
+        <input type="checkbox" data-li="exigir_conferencia" ${LISTAS.exigir_conferencia ? "checked" : ""} ${podeC ? "" : "disabled"} style="width:22px;height:22px;margin-top:2px">
+        <span><b>Exigir montagem do palete e conferência na doca (fase 2)</b><span class="sub">Desligado (fase 1): a carga importada vai <b>direto para o Retorno</b>. Ligado: montagem → doca → retorno, para as cargas importadas daí em diante.</span></span></label></div>
+      <p class="cap">Uma opção por linha. Mudar o nome de uma opção não muda o que já foi registrado.</p><div class="q-form">`;
+    corpo += `
       ${ITENS.map(([k, t]) => `<label class="f">${t}<textarea data-li="${k}" rows="7" ${podeC ? "" : "disabled"}>${esc((LISTAS[k] || []).join("\n"))}</textarea></label>`).join("")}
       <label class="f">Clientes de transferência (códigos)<input data-li="clientes_transferencia" value="${esc(LISTAS.clientes_transferencia || "")}" ${podeC ? "" : "disabled"}></label></div>
       ${podeC ? `<div class="acoes"><button type="button" class="primary" id="sLi">Gravar as listas</button></div>` : ""}`;
     c.innerHTML = sec("Cadastros", "", "", corpo);
-    const s = $("#sLi", c); if (s) s.onclick = async () => { const b = {}; c.querySelectorAll("[data-li]").forEach(el => { b[el.dataset.li] = el.tagName === "TEXTAREA" ? el.value.split("\n").map(x => x.trim()).filter(Boolean) : el.value; });
+    const s = $("#sLi", c); if (s) s.onclick = async () => { const b = {}; c.querySelectorAll("[data-li]").forEach(el => { b[el.dataset.li] = el.type === "checkbox" ? el.checked : el.tagName === "TEXTAREA" ? el.value.split("\n").map(x => x.trim()).filter(Boolean) : el.value; });
       try { LISTAS = await put("/cadastros/listas", b); toast("Listas gravadas."); } catch (e) { toast(e.message, true); } };
   }
   c.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { VIS.cad = b.dataset.v; ULT = null; rCadastros(c); });
