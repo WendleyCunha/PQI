@@ -107,22 +107,22 @@ MODULOS = [
         "apis": ["/api/organograma"],
     },
     {
-        # [v5.0] QUALIDADE — o Mapa de Entregas sem papel: conferência no celular, validação,
-        # ajustes com novo PDF, retorno e GAP das trocas. Ninguém ganha acesso sozinho:
-        # o administrador libera em Segurança (sistema e abas).
+        # [v5.0] QUALIDADE — o Mapa de Entregas sem papel: PCL importa o PDF e trata ajustes/retornos,
+        # montagem do palete e conferência na doca no celular, retorno com destino da peça e GAP.
+        # Ninguém ganha acesso sozinho: o administrador libera em Segurança (sistema e abas).
         "id": "qualidade",
-        "nome": "Qualidade — Conferência de Cargas",
-        "descricao": "Mapa de Entregas digital: conferência do palete no celular, validação, ajustes, retorno e GAP das trocas.",
+        "nome": "Qualidade — Cargas e Retorno",
+        "descricao": "Mapa de Entregas digital: PCL, montagem do palete, conferência na doca, retorno com destino da peça e GAP.",
         "url": "/qualidade", "icone": "✅", "tipo": "nuvem",
         "paginas": ["/qualidade"],
         "apis": ["/api/qualidade"],
         "abas": [
+            {"id": "pcl", "nome": "PCL (ajustes, retornos, importar)"},
             {"id": "painel", "nome": "Painel"},
-            {"id": "conferencia", "nome": "Conferência", "min": 2},
+            {"id": "montagem", "nome": "Montagem do palete", "min": 2},
+            {"id": "conferencia", "nome": "Conferência na doca", "min": 2},
             {"id": "retorno", "nome": "Retorno", "min": 2},
-            {"id": "validacao", "nome": "Validação e importação", "min": 3},
-            {"id": "ajustes", "nome": "Ajustes"},
-            {"id": "gap", "nome": "GAP das trocas"},
+            {"id": "gap", "nome": "GAP"},
             {"id": "cadastros", "nome": "Cadastros", "min": 3},
         ],
     },
