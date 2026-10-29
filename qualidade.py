@@ -149,6 +149,8 @@ LISTAS_PADRAO = {
                             "Item a mais (não é desta carga)", "Código ilegível", "Outro"],
     "motivos_ajuste": ["Item avariado", "Falta de estoque", "Erro de separação", "Pedido alterado", "Cliente pediu", "Outro"],
     "clientes_transferencia": "0NG5EE",
+    # FASE 1 (False): a carga importada vai DIRETO para o Retorno. FASE 2 (True): montagem → doca → retorno.
+    "exigir_conferencia": False,
 }
 CAD: dict = {"produtos": None, "placas": None, "listas": None}
 
@@ -190,6 +192,10 @@ def tem_ean(sku: Optional[str]) -> bool:
 
 def exige_qr(sku: Optional[str]) -> bool:
     return bool(sku and (produtos().get(sku) or {}).get("qr"))
+
+
+def exigir_conferencia() -> bool:
+    return bool(listas().get("exigir_conferencia"))
 
 
 def clientes_transf() -> set:
@@ -289,7 +295,7 @@ def _carregar() -> None:
         desde = (datetime.now() - timedelta(days=DIAS_EM_MEMORIA)).strftime("%Y-%m-%d")
         for c in _fs_periodo(COL_CARGAS, "data_iso", desde, "9999-12-31") + _fs_status_abertos(COL_CARGAS):
             if c and c.get("numero"):
-                CARGAS[c["numero"]] = c
+                CARGAS[c["numero"]] = migrar(c)
         _CARREGADO.update(ok=True, desde=desde)
 
 
@@ -300,8 +306,28 @@ def no_periodo(de: str, ate: str) -> list:
         with TRAVA:
             for c in _fs_periodo(COL_CARGAS, "data_iso", de, min(ate, _CARREGADO["desde"])):
                 if c and c.get("numero") and c["numero"] not in CARGAS:
-                    CARGAS[c["numero"]] = c
+                    CARGAS[c["numero"]] = migrar(c)
     return [c for c in CARGAS.values() if de <= (c.get("data_iso") or "") <= ate]
+
+
+def migrar(c: dict) -> dict:
+    """Cargas gravadas pela 1ª versão do módulo (conferencia/ajustes/"conferida") → formato atual."""
+    if c and "montagem" not in c:
+        conf = c.pop("conferencia", None)
+        c["montagem"], c["doca"] = conf, None
+        c["pendencias"] = [{**a, "origem": "manual", "pdf": a.get("tipo"), "status": "aguardando_pdf" if a.get("status") == "aberto" else a.get("status")}
+                           for a in c.pop("ajustes", None) or []]
+        c.setdefault("etapas_anteriores", [])
+        c.setdefault("apontamento", None)
+        c.pop("conferencias_anteriores", None)
+        if c.get("status") in ("conferida", "validada") and not (c.get("retorno") or {}).get("itens"):
+            c["status"], c["validacao"] = "importada", None
+        if c.get("status") == "conferida":
+            c["status"] = "importada"
+        recalcular(c)
+    elif c and c.get("status") == "importada" and not c.get("montagem") and not exigir_conferencia():
+        recalcular(c)   # fase 1: carga importada antes da chave → vai para o Retorno
+    return c
 
 
 def carga(numero: str) -> dict:
@@ -312,7 +338,7 @@ def carga(numero: str) -> dict:
         if not c:
             raise HTTPException(status_code=404, detail=f"Carga {numero} não encontrada.")
         CARGAS[numero] = c
-    return c
+    return migrar(c)
 
 
 def gravar(c: dict) -> None:
@@ -408,10 +434,14 @@ def recalcular(c: dict) -> None:
                               "como": "doca conferida" if fim.get("ok") else "pendências da doca resolvidas no PCL"}
     elif dc:
         c["status"] = "em_conferencia"
-    elif mt and mt.get("fim"):
+    elif mt and mt.get("fim") and exigir_conferencia():
         c["status"] = "montada"
-    elif mt:
+    elif mt and not mt.get("fim") and exigir_conferencia():
         c["status"] = "em_montagem"
+    elif not exigir_conferencia():
+        c["status"] = "validada"   # FASE 1: sem montagem/doca, a carga importada já espera o retorno
+        if not c.get("validacao"):
+            c["validacao"] = {"em": agora(), "por": "", "email": "", "como": "fase 1 — importada direto para o retorno"}
     else:
         c["status"] = "importada"
 
@@ -566,8 +596,10 @@ def importar_mapa(payload: dict, q: dict) -> dict:
             if existente and existente.get("versoes") and existente["versoes"][-1].get("assinatura") == assin:
                 rel["iguais"].append(num)
                 continue
-            if existente and existente.get("status") in FASE_RETORNO:
-                rel["bloqueadas"].append(num)   # carga já validada: não troca a versão por baixo do retorno
+            if existente:
+                migrar(existente)
+            if existente and existente.get("status") in FASE_RETORNO and (existente.get("status") != "validada" or (existente.get("retorno") or {}).get("itens")):
+                rel["bloqueadas"].append(num)   # o retorno já começou: não troca a versão por baixo dele
                 continue
             pl = str(ci.get("placa") or "").upper()
             mot = (placas().get(pl) or {}).get("motorista") or ""
@@ -587,7 +619,7 @@ def importar_mapa(payload: dict, q: dict) -> dict:
                 c["mudancas_nao_solicitadas"] = _confrontar({**c, "pedidos": peds}, antigos, peds)
                 _arquivar_etapa(c, "doca", f"novo PDF (v{c['versao']})")
                 _arquivar_etapa(c, "montagem", f"novo PDF (v{c['versao']})")
-                c["pedidos"], c["unidades"], c["validacao"] = peds, _unidades(peds), None
+                c["pedidos"], c["unidades"], c["validacao"], c["retorno"] = peds, _unidades(peds), None, None
                 c["status"] = "importada"
                 c["versoes"].append({"v": c["versao"], "em": agora(), "por": q["por"], "arquivo": payload.get("arquivo") or "", "assinatura": assin})
                 hist(c, q, "nova versão do Mapa", f"v{c['versao']} · {len(c['mudancas_nao_solicitadas'])} mudança(s) não solicitada(s) · volta para a montagem")
@@ -600,6 +632,7 @@ def importar_mapa(payload: dict, q: dict) -> dict:
                      "versoes": [{"v": 1, "em": agora(), "por": q["por"], "arquivo": payload.get("arquivo") or "", "assinatura": assin}],
                      "historico": [], "criado_em": agora()}
                 hist(c, q, "Mapa importado", payload.get("arquivo") or "")
+                recalcular(c)
                 rel["novas"].append(num)
             rel["alertas"] += sum(len(p["alertas"]) for p in peds)
             rel["pv_fora"] += sum(1 for p in peds if not p["carteira"]["achado"])
@@ -1426,7 +1459,12 @@ def rota_listas(payload: dict, request: Request):
         for k in LISTAS_PADRAO:
             if k in payload:
                 v = payload[k]
-                l[k] = str(v)[:500] if k == "clientes_transferencia" else [str(x).strip()[:120] for x in v if str(x).strip()][:60]
+                if k == "exigir_conferencia":
+                    l[k] = bool(v)
+                elif k == "clientes_transferencia":
+                    l[k] = str(v)[:500]
+                else:
+                    l[k] = [str(x).strip()[:120] for x in v if str(x).strip()][:60]
         _cad_salvar("listas")
     return l
 
