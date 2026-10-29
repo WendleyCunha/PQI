@@ -413,13 +413,16 @@ table.ar-t{min-width:1400px} table.ar-t td{vertical-align:top}
 .q-ult.ok{background:var(--ok-soft);color:var(--ok)} .q-ult.bad{background:var(--bad-soft);color:var(--bad)} .q-ult.warn{background:var(--amber-soft);color:var(--amber)}
 .q-ped{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;margin:8px 0;overflow:hidden}
 .q-ped.feito{border-color:var(--ok);box-shadow:inset 4px 0 0 var(--ok)} .q-ped.ret{box-shadow:inset 4px 0 0 var(--bad)}
-.q-ped-h{padding:9px 12px;display:flex;gap:8px;align-items:flex-start;justify-content:space-between;background:var(--rule-2)}
+.q-ped-h{padding:9px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:space-between;background:var(--rule-2)}
 .q-ped-h b.n{font:700 16px "IBM Plex Sans Condensed",sans-serif}
 .q-it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--rule-2)}
 .q-it .d{flex:1;min-width:0;font-size:14px} .q-it .d small{display:block;color:var(--ink-3);font-size:12px}
 .q-it .c{font:700 17px "IBM Plex Sans Condensed",sans-serif;white-space:nowrap}
 .q-it.ok .c{color:var(--ok)} .q-it.ok{background:color-mix(in srgb,var(--ok-soft) 55%,transparent)}
 .q-it.cinza{background:var(--rule-2)} .q-it.roxo{background:var(--block-soft)}
+.q-ped-bts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.q-lin-ret{border:1px solid var(--rule-2);border-radius:8px;margin:8px 0;max-height:42vh;overflow:auto}
+.q-qtd{display:flex;align-items:center;gap:4px} .q-qtd input{width:56px;text-align:center;font:700 16px "IBM Plex Sans Condensed",sans-serif}
 .q-rodape{position:fixed;left:0;right:0;bottom:0;z-index:16;background:var(--sheet);border-top:1px solid var(--rule);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .q-rodape button{flex:1 1 150px;max-width:300px;justify-content:center;min-height:48px;font-size:15px}
 button.q-okb{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -1118,13 +1121,17 @@ function desenharRetorno(c) {
         <span class="c" title="entregues / total">${it.qtd - n}/${it.qtd}</span>${podeR && n < it.qtd && !temEan(it.sku) ? `<button type="button" class="peq warn" data-volta="${esc(p.pv)}|${i}">Voltou 1</button>` : ""}</div>`; }).join("");
     const retir = p.troca && (p.col2 || []).length ? (p.col2 || []).map((it, i) => { const n = voltou.filter(x => x.origem === "retirada" && x.i === i).length;
       return `<div class="q-it roxo"><div class="d"><small>A retirar na troca</small>${esc(it.desc)}</div><span class="c">${n}/${it.qtd}</span>${podeR && n < it.qtd ? `<button type="button" class="peq" data-retira="${esc(p.pv)}|${i}">Retirado 1</button>` : ""}</div>`; }).join("") : "";
-    const reg = voltou.map(x => `<div class="q-it cinza"><div class="d"><b>${x.origem === "retirada" ? "Retirada" : "Voltou"}:</b> ${esc(x.desc)}
-        <small>${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">avariada · ${esc(x.avaria)}</b>` : "peça OK"} · destino: <b>${esc(x.destino)}</b> · ${esc(x.por)} ${horaBR(x.em)}</small></div>
-        ${podeR ? `<button type="button" class="peq warn" data-rm="${esc(x.id)}" title="Remover">✕</button>` : ""}</div>`).join("");
+    // registros: os lançados juntos (pedido todo / parcial) aparecem agrupados, com um ✕ para o lote
+    const grupos = []; voltou.forEach(x => { const k = x.lote ? "lote:" + x.lote + "|" + x.i : x.id; const g0 = grupos.find(y => y.k === k); if (g0) g0.n++; else grupos.push({ k, x, n: 1 }); });
+    const reg = grupos.map(({ k, x, n }) => `<div class="q-it cinza"><div class="d"><b>${x.origem === "retirada" ? "Retirada" : "Voltou"}:</b> ${n > 1 ? `<b>${n}×</b> ` : ""}${esc(x.desc)}
+        <small>${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">avariada · ${esc(x.avaria)}</b>` : "peça OK"} · destino: <b>${esc(x.destino)}</b>${x.obs ? " · " + esc(x.obs) : ""} · ${esc(x.por)} ${horaBR(x.em)}</small></div>
+        ${podeR ? `<button type="button" class="peq warn" data-rm="${esc(x.lote ? "lote:" + x.lote : x.id)}" title="${x.lote ? "Remover o lançamento inteiro" : "Remover"}">✕</button>` : ""}</div>`).join("");
+    const pendPed = (p.entregar || []).reduce((a, it, i) => a + it.qtd - voltou.filter(x => x.origem === "nao_entregue" && x.i === i).length, 0);
+    const btsPed = podeR && pendPed > 0 ? `<div class="q-ped-bts"><button type="button" class="peq warn" data-ptodo="${esc(p.pv)}">✕ Não entregue — pedido todo</button><button type="button" class="peq" data-pparc="${esc(p.pv)}">↩ Entrega parcial — escolher itens</button></div>` : "";
     return `<div class="q-ped ${s.situacao && s.situacao !== "entregue" ? "ret" : ""}">
       <div class="q-ped-h"><div><b class="n">${esc(p.nome)}</b> ${p.troca ? '<span class="pill p-roxo">Troca</span>' : ""} <span class="pill ${(SIT_PED[s.situacao] || ["", "p-cinza"])[1]}">${esc((SIT_PED[s.situacao] || ["—"])[0])}</span>
         ${s.retirada === "nao_feita" ? '<span class="pill p-bad">Retirada não feita</span>' : ""}
-        <span class="sub">Seq ${esc(p.seq)} · PV ${esc(p.pv)} · NF ${esc(p.nf)} · ${esc(p.bairro)} · ${esc(p.cidade)}</span></div></div>
+        <span class="sub">Seq ${esc(p.seq)} · PV ${esc(p.pv)} · NF ${esc(p.nf)} · ${esc(p.bairro)} · ${esc(p.cidade)}</span></div>${btsPed}</div>
       ${linhas}${retir}${reg}</div>`;
   }).join("");
   c.innerHTML = `<div class="q-topo">
@@ -1144,9 +1151,47 @@ function desenharRetorno(c) {
   const bc = $("#btCam", c); if (bc) bc.onclick = () => abrirCamera(t => retornar({ codigo: t, origem: RT.origem }, true));
   c.querySelectorAll("[data-volta]").forEach(b => b.onclick = () => retornar({ item: b.dataset.volta, origem: "nao_entregue" }));
   c.querySelectorAll("[data-retira]").forEach(b => b.onclick = () => retornar({ item: b.dataset.retira, origem: "retirada" }));
+  c.querySelectorAll("[data-ptodo]").forEach(b => b.onclick = () => retornoPedido(b.dataset.ptodo, true));
+  c.querySelectorAll("[data-pparc]").forEach(b => b.onclick = () => retornoPedido(b.dataset.pparc, false));
   c.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if (!confirm("Remover este registro do retorno?")) return;
     try { await post(`/cargas/${g.numero}/retorno/remover`, { texto: b.dataset.rm }); CG = await api(`/cargas/${g.numero}`); desenharRetorno(c); } catch (e) { toast(e.message, true); } });
   const bk = $("#btConcluir", c); if (bk) bk.onclick = () => concluirRetorno(g);
+}
+// Retorno de um pedido de uma vez: pedido todo (cliente ausente, recusou…) ou parcial, linha a linha e na quantidade
+function retornoPedido(pv, todo) {
+  const g = CG, p = (g.pedidos || []).find(x => x.pv === pv); if (!p) return;
+  const itens = (g.retorno || {}).itens || [];
+  const L = LISTAS || {};
+  const linhas = (p.entregar || []).map((it, i) => ({ i, it, pend: it.qtd - itens.filter(x => x.pv === p.pv && x.origem === "nao_entregue" && x.i === i).length, ean: temEan(it.sku) })).filter(l => l.pend > 0);
+  abrirDlg(`<h3>${todo ? "Pedido não entregue" : "Entrega parcial"}</h3>
+    <p class="cap"><b>${esc(p.nome)}</b> · PV ${esc(p.pv)} · NF ${esc(p.nf)} · ${esc(p.bairro)}</p>
+    <p class="cap">${todo ? "Todas as peças abaixo voltam. Ajuste a quantidade se alguma foi entregue." : "Informe <b>quantas peças de cada linha VOLTARAM</b>. O que ficar em 0 conta como entregue."}</p>
+    <div class="q-lin-ret">${linhas.map(l => `<div class="q-it ${l.ean ? "cinza" : ""}"><div class="d">${esc(l.it.desc)}<small>${l.it.sku ? "SKU " + esc(l.it.sku) : "sem SKU"} · pendente ${l.pend} de ${l.it.qtd}${l.ean ? " · 🔒 tem EAN: leia o código na tela da carga" : ""}</small></div>
+      ${l.ean ? "" : `<span class="q-qtd"><button type="button" class="peq" data-m="${l.i}">−</button><input type="number" min="0" max="${l.pend}" value="${todo ? l.pend : 0}" data-q="${l.i}"><button type="button" class="peq" data-p="${l.i}">+</button></span>`}</div>`).join("")}</div>
+    <div class="q-form">
+      <label class="f">Motivo<select id="lMot"><option value="">— escolha —</option>${opts(L.motivos_retorno || [])}</select></label>
+      <label class="f">Estado das peças<select id="lEst"><option value="ok">Peça OK (sem avaria)</option><option value="avariada">Avariada</option></select></label>
+      <label class="f" id="lAvL" hidden>Tipo de avaria<select id="lAv"><option value="">— escolha —</option>${opts(L.avarias || [])}</select></label>
+      <label class="f">Destino<select id="lDest"><option value="">— escolha —</option>${opts(L.destinos || [])}</select></label></div>
+    <label class="f">Observação<input id="lObs" maxlength="300" placeholder="ex.: cliente pediu para entregar sábado"></label>
+    <p class="cap">Peças com estado ou destino diferentes? Lance em duas vezes.</p>
+    <div class="acts"><button type="button" id="lC">Cancelar</button><button type="button" class="primary" id="lO">Registrar retorno</button></div><p class="msg erro" id="lMsg"></p>`, (el, fechar) => {
+    const inp = i => el.querySelector(`[data-q="${i}"]`);
+    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const x = inp(b.dataset.m); x.value = Math.max(0, (+x.value || 0) - 1); });
+    el.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const x = inp(b.dataset.p); x.value = Math.min(+x.max, (+x.value || 0) + 1); });
+    $("#lEst", el).onchange = () => { $("#lAvL", el).hidden = $("#lEst", el).value !== "avariada"; };
+    $("#lC", el).onclick = () => fechar();
+    $("#lO", el).onclick = async () => {
+      const ls = [...el.querySelectorAll("[data-q]")].map(x => ({ i: +x.dataset.q, qtd: Math.min(+x.max, Math.max(0, Math.floor(+x.value || 0))) })).filter(x => x.qtd > 0);
+      const d = { pv: p.pv, linhas: ls, motivo: $("#lMot", el).value, estado: $("#lEst", el).value, avaria: $("#lAv", el).value, destino: $("#lDest", el).value, obs: $("#lObs", el).value };
+      if (!ls.length) { $("#lMsg", el).textContent = "Nenhuma peça marcada como voltou."; return; }
+      if (!d.motivo || !d.destino || (d.estado === "avariada" && !d.avaria)) { $("#lMsg", el).textContent = "Escolha motivo, destino" + (d.estado === "avariada" ? " e tipo de avaria." : "."); return; }
+      try { const r = await post(`/cargas/${g.numero}/retorno/lote`, d); bip(true);
+        ULT = { cls: "warn", ico: "↩", txt: `${esc(p.nome)}: ${r.itens.length} peça(s) voltaram — ${esc(d.motivo)} → ${esc(d.destino)}` };
+        fechar(); CG = await api(`/cargas/${g.numero}`); desenharRetorno($("#root")); }
+      catch (e) { $("#lMsg", el).textContent = e.message; }
+    };
+  });
 }
 function formPeca(r) {   // pergunta o que falta da peça: motivo, estado, avaria, destino
   return new Promise(res => {
