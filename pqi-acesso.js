@@ -115,3 +115,50 @@
   }
   acesso.aviso = aviso;
 })();
+
+/* ═══ [v4.17] ✕ PARA FECHAR NO CANTO SUPERIOR DIREITO DE TODO POPUP ═══
+   Toda <dialog> do Painel ganha um ✕ no alto à direita. Ele faz o mesmo que a
+   tecla Esc (dispara "cancel" — se a tela não deixar fechar, não fecha). */
+(function () {
+  "use strict";
+  function css() {
+    if (document.getElementById("pqi-x-css")) return;
+    var s = document.createElement("style"); s.id = "pqi-x-css";
+    s.textContent = "dialog.pqi-tem-x{position:fixed}" +
+      ".pqi-x{position:absolute;top:10px;right:10px;z-index:5;width:34px;height:34px;border-radius:50%;border:1px solid rgba(0,0,0,.12);" +
+      "background:rgba(255,255,255,.92);color:#1B2436;font:600 17px/1 system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}" +
+      ".pqi-x:hover{background:#B83232;color:#fff;border-color:#B83232}" +
+      "dialog.pqi-tem-x h2:first-of-type,dialog.pqi-tem-x h3:first-of-type{padding-right:42px}";
+    document.head.appendChild(s);
+  }
+  function fechar(d) {
+    var ev = new Event("cancel", { cancelable: true });
+    if (!d.dispatchEvent(ev)) return;
+    if (d.open) d.close();
+  }
+  function armar(d) {
+    if (d.querySelector(":scope > .pqi-x")) return;
+    css();
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "pqi-x"; b.textContent = "✕";
+    b.title = "Fechar (Esc)"; b.setAttribute("aria-label", "Fechar");
+    b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); fechar(d); };
+    d.classList.add("pqi-tem-x");
+    d.appendChild(b);   // no fim: o foco automático da janela continua indo para o 1º campo, não para o ✕
+  }
+  function varrer() { Array.prototype.forEach.call(document.querySelectorAll("dialog"), armar); }
+  function iniciar() {
+    varrer();
+    // telas que trocam o conteúdo da dialog (innerHTML) apagam o ✕: quando ela abre, ele volta
+    new MutationObserver(function (ms) {
+      ms.forEach(function (m) {
+        if (m.type === "attributes" && m.target.tagName === "DIALOG" && m.target.open) armar(m.target);
+        if (m.type === "childList") {
+          if (m.target.tagName === "DIALOG") armar(m.target);
+          Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1 && n.tagName === "DIALOG") armar(n); });
+        }
+      });
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
+})();

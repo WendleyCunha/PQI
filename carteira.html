@@ -355,7 +355,7 @@ body.pop-aberto{overflow:hidden}
 .rs-tit{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 8px}.rs-tit h3{margin:0}.rs-tit .muted{margin-left:auto}
 .pop-cab{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sheet);border-bottom:1px solid var(--rule);padding:10px 16px}
 .pop-tit{flex:1 1 400px;font-size:15px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.pop-x{font-size:18px;padding:4px 12px} .pop-areas{display:flex;gap:6px;align-items:center;font-size:13px;flex-wrap:wrap}
+.pop-x{font-size:18px;padding:4px 12px;order:2;margin-left:auto;align-self:flex-start;flex:0 0 auto} .pop-cab>.pop-tit{flex:1 1 0;min-width:0;order:1} .pop-areas{display:flex;gap:6px;align-items:center;font-size:13px;flex-wrap:wrap}
 .pop-corpo{flex:1;overflow:auto;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:14px;padding:14px 16px;align-items:start}
 @media (max-width:1000px){.pop-corpo{grid-template-columns:1fr}}
 .pop-dir{display:flex;flex-direction:column;gap:12px} .pop-esq{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -389,6 +389,7 @@ table.ar-t{min-width:1400px} table.ar-t td{vertical-align:top}
 .trf-box .trf-lin{padding:6px 0;border-top:1px solid var(--line,#e3e6ec);font-size:13px}.trf-box .trf-lin:first-of-type{border-top:0}.trf-box small{display:block;color:var(--muted,#667)}
 .trf-doa{display:flex;flex-direction:column;gap:4px}.trf-doa .chk{font-size:13px}
 #popTrf{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+#popTrf h3:first-of-type{padding-right:42px}
 #popTrf .trf-caixa{background:var(--paper,#fff);color:inherit;border-radius:14px;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
 #popTrf h3{margin:4px 0}.trf-av{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line,#e3e6ec);border-left:6px solid var(--amber,#C98A0B);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px}
 .trf-av.ok{border-left-color:var(--ok,#2F7D4F)}.trf-av.bad{border-left-color:var(--bad,#B83232)}.trf-av small{display:block;color:var(--muted,#667);margin-top:2px}.trf-bts{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
@@ -3440,12 +3441,13 @@ function checarAvisosTransf(){
       <div>${pillTrf(t)} Pedido <b>${esc(t.receptor_pedido)}</b>${t.receptor_cliente?` · ${esc(nomeCurto(t.receptor_cliente))}`:""} ← doador <b>${esc(t.doador_pedido)}</b>${t.pecas?`<br><span class="muted">${esc(t.pecas)}</span>`:""}
         <small>${tipo==="solic"?`solicitada por <b>${esc(t.solicitado_por)}</b> em ${dataHoraBR(t.em)}${t.obs?` — “${esc(t.obs)}”`:""}`:`${t.status==="efetuada"?"efetuada":"não foi possível"} por <b>${esc(t.resp_por||"Compras")}</b> em ${dataHoraBR(t.resp_em)}${t.resp_obs?` — “${esc(t.resp_obs)}”`:""}`}</small></div>
       <div class="trf-bts"><button type="button" class="peq primary" data-trfabrir="${esc(t.id)}" data-trftipo="${tipo}">Abrir pedido</button><button type="button" class="peq" data-trfok="${esc(t.id)}">${tipo==="solic"?"Ciente":"OK"}</button></div></div>`;
-  o.innerHTML=`<div class="trf-caixa">
+  o.innerHTML=`<div class="trf-caixa" style="position:relative"><button type="button" class="pqi-x" data-trfx title="Fechar — aparece de novo depois" aria-label="Fechar">✕</button>
     ${solic.length?`<h3>↪ Transferência solicitada (${int(solic.length)})</h3><p class="cap">O CX pediu transferência de peça. Efetue e responda no ✔ Resolver do Compras (Transferência efetuada / em andamento / não foi possível).</p>${solic.map(t=>lin(t,"solic")).join("")}`:""}
     ${resp.length?`<h3>${resp.every(t=>t.status==="efetuada")?"✅ Transferência efetuada":"↪ Resposta da transferência"} (${int(resp.length)})</h3><p class="cap">O Compras respondeu a transferência que você solicitou.${resp.some(t=>t.status==="nao_foi")?" Quando não foi possível, o pedido volta para o CX fazer nova tratativa.":""}</p>${resp.map(t=>lin(t,"resp")).join("")}`:""}
     <div class="acoes" style="justify-content:flex-end"><button type="button" class="primary" data-trftodos>Ciente de todos</button></div></div>`;
   document.body.appendChild(o);
   const todos=[...solic,...resp], fechar=()=>o.remove();
+  o.querySelector("[data-trfx]").onclick=()=>fechar();
   o.querySelector("[data-trftodos]").onclick=async()=>{ fechar(); await marcarVistoTransf(todos); };
   o.querySelectorAll("[data-trfok]").forEach(b=>b.onclick=async()=>{ const t=todos.find(x=>x.id===b.dataset.trfok); b.closest(".trf-av").remove(); if(!o.querySelector(".trf-av")) fechar(); await marcarVistoTransf([t]); });
   o.querySelectorAll("[data-trfabrir]").forEach(b=>b.onclick=async()=>{ const t=todos.find(x=>x.id===b.dataset.trfabrir); fechar(); await marcarVistoTransf([t]);
