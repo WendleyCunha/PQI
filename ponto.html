@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ponto — Registro por Digital · King Star</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="ponto"></script>
+<style>
+/* ═══ Mesmo padrão visual do PQI (Qualidade, Carteira, Organogramas) ═══ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,h4,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h3{font-size:16px;margin:22px 0 8px;font-weight:600}
+a{color:var(--steel)}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:90ch}
+.muted{color:var(--ink-3)}
+[hidden]{display:none!important}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.bar-in{padding:10px 28px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.who{color:var(--ink-3);font-size:13px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--idle);flex:none}
+.dot.ok{background:var(--ok)} .dot.salvando{background:var(--amber)} .dot.erro{background:var(--bad)}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--ink-3)}
+button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.warn{color:var(--bad)} button.peq,.btn.peq{padding:6px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+input:disabled,select:disabled,textarea:disabled{opacity:.75;cursor:not-allowed}
+textarea{min-height:70px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.aviso{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--steel-soft);font-size:14px}
+.alerta{margin:10px 0;padding:10px 14px;border-radius:6px;background:var(--amber-soft);font-size:14px;border-left:4px solid var(--amber)}
+.conflito{margin:0 0 16px;padding:12px 14px;border-radius:6px;background:var(--bad-soft);border:1px solid var(--bad);font-size:14px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;margin:14px 0}
+.box > h3:first-child{margin-top:0}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-warn{background:var(--amber-soft);color:var(--amber)}
+.p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-roxo{background:var(--block-soft);color:var(--block)} .p-aco{background:var(--steel-soft);color:var(--steel)}
+.wrap{padding:24px 28px 64px}
+footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+.shell-item{display:flex;align-items:flex-start;gap:22px}
+.side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
+  position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow-y:auto}
+.side-btn{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:1px solid transparent;background:none;
+  color:var(--ink-3);font:500 10.5px/1.2 "IBM Plex Sans",sans-serif;text-align:center;cursor:pointer;position:relative}
+.side-btn svg{width:20px;height:20px;flex:none}
+.side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
+.side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--bad);color:#fff;border-radius:8px;padding:0 5px}
+.side-sep{flex:none;width:70%;height:1px;background:var(--rule);margin:4px 0}
+.conteudo-item{flex:1;min-width:0}
+section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
+section h2{margin:0;font-size:22px;font-weight:700}
+section > header p{margin:0;color:var(--ink-3);font-size:13px}
+section > header .direita{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.doc-head{background:var(--sheet);border:1px solid var(--rule);border-left:6px solid var(--steel);border-radius:10px;padding:18px 22px;display:grid;grid-template-columns:1fr auto;gap:14px 28px;margin-bottom:18px}
+.doc-head h1{margin:0;font-size:28px;line-height:1.1}
+.doc-head .obj{margin:6px 0 0;color:var(--ink-2)}
+.stamp{border:2px solid var(--steel);border-radius:8px;padding:10px 14px;min-width:240px;align-self:start}
+.stamp .code{font:700 17px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel)}
+.stamp dl{margin:8px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.stamp dt{color:var(--ink-3)} .stamp dd{margin:0;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0}
+.kpi{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 16px;text-align:left;font:inherit;color:inherit;display:block;width:100%;border-top:4px solid var(--kc,var(--rule))}
+button.kpi{cursor:pointer} button.kpi:hover{border-color:var(--steel)} button.kpi.ativo{box-shadow:inset 0 0 0 2px var(--kc,var(--steel))}
+.kpi > span{color:var(--ink-3);font-size:13px}
+.kpi b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif;margin-top:4px}
+.kpi small{display:block;color:var(--ink-3);font-size:12px;margin-top:4px}
+.k-bad{--kc:var(--bad)} .k-warn{--kc:var(--amber)} .k-ok{--kc:var(--ok)} .k-azul{--kc:var(--prog)} .k-roxo{--kc:var(--block)} .k-cinza{--kc:var(--idle)} .k-aco{--kc:var(--steel)}
+.filtros{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;align-items:end}
+.filtros select,.filtros input{padding:6px 8px;font-size:13px}
+.filtros label.f{font-size:12px}
+.tbl-wrap{overflow:auto;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);max-height:72vh}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{position:sticky;top:0;z-index:1;text-align:left;font:600 12.5px/1.3 "IBM Plex Sans Condensed",sans-serif;color:var(--ink-2);background:var(--rule-2);padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--rule-2);vertical-align:middle}
+tr.clic{cursor:pointer} tr.clic:hover td{background:color-mix(in srgb,var(--steel-soft) 45%,var(--sheet))}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .sub{display:block;font-size:12px;color:var(--ink-3)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}
+.toasts{position:fixed;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:400px}
+.toast{background:var(--ink);color:var(--sheet);border-radius:10px;padding:12px 14px;font-size:14px;box-shadow:0 10px 26px rgba(10,15,25,.3)}
+.toast.erro{background:var(--bad);color:#fff}
+dialog{border:1px solid var(--rule);border-radius:12px;background:var(--sheet);color:var(--ink);padding:24px 28px;max-width:min(860px,96vw);width:96vw;max-height:94vh;overflow:auto}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 4px;font-size:22px}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:-24px;background:var(--sheet);padding:12px 0 4px;border-top:1px solid var(--rule-2)}
+.subnav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--rule);margin:0 0 14px}
+.subnav button{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:9px 14px;font:600 17px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);margin-bottom:-1px}
+.subnav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--amber)}
+.subnav .c{font:500 12px "IBM Plex Sans",sans-serif;background:var(--rule-2);border-radius:999px;padding:1px 8px;margin-left:6px}
+.chk{display:inline-flex;gap:7px;align-items:center;font-size:13.5px;cursor:pointer} .chk input{width:16px;height:16px;accent-color:var(--steel)}
+
+/* ═══ PONTO ═══ */
+.relogio{font:700 30px/1 "IBM Plex Sans Condensed",sans-serif;color:var(--steel);font-variant-numeric:tabular-nums}
+/* equipe agora */
+.equipe{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.pess{background:var(--sheet);border:1px solid var(--rule);border-left:5px solid var(--sc,var(--idle));border-radius:9px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pess-top{display:flex;gap:8px;align-items:flex-start}
+.pess-top div{flex:1;min-width:0}
+.pess-top b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pess-top small{display:block;color:var(--ink-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.slot{border:1px solid var(--rule);border-radius:5px;padding:2px 0;text-align:center;font:600 12.5px/1.4 "IBM Plex Sans Condensed",sans-serif;font-variant-numeric:tabular-nums;color:var(--ink)}
+.slot.prev{border-style:dashed;color:var(--ink-3);font-weight:500}
+.slot small{display:block;font:500 9.5px "IBM Plex Sans",sans-serif;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
+.st-trabalhando{--sc:var(--ok)} .st-intervalo{--sc:var(--amber)} .st-saiu{--sc:var(--steel)} .st-ausente{--sc:var(--bad)} .st-aguardando{--sc:var(--prog)} .st-folga{--sc:var(--idle)}
+/* feed */
+.feed{display:flex;flex-direction:column}
+.feed-l{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--rule-2);font-size:13.5px}
+.feed-l:last-child{border-bottom:0}
+.feed-l .h{font:700 15px "IBM Plex Sans Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.feed-l .n b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-l .n small{color:var(--ink-3);font-size:12px}
+.feed-l.novo{animation:entra 1.6s ease}
+@keyframes entra{0%{background:var(--ok-soft)}100%{background:transparent}}
+.terms{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0}
+.term{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--rule);border-radius:999px;padding:4px 12px;font-size:13px;background:var(--sheet)}
+.term i{width:8px;height:8px;border-radius:50%;background:var(--idle)} .term.on i{background:var(--ok)}
+
+/* terminal de batida */
+.terminal{background:var(--sheet);border:1px solid var(--rule);border-radius:16px;padding:22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:center;min-height:62vh}
+.term-esq{display:flex;flex-direction:column;gap:6px}
+.term-esq .uni{font:600 15px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.term-esq .hora{font:700 clamp(64px,9vw,120px)/0.95 "IBM Plex Sans Condensed",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.term-esq .hora small{font-size:.42em;color:var(--ink-3);margin-left:6px}
+.term-esq .data{font-size:18px;color:var(--ink-2)} .term-esq .data::first-letter{text-transform:uppercase}
+.term-status{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.leitor{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.digital{width:min(260px,60vw);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--steel-soft);color:var(--steel);border:3px solid var(--steel);position:relative;transition:background .25s,border-color .25s,color .25s}
+.digital svg{width:56%;height:56%}
+.digital::after{content:"";position:absolute;inset:-12px;border-radius:50%;border:2px solid currentColor;opacity:0}
+.digital.lendo::after{animation:onda 1.6s ease-out infinite}
+@keyframes onda{0%{opacity:.6;transform:scale(.92)}100%{opacity:0;transform:scale(1.18)}}
+.digital.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.digital.erro{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.digital.off{background:var(--idle-soft);color:var(--idle);border-color:var(--idle)}
+.leitor .msg-g{font:700 26px/1.2 "IBM Plex Sans Condensed",sans-serif;min-height:1.2em}
+.leitor .msg-p{color:var(--ink-3);font-size:14px;min-height:1.4em;max-width:42ch}
+.resultado{border:2px solid var(--ok);background:var(--ok-soft);border-radius:14px;padding:16px 20px;text-align:left;width:min(420px,100%)}
+.resultado b{display:block;font:700 28px/1.1 "IBM Plex Sans Condensed",sans-serif;color:var(--ink)}
+.resultado .tipo{font:700 18px "IBM Plex Sans Condensed",sans-serif;color:var(--ok);text-transform:uppercase;letter-spacing:.04em}
+.resultado dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:8px 0 0;font-size:13px}
+.resultado dt{color:var(--ink-3)} .resultado dd{margin:0;font-weight:600}
+.cfg-term{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--ink-3);margin-top:12px}
+.cfg-term select{width:auto}
+body.quiosque .bar,body.quiosque .side-rg,body.quiosque footer.doc-foot,body.quiosque .so-normal{display:none!important}
+body.quiosque .wrap{padding:16px}
+body.quiosque .terminal{min-height:calc(100vh - 32px)}
+.sair-q{position:fixed;right:12px;top:12px;z-index:30;opacity:.25} .sair-q:hover{opacity:1}
+
+/* espelho */
+table.esp td{white-space:nowrap}
+table.esp .bt{display:inline-block;min-width:44px;text-align:center;font:600 13px "IBM Plex Sans Condensed",sans-serif;font-variant-numeric:tabular-nums;border-radius:4px;padding:1px 4px;margin-right:2px}
+table.esp .bt.ajuste{background:var(--prog-soft);color:var(--prog)}
+table.esp .bt.fora{text-decoration:line-through;color:var(--ink-3)}
+table.esp .bt.teste{background:var(--amber-soft);color:var(--amber)}
+table.esp tr.fds td{background:var(--rule-2);color:var(--ink-3)}
+table.esp tr.pend td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
+.pos{color:var(--ok);font-weight:600} .neg{color:var(--bad);font-weight:600}
+a.nsr{font-size:11px;color:var(--ink-3);text-decoration:none} a.nsr:hover{text-decoration:underline}
+
+/* cadastros */
+.dias-sem{display:flex;gap:4px;flex-wrap:wrap}
+.dias-sem label{display:inline-flex;align-items:center;justify-content:center;width:44px;height:34px;border:1px solid var(--rule);border-radius:6px;font-size:13px;cursor:pointer;user-select:none}
+.dias-sem input{display:none}
+.dias-sem label:has(input:checked){background:var(--steel);border-color:var(--steel);color:var(--sheet);font-weight:600}
+.dedos{display:flex;gap:6px;flex-wrap:wrap}
+.dedo{border:1px solid var(--rule);border-radius:8px;padding:6px 10px;font-size:13px;display:flex;gap:8px;align-items:center;background:var(--paper)}
+.dedo.tem{border-color:var(--ok);background:var(--ok-soft)}
+.segredo{font:600 18px/1.3 ui-monospace,Consolas,monospace;background:var(--paper);border:2px dashed var(--amber);border-radius:8px;padding:12px 14px;word-break:break-all;user-select:all}
+.passos{margin:8px 0 0;padding-left:20px;font-size:14px} .passos li{margin:4px 0}
+
+@media (max-width:1100px){ .grid2{grid-template-columns:1fr} }
+@media (max-width:860px){
+  .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
+  .shell-item{flex-direction:column} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .doc-head{grid-template-columns:1fr} .terminal{grid-template-columns:1fr}
+}
+@media print{ .bar,.side-rg,.acoes,.filtros,.subnav,.so-tela{display:none!important} body{background:#fff} .wrap{padding:0} .shell-item{display:block} .tbl-wrap{max-height:none;overflow:visible} }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <span class="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
+  <a class="btn peq" href="/" target="_top" title="Voltar ao Painel de Sistemas">⌂ Painel de Sistemas</a>
+</div></div>
+<div class="wrap">
+  <div class="shell-item">
+    <nav class="side-rg" id="menu" aria-label="Seções do Ponto"></nav>
+    <div class="conteudo-item"><main id="root"><p class="cap">Carregando…</p></main></div>
+  </div>
+  <footer class="doc-foot">Ponto · registro por digital. A batida nunca é alterada nem apagada: cada uma tem número sequencial (NSR) e selo encadeado; ajuste é sempre um registro novo, com motivo e autor. Pessoas vêm do Organograma.</footer>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<dialog id="dlg"><div id="dlgCorpo"></div></dialog>
+<script>
+'use strict';
+const API = "/api/ponto";
+const AGENTE = "http://127.0.0.1:7071";      // programa do leitor, rodando no computador da loja
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dataBR = iso => iso ? iso.slice(0, 10).split("-").reverse().join("/") : "";
+const hhmm = m => { if (m == null) return "—"; const s = m < 0 ? "-" : ""; m = Math.abs(m); return `${s}${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+const DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+const DEDOS = { 1: "Polegar direito", 2: "Indicador direito", 3: "Médio direito", 4: "Anelar direito", 5: "Mínimo direito",
+  6: "Polegar esquerdo", 7: "Indicador esquerdo", 8: "Médio esquerdo", 9: "Anelar esquerdo", 10: "Mínimo esquerdo" };
+const ST = { trabalhando: ["Trabalhando", "p-ok"], intervalo: ["No intervalo", "p-warn"], saiu: ["Já saiu", "p-aco"],
+  ausente: ["Ausente", "p-bad"], aguardando: ["Ainda não chegou", "p-azul"], folga: ["Folga", "p-cinza"] };
+const INC_COR = { marcacao_impar: "p-bad", falta: "p-bad", interjornada: "p-bad", intervalo_curto: "p-warn", extra_excedida: "p-warn",
+  atraso: "p-warn", trabalho_em_folga: "p-azul", contingencia: "p-roxo" };
+let INI = null;   // /inicio: unidades, terminais, regras, nomes
+const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (_) { return ""; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+
+function toast(t, erro) { const d = document.createElement("div"); d.className = "toast" + (erro ? " erro" : ""); d.textContent = t; $("#toasts").appendChild(d); setTimeout(() => d.remove(), erro ? 6500 : 3200); }
+function status(t) { $("#dot").className = "dot " + t; }
+async function api(url, op = {}) {
+  status("salvando");
+  let r;
+  try { r = await fetch(API + url, { headers: { "Content-Type": "application/json" }, cache: "no-store", ...op }); }
+  catch (e) { status("erro"); throw new Error("Sem conexão com o servidor. Tente de novo."); }
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { $("#root").innerHTML = '<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  if (!r.ok) { status("erro"); const e = new Error(j.detail || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  status("ok"); return j;
+}
+const post = (u, b) => api(u, { method: "POST", body: JSON.stringify(b || {}) });
+const put = (u, b) => api(u, { method: "PUT", body: JSON.stringify(b || {}) });
+const del = u => api(u, { method: "DELETE" });
+
+// ═══ agente do leitor (no computador da loja) ═══
+async function agente(caminho, corpo, tempoMs = 4000) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), tempoMs);
+  try {
+    const r = await fetch(AGENTE + caminho, corpo ? { method: "POST", body: JSON.stringify(corpo), headers: { "Content-Type": "application/json" }, signal: ctl.signal } : { signal: ctl.signal, cache: "no-store" });
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function agenteStatus() { try { return await agente("/status", null, 1500); } catch (_) { return null; } }
+
+let _ac = null;
+function bip(ok) {
+  try { if (navigator.vibrate) navigator.vibrate(ok ? 60 : [120, 80, 120]); } catch (_) {}
+  try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); const o = _ac.createOscillator(), g = _ac.createGain();
+    o.frequency.value = ok ? 880 : 220; g.gain.value = .08; o.connect(g); g.connect(_ac.destination); o.start(); o.stop(_ac.currentTime + (ok ? .12 : .35)); } catch (_) {}
+}
+
+// ═══ acesso e navegação ═══
+let ABAS_N = null, NIVEL_SIS = 3, EMAIL = "", NOME = "";
+const SV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+const ICO_DIGITAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 11v3a8 8 0 0 1-1.2 4.3"/><path d="M8.6 5.6A6 6 0 0 1 18 10.6v1.9a14 14 0 0 1-.6 4"/><path d="M6 8.8A6 6 0 0 0 6 10.6v2.2a10 10 0 0 1-1.2 4.6"/><path d="M9 10.6a3 3 0 0 1 6 0V13a12 12 0 0 1-1.7 6.1"/><path d="M15.4 20.6c.2-.5.4-1 .5-1.6"/><path d="M4.2 5.6A10 10 0 0 1 20.8 7"/></svg>';
+const ICO = {
+  hoje: SV + '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  marcar: ICO_DIGITAL,
+  espelho: SV + '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  tratamento: SV + '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>',
+  cadastros: SV + '<circle cx="9" cy="8" r="3.5"/><path d="M2 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M17 11l2 2 4-4"/></svg>',
+};
+const SECOES = [["hoje", "Hoje"], ["marcar", "Bater ponto"], "sep", ["espelho", "Espelho"], ["tratamento", "Tratamento"], "sep", ["cadastros", "Cadastros"]];
+const MIN_ABA = { marcar: 2, cadastros: 3 };
+function nivelAba(id) { if (ABAS_N && id in ABAS_N) return Number(ABAS_N[id]) || 0; const n = NIVEL_SIS; return n < (MIN_ABA[id] || 1) ? 0 : (n >= 3 ? 4 : n); }
+const pode = (aba, n) => nivelAba(aba) >= n;
+let secao = (() => { try { return sessionStorage.getItem("pto_secao") || ""; } catch (_) { return ""; } })();
+const CONT = {};
+let timerHoje = null, timerRelogio = null, PARAR_LEITURA = null;
+
+function menu() {
+  const vis = SECOES.filter(x => x === "sep" || nivelAba(x[0]) >= 1);
+  if (!vis.some(x => x !== "sep" && x[0] === secao)) secao = (vis.find(x => x !== "sep") || ["hoje"])[0];
+  $("#menu").innerHTML = vis.map(x => x === "sep" ? '<div class="side-sep"></div>' :
+    `<button type="button" class="side-btn${x[0] === secao ? " ativo" : ""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${CONT[x[0]] ? `<span class="n">${CONT[x[0]]}</span>` : ""}</button>`).join("");
+  $$("[data-s]", $("#menu")).forEach(b => b.onclick = () => ir(b.dataset.s));
+}
+function parar() {
+  clearInterval(timerHoje); timerHoje = null; clearInterval(timerRelogio); timerRelogio = null;
+  if (PARAR_LEITURA) { PARAR_LEITURA(); PARAR_LEITURA = null; }
+  document.body.classList.remove("quiosque");
+}
+function ir(s) { parar(); secao = s; try { sessionStorage.setItem("pto_secao", s); } catch (_) {} render(); window.scrollTo(0, 0); }
+async function render() {
+  menu();
+  const c = $("#root");
+  try {
+    if (!INI) INI = await api("/inicio");
+    if (secao === "hoje") await rHoje(c);
+    else if (secao === "marcar") await rMarcar(c);
+    else if (secao === "espelho") await rEspelho(c);
+    else if (secao === "tratamento") await rTratamento(c);
+    else if (secao === "cadastros") await rCadastros(c);
+  } catch (e) { c.innerHTML = `<div class="conflito">${esc(e.message)}</div>`; }
+}
+
+// ═══ diálogo ═══
+function abrirDlg(html, montar) {
+  const d = $("#dlg"); $("#dlgCorpo").innerHTML = html; d.onclose = null;
+  if (!d.open) d.showModal();
+  if (montar) montar($("#dlgCorpo"), () => d.close());
+  return d;
+}
+const fecharDlg = () => { const d = $("#dlg"); if (d.open) d.close(); };
+const unidadeNome = id => (INI.unidades.find(u => u.id === id) || {}).nome || "";
+const optUnidades = (sel, vazio = "Todas as unidades") => `<option value="">${vazio}</option>` + INI.unidades.map(u => `<option value="${esc(u.id)}"${u.id === sel ? " selected" : ""}>${esc(u.nome)}</option>`).join("");
+const pillInc = (t, tratada) => `<span class="pill ${tratada ? "p-cinza" : (INC_COR[t] || "p-cinza")}" title="${tratada ? "Tratada" : "Pendente"}">${tratada ? "✓ " : ""}${esc(INI.nomes_inc[t] || t)}</span>`;
+
+// ═══════════════════════════════════════════════════════════════════════
+// HOJE — tempo real
+// ═══════════════════════════════════════════════════════════════════════
+let filtroHoje = { unidade: lsGet("pto_un_hoje"), status: "" }, ultimoNsr = 0;
+async function rHoje(c) {
+  const h = await api(`/hoje?unidade=${encodeURIComponent(filtroHoje.unidade)}`);
+  CONT.tratamento = CONT.tratamento || 0;
+  const k = h.kpis;
+  const kpi = (id, n, rot, cls, sub) => `<button type="button" class="kpi ${cls}${filtroHoje.status === id ? " ativo" : ""}" data-k="${id}"><span>${rot}</span><b>${n}</b>${sub ? `<small>${sub}</small>` : ""}</button>`;
+  const pessoas = h.pessoas.filter(p => !filtroHoje.status || (filtroHoje.status === "atrasados" ? p.atraso : p.status === filtroHoje.status));
+  const ordem = { ausente: 0, aguardando: 1, intervalo: 2, trabalhando: 3, saiu: 4, folga: 5 };
+  pessoas.sort((a, b) => ordem[a.status] - ordem[b.status] || a.nome.localeCompare(b.nome, "pt-BR"));
+  const novoMax = h.feed.length ? h.feed[0].nsr : 0;
+  c.innerHTML = `<section>
+    <div class="doc-head"><div><h1>Ponto · Hoje</h1><p class="obj">Quem já entrou, quem está no intervalo, quem saiu e quem ainda não chegou — atualiza sozinho a cada 15 segundos.</p>
+      ${INI.unidades.length ? `<div class="acoes" style="margin-bottom:0"><select id="hUn" style="width:auto">${optUnidades(filtroHoje.unidade)}</select></div>` : ""}</div>
+      <div class="stamp"><div class="code relogio" id="hRel">--:--:--</div><dl><dt>Data</dt><dd>${dataBR(h.data)}</dd><dt>Ativos no ponto</dt><dd>${h.pessoas.length}</dd>
+      <dt>Terminais online</dt><dd>${h.terminais.filter(t => t.online).length} de ${h.terminais.length}</dd></dl></div></div>
+    ${!INI.unidades.length && pode("cadastros", 3) ? `<div class="alerta">Comece por <b>Cadastros</b>: crie as unidades, os terminais e ative as pessoas no ponto (CPF, unidade e jornada).</div>` : ""}
+    <div class="kpis">${kpi("trabalhando", k.presentes, "Trabalhando agora", "k-ok")}${kpi("intervalo", k.intervalo, "No intervalo", "k-warn")}
+      ${kpi("saiu", k.sairam, "Já saíram", "k-aco")}${kpi("ausente", k.ausentes, "Ausentes", "k-bad", "previstos e sem batida")}
+      ${kpi("atrasados", k.atrasados, "Chegaram atrasados", "k-warn")}${kpi("folga", k.folga, "De folga hoje", "k-cinza")}</div>
+    ${k.sem_cadastro ? `<p class="cap">${k.sem_cadastro} pessoa(s) do Organograma ainda sem cadastro no ponto.${pode("cadastros", 1) ? ' <a href="#" id="hIrCad">Ver em Cadastros</a>' : ""}</p>` : ""}
+    <div class="grid2">
+      <div><header class="so-normal" style="display:flex;justify-content:space-between;align-items:baseline;margin:6px 0 8px"><h3 style="margin:0">Equipe agora ${filtroHoje.status ? `<span class="pill p-aco">${esc(filtroHoje.status === "atrasados" ? "Atrasados" : ST[filtroHoje.status][0])} <button class="peq" id="hLimpa" style="padding:0 4px;border:0;background:none">✕</button></span>` : ""}</h3><span class="muted" style="font-size:13px">${pessoas.length} pessoa(s)</span></header>
+        ${pessoas.length ? `<div class="equipe">${pessoas.map(cardPessoa).join("")}</div>` : `<div class="box muted">Ninguém nesta situação.</div>`}</div>
+      <div><h3 style="margin:6px 0 8px">Batidas em tempo real</h3>
+        <div class="box" style="padding:0;margin:0">${h.feed.length ? `<div class="feed">${h.feed.map(f => `<div class="feed-l${f.nsr > ultimoNsr && ultimoNsr ? " novo" : ""}">
+          <span class="h">${esc(f.hora.slice(0, 5))}</span><span class="n"><b>${esc(f.nome)}</b><small>${esc(f.tipo)} · ${esc(f.terminal || "")}${f.unidade ? " · " + esc(f.unidade) : ""}</small></span>
+          <span>${f.metodo === "teste" ? '<span class="pill p-roxo">teste</span>' : ""} <a class="nsr" href="#" data-nsr="${f.nsr}">NSR ${f.nsr}</a></span></div>`).join("")}</div>` : '<p class="muted" style="padding:14px 16px;margin:0">Nenhuma batida hoje ainda.</p>'}</div>
+        ${h.terminais.length ? `<h3>Terminais</h3><div class="terms">${h.terminais.map(t => `<span class="term${t.online ? " on" : ""}" title="${t.ultimo_sinal ? "Último sinal " + esc(t.ultimo_sinal.slice(11, 16)) : "Sem sinal hoje"}"><i></i>${esc(t.nome)} <span class="muted">${t.batidas_hoje}</span>${t.ativo ? "" : ' <span class="pill p-bad">bloqueado</span>'}</span>`).join("")}</div>` : ""}
+      </div></div></section>`;
+  ultimoNsr = novoMax;
+  if ($("#hUn")) $("#hUn").onchange = e => { filtroHoje.unidade = e.target.value; lsSet("pto_un_hoje", e.target.value); rHoje(c); };
+  $$("[data-k]", c).forEach(b => b.onclick = () => { filtroHoje.status = filtroHoje.status === b.dataset.k ? "" : b.dataset.k; rHoje(c); });
+  if ($("#hLimpa")) $("#hLimpa").onclick = () => { filtroHoje.status = ""; rHoje(c); };
+  if ($("#hIrCad")) $("#hIrCad").onclick = e => { e.preventDefault(); ir("cadastros"); };
+  $$("[data-nsr]", c).forEach(a => a.onclick = e => { e.preventDefault(); comprovante(+a.dataset.nsr); });
+  const tick = () => { const el = $("#hRel"); if (el) el.textContent = new Date().toLocaleTimeString("pt-BR"); };
+  tick(); clearInterval(timerRelogio); timerRelogio = setInterval(tick, 1000);
+  clearInterval(timerHoje); timerHoje = setInterval(() => { if (secao === "hoje" && !$("#dlg").open && document.visibilityState === "visible") rHoje(c).catch(() => status("erro")); }, 15000);
+}
+function cardPessoa(p) {
+  const rot = ["Entrada", "Intervalo", "Volta", "Saída"];
+  const slots = rot.map((r, i) => p.batidas[i] ? `<span class="slot">${esc(p.batidas[i])}<small>${r}</small></span>`
+    : `<span class="slot prev">${i === 0 && p.previsto[0] ? esc(p.previsto[0]) : i === 3 && p.previsto[1] ? esc(p.previsto[1]) : "—"}<small>${r}</small></span>`).join("");
+  return `<div class="pess st-${p.status}"><div class="pess-top"><div><b>${esc(p.nome)}</b><small>${esc(p.cargo || p.setor)}${p.unidade ? " · " + esc(p.unidade) : ""}</small></div>
+    <span class="pill ${ST[p.status][1]}">${ST[p.status][0]}</span></div><div class="slots">${slots}</div>
+    ${p.atraso ? '<span class="pill p-warn" style="align-self:flex-start">Chegou atrasado</span>' : ""}${p.batidas.length > 4 ? `<small class="muted">+${p.batidas.length - 4} batida(s)</small>` : ""}</div>`;
+}
+async function comprovante(nsr) {
+  try {
+    const m = await api(`/comprovante/${nsr}`);
+    abrirDlg(`<h3>Comprovante de registro de ponto</h3><p class="cap">Guarde ou imprima. A batida não pode ser alterada: o selo abaixo prova que ela é a mesma desde o registro.</p>
+      <div class="box" style="font-size:15px"><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0">
+      <dt class="muted">Empregador</dt><dd style="margin:0">${esc(m.empregador)}</dd><dt class="muted">Trabalhador</dt><dd style="margin:0"><b>${esc(m.nome)}</b> ${m.cpf ? "· CPF " + esc(m.cpf) : ""}</dd>
+      <dt class="muted">Data e hora</dt><dd style="margin:0"><b>${dataBR(m.data)} ${esc(m.hora)}</b> (Brasília)</dd><dt class="muted">NSR</dt><dd style="margin:0">${m.nsr}</dd>
+      <dt class="muted">Local</dt><dd style="margin:0">${esc(m.terminal || "")}${m.unidade ? " · " + esc(m.unidade) : ""}</dd><dt class="muted">Identificação</dt><dd style="margin:0">${m.metodo === "digital" ? "Digital" : '<span class="pill p-roxo">Teste (sem leitor)</span>'}</dd>
+      <dt class="muted">Selo</dt><dd style="margin:0;font:12px ui-monospace,monospace;word-break:break-all">${esc(m.hash)}</dd></dl></div>
+      <div class="acts"><button type="button" onclick="window.print()">Imprimir</button><button type="button" class="primary" id="fx">Fechar</button></div>`, (el, fechar) => { $("#fx", el).onclick = fechar; });
+  } catch (e) { toast(e.message, true); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BATER PONTO — tela do terminal (leitor de digital)
+// ═══════════════════════════════════════════════════════════════════════
+async function rMarcar(c) {
+  const tid = lsGet("pto_terminal");
+  const t = INI.terminais.find(x => x.id === tid);
+  c.innerHTML = `<section>
+    <header class="so-normal"><h2>Bater ponto</h2><p>Deixe esta tela aberta no computador com o leitor. A pessoa só encosta o dedo.</p>
+      <div class="direita"><button type="button" class="peq" id="mQ">⛶ Modo terminal (tela cheia)</button></div></header>
+    ${!INI.terminais.length ? `<div class="alerta">Nenhum terminal cadastrado. ${pode("cadastros", 3) ? "Crie um em <b>Cadastros → Terminais</b>." : "Peça a quem cuida dos cadastros."}</div>` : ""}
+    ${!INI.cripto_ok ? `<div class="alerta"><b>Digital desligada no servidor:</b> ${!INI.cripto_lib ? "falta a biblioteca cryptography." : "falta configurar a variável PONTO_CHAVE no Render."} ${INI.admin ? "Veja PONTO-LEIA.md." : "Avise o administrador."}</div>` : ""}
+    <div class="terminal">
+      <div class="term-esq"><span class="uni">${esc(t ? t.nome + (t.unidade_id ? " · " + unidadeNome(t.unidade_id) : "") : "Terminal não escolhido")}</span>
+        <div class="hora" id="mHora">--:--<small>--</small></div><div class="data" id="mData"></div>
+        <div class="term-status" id="mSt"></div>
+        <div class="cfg-term so-normal">Este computador é o terminal: <select id="mTerm"><option value="">— escolher —</option>${INI.terminais.filter(x => x.ativo).map(x => `<option value="${esc(x.id)}"${x.id === tid ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></div>
+        ${INI.admin ? `<details class="so-normal" style="margin-top:14px"><summary class="muted" style="cursor:pointer;font-size:13px">Modo de teste (só administrador, sem leitor)</summary>
+          <div class="acoes"><select id="mTP" style="width:auto;min-width:240px"><option value="">Carregando pessoas…</option></select><button type="button" class="peq" id="mTB">Simular digital</button></div>
+          <p class="cap">A batida de teste fica marcada como <b>teste</b> no comprovante e não entra no saldo do espelho.</p></details>` : ""}
+      </div>
+      <div class="leitor"><div class="digital off" id="mDig">${ICO_DIGITAL}</div><div class="msg-g" id="mMsg"></div><div class="msg-p" id="mSub"></div><div id="mRes"></div></div>
+    </div></section>`;
+  $("#mTerm").onchange = e => { lsSet("pto_terminal", e.target.value); ir("marcar"); };
+  $("#mQ").onclick = async () => { document.body.classList.add("quiosque"); try { await document.documentElement.requestFullscreen(); } catch (_) {}
+    if (!$(".sair-q")) { const b = document.createElement("button"); b.className = "sair-q peq"; b.textContent = "Sair do modo terminal"; b.onclick = () => { document.body.classList.remove("quiosque"); b.remove(); try { document.exitFullscreen(); } catch (_) {} }; document.body.appendChild(b); } };
+  // relógio pela hora do SERVIDOR (a do computador pode estar errada)
+  let dif = 0;
+  try { const d = await api(`/desafio?terminal_id=${encodeURIComponent(tid)}`); dif = new Date(d.hora_servidor).getTime() - Date.now(); } catch (_) {}
+  const tick = () => { const n = new Date(Date.now() + dif); const hm = n.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    const s = n.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", second: "2-digit" }).padStart(2, "0").slice(-2);
+    if ($("#mHora")) { $("#mHora").innerHTML = `${hm}<small>${s}</small>`; $("#mData").textContent = n.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }); } };
+  tick(); timerRelogio = setInterval(tick, 1000);
+  const dig = $("#mDig"), msg = (g, p, cls) => { $("#mMsg").textContent = g || ""; $("#mSub").textContent = p || ""; dig.className = "digital " + (cls || ""); };
+  const st = itens => { $("#mSt").innerHTML = itens.map(([txt, cls]) => `<span class="pill ${cls}">${esc(txt)}</span>`).join(""); };
+  const mostrar = r => {
+    bip(true); msg("", "", "ok");
+    $("#mRes").innerHTML = `<div class="resultado"><span class="tipo">${esc(r.tipo)}</span><b>${esc(r.nome)}</b><span class="muted">${esc(r.cargo || r.setor || "")}</span>
+      <dl><dt>Hora</dt><dd>${esc(r.hora)}</dd><dt>NSR</dt><dd>${r.nsr}</dd><dt>Selo</dt><dd style="font:12px ui-monospace,monospace">${esc(r.hash)}…</dd>${r.metodo === "teste" ? '<dt>Modo</dt><dd><span class="pill p-roxo">teste</span></dd>' : ""}</dl></div>`;
+    setTimeout(() => { if ($("#mRes")) $("#mRes").innerHTML = ""; }, 4000);
+  };
+  // modo de teste do administrador
+  if (INI.admin && $("#mTP")) {
+    api("/pessoas").then(ps => { $("#mTP").innerHTML = '<option value="">— pessoa —</option>' + ps.filter(p => p.ativo).map(p => `<option value="${esc(p.pid)}">${esc(p.nome)} · ${esc(p.setor)}</option>`).join(""); }).catch(() => {});
+    $("#mTB").onclick = async () => {
+      if (!tid) return toast("Escolha o terminal deste computador.", true);
+      if (!$("#mTP").value) return toast("Escolha a pessoa.", true);
+      try { mostrar(await post("/marcar", { terminal_id: tid, metodo: "teste", pessoa: $("#mTP").value, momento_aparelho: new Date().toISOString() })); }
+      catch (e) { bip(false); msg(e.status === 409 ? "Já registrado" : "Não registrado", e.message, "erro"); }
+    };
+  }
+  if (!tid) { msg("Escolha o terminal", "Selecione abaixo qual terminal é este computador.", "off"); st([["Sem terminal", "p-cinza"]]); return; }
+  // laço de leitura: agente → servidor
+  let ativo = true; PARAR_LEITURA = () => { ativo = false; };
+  let pacoteOk = false, ultimoPacote = 0;
+  while (ativo && secao === "marcar") {
+    const ag = await agenteStatus();
+    if (!ativo) break;
+    if (!ag || !ag.ok) {
+      msg("Leitor desconectado", "Abra o programa “KingPonto Agente” neste computador e confira o cabo USB do leitor.", "off");
+      st([["Servidor online", "p-ok"], ["Leitor offline", "p-bad"]]); pacoteOk = false;
+      await esperar(4000); continue;
+    }
+    if (ag.terminal_id && ag.terminal_id !== tid) {
+      msg("Terminal trocado", `O agente deste computador está configurado como outro terminal (${ag.terminal_id}).`, "erro");
+      st([["Agente de outro terminal", "p-bad"]]); await esperar(5000); continue;
+    }
+    st([["Servidor online", "p-ok"], [`Leitor ${ag.modelo || "ok"}`, "p-ok"], [pacoteOk ? "Digitais carregadas" : "Carregando digitais…", pacoteOk ? "p-aco" : "p-warn"]]);
+    try {
+      if (!pacoteOk || Date.now() - ultimoPacote > 10 * 60000) {   // recarrega a lista a cada 10 min (novos cadastros)
+        const p = await api(`/terminal/${encodeURIComponent(tid)}/pacote`);
+        const r = await agente("/pacote", { terminal_id: tid, pacote: p.pacote }, 15000);
+        if (!r.ok) throw new Error(r.motivo || "O agente não aceitou as digitais.");
+        pacoteOk = true; ultimoPacote = Date.now();
+        st([["Servidor online", "p-ok"], [`Leitor ${ag.modelo || "ok"}`, "p-ok"], [`${p.pessoas} pessoa(s) com digital`, "p-aco"]]);
+      }
+      if (!$("#mRes").innerHTML) msg("Coloque o dedo no leitor", "", "lendo");
+      const d = await api(`/desafio?terminal_id=${encodeURIComponent(tid)}`);
+      const r = await agente("/identificar", { terminal_id: tid, desafio: d.desafio, espera_seg: 25 }, 30000);
+      if (!ativo) break;
+      if (!r.ok) {
+        if (r.motivo === "tempo") continue;
+        bip(false); msg("Digital não reconhecida", "Tente de novo com o dedo bem apoiado. Se persistir, procure o gestor.", "erro");
+        await esperar(2500); continue;
+      }
+      const res = await post("/marcar", { terminal_id: tid, metodo: "digital", pessoa: r.pessoa, score: r.score, momento_aparelho: r.momento_aparelho, desafio: d.desafio, assinatura: r.assinatura });
+      mostrar(res); await esperar(1500);
+    } catch (e) {
+      if (!ativo) break;
+      bip(false); msg(e.status === 409 ? "Já registrado" : "Não registrado", e.message, "erro");
+      if (e.status === 409) await esperar(3000); else { pacoteOk = e.status ? pacoteOk : false; await esperar(4000); }
+    }
+  }
+}
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+// ═══════════════════════════════════════════════════════════════════════
+// ESPELHO
+// ═══════════════════════════════════════════════════════════════════════
+let PESSOAS = null, filtroEsp = { pessoa: lsGet("pto_esp_p"), de: "", ate: "", teste: false };
+async function rEspelho(c) {
+  PESSOAS = PESSOAS || await api("/pessoas");
+  if (!filtroEsp.pessoa || !PESSOAS.some(p => p.pid === filtroEsp.pessoa)) filtroEsp.pessoa = (PESSOAS[0] || {}).pid || "";
+  if (!PESSOAS.length) { c.innerHTML = `<section><header><h2>Espelho</h2></header><div class="box muted">Ninguém cadastrado no ponto ainda.</div></section>`; return; }
+  const q = new URLSearchParams({ pessoa: filtroEsp.pessoa, de: filtroEsp.de, ate: filtroEsp.ate, teste: filtroEsp.teste });
+  const e = await api(`/espelho?${q}`);
+  filtroEsp.de = e.de; filtroEsp.ate = e.ate;
+  const p = e.pessoa, t = e.totais, j = p.jornada || {};
+  const ajusta = pode("tratamento", 3);
+  c.innerHTML = `<section>
+    <div class="filtros so-tela"><label class="f busca" style="grid-column:span 2">Pessoa<select id="eP">${PESSOAS.map(x => `<option value="${esc(x.pid)}"${x.pid === filtroEsp.pessoa ? " selected" : ""}>${esc(x.nome)} · ${esc(x.setor)}</option>`).join("")}</select></label>
+      <label class="f">De<input type="date" id="eDe" value="${e.de}"></label><label class="f">Até<input type="date" id="eAte" value="${e.ate}"></label>
+      <label class="chk"><input type="checkbox" id="eT"${filtroEsp.teste ? " checked" : ""}> mostrar batidas de teste</label></div>
+    <div class="doc-head"><div><h1>${esc(p.nome)}</h1><p class="obj">${esc(p.cargo)} · ${esc(p.setor)}${p.unidade_id ? " · " + esc(unidadeNome(p.unidade_id)) : ""}</p>
+      <p class="obj muted" style="font-size:13px">Jornada: ${j.entrada ? `${(j.dias || []).map(d => DIAS[d]).join(", ")} · ${esc(j.entrada)}${j.saida_int ? ` – ${esc(j.saida_int)} / ${esc(j.retorno)}` : ""} – ${esc(j.saida)}` : "não definida"}</p></div>
+      <div class="stamp"><div class="code">Espelho de ponto</div><dl><dt>Período</dt><dd>${dataBR(e.de)} a ${dataBR(e.ate)}</dd><dt>CPF</dt><dd>${esc(p.cpf ? p.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : "—")}</dd><dt>Matrícula</dt><dd>${esc(p.matricula || "—")}</dd></dl></div></div>
+    <div class="kpis"><div class="kpi k-aco"><span>Previsto</span><b>${hhmm(t.previsto)}</b></div><div class="kpi k-ok"><span>Trabalhado</span><b>${hhmm(t.trabalhado)}</b></div>
+      <div class="kpi ${t.saldo < 0 ? "k-bad" : "k-ok"}"><span>Saldo do período</span><b class="${t.saldo < 0 ? "neg" : "pos"}">${t.saldo > 0 ? "+" : ""}${hhmm(t.saldo)}</b><small>já com tolerância</small></div>
+      <div class="kpi k-bad"><span>Faltas</span><b>${t.faltas}</b></div><div class="kpi k-warn"><span>Atrasos</span><b>${hhmm(t.atraso)}</b></div>
+      <div class="kpi ${t.pendentes ? "k-bad" : "k-cinza"}"><span>Ocorrências pendentes</span><b>${t.pendentes}</b></div></div>
+    <div class="acoes so-tela"><button type="button" onclick="window.print()">Imprimir espelho</button></div>
+    <div class="tbl-wrap"><table class="esp"><thead><tr><th>Dia</th><th>Batidas</th><th class="num">Previsto</th><th class="num">Trabalhado</th><th class="num">Saldo</th><th>Ocorrências</th>${ajusta ? '<th class="so-tela"></th>' : ""}</tr></thead><tbody>
+    ${e.dias.map(l => {
+      const bts = l.marcacoes.map(m => `<span class="bt${m.desconsiderada ? " fora" : ""}${m.metodo === "teste" ? " teste" : ""}" title="NSR ${m.nsr}${m.desconsiderada ? " · desconsiderada" : ""}">${esc(m.hora)}</span>`)
+        .concat(l.ajustes.filter(a => a.tipo === "incluir").map(a => `<span class="bt ajuste" title="Incluída por ${esc(a.por)}: ${esc(a.motivo)}">${esc(a.horario)}</span>`)).join("");
+      const fds = !l.previsto && !l.batidas.length;
+      return `<tr class="${fds ? "fds" : ""}${l.pendentes.length ? " pend" : ""}"><td><b>${dataBR(l.data).slice(0, 5)}</b> <span class="muted">${l.dia_semana}</span>${l.feriado ? ` <span class="pill p-azul">${esc(l.feriado)}</span>` : ""}</td>
+        <td>${bts || (l.abonado ? '<span class="pill p-aco">abonado</span>' : '<span class="muted">—</span>')}</td>
+        <td class="num">${l.previsto ? hhmm(l.previsto) : '<span class="muted">folga</span>'}${l.em_andamento && l.data === INI.hoje ? '<span class="sub">em andamento</span>' : ""}</td><td class="num">${l.trabalhado ? hhmm(l.trabalhado) : "—"}</td>
+        <td class="num ${l.saldo < 0 ? "neg" : l.saldo > 0 ? "pos" : ""}">${l.saldo ? (l.saldo > 0 ? "+" : "") + hhmm(l.saldo) : "—"}</td>
+        <td>${l.inconsistencias.map(i => pillInc(i, l.tratadas.includes(i))).join(" ")}${l.ajustes.filter(a => a.tipo !== "incluir").map(a => ` <span class="pill p-aco" title="${esc(a.por)}: ${esc(a.motivo)}">${esc(INI.tipos_ajuste[a.tipo])}</span>`).join("")}</td>
+        ${ajusta ? `<td class="so-tela">${l.data < INI.hoje || l.batidas.length ? `<button type="button" class="peq" data-aj="${l.data}">Ajustar</button>` : ""}</td>` : ""}</tr>`; }).join("")}
+    </tbody><tfoot><tr><td colspan="2"><b>Total</b></td><td class="num"><b>${hhmm(t.previsto)}</b></td><td class="num"><b>${hhmm(t.trabalhado)}</b></td><td class="num ${t.saldo < 0 ? "neg" : "pos"}"><b>${t.saldo > 0 ? "+" : ""}${hhmm(t.saldo)}</b></td><td colspan="${ajusta ? 2 : 1}"></td></tr></tfoot></table></div>
+    <p class="cap" style="margin-top:10px">Azul = batida incluída em ajuste · riscada = desconsiderada · amarela = teste. Tolerância: ${INI.regras.tol_marcacao} min por batida, ${INI.regras.tol_dia} min no dia. Dia com batida faltando não soma saldo até ser tratado.</p></section>`;
+  $("#eP").onchange = ev => { filtroEsp.pessoa = ev.target.value; lsSet("pto_esp_p", ev.target.value); rEspelho(c); };
+  $("#eDe").onchange = ev => { filtroEsp.de = ev.target.value; rEspelho(c); };
+  $("#eAte").onchange = ev => { filtroEsp.ate = ev.target.value; rEspelho(c); };
+  $("#eT").onchange = ev => { filtroEsp.teste = ev.target.checked; rEspelho(c); };
+  $$("[data-aj]", c).forEach(b => b.onclick = () => dlgAjuste(p, e.dias.find(l => l.data === b.dataset.aj), () => rEspelho(c)));
+}
+
+function dlgAjuste(p, dia, depois, inconsistencia) {
+  const tipos = INI.tipos_ajuste;
+  const marcs = dia.marcacoes.filter(m => !m.desconsiderada);
+  abrirDlg(`<h3>Ajustar ${esc(p.nome)} · ${dataBR(dia.data)}</h3>
+    <p class="cap">A batida original nunca é alterada: o ajuste fica registrado à parte, com o seu nome e o motivo.</p>
+    <p>Batidas do dia: ${dia.batidas.length ? dia.batidas.map(esc).join(" · ") : "nenhuma"}${dia.inconsistencias.length ? "<br>" + dia.inconsistencias.map(i => pillInc(i, dia.tratadas.includes(i))).join(" ") : ""}</p>
+    <div class="grade"><label class="f">O que fazer<select id="aT">${Object.entries(tipos).map(([k, v]) => `<option value="${k}"${(inconsistencia ? "justificar" : "incluir") === k ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+      <label class="f" id="aHl">Horário<input type="time" id="aH"></label>
+      <label class="f" id="aNl" hidden>Batida<select id="aN">${marcs.map(m => `<option value="${m.nsr}">${esc(m.hora)} · NSR ${m.nsr}</option>`).join("") || '<option value="">(sem batidas)</option>'}</select></label>
+      <label class="f" id="aIl" hidden>Ocorrência<select id="aI">${(dia.inconsistencias.length ? dia.inconsistencias : Object.keys(INI.nomes_inc)).map(i => `<option value="${i}"${i === inconsistencia ? " selected" : ""}>${esc(INI.nomes_inc[i])}</option>`).join("")}</select></label></div>
+    <label class="f" style="margin-top:12px">Motivo (obrigatório)<textarea id="aM" placeholder="Ex.: esqueceu de bater na volta do almoço — confirmado com o gestor"></textarea></label>
+    <div class="acts"><button type="button" id="aC">Cancelar</button><button type="button" class="primary" id="aS">Registrar ajuste</button></div>`, (el, fechar) => {
+    const vis = () => { const t = $("#aT", el).value; $("#aHl", el).hidden = t !== "incluir"; $("#aNl", el).hidden = t !== "desconsiderar"; $("#aIl", el).hidden = t !== "justificar"; };
+    $("#aT", el).onchange = vis; vis();
+    $("#aC", el).onclick = fechar;
+    $("#aS", el).onclick = async () => {
+      const t = $("#aT", el).value;
+      try {
+        await post("/ajustes", { pessoa: p.pid, data: dia.data, tipo: t, motivo: $("#aM", el).value, horario: t === "incluir" ? $("#aH", el).value : null,
+          nsr: t === "desconsiderar" ? +$("#aN", el).value || null : null, inconsistencia: t === "justificar" ? $("#aI", el).value : null });
+        toast("Ajuste registrado."); fechar(); depois && depois();
+      } catch (e) { toast(e.message, true); }
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TRATAMENTO
+// ═══════════════════════════════════════════════════════════════════════
+let filtroTr = { de: "", ate: "", unidade: "", tipo: "", sub: "pend" };
+async function rTratamento(c) {
+  const subnav = `<nav class="subnav" role="tablist">${[["pend", "Ocorrências pendentes"], ["hist", "Histórico de ajustes"], ["integ", "Integridade das batidas"]].map(([k, n]) => `<button type="button" role="tab" data-sub="${k}" aria-selected="${filtroTr.sub === k}">${n}</button>`).join("")}</nav>`;
+  const filtros = () => `<div class="filtros"><label class="f">De<input type="date" id="tDe" value="${filtroTr.de}"></label><label class="f">Até<input type="date" id="tAte" value="${filtroTr.ate}"></label>
+    ${INI.unidades.length ? `<label class="f">Unidade<select id="tUn">${optUnidades(filtroTr.unidade)}</select></label>` : ""}</div>`;
+  const ligarFiltros = () => {
+    $("#tDe").onchange = e => { filtroTr.de = e.target.value; rTratamento(c); };
+    $("#tAte").onchange = e => { filtroTr.ate = e.target.value; rTratamento(c); };
+    if ($("#tUn")) $("#tUn").onchange = e => { filtroTr.unidade = e.target.value; rTratamento(c); };
+    $$("[data-sub]", c).forEach(b => b.onclick = () => { filtroTr.sub = b.dataset.sub; rTratamento(c); });
+  };
+  const head = `<header><h2>Tratamento</h2><p>Tudo que precisa de decisão antes do fechamento. O dia de hoje entra amanhã.</p></header>`;
+  if (filtroTr.sub === "integ") {
+    const r = await api("/integridade");
+    c.innerHTML = `<section>${head}${subnav}<div class="box" style="border-left:6px solid ${r.ok ? "var(--ok)" : "var(--bad)"}">
+      <h3>${r.ok ? "✓ Corrente de batidas íntegra" : "⚠ Problema na corrente de batidas"}</h3>
+      <p>${r.conferidas} batida(s) conferidas desde ${dataBR(r.desde)}. Cada batida carrega o selo da anterior: se alguém alterar ou apagar uma batida direto no banco, ela aparece aqui.</p>
+      ${r.quebras.length ? `<p class="conflito">Selo não confere nos NSR: ${r.quebras.join(", ")}</p>` : ""}${r.buracos.length ? `<p class="conflito">NSR faltando: ${r.buracos.join(", ")}</p>` : ""}</div></section>`;
+    $$("[data-sub]", c).forEach(b => b.onclick = () => { filtroTr.sub = b.dataset.sub; rTratamento(c); });
+    return;
+  }
+  if (filtroTr.sub === "hist") {
+    const l = await api(`/ajustes?de=${filtroTr.de}&ate=${filtroTr.ate}`);
+    c.innerHTML = `<section>${head}${subnav}${filtros()}<div class="tbl-wrap"><table><thead><tr><th>Dia</th><th>Pessoa</th><th>Ajuste</th><th>Motivo</th><th>Quem fez</th><th>Quando</th></tr></thead><tbody>
+      ${l.map(a => `<tr><td>${dataBR(a.data)}</td><td>${esc(a.nome)}</td><td>${esc(INI.tipos_ajuste[a.tipo])}${a.horario ? " · " + esc(a.horario) : ""}${a.nsr ? " · NSR " + a.nsr : ""}${a.inconsistencia ? " · " + esc(INI.nomes_inc[a.inconsistencia] || a.inconsistencia) : ""}</td>
+        <td style="white-space:normal;max-width:380px">${esc(a.motivo)}</td><td>${esc(a.por)}</td><td>${esc((a.criado_em || "").replace("T", " ").slice(0, 16))}</td></tr>`).join("") || '<tr><td colspan="6" class="muted">Nenhum ajuste no período.</td></tr>'}</tbody></table></div></section>`;
+    ligarFiltros(); return;
+  }
+  const r = await api(`/tratamento?de=${filtroTr.de}&ate=${filtroTr.ate}&unidade=${encodeURIComponent(filtroTr.unidade)}`);
+  filtroTr.de = filtroTr.de || r.de; filtroTr.ate = filtroTr.ate || r.ate;
+  CONT.tratamento = r.itens.length; menu();
+  const porTipo = {}; r.itens.forEach(i => porTipo[i.tipo] = (porTipo[i.tipo] || 0) + 1);
+  const itens = r.itens.filter(i => !filtroTr.tipo || i.tipo === filtroTr.tipo);
+  const ajusta = pode("tratamento", 3);
+  c.innerHTML = `<section>${head}${subnav}${filtros()}
+    <div class="kpis">${Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<button type="button" class="kpi ${(INC_COR[t] || "").replace("p-", "k-").replace("k-azul", "k-azul")}${filtroTr.tipo === t ? " ativo" : ""}" data-t="${t}"><span>${esc(INI.nomes_inc[t] || t)}</span><b>${n}</b></button>`).join("") || '<div class="kpi k-ok"><span>Pendências</span><b>0</b><small>tudo tratado no período</small></div>'}</div>
+    ${itens.length ? `<div class="tbl-wrap"><table><thead><tr><th>Dia</th><th>Pessoa</th><th>Ocorrência</th><th>Batidas</th><th class="num">Previsto</th><th class="num">Trabalhado</th>${ajusta ? "<th></th>" : ""}</tr></thead><tbody>
+      ${itens.map((i, k) => `<tr><td>${dataBR(i.data)} <span class="muted">${i.dia_semana}</span></td><td><b>${esc(i.nome)}</b><span class="sub">${esc(i.setor)}</span></td><td>${pillInc(i.tipo)}</td>
+        <td>${i.batidas.map(esc).join(" · ") || '<span class="muted">nenhuma</span>'}</td><td class="num">${hhmm(i.previsto)}</td><td class="num">${hhmm(i.trabalhado)}</td>
+        ${ajusta ? `<td><button type="button" class="peq primary" data-i="${k}">Tratar</button> <button type="button" class="peq" data-v="${k}">Espelho</button></td>` : ""}</tr>`).join("")}</tbody></table></div>` : ""}</section>`;
+  ligarFiltros();
+  $$("[data-t]", c).forEach(b => b.onclick = () => { filtroTr.tipo = filtroTr.tipo === b.dataset.t ? "" : b.dataset.t; rTratamento(c); });
+  $$("[data-i]", c).forEach(b => b.onclick = async () => {
+    const i = itens[+b.dataset.i];
+    const e = await api(`/espelho?pessoa=${encodeURIComponent(i.pid)}&de=${i.data}&ate=${i.data}`);
+    dlgAjuste(e.pessoa, e.dias[0], () => rTratamento(c), ["falta", "atraso"].includes(i.tipo) ? null : i.tipo);
+    if (i.tipo === "falta") $("#aT").value = "abonar";
+    if (i.tipo === "marcacao_impar") $("#aT").value = "incluir";
+    $("#aT").dispatchEvent(new Event("change"));
+  });
+  $$("[data-v]", c).forEach(b => b.onclick = () => { const i = itens[+b.dataset.v]; filtroEsp.pessoa = i.pid; filtroEsp.de = r.de; filtroEsp.ate = r.ate; ir("espelho"); });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CADASTROS
+// ═══════════════════════════════════════════════════════════════════════
+let subCad = "pessoas", filtroCad = { busca: "", setor: "", situacao: "" };
+async function rCadastros(c) {
+  const edita = pode("cadastros", 3), exclui = pode("cadastros", 4);
+  const subnav = `<nav class="subnav" role="tablist">${[["pessoas", "Colaboradores"], ["unidades", "Unidades"], ["terminais", "Terminais e leitores"], ["regras", "Regras e feriados"]].map(([k, n]) => `<button type="button" role="tab" data-sub="${k}" aria-selected="${subCad === k}">${n}</button>`).join("")}</nav>`;
+  const head = `<header><h2>Cadastros do Ponto</h2><p>${edita ? "Pessoas vêm do Organograma — aqui ficam só os dados do ponto." : "Seu acesso aqui é de consulta."}</p></header>`;
+  const lig = () => $$("[data-sub]", c).forEach(b => b.onclick = () => { subCad = b.dataset.sub; rCadastros(c); });
+  const aviso = !INI.cripto_ok ? `<div class="alerta"><b>Leitura de digital desligada:</b> ${!INI.cripto_lib ? "falta a biblioteca cryptography no servidor." : "falta a variável PONTO_CHAVE no Render."} O resto do cadastro funciona normalmente.</div>` : "";
+
+  if (subCad === "unidades") {
+    let lista = INI.unidades.map(u => ({ ...u }));
+    const desenhar = () => {
+      c.innerHTML = `<section>${head}${subnav}<p class="cap">Lojas, CD e escritórios onde há terminal de ponto. Cada pessoa e cada terminal pertencem a uma unidade.</p>
+        <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Cidade</th><th>UF</th>${edita ? "<th></th>" : ""}</tr></thead><tbody>
+        ${lista.map((u, i) => `<tr><td><input data-i="${i}" data-k="nome" value="${esc(u.nome)}" ${edita ? "" : "disabled"} placeholder="Ex.: Loja Osasco"></td><td><input data-i="${i}" data-k="cidade" value="${esc(u.cidade || "")}" ${edita ? "" : "disabled"}></td>
+          <td style="width:80px"><input data-i="${i}" data-k="uf" value="${esc(u.uf || "")}" maxlength="2" ${edita ? "" : "disabled"}></td>${edita ? `<td style="width:60px"><button type="button" class="peq warn" data-x="${i}">✕</button></td>` : ""}</tr>`).join("") || '<tr><td colspan="4" class="muted">Nenhuma unidade.</td></tr>'}
+        </tbody></table></div>${edita ? `<div class="acoes"><button type="button" id="uN">+ Unidade</button><button type="button" class="primary" id="uS">Salvar unidades</button></div>` : ""}</section>`;
+      lig();
+      $$("input[data-i]", c).forEach(inp => inp.oninput = () => { lista[+inp.dataset.i][inp.dataset.k] = inp.value; });
+      $$("[data-x]", c).forEach(b => b.onclick = () => { lista.splice(+b.dataset.x, 1); desenhar(); });
+      if ($("#uN")) $("#uN").onclick = () => { lista.push({ nome: "", cidade: "", uf: "SP" }); desenhar(); $$("input[data-k=nome]", c).pop().focus(); };
+      if ($("#uS")) $("#uS").onclick = async () => { try { INI.unidades = await put("/unidades", { unidades: lista }); toast("Unidades salvas."); rCadastros(c); } catch (e) { toast(e.message, true); } };
+    };
+    desenhar(); return;
+  }
+
+  if (subCad === "terminais") {
+    c.innerHTML = `<section>${head}${subnav}${aviso}
+      <div class="box"><h3>Como ligar um leitor</h3><ol class="passos">
+        <li>Ligue o leitor de digital USB no computador da loja e instale o <b>KingPonto Agente</b> (pasta <code>kingponto-agente</code> do PQI).</li>
+        <li>Crie o terminal aqui. Aparece um <b>segredo</b> uma única vez — digite-o no agente.</li>
+        <li>No mesmo computador, entre no PQI com o login do gestor da loja, abra <b>Ponto → Bater ponto</b>, escolha o terminal e clique em <b>Modo terminal</b>.</li></ol></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Terminal</th><th>Unidade</th><th>Situação</th><th>Último sinal</th><th>Segredo gerado em</th>${edita ? "<th></th>" : ""}</tr></thead><tbody>
+      ${INI.terminais.map(t => `<tr><td><b>${esc(t.nome)}</b><span class="sub">${esc(t.id)} · criado por ${esc(t.criado_por || "—")}</span></td><td>${esc(unidadeNome(t.unidade_id) || "—")}</td>
+        <td>${t.ativo ? '<span class="pill p-ok">Ativo</span>' : '<span class="pill p-bad">Bloqueado</span>'}</td><td>${esc((t.ultimo_sinal || "—").replace("T", " ").slice(0, 16))}</td><td>${esc((t.segredo_em || "—").replace("T", " ").slice(0, 16))}</td>
+        ${edita ? `<td style="white-space:nowrap"><button type="button" class="peq" data-ed="${t.id}">Editar</button> <button type="button" class="peq" data-bl="${t.id}">${t.ativo ? "Bloquear" : "Ativar"}</button> <button type="button" class="peq" data-sg="${t.id}">Novo segredo</button>${exclui ? ` <button type="button" class="peq warn" data-ex="${t.id}">Excluir</button>` : ""}</td>` : ""}</tr>`).join("") || '<tr><td colspan="6" class="muted">Nenhum terminal.</td></tr>'}
+      </tbody></table></div>${edita ? '<div class="acoes"><button type="button" class="primary" id="tN">+ Novo terminal</button></div>' : ""}</section>`;
+    lig();
+    const recarregar = async () => { INI = await api("/inicio"); rCadastros(c); };
+    const mostraSegredo = t => abrirDlg(`<h3>Segredo do terminal “${esc(t.nome)}”</h3><p>Digite este código no <b>KingPonto Agente</b> do computador da loja. <b>Ele não aparece de novo</b> — se perder, gere outro.</p>
+      <div class="segredo">${esc(t.segredo)}</div><p class="cap">Id do terminal: <b>${esc(t.id)}</b> (o agente também pede).</p>
+      <div class="acts"><button type="button" id="sgC">Copiar</button><button type="button" class="primary" id="sgF">Já anotei</button></div>`, (el, fechar) => {
+      $("#sgC", el).onclick = () => { navigator.clipboard.writeText(`${t.id} ${t.segredo}`).then(() => toast("Copiado.")).catch(() => toast("Selecione e copie manualmente.", true)); };
+      $("#sgF", el).onclick = () => { fechar(); recarregar(); };
+    });
+    const form = (t, salvar) => abrirDlg(`<h3>${t ? "Editar terminal" : "Novo terminal"}</h3><div class="grade"><label class="f">Nome<input id="tnN" value="${esc(t ? t.nome : "")}" placeholder="Ex.: Loja Osasco — balcão"></label>
+      <label class="f">Unidade<select id="tnU">${optUnidades(t ? t.unidade_id : "", "— sem unidade —")}</select></label></div>
+      <div class="acts"><button type="button" id="tnC">Cancelar</button><button type="button" class="primary" id="tnS">${t ? "Salvar" : "Criar e gerar segredo"}</button></div>`, (el, fechar) => {
+      $("#tnC", el).onclick = fechar;
+      $("#tnS", el).onclick = async () => { try { await salvar({ nome: $("#tnN", el).value, unidade_id: $("#tnU", el).value }); } catch (e) { toast(e.message, true); } };
+    });
+    if ($("#tN")) $("#tN").onclick = () => form(null, async d => mostraSegredo(await post("/terminais", d)));
+    $$("[data-ed]", c).forEach(b => b.onclick = () => form(INI.terminais.find(t => t.id === b.dataset.ed), async d => { await put(`/terminais/${b.dataset.ed}`, d); fecharDlg(); toast("Terminal salvo."); recarregar(); }));
+    $$("[data-bl]", c).forEach(b => b.onclick = async () => { const t = INI.terminais.find(x => x.id === b.dataset.bl); try { await put(`/terminais/${t.id}`, { ativo: !t.ativo }); toast(t.ativo ? "Terminal bloqueado." : "Terminal ativado."); recarregar(); } catch (e) { toast(e.message, true); } });
+    $$("[data-sg]", c).forEach(b => b.onclick = async () => { if (!confirm("Gerar um segredo novo? O agente desse computador para de funcionar até receber o código novo.")) return; try { mostraSegredo(await post(`/terminais/${b.dataset.sg}/novo-segredo`)); } catch (e) { toast(e.message, true); } });
+    $$("[data-ex]", c).forEach(b => b.onclick = async () => { if (!confirm("Excluir este terminal?")) return; try { await del(`/terminais/${b.dataset.ex}`); toast("Terminal excluído."); recarregar(); } catch (e) { toast(e.message, true); } });
+    return;
+  }
+
+  if (subCad === "regras") {
+    const R = INI.regras; let fer = INI.feriados.map(f => ({ ...f }));
+    const campo = (k, rot, dica) => `<label class="f">${rot}<input type="number" min="0" data-r="${k}" value="${R[k]}" ${edita ? "" : "disabled"}><span class="muted" style="font-size:12px">${dica}</span></label>`;
+    const desenhar = () => {
+      c.innerHTML = `<section>${head}${subnav}<p class="cap">Estes números dependem da convenção coletiva — confirme com o RH/jurídico antes de mudar.</p>
+        <div class="box"><h3>Regras de apuração</h3><div class="grade">${campo("tol_marcacao", "Tolerância por batida (min)", "CLT art. 58 §1º: até 5")}${campo("tol_dia", "Tolerância no dia (min)", "CLT: até 10")}
+          ${campo("intervalo_min_6h", "Intervalo mínimo, jornada > 6 h (min)", "CLT: 60")}${campo("intervalo_min_4h", "Intervalo mínimo, 4–6 h (min)", "CLT: 15")}
+          ${campo("interjornada_h", "Descanso entre jornadas (h)", "CLT: 11")}${campo("extra_max_dia", "Alerta de extra no dia (min)", "CLT: 120")}
+          ${campo("duplicada_min", "Ignorar batida repetida em (min)", "evita bater duas vezes")}${campo("periodo_inicio", "Período começa no dia", "ex.: 21 → do dia 21 ao 20")}</div></div>
+        <div class="box"><h3>Feriados</h3><p class="cap">Dia de feriado não conta como previsto (sem falta). Batida em feriado aparece como ocorrência.</p>
+          <div class="tbl-wrap"><table><thead><tr><th style="width:180px">Data</th><th>Nome</th>${edita ? "<th></th>" : ""}</tr></thead><tbody>
+          ${fer.map((f, i) => `<tr><td><input type="date" data-f="${i}" data-k="data" value="${esc(f.data)}" ${edita ? "" : "disabled"}></td><td><input data-f="${i}" data-k="nome" value="${esc(f.nome)}" ${edita ? "" : "disabled"}></td>${edita ? `<td style="width:60px"><button type="button" class="peq warn" data-fx="${i}">✕</button></td>` : ""}</tr>`).join("") || '<tr><td colspan="3" class="muted">Nenhum feriado.</td></tr>'}
+          </tbody></table></div>${edita ? '<div class="acoes"><button type="button" id="fN">+ Feriado</button></div>' : ""}</div>
+        ${edita ? '<div class="acoes"><button type="button" class="primary" id="rS">Salvar regras e feriados</button></div>' : ""}</section>`;
+      lig();
+      $$("[data-f]", c).forEach(inp => inp.oninput = () => { fer[+inp.dataset.f][inp.dataset.k] = inp.value; });
+      $$("[data-fx]", c).forEach(b => b.onclick = () => { fer.splice(+b.dataset.fx, 1); desenhar(); });
+      if ($("#fN")) $("#fN").onclick = () => { fer.push({ data: "", nome: "" }); desenhar(); };
+      if ($("#rS")) $("#rS").onclick = async () => {
+        const regras = {}; $$("[data-r]", c).forEach(i => regras[i.dataset.r] = +i.value);
+        try { const r = await put("/regras", { regras, feriados: fer }); INI.regras = r.regras; INI.feriados = r.feriados; toast("Regras salvas."); rCadastros(c); } catch (e) { toast(e.message, true); }
+      };
+    };
+    desenhar(); return;
+  }
+
+  // ── colaboradores ──
+  const lista = await api("/colaboradores");
+  const setores = [...new Map(lista.map(p => [p.setor_id, p.setor])).entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  const sit = p => !p.cadastrado ? "sem" : !p.ativo ? "inativo" : !p.digitais.length ? "sem_digital" : "ok";
+  const SIT = { ok: ["Ativo com digital", "p-ok"], sem_digital: ["Ativo, falta digital", "p-warn"], inativo: ["Inativo no ponto", "p-cinza"], sem: ["Sem cadastro", "p-azul"] };
+  const cont = {}; lista.forEach(p => cont[sit(p)] = (cont[sit(p)] || 0) + 1);
+  const f = filtroCad, nrm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const vis = lista.filter(p => (!f.setor || p.setor_id === f.setor) && (!f.situacao || sit(p) === f.situacao) && (!f.busca || nrm(p.nome + " " + p.cargo + " " + p.cpf + " " + p.matricula).includes(nrm(f.busca))));
+  c.innerHTML = `<section>${head}${subnav}${aviso}
+    <div class="kpis">${Object.entries(SIT).map(([k, [n]]) => `<button type="button" class="kpi ${{ ok: "k-ok", sem_digital: "k-warn", inativo: "k-cinza", sem: "k-azul" }[k]}${f.situacao === k ? " ativo" : ""}" data-sit="${k}"><span>${n}</span><b>${cont[k] || 0}</b></button>`).join("")}</div>
+    <div class="filtros"><label class="f" style="grid-column:span 2">Buscar<input id="cB" value="${esc(f.busca)}" placeholder="Nome, cargo, CPF ou matrícula"></label>
+      <label class="f">Setor<select id="cS"><option value="">Todos os setores</option>${setores.map(([id, n]) => `<option value="${esc(id)}"${id === f.setor ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <button type="button" class="peq" id="cR" title="Lê o Organograma de novo">↻ Atualizar do Organograma</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Pessoa</th><th>Setor</th><th>CPF</th><th>Unidade</th><th>Jornada</th><th>Digitais</th><th>Situação</th></tr></thead><tbody>
+    ${vis.map(p => { const j = p.jornada || {}; return `<tr class="clic" data-p="${esc(p.pid)}"><td><b>${esc(p.nome)}</b><span class="sub">${esc(p.cargo)}${p.no_organograma ? "" : ' · <span class="pill p-bad">saiu do Organograma</span>'}</span></td>
+      <td>${esc(p.setor)}${p.subsetor ? `<span class="sub">${esc(p.subsetor)}</span>` : ""}</td><td>${p.cpf ? esc(p.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")) : '<span class="muted">—</span>'}</td>
+      <td>${esc(unidadeNome(p.unidade_id) || "—")}</td><td>${j.entrada ? `${esc(j.entrada)}–${esc(j.saida)}${p.jornada_sugerida ? ' <span class="pill p-azul" title="Lido do horário do Organograma — confirme">sugerida</span>' : ""}` : `<span class="muted">${esc(p.horario || "—")}</span>`}</td>
+      <td>${p.digitais.length ? `<span class="pill p-ok">${p.digitais.length} dedo(s)</span>` : '<span class="muted">—</span>'}</td><td><span class="pill ${SIT[sit(p)][1]}">${SIT[sit(p)][0]}</span></td></tr>`; }).join("") || '<tr><td colspan="7" class="muted">Ninguém com esse filtro.</td></tr>'}
+    </tbody></table></div><p class="cap" style="margin-top:8px">${vis.length} de ${lista.length} pessoa(s) do Organograma. Clique numa linha para ${edita ? "editar o cadastro do ponto e ler a digital" : "ver"}.</p></section>`;
+  lig();
+  let tb; $("#cB").oninput = e => { clearTimeout(tb); tb = setTimeout(() => { f.busca = e.target.value; rCadastros(c).then(() => { const i = $("#cB"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 300); };
+  $("#cS").onchange = e => { f.setor = e.target.value; rCadastros(c); };
+  $("#cR").onclick = async () => { await api("/colaboradores?recarregar=true"); toast("Organograma relido."); rCadastros(c); };
+  $$("[data-sit]", c).forEach(b => b.onclick = () => { f.situacao = f.situacao === b.dataset.sit ? "" : b.dataset.sit; rCadastros(c); });
+  $$("[data-p]", c).forEach(tr => tr.onclick = () => dlgColab(lista.find(p => p.pid === tr.dataset.p), () => { PESSOAS = null; rCadastros(c); }));
+}
+
+function dlgColab(p, depois) {
+  const edita = pode("cadastros", 3), exclui = pode("cadastros", 4), dis = edita ? "" : "disabled";
+  const j = p.jornada || {};
+  const hora = (k, rot) => `<label class="f">${rot}<input type="time" data-j="${k}" value="${esc(j[k] || "")}" ${dis}></label>`;
+  abrirDlg(`<h3>${esc(p.nome)}</h3><p class="cap">${esc(p.cargo)} · ${esc(p.setor)}${p.gestor ? " · responde a " + esc(p.gestor) : ""}${p.escala ? " · escala " + esc(p.escala) : ""}${p.horario ? " · horário no Organograma: " + esc(p.horario) : ""}</p>
+    <div class="box"><h3>Dados do ponto</h3><div class="grade">
+      <label class="f">CPF *<input id="cpf" value="${esc(p.cpf ? p.cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : "")}" inputmode="numeric" placeholder="000.000.000-00" ${dis}></label>
+      <label class="f">Matrícula<input id="mat" value="${esc(p.matricula)}" ${dis}></label>
+      <label class="f">Unidade<select id="uni" ${dis}>${optUnidades(p.unidade_id, "— escolher —")}</select></label>
+      <label class="f">Situação<select id="atv" ${dis}><option value="1"${p.ativo || !p.cadastrado ? " selected" : ""}>Ativo no ponto</option><option value="0"${p.cadastrado && !p.ativo ? " selected" : ""}>Inativo (não bate ponto)</option></select></label></div></div>
+    <div class="box"><h3>Jornada ${p.jornada_sugerida && j.entrada ? '<span class="pill p-azul">sugerida pelo horário do Organograma — confira</span>' : ""}</h3>
+      <div class="dias-sem">${DIAS.map((d, i) => `<label><input type="checkbox" data-d="${i}"${(j.dias || []).includes(i) ? " checked" : ""} ${dis}>${d}</label>`).join("")}</div>
+      <div class="grade" style="margin-top:10px">${hora("entrada", "Entrada")}${hora("saida_int", "Saída p/ intervalo")}${hora("retorno", "Volta do intervalo")}${hora("saida", "Saída")}</div></div>
+    <div class="box"><h3>Digitais</h3>
+      <div class="dedos">${p.digitais.length ? p.digitais.map(d => `<span class="dedo tem">☝ ${esc(DEDOS[d.dedo] || "Dedo " + d.dedo)} <span class="muted" style="font-size:12px">${esc((d.em || "").slice(0, 10).split("-").reverse().join("/"))} · ${esc(d.por || "")}</span>${exclui ? ` <button type="button" class="peq warn" data-xd="${d.dedo}" title="Excluir esta digital">✕</button>` : ""}</span>`).join("") : '<span class="muted">Nenhuma digital cadastrada. Cadastre 2 dedos (se um machucar, o outro funciona).</span>'}</div>
+      ${edita ? `<div class="grade" style="margin-top:12px"><label class="f">Dedo<select id="dd">${Object.entries(DEDOS).map(([k, n]) => `<option value="${k}"${+k === (p.digitais.length ? 7 : 2) ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+        <label class="f">Leitor (terminal)<select id="dt">${INI.terminais.filter(t => t.ativo).map(t => `<option value="${esc(t.id)}"${t.id === lsGet("pto_terminal") ? " selected" : ""}>${esc(t.nome)}</option>`).join("") || '<option value="">nenhum terminal</option>'}</select></label></div>
+        <label class="chk" style="margin-top:10px;align-items:flex-start"><input type="checkbox" id="lgpd"> <span>A pessoa leu e aceitou o <b>termo de uso da biometria</b>: a digital é usada só para registrar o ponto, fica guardada cifrada (nunca a imagem) e é apagada no desligamento (LGPD, dado sensível).</span></label>
+        <div class="acoes"><button type="button" id="dL"${INI.cripto_ok ? "" : " disabled"}>☝ Ler digital no leitor</button>${INI.admin ? `<button type="button" class="peq" id="dT"${INI.cripto_ok ? "" : " disabled"}>Gravar digital de teste</button>` : ""}<span class="muted" id="dMsg" style="font-size:13px"></span></div>` : ""}</div>
+    <div class="acts"><button type="button" id="cC">${edita ? "Cancelar" : "Fechar"}</button>${edita ? '<button type="button" class="primary" id="cS">Salvar cadastro</button>' : ""}</div>`, (el, fechar) => {
+    $("#cC", el).onclick = fechar;
+    const dados = () => ({ cpf: $("#cpf", el).value, matricula: $("#mat", el).value, unidade_id: $("#uni", el).value, ativo: $("#atv", el).value === "1",
+      jornada: { dias: $$("[data-d]", el).filter(i => i.checked).map(i => +i.dataset.d), ...Object.fromEntries($$("[data-j]", el).map(i => [i.dataset.j, i.value])) } });
+    const salvar = async () => { const r = await put(`/colaboradores/${encodeURIComponent(p.pid)}`, dados()); Object.assign(p, r); return r; };
+    if ($("#cS", el)) $("#cS", el).onclick = async () => { try { await salvar(); toast("Cadastro salvo."); fechar(); } catch (e) { toast(e.message, true); } };
+    const gravarDigital = async corpo => {
+      if (!$("#lgpd", el).checked) return toast("Marque o aceite do termo de biometria (LGPD).", true);
+      try {
+        if (!p.cadastrado) await salvar();
+        const r = await post(`/colaboradores/${encodeURIComponent(p.pid)}/digital`, { dedo: +$("#dd", el).value, termo_lgpd: true, terminal_id: $("#dt", el).value, ...corpo });
+        Object.assign(p, r); toast(`Digital do ${DEDOS[$("#dd", el).value].toLowerCase()} gravada.`); dlgColab(p, depois);
+      } catch (e) { toast(e.message, true); $("#dMsg", el).textContent = ""; }
+    };
+    if ($("#dT", el)) $("#dT", el).onclick = () => gravarDigital({ teste: true });
+    if ($("#dL", el)) $("#dL", el).onclick = async () => {
+      const tid = $("#dt", el).value;
+      if (!tid) return toast("Cadastre um terminal primeiro.", true);
+      if (!$("#lgpd", el).checked) return toast("Marque o aceite do termo de biometria (LGPD).", true);
+      const ag = await agenteStatus();
+      if (!ag || !ag.ok) return toast("Leitor não encontrado neste computador: abra o KingPonto Agente e confira o cabo USB.", true);
+      $("#dMsg", el).textContent = "Coloque o dedo 3 vezes no leitor, levantando entre uma e outra…";
+      try {
+        const r = await agente("/capturar", { terminal_id: tid, leituras: 3 }, 60000);
+        if (!r.ok) throw new Error(r.motivo || "Leitura não concluída.");
+        $("#dMsg", el).textContent = `Leitura ok (qualidade ${r.qualidade}). Gravando…`;
+        await gravarDigital({ pacote: r.pacote, qualidade: r.qualidade });
+      } catch (e) { $("#dMsg", el).textContent = ""; toast(e.name === "AbortError" ? "O leitor demorou demais. Tente de novo." : e.message, true); }
+    };
+    $$("[data-xd]", el).forEach(b => b.onclick = async () => {
+      if (!confirm("Excluir esta digital? (No desligamento, exclua todas — exigência da LGPD.)")) return;
+      try { Object.assign(p, await del(`/colaboradores/${encodeURIComponent(p.pid)}/digital/${b.dataset.xd}`)); toast("Digital excluída."); dlgColab(p, depois); } catch (e) { toast(e.message, true); }
+    });
+  });
+  const d = $("#dlg"); d.onclose = () => depois && depois();
+}
+
+// ═══ início ═══
+(async () => {
+  try {
+    const a = window.PQI_ACESSO ? await PQI_ACESSO.pronto : null;
+    if (a && a.carregado) { ABAS_N = a.abas || null; NIVEL_SIS = a.nivelSistema != null ? a.nivelSistema : a.nivel; EMAIL = a.email; }
+    const me = await fetch("/api/auth/me", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+    NOME = (me && me.usuario && (me.usuario.nome || me.usuario.email)) || EMAIL;
+    $("#whoTxt").textContent = `${NOME} · Ponto`;
+    status("ok");
+  } catch (_) { status("erro"); }
+  render();
+})();
+</script>
+</body>
+</html>
