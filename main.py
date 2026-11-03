@@ -3248,6 +3248,7 @@ PAGINAS = {
     "/mapa": "mapa.html",
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
+    "/ponto": "ponto.html",                                              # Ponto — registro por digital [v5.1]
     "/admin": "admin.html",                                              # Usuários e Permissões (só admin)
 }
 
@@ -3273,6 +3274,10 @@ def acesso_js():
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld
 qld.ligar(app, usuario_atual=usuario_atual, exigir_aba=_exigir_aba, nivel_aba=_nivel_aba)
+
+# [v5.1] PONTO — rotas em ponto.py (mesmo login e permissão por aba)
+import ponto as pto
+pto.ligar(app, usuario_atual=usuario_atual, exigir_aba=_exigir_aba, nivel_aba=_nivel_aba)
 
 
 for _rota, _arquivo in PAGINAS.items():

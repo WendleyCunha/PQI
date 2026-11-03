@@ -126,6 +126,25 @@ MODULOS = [
             {"id": "cadastros", "nome": "Cadastros", "min": 3},
         ],
     },
+    {
+        # [v5.1] PONTO — registro de ponto por digital. Pessoas vêm do Organograma (só leitura).
+        # Ninguém ganha acesso sozinho: o administrador libera em Segurança (pensado para o perfil Gerente).
+        # Para alguém de alçada menor editar SÓ os cadastros: sistema "Visualizar" + aba Cadastros "Excluir"
+        # (e as outras abas "Sem acesso") no acesso por pessoa.
+        "id": "ponto",
+        "nome": "Ponto — Registro por Digital",
+        "descricao": "Bater ponto com a digital, quem está presente agora, espelho, tratamento de ocorrências e cadastros.",
+        "url": "/ponto", "icone": "⏱️", "tipo": "nuvem",
+        "paginas": ["/ponto"],
+        "apis": ["/api/ponto"],
+        "abas": [
+            {"id": "hoje", "nome": "Hoje (tempo real)"},
+            {"id": "marcar", "nome": "Bater ponto (terminal)", "min": 2},
+            {"id": "espelho", "nome": "Espelho"},
+            {"id": "tratamento", "nome": "Tratamento"},
+            {"id": "cadastros", "nome": "Cadastros", "min": 3},
+        ],
+    },
 ]
 
 # Só aparece pra quem é admin (não precisa liberar — vem junto com o papel).
