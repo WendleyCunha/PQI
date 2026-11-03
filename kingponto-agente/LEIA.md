@@ -13,11 +13,11 @@ A tela **Ponto → Bater ponto** do PQI conversa com ele (só dentro do próprio
    pip install cryptography
    python agente.py
    ```
-4. Ele pergunta:
-   - **Id do terminal** e **segredo** → aparecem no PQI ao criar o terminal
-     (Ponto → Cadastros → Terminais e leitores → Novo terminal). O segredo só aparece uma vez.
+4. Ele pergunta só duas coisas:
    - **Endereço do PQI** → o mesmo que você abre no navegador (ex.: `https://pqi.onrender.com`).
    - **Driver do leitor** → `simulado` para testar sem leitor; o nome do driver do modelo comprado depois.
+   Não há id de terminal nem segredo: **o terminal é o login**. Quem entrar no PQI neste
+   computador e abrir **Ponto → Bater ponto** conecta o leitor ao terminal daquele login.
 5. Deixe a janela aberta. Para iniciar junto com o Windows: crie um atalho para
    `python C:\kingponto-agente\agente.py` em `shell:startup`.
 
@@ -29,6 +29,6 @@ Clique em **Permitir** — é o agente, no próprio computador.
 ## Segurança
 
 - Só escuta em `127.0.0.1` e só responde ao endereço do PQI configurado.
-- As digitais chegam do PQI **cifradas com o segredo deste terminal** e ficam só na memória.
-- Cada leitura é **assinada** com o segredo: o PQI recusa batida "por digital" sem assinatura válida.
-- Perdeu o computador ou o segredo vazou? No PQI, **Bloquear** o terminal ou **Novo segredo**.
+- A chave do terminal vem do PQI pelo login (ninguém digita) e fica só na memória.
+- As digitais chegam **cifradas** e ficam só na memória; cada leitura é **assinada** e o desafio vale uma vez só.
+- Perdeu o aparelho? No PQI, Cadastros → Terminais → **Bloquear** o terminal daquele login.

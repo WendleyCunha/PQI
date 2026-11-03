@@ -57,7 +57,7 @@ def _gravar_marc(montar):
 
 ORG = [{"id": "loja", "dados": {"nome": "Loja Osasco", "cor": "#2E4A7A", "pessoas": [
     {"id": "p1", "nome": "Ana Souza", "cargo": "Gerente de loja", "horario": "08:00 às 17:48 · intervalo 12:00-13:00", "escala": "6x1"},
-    {"id": "p2", "nome": "Bruno Lima", "cargo": "Vendedor", "gestor_id": "p1", "horario": "09:00 às 18:00"},
+    {"id": "p2", "nome": "Bruno Lima", "cargo": "Vendedor", "gestor_id": "p1", "horario": "09:00 às 18:00", "email": "Bruno@ks"},
     {"id": "p3", "nome": "", "cargo": "Vendedor", "vaga": True}]}}]
 
 
@@ -147,10 +147,7 @@ def teste_fluxo():
     USUARIO.update(papel="usuario", abas=dict(GERENTE))
     c = cliente()
     ok(c.put("/api/ponto/unidades", json={"unidades": [{"nome": "Loja Osasco", "cidade": "Osasco", "uf": "sp"}]}).status_code == 200, "cria unidade")
-    t = c.post("/api/ponto/terminais", json={"nome": "Loja Osasco — balcão", "unidade_id": "loja-osasco"}).json()
-    seg, tid = t["segredo"], t["id"]
-    ok(seg.startswith("KP-"), "terminal novo devolve o segredo uma única vez")
-    ok("segredo" not in c.get("/api/ponto/inicio").json()["terminais"][0] and "segredo_cif" not in json.dumps(c.get("/api/ponto/inicio").json()), "segredo nunca volta nas listagens")
+    ok(not any(r.path == "/api/ponto/terminais" and "POST" in r.methods for r in P.router.routes), "não existe mais cadastro manual de terminal nem segredo")
     lista = c.get("/api/ponto/colaboradores").json()
     ok(len(lista) == 2 and all(not p["cadastrado"] for p in lista), "pessoas vêm do Organograma (vaga fica de fora)")
     r = c.put("/api/ponto/colaboradores/loja.p1", json={"cpf": "529.982.247-25", "matricula": "100", "unidade_id": "loja-osasco", "ativo": True,
@@ -159,49 +156,70 @@ def teste_fluxo():
     ok(c.put("/api/ponto/colaboradores/loja.p2", json={"cpf": "52998224725", "ativo": True, "jornada": {}}).status_code == 409, "CPF repetido é recusado")
     ok(c.put("/api/ponto/colaboradores/loja.p2", json={"cpf": "111", "ativo": True, "jornada": {}}).status_code == 400, "CPF inválido é recusado")
 
-    # cadastro da digital: o agente lê e cifra com a chave do terminal
+    # o terminal é o LOGIN: nasce sozinho, sem escolher e sem segredo
+    T = c.get("/api/ponto/terminal").json()
+    seg, tid = T["chave"], T["id"]
+    ok(T["login"] == "gerente@ks" and T["ativo"] and seg, "abrir Bater ponto cria o terminal deste login automaticamente")
+    ok(c.get("/api/ponto/terminal").json()["id"] == tid and len(P.cfg()["terminais"]) == 1, "o mesmo login é sempre o mesmo terminal")
+    ok(T["unidade_id"] == "", "sem pista ainda, a unidade fica em branco (automática)")
+    ok("chave" not in json.dumps(c.get("/api/ponto/inicio").json()["terminais"]) and "chave_cif" not in json.dumps(c.get("/api/ponto/inicio").json()), "a chave nunca aparece nas listagens")
+
+    # cadastro da digital: o agente lê e cifra com a chave do terminal do login
     k_cap = P._k_terminal(seg, "captura")
     template = hashlib.sha256(b"simulado|ana").digest() * 2
     pac = P.cifrar(k_cap, template, b"captura")
-    ok(c.post("/api/ponto/colaboradores/loja.p1/digital", json={"terminal_id": tid, "dedo": 2, "pacote": pac, "qualidade": 90}).status_code == 400,
+    ok(c.post("/api/ponto/colaboradores/loja.p1/digital", json={"dedo": 2, "pacote": pac, "qualidade": 90}).status_code == 400,
        "sem aceite do termo LGPD a digital não é gravada")
-    r = c.post("/api/ponto/colaboradores/loja.p1/digital", json={"terminal_id": tid, "dedo": 2, "pacote": pac, "qualidade": 90, "termo_lgpd": True})
-    ok(r.status_code == 200 and r.json()["digitais"][0]["dedo"] == 2, "digital gravada")
+    r = c.post("/api/ponto/colaboradores/loja.p1/digital", json={"dedo": 2, "pacote": pac, "qualidade": 90, "termo_lgpd": True})
+    ok(r.status_code == 200 and r.json()["digitais"][0]["dedo"] == 2, "digital gravada (sem escolher leitor/terminal)")
     guardado = BANCO[P.COL_COLAB]["loja.p1"]["digitais"][0]["t"]
     ok(template not in base64.b64decode(guardado), "no banco a digital está cifrada (nunca o template aberto)")
-    falso = P.cifrar(P._k_terminal("KP-outro", "captura"), template, b"captura")
-    ok(c.post("/api/ponto/colaboradores/loja.p1/digital", json={"terminal_id": tid, "dedo": 3, "pacote": falso, "termo_lgpd": True}).status_code == 400,
-       "leitura cifrada com outro segredo é recusada")
+    falso = P.cifrar(P._k_terminal("outra-chave", "captura"), template, b"captura")
+    ok(c.post("/api/ponto/colaboradores/loja.p1/digital", json={"dedo": 3, "pacote": falso, "termo_lgpd": True}).status_code == 400,
+       "leitura cifrada com outra chave é recusada")
 
-    # o agente recebe o pacote e consegue abrir (a página não)
-    pk = c.get(f"/api/ponto/terminal/{tid}/pacote").json()
+    pk = c.get("/api/ponto/terminal/pacote").json()
     itens = json.loads(P.decifrar(P._k_terminal(seg, "pacote"), pk["pacote"], tid.encode()))["itens"]
-    ok(base64.b64decode(itens[0]["t"]) == template and itens[0]["p"] == "loja.p1", "pacote de digitais abre só com o segredo do terminal")
+    ok(base64.b64decode(itens[0]["t"]) == template and itens[0]["p"] == "loja.p1", "pacote de digitais abre com a chave do terminal do login")
 
     def bater(pessoa="loja.p1", segredo=seg, score=100):
-        d = c.get(f"/api/ponto/desafio?terminal_id={tid}").json()["desafio"]
+        d = c.get("/api/ponto/desafio").json()["desafio"]
         mom = "2026-11-03T08:01:00-03:00"
         ass = hmac.new(P._k_terminal(segredo, "assina"), f"{d}|{pessoa}|{score}|{mom}".encode(), hashlib.sha256).hexdigest()
-        return c.post("/api/ponto/marcar", json={"terminal_id": tid, "pessoa": pessoa, "score": score, "momento_aparelho": mom, "desafio": d, "assinatura": ass})
+        return c.post("/api/ponto/marcar", json={"pessoa": pessoa, "score": score, "momento_aparelho": mom, "desafio": d, "assinatura": ass})
 
     r = bater()
-    ok(r.status_code == 200 and r.json()["nsr"] == 1 and r.json()["tipo"] == "Entrada", "batida assinada pelo agente grava NSR 1 (Entrada)")
+    ok(r.status_code == 200 and r.json()["nsr"] == 1 and r.json()["tipo"] == "Entrada", "batida só com o dedo (nada escolhido) grava NSR 1 (Entrada)")
+    ok(P.terminal(tid)["unidade_id"] == "loja-osasco" and P.terminal(tid)["unidade_auto"], "unidade do terminal veio sozinha (a de quem bateu o 1º ponto)")
+    ok(BANCO[P.COL_MARC]["0000000001"]["operador"] == "gerente@ks", "a batida guarda o login do terminal")
     ok(bater().status_code == 409, "batida repetida em menos de 2 min não grava")
-    ok(bater(segredo="KP-falso").status_code == 403, "assinatura falsa (sem o agente) é recusada")
-    d = c.get(f"/api/ponto/desafio?terminal_id={tid}").json()["desafio"]
+    ok(bater(segredo="falso").status_code == 403, "assinatura falsa (sem o leitor) é recusada")
+    d = c.get("/api/ponto/desafio").json()["desafio"]
     ass = hmac.new(P._k_terminal(seg, "assina"), f"{d}|loja.p1|100|x".encode(), hashlib.sha256).hexdigest()
-    corpo = {"terminal_id": tid, "pessoa": "loja.p1", "score": 100, "momento_aparelho": "x", "desafio": d, "assinatura": ass}
+    corpo = {"pessoa": "loja.p1", "score": 100, "momento_aparelho": "x", "desafio": d, "assinatura": ass}
     P.cfg()["regras"]["duplicada_min"] = 0   # libera a regra dos 2 min para o resto do teste
     ok(c.post("/api/ponto/marcar", json=corpo).status_code == 200, "batida nova grava")
     ok(c.post("/api/ponto/marcar", json=corpo).status_code == 400, "o mesmo desafio não serve duas vezes (sem replay)")
-    ok(c.post("/api/ponto/marcar", json={"terminal_id": tid, "metodo": "teste", "pessoa": "loja.p1"}).status_code == 403, "modo teste é só para administrador")
+    ok(c.post("/api/ponto/marcar", json={"metodo": "teste", "pessoa": "loja.p1"}).status_code == 403, "modo teste é só para administrador")
+
+    # outro login = outro terminal; unidade pelo Organograma (mesmo e-mail)
+    eu = dict(USUARIO)
+    USUARIO.update(email="bruno@ks", nome="Bruno")
+    c.put("/api/ponto/unidades", json={"unidades": [{"id": "loja-osasco", "nome": "Loja Osasco"}, {"nome": "CD Barueri"}]})
+    c.put("/api/ponto/colaboradores/loja.p2", json={"cpf": "11144477735", "ativo": True, "unidade_id": "cd-barueri", "jornada": {}})
+    T2 = c.get("/api/ponto/terminal").json()
+    ok(T2["id"] != tid and T2["unidade_id"] == "cd-barueri", "outro login vira outro terminal, com a unidade da pessoa do login no Organograma")
+    ok(c.put(f"/api/ponto/terminais/{T2['id']}", json={"unidade_id": "loja-osasco"}).status_code == 200 and not P.terminal(T2["id"])["unidade_auto"],
+       "corrigir a unidade à mão fica gravado para aquele login")
+    ok(c.put(f"/api/ponto/terminais/{T2['id']}", json={"ativo": False}).status_code == 200 and
+       c.post("/api/ponto/marcar", json={"metodo": "teste", "pessoa": "loja.p1"}).status_code == 403, "terminal bloqueado não registra batida")
+    USUARIO.clear(); USUARIO.update(eu)
 
     # muitas batidas em paralelo: NSR sem buraco nem repetição
     USUARIO["papel"] = "admin"
-    c.put("/api/ponto/colaboradores/loja.p2", json={"cpf": "11144477735", "ativo": True, "jornada": {}})
     for _ in range(25):
         for pid in ("loja.p1", "loja.p2"):
-            assert c.post("/api/ponto/marcar", json={"terminal_id": tid, "metodo": "teste", "pessoa": pid}).status_code == 200
+            assert c.post("/api/ponto/marcar", json={"metodo": "teste", "pessoa": pid}).status_code == 200
     nsrs = sorted(m["nsr"] for m in BANCO[P.COL_MARC].values())
     ok(nsrs == list(range(1, len(nsrs) + 1)), f"{len(nsrs)} batidas em 2 pessoas: NSR de 1 a {len(nsrs)} sem buraco nem repetição")
     USUARIO["papel"] = "usuario"
@@ -236,13 +254,13 @@ def teste_permissoes():
     USUARIO["abas"] = {"cadastros": 4}   # alçada menor: SÓ Cadastros, edição completa
     ok(c.get("/api/ponto/colaboradores").status_code == 200, "só-Cadastros: vê os colaboradores")
     ok(c.put("/api/ponto/unidades", json={"unidades": [{"nome": "CD"}]}).status_code == 200, "só-Cadastros: edita unidades")
-    t = c.post("/api/ponto/terminais", json={"nome": "CD"}).json()
+    t = c.get("/api/ponto/terminal").json()
     ok(c.delete(f"/api/ponto/terminais/{t['id']}").status_code == 200, "só-Cadastros com Excluir: exclui terminal")
     ok(c.get("/api/ponto/hoje").status_code == 403, "só-Cadastros: NÃO vê o Hoje")
     ok(c.get("/api/ponto/espelho?pessoa=loja.p1").status_code == 403, "só-Cadastros: NÃO vê espelho")
     ok(c.post("/api/ponto/ajustes", json={"pessoa": "x", "data": "2026-01-01", "tipo": "abonar", "motivo": "teste teste"}).status_code == 403, "só-Cadastros: NÃO ajusta ponto")
     USUARIO["abas"] = {"cadastros": 3}
-    t = c.post("/api/ponto/terminais", json={"nome": "CD 2"}).json()
+    t = c.get("/api/ponto/terminal").json()
     ok(c.delete(f"/api/ponto/terminais/{t['id']}").status_code == 403, "Cadastros em Editar (sem Excluir): não exclui")
     USUARIO["abas"] = {"hoje": 1, "espelho": 1}
     ok(c.put("/api/ponto/unidades", json={"unidades": []}).status_code == 403, "só consulta: não grava cadastro")

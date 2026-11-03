@@ -26,16 +26,21 @@ REGRAS QUE NÃO SE QUEBRAM
   5. Digital: nunca a imagem — só o "template" do leitor, cifrado (AES-256-GCM)
      com a chave PONTO_CHAVE (variável de ambiente no Render, fora do banco).
 
-COMO A DIGITAL CHEGA AQUI SEM PODER SER FALSIFICADA
-  O leitor USB fica ligado num computador da loja, onde roda o AGENTE
-  (pasta kingponto-agente/). Cada terminal cadastrado ganha um SEGREDO, que é
-  digitado uma vez no agente. Na batida:
-     tela pede um DESAFIO ao servidor → agente lê o dedo, identifica a pessoa e
-     ASSINA (desafio + pessoa + hora) com o segredo → servidor confere a
-     assinatura. Sem o agente daquele terminal, ninguém fabrica uma batida
-     "por digital" — nem mexendo na tela.
-  Os templates viajam do servidor para o agente CIFRADOS com a chave do
-  terminal: a página do navegador só repassa um pacote que não consegue abrir.
+O TERMINAL É O LOGIN  [v5.2]
+  Quem entra no PQI com a aba "Bater ponto" liberada transforma aquele aparelho
+  no terminal — sem escolher nada e sem segredo para digitar. O terminal nasce
+  sozinho no primeiro uso (um por login) e a UNIDADE também é automática:
+    1º o Organograma: a pessoa do login (mesmo e-mail) tem unidade no ponto;
+    2º senão, a unidade de quem bater o primeiro ponto ali.
+  Dá para corrigir em Cadastros → Terminais, e fica gravado para aquele login.
+
+COMO A DIGITAL CHEGA AQUI
+  O leitor USB fica ligado no aparelho (PC com o AGENTE, pasta kingponto-agente/,
+  ou celular Android com o app). Ao abrir "Bater ponto", a tela entrega ao agente
+  a chave do terminal daquele login (gerada pelo servidor, ninguém digita nada).
+  Na batida: tela pede um DESAFIO → agente lê o dedo, identifica a pessoa e
+  ASSINA (desafio + pessoa + hora) → servidor confere. O desafio vale uma vez só
+  e por 2 minutos; a batida fica gravada com o login e o terminal que a fizeram.
 
 Coleções do Firestore (prefixo pto_)
   pto_marc     1 documento por batida (id = NSR com 10 dígitos)   ← nunca alterado
@@ -322,16 +327,67 @@ def terminal(tid: str) -> Optional[dict]:
 
 
 def terminal_publico(t: dict) -> dict:
-    return {k: t.get(k) for k in ("id", "nome", "unidade_id", "ativo", "criado_em", "criado_por", "ultimo_sinal", "segredo_em")}
+    return {**{k: t.get(k) for k in ("id", "login", "nome", "unidade_id", "unidade_auto", "ativo", "criado_em", "criado_por", "ultimo_sinal")},
+            "unidade_nome": _unidade_nome(t.get("unidade_id") or "")}
+
+
+def _gerar_chave(t: dict) -> None:
+    t["chave_cif"] = cifrar(_exigir_cripto(), secrets.token_urlsafe(24).encode(), t["id"].encode())
 
 
 def segredo_do_terminal(t: dict) -> str:
+    """Chave do terminal — gerada pelo servidor, ninguém digita. Se a PONTO_CHAVE mudou, gera outra."""
     k = _exigir_cripto()
-    try:
-        return decifrar(k, t["segredo_cif"], t["id"].encode()).decode("utf-8")
-    except Exception:
-        raise HTTPException(409, f"O segredo do terminal “{t.get('nome')}” não abre com a PONTO_CHAVE atual. "
-                                 "Gere um segredo novo em Cadastros → Terminais e digite no agente.")
+    with TRAVA:
+        if t.get("chave_cif"):
+            try:
+                return decifrar(k, t["chave_cif"], t["id"].encode()).decode("utf-8")
+            except Exception:
+                pass
+        _gerar_chave(t)
+        _salvar_cfg()
+        return decifrar(k, t["chave_cif"], t["id"].encode()).decode("utf-8")
+
+
+def _tid_do_login(email: str) -> str:
+    return "u" + hashlib.sha256((email or "").strip().lower().encode("utf-8")).hexdigest()[:10]
+
+
+def unidade_do_login(email: str) -> str:
+    """A pessoa do login no Organograma (mesmo e-mail) com unidade no cadastro do ponto."""
+    e = (email or "").strip().lower()
+    if not e:
+        return ""
+    for pid, o in org_pessoas().items():
+        if str(o.get("email") or "").strip().lower() == e:
+            u = (colabs().get(pid) or {}).get("unidade_id")
+            if u:
+                return u
+    return ""
+
+
+def terminal_do_login(request: Request) -> dict:
+    """O aparelho logado É o terminal: um por login, criado no primeiro uso."""
+    q = quem(request)
+    email = (q["email"] or "").strip().lower()
+    if not email:
+        raise HTTPException(401, "Faça login de novo.")
+    tid = _tid_do_login(email)
+    with TRAVA:
+        t = terminal(tid)
+        mudou = False
+        if not t:
+            t = {"id": tid, "login": email, "nome": f"Terminal · {q['por']}", "unidade_id": "", "unidade_auto": True, "ativo": True,
+                 "criado_em": agora().isoformat(timespec="seconds"), "criado_por": q["por"]}
+            cfg()["terminais"].append(t)
+            mudou = True
+        if not t.get("unidade_id"):
+            u = unidade_do_login(email)
+            if u:
+                t["unidade_id"], t["unidade_auto"], mudou = u, True, True
+        if mudou:
+            _salvar_cfg()
+    return t
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -681,23 +737,32 @@ def r_hoje(request: Request, unidade: str = "", setor: str = ""):
 
 
 # ── BATER PONTO ──────────────────────────────────────────────────────────
-@router.get("/desafio")
-def r_desafio(request: Request, terminal_id: str = ""):
+@router.get("/terminal")
+def r_terminal_eu(request: Request):
+    """O terminal deste login (criado sozinho) + a chave que a tela entrega ao agente do leitor."""
     exigir(request, ["marcar", "cadastros"], 2, "Usar o leitor")
-    t = terminal(terminal_id)
-    if t:
-        with TRAVA:
-            t["ultimo_sinal"] = agora().isoformat(timespec="seconds")   # só em memória (não gasta gravação)
+    t = terminal_do_login(request)
+    return {**terminal_publico(t), "chave": segredo_do_terminal(t) if cripto_ok() and t.get("ativo") else None,
+            "hora_servidor": agora().isoformat(timespec="seconds")}
+
+
+@router.get("/desafio")
+def r_desafio(request: Request):
+    exigir(request, ["marcar", "cadastros"], 2, "Usar o leitor")
+    t = terminal_do_login(request)
+    with TRAVA:
+        t["ultimo_sinal"] = agora().isoformat(timespec="seconds")   # só em memória (não gasta gravação)
     return {"desafio": novo_desafio(), "hora_servidor": agora().isoformat(timespec="seconds")}
 
 
-@router.get("/terminal/{tid}/pacote")
-def r_pacote(tid: str, request: Request):
-    """Templates de todos os ativos, cifrados com a chave DESTE terminal (a página não abre)."""
+@router.get("/terminal/pacote")
+def r_pacote(request: Request):
+    """Templates de todos os ativos, cifrados com a chave do terminal deste login."""
     exigir(request, "marcar", 2, "Carregar as digitais no leitor")
-    t = terminal(tid)
-    if not t or not t.get("ativo"):
-        raise HTTPException(404, "Terminal não encontrado ou bloqueado.")
+    t = terminal_do_login(request)
+    if not t.get("ativo"):
+        raise HTTPException(403, f"Este terminal ({t.get('nome')}) está bloqueado. Procure quem cuida dos Cadastros do Ponto.")
+    tid = t["id"]
     k = _exigir_cripto()
     seg = segredo_do_terminal(t)
     itens = []
@@ -714,7 +779,6 @@ def r_pacote(tid: str, request: Request):
 
 
 class Batida(BaseModel):
-    terminal_id: str
     metodo: str = "digital"            # digital | teste
     pessoa: str
     score: Optional[int] = None
@@ -727,11 +791,9 @@ class Batida(BaseModel):
 def r_marcar(b: Batida, request: Request):
     exigir(request, "marcar", 2, "Registrar batida")
     q = quem(request)
-    t = terminal(b.terminal_id)
-    if not t:
-        raise HTTPException(404, "Escolha o terminal deste computador (Cadastros → Terminais).")
+    t = terminal_do_login(request)
     if not t.get("ativo"):
-        raise HTTPException(403, f"O terminal “{t.get('nome')}” está bloqueado.")
+        raise HTTPException(403, f"Este terminal ({t.get('nome')}) está bloqueado. Procure quem cuida dos Cadastros do Ponto.")
     if b.metodo == "teste":
         if not q["admin"]:
             raise HTTPException(403, "O modo de teste (sem leitor) é só para o administrador.")
@@ -749,6 +811,9 @@ def r_marcar(b: Batida, request: Request):
     m = registrar_marcacao(p, t["id"], t.get("unidade_id") or p.get("unidade_id") or "", b.metodo, b.score, b.momento_aparelho, q)
     with TRAVA:
         t["ultimo_sinal"] = m["momento"]
+        if not t.get("unidade_id") and p.get("unidade_id"):   # unidade automática: a de quem bateu o primeiro ponto aqui
+            t["unidade_id"], t["unidade_auto"] = p["unidade_id"], True
+            _salvar_cfg()
     return {"nsr": m["nsr"], "nome": p["nome"], "primeiro_nome": p["nome"].split()[0], "cargo": p["cargo"], "setor": p["setor"],
             "hora": m["momento"][11:19], "data": m["data"], "tipo": tipo_da_batida(m), "metodo": m["metodo"],
             "hash": m["hash"][:16]}
@@ -945,7 +1010,6 @@ def r_salvar_colab(pid: str, c: Cadastro, request: Request):
 
 
 class Digital(BaseModel):
-    terminal_id: str
     dedo: int
     pacote: str = ""           # template cifrado pelo agente com a chave do terminal
     qualidade: int = 0
@@ -970,9 +1034,9 @@ def r_digital(pid: str, d: Digital, request: Request):
             raise HTTPException(403, "O modo de teste é só para o administrador.")
         template = hashlib.sha256(f"teste|{pid}|{d.dedo}".encode()).digest()
     else:
-        t = terminal(d.terminal_id)
-        if not t or not t.get("ativo"):
-            raise HTTPException(404, "Terminal do leitor não encontrado ou bloqueado.")
+        t = terminal_do_login(request)
+        if not t.get("ativo"):
+            raise HTTPException(403, "O terminal deste login está bloqueado.")
         try:
             template = decifrar(_k_terminal(segredo_do_terminal(t), "captura"), d.pacote, b"captura")
         except HTTPException:
@@ -983,7 +1047,7 @@ def r_digital(pid: str, d: Digital, request: Request):
             raise HTTPException(400, "Leitura vazia. Tente de novo.")
     em = agora().isoformat(timespec="seconds")
     dg = {"dedo": d.dedo, "t": cifrar(k, template, pid.encode()), "qualidade": int(d.qualidade or 0), "em": em,
-          "por": q["por"], "termo_lgpd_em": em, "terminal_id": d.terminal_id, "teste": bool(d.teste)}
+          "por": q["por"], "termo_lgpd_em": em, "terminal_id": _tid_do_login(q["email"] or ""), "teste": bool(d.teste)}
     with TRAVA:
         novo = dict(c)
         novo["digitais"] = [x for x in (c.get("digitais") or []) if x.get("dedo") != d.dedo] + [dg]
@@ -1036,34 +1100,6 @@ def r_unidades(u: Unidades, request: Request):
     return saida
 
 
-class TerminalNovo(BaseModel):
-    nome: str
-    unidade_id: str = ""
-
-
-def _novo_segredo(t: dict) -> str:
-    k = _exigir_cripto()
-    seg = "KP-" + secrets.token_urlsafe(18)
-    t["segredo_cif"] = cifrar(k, seg.encode(), t["id"].encode())
-    t["segredo_em"] = agora().isoformat(timespec="seconds")
-    return seg
-
-
-@router.post("/terminais")
-def r_terminal_novo(n: TerminalNovo, request: Request):
-    exigir(request, "cadastros", 3, "Cadastrar terminal")
-    q = quem(request)
-    if not n.nome.strip():
-        raise HTTPException(400, "Dê um nome ao terminal (ex.: Loja Osasco — caixa).")
-    t = {"id": "t" + uuid.uuid4().hex[:7], "nome": n.nome.strip()[:60], "unidade_id": n.unidade_id, "ativo": True,
-         "criado_em": agora().isoformat(timespec="seconds"), "criado_por": q["por"]}
-    seg = _novo_segredo(t)
-    with TRAVA:
-        cfg()["terminais"].append(t)
-        _salvar_cfg()
-    return {**terminal_publico(t), "segredo": seg}
-
-
 class TerminalEdicao(BaseModel):
     nome: Optional[str] = None
     unidade_id: Optional[str] = None
@@ -1080,23 +1116,13 @@ def r_terminal_editar(tid: str, e: TerminalEdicao, request: Request):
         if e.nome is not None and e.nome.strip():
             t["nome"] = e.nome.strip()[:60]
         if e.unidade_id is not None:
-            t["unidade_id"] = e.unidade_id
+            if e.unidade_id and not any(u.get("id") == e.unidade_id for u in cfg()["unidades"]):
+                raise HTTPException(400, "Unidade inexistente.")
+            t["unidade_id"], t["unidade_auto"] = e.unidade_id, False   # escolhida à mão: não muda mais sozinha
         if e.ativo is not None:
             t["ativo"] = bool(e.ativo)
         _salvar_cfg()
     return terminal_publico(t)
-
-
-@router.post("/terminais/{tid}/novo-segredo")
-def r_terminal_segredo(tid: str, request: Request):
-    exigir(request, "cadastros", 3, "Gerar novo segredo")
-    t = terminal(tid)
-    if not t:
-        raise HTTPException(404, "Terminal não encontrado.")
-    with TRAVA:
-        seg = _novo_segredo(t)
-        _salvar_cfg()
-    return {**terminal_publico(t), "segredo": seg}
 
 
 @router.delete("/terminais/{tid}")
