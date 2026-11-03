@@ -9,10 +9,19 @@ pasta `kingponto-agente/` (programa do leitor) e `testes_ponto.py`.
 | Aba | Para quê | Nível mínimo |
 |---|---|---|
 | **Hoje** | quem está trabalhando, no intervalo, já saiu, ausente, atrasado; batidas em tempo real; terminais online | Visualizar |
-| **Bater ponto** | tela do terminal (relógio do servidor + leitor). Modo tela cheia | Adicionar |
+| **Bater ponto** | tela do terminal: **nada para escolher** — a pessoa só encosta o dedo. Modo tela cheia | Adicionar |
 | **Espelho** | batidas, previsto, trabalhado, saldo e ocorrências por dia; imprimir | Visualizar |
 | **Tratamento** | ocorrências pendentes, ajustes com motivo, histórico, integridade das batidas | Visualizar (ajustar: Editar) |
-| **Cadastros** | colaboradores (do Organograma), digitais, unidades, terminais, regras e feriados | Editar (excluir: Excluir) |
+| **Cadastros** | colaboradores (do Organograma), digitais, unidades, terminais, regras e feriados; teste sem leitor (só admin) | Editar (excluir: Excluir) |
+
+## O terminal é o login
+
+- Quem entra no PQI com a aba **Bater ponto** e abre essa tela transforma o aparelho (PC ou celular Android com o leitor)
+  no terminal **daquele login**. Ninguém escolhe terminal e não existe segredo para digitar.
+- O terminal nasce sozinho no primeiro uso (um por login) e aparece em Cadastros → Terminais.
+- **Unidade automática**: 1º a do cadastro de ponto da pessoa do login (mesmo e-mail no Organograma);
+  senão, a de quem bater o primeiro ponto ali. Corrigiu à mão em Cadastros → Terminais? Fica gravado para aquele login.
+- Toda batida guarda o login e o terminal que a registraram. Perdeu o aparelho: **Bloquear** o terminal daquele login.
 
 ## Liberar o acesso (Segurança)
 
@@ -49,7 +58,7 @@ Sem a `PONTO_CHAVE`, o resto do Ponto funciona e a tela avisa que a digital est�
 - **Organograma é o dono das pessoas**: o Ponto só lê. CPF, matrícula, unidade e jornada estruturada
   ficam no cadastro do ponto. A jornada vem **sugerida** do texto de horário do Organograma.
 - **Digital**: só o template do leitor, cifrado (AES-256-GCM). Termo LGPD obrigatório antes da leitura.
-- **Batida por digital precisa da assinatura do agente** do terminal (sem replay, sem falsificar pela tela).
+- **Batida por digital precisa da assinatura do leitor** com a chave do terminal do login (gerada pelo servidor; desafio de uso único).
 
 ## Firestore (coleções novas, prefixo `pto_`)
 
@@ -62,11 +71,12 @@ Nenhuma coleção existente é alterada. O Organograma é só lido.
 python testes_ponto.py
 ```
 
-48 verificações: apuração, NSR em paralelo, hash, assinatura, replay, ajuste, permissões por aba.
+56 verificações: apuração, terminal pelo login e unidade automática, NSR em paralelo, hash, assinatura, replay, ajuste, permissões por aba.
 
 ## Ainda não feito (próximas fases da especificação)
 
 - Driver do **leitor real** (depende do modelo escolhido) — ver `kingponto-agente/leitores/MODELO_DRIVER.md`.
+- **App Android** (abre o PQI e faz a ponte com o leitor USB-C/OTG) — para usar o celular como terminal.
 - **AFD / AEJ** no layout oficial da Portaria 671 e assinatura CAdES (precisa do e-CNPJ).
 - Fechamento mensal com trava, espelho assinado pelo colaborador, informe da folha.
 - Férias, banco de horas com vencimento, portal do colaborador, batida offline, contingência com foto.

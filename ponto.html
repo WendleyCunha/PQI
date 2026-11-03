@@ -196,7 +196,6 @@ a.nsr{font-size:11px;color:var(--ink-3);text-decoration:none} a.nsr:hover{text-d
 .dedos{display:flex;gap:6px;flex-wrap:wrap}
 .dedo{border:1px solid var(--rule);border-radius:8px;padding:6px 10px;font-size:13px;display:flex;gap:8px;align-items:center;background:var(--paper)}
 .dedo.tem{border-color:var(--ok);background:var(--ok-soft)}
-.segredo{font:600 18px/1.3 ui-monospace,Consolas,monospace;background:var(--paper);border:2px dashed var(--amber);border-radius:8px;padding:12px 14px;word-break:break-all;user-select:all}
 .passos{margin:8px 0 0;padding-left:20px;font-size:14px} .passos li{margin:4px 0}
 
 @media (max-width:1100px){ .grid2{grid-template-columns:1fr} }
@@ -351,7 +350,7 @@ async function rHoje(c) {
       ${INI.unidades.length ? `<div class="acoes" style="margin-bottom:0"><select id="hUn" style="width:auto">${optUnidades(filtroHoje.unidade)}</select></div>` : ""}</div>
       <div class="stamp"><div class="code relogio" id="hRel">--:--:--</div><dl><dt>Data</dt><dd>${dataBR(h.data)}</dd><dt>Ativos no ponto</dt><dd>${h.pessoas.length}</dd>
       <dt>Terminais online</dt><dd>${h.terminais.filter(t => t.online).length} de ${h.terminais.length}</dd></dl></div></div>
-    ${!INI.unidades.length && pode("cadastros", 3) ? `<div class="alerta">Comece por <b>Cadastros</b>: crie as unidades, os terminais e ative as pessoas no ponto (CPF, unidade e jornada).</div>` : ""}
+    ${!INI.unidades.length && pode("cadastros", 3) ? `<div class="alerta">Comece por <b>Cadastros</b>: crie as unidades e ative as pessoas no ponto (CPF, unidade e jornada). O terminal aparece sozinho quando alguém abrir <b>Bater ponto</b>.</div>` : ""}
     <div class="kpis">${kpi("trabalhando", k.presentes, "Trabalhando agora", "k-ok")}${kpi("intervalo", k.intervalo, "No intervalo", "k-warn")}
       ${kpi("saiu", k.sairam, "Já saíram", "k-aco")}${kpi("ausente", k.ausentes, "Ausentes", "k-bad", "previstos e sem batida")}
       ${kpi("atrasados", k.atrasados, "Chegaram atrasados", "k-warn")}${kpi("folga", k.folga, "De folga hoje", "k-cinza")}</div>
@@ -399,31 +398,31 @@ async function comprovante(nsr) {
 // ═══════════════════════════════════════════════════════════════════════
 // BATER PONTO — tela do terminal (leitor de digital)
 // ═══════════════════════════════════════════════════════════════════════
+// o terminal é o LOGIN: o servidor devolve o terminal deste login (criado sozinho) e a chave para o leitor
+async function conectarLeitor(T) {
+  const r = await agente("/conectar", { terminal_id: T.id, chave: T.chave }, 4000);
+  if (!r.ok) throw new Error(r.motivo || "O leitor não aceitou a conexão.");
+}
 async function rMarcar(c) {
-  const tid = lsGet("pto_terminal");
-  const t = INI.terminais.find(x => x.id === tid);
+  const T = await api("/terminal");
+  const local = T.nome + (T.unidade_nome ? " · " + T.unidade_nome : "");
   c.innerHTML = `<section>
-    <header class="so-normal"><h2>Bater ponto</h2><p>Deixe esta tela aberta no computador com o leitor. A pessoa só encosta o dedo.</p>
+    <header class="so-normal"><h2>Bater ponto</h2><p>Este aparelho é o terminal deste login. A pessoa só encosta o dedo.</p>
       <div class="direita"><button type="button" class="peq" id="mQ">⛶ Modo terminal (tela cheia)</button></div></header>
-    ${!INI.terminais.length ? `<div class="alerta">Nenhum terminal cadastrado. ${pode("cadastros", 3) ? "Crie um em <b>Cadastros → Terminais</b>." : "Peça a quem cuida dos cadastros."}</div>` : ""}
     ${!INI.cripto_ok ? `<div class="alerta"><b>Digital desligada no servidor:</b> ${!INI.cripto_lib ? "falta a biblioteca cryptography." : "falta configurar a variável PONTO_CHAVE no Render."} ${INI.admin ? "Veja PONTO-LEIA.md." : "Avise o administrador."}</div>` : ""}
+    ${!T.ativo ? `<div class="conflito"><b>Este terminal está bloqueado.</b> Procure quem cuida dos Cadastros do Ponto.</div>` : ""}
     <div class="terminal">
-      <div class="term-esq"><span class="uni">${esc(t ? t.nome + (t.unidade_id ? " · " + unidadeNome(t.unidade_id) : "") : "Terminal não escolhido")}</span>
+      <div class="term-esq"><span class="uni">${esc(T.unidade_nome || "Unidade definida na primeira batida")}</span>
         <div class="hora" id="mHora">--:--<small>--</small></div><div class="data" id="mData"></div>
         <div class="term-status" id="mSt"></div>
-        <div class="cfg-term so-normal">Este computador é o terminal: <select id="mTerm"><option value="">— escolher —</option>${INI.terminais.filter(x => x.ativo).map(x => `<option value="${esc(x.id)}"${x.id === tid ? " selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></div>
-        ${INI.admin ? `<details class="so-normal" style="margin-top:14px"><summary class="muted" style="cursor:pointer;font-size:13px">Modo de teste (só administrador, sem leitor)</summary>
-          <div class="acoes"><select id="mTP" style="width:auto;min-width:240px"><option value="">Carregando pessoas…</option></select><button type="button" class="peq" id="mTB">Simular digital</button></div>
-          <p class="cap">A batida de teste fica marcada como <b>teste</b> no comprovante e não entra no saldo do espelho.</p></details>` : ""}
+        <p class="cap so-normal" style="margin-top:14px">${esc(local)}</p>
       </div>
       <div class="leitor"><div class="digital off" id="mDig">${ICO_DIGITAL}</div><div class="msg-g" id="mMsg"></div><div class="msg-p" id="mSub"></div><div id="mRes"></div></div>
     </div></section>`;
-  $("#mTerm").onchange = e => { lsSet("pto_terminal", e.target.value); ir("marcar"); };
   $("#mQ").onclick = async () => { document.body.classList.add("quiosque"); try { await document.documentElement.requestFullscreen(); } catch (_) {}
     if (!$(".sair-q")) { const b = document.createElement("button"); b.className = "sair-q peq"; b.textContent = "Sair do modo terminal"; b.onclick = () => { document.body.classList.remove("quiosque"); b.remove(); try { document.exitFullscreen(); } catch (_) {} }; document.body.appendChild(b); } };
-  // relógio pela hora do SERVIDOR (a do computador pode estar errada)
-  let dif = 0;
-  try { const d = await api(`/desafio?terminal_id=${encodeURIComponent(tid)}`); dif = new Date(d.hora_servidor).getTime() - Date.now(); } catch (_) {}
+  // relógio pela hora do SERVIDOR (a do aparelho pode estar errada)
+  const dif = new Date(T.hora_servidor).getTime() - Date.now();
   const tick = () => { const n = new Date(Date.now() + dif); const hm = n.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
     const s = n.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", second: "2-digit" }).padStart(2, "0").slice(-2);
     if ($("#mHora")) { $("#mHora").innerHTML = `${hm}<small>${s}</small>`; $("#mData").textContent = n.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }); } };
@@ -436,56 +435,44 @@ async function rMarcar(c) {
       <dl><dt>Hora</dt><dd>${esc(r.hora)}</dd><dt>NSR</dt><dd>${r.nsr}</dd><dt>Selo</dt><dd style="font:12px ui-monospace,monospace">${esc(r.hash)}…</dd>${r.metodo === "teste" ? '<dt>Modo</dt><dd><span class="pill p-roxo">teste</span></dd>' : ""}</dl></div>`;
     setTimeout(() => { if ($("#mRes")) $("#mRes").innerHTML = ""; }, 4000);
   };
-  // modo de teste do administrador
-  if (INI.admin && $("#mTP")) {
-    api("/pessoas").then(ps => { $("#mTP").innerHTML = '<option value="">— pessoa —</option>' + ps.filter(p => p.ativo).map(p => `<option value="${esc(p.pid)}">${esc(p.nome)} · ${esc(p.setor)}</option>`).join(""); }).catch(() => {});
-    $("#mTB").onclick = async () => {
-      if (!tid) return toast("Escolha o terminal deste computador.", true);
-      if (!$("#mTP").value) return toast("Escolha a pessoa.", true);
-      try { mostrar(await post("/marcar", { terminal_id: tid, metodo: "teste", pessoa: $("#mTP").value, momento_aparelho: new Date().toISOString() })); }
-      catch (e) { bip(false); msg(e.status === 409 ? "Já registrado" : "Não registrado", e.message, "erro"); }
-    };
-  }
-  if (!tid) { msg("Escolha o terminal", "Selecione abaixo qual terminal é este computador.", "off"); st([["Sem terminal", "p-cinza"]]); return; }
+  if (!T.ativo) { msg("Terminal bloqueado", "", "erro"); st([["Bloqueado", "p-bad"]]); return; }
+  if (!T.chave) { msg("Digital desligada", "O servidor ainda não tem a chave da digital configurada.", "off"); st([["Servidor sem PONTO_CHAVE", "p-bad"]]); return; }
   // laço de leitura: agente → servidor
   let ativo = true; PARAR_LEITURA = () => { ativo = false; };
-  let pacoteOk = false, ultimoPacote = 0;
+  let conectado = false, ultimoPacote = 0, qtdPessoas = 0;
   while (ativo && secao === "marcar") {
     const ag = await agenteStatus();
     if (!ativo) break;
     if (!ag || !ag.ok) {
-      msg("Leitor desconectado", "Abra o programa “KingPonto Agente” neste computador e confira o cabo USB do leitor.", "off");
-      st([["Servidor online", "p-ok"], ["Leitor offline", "p-bad"]]); pacoteOk = false;
+      msg("Leitor desconectado", "Confira o cabo do leitor e se o programa do leitor está aberto neste aparelho.", "off");
+      st([["Servidor online", "p-ok"], ["Leitor offline", "p-bad"]]); conectado = false;
       await esperar(4000); continue;
     }
-    if (ag.terminal_id && ag.terminal_id !== tid) {
-      msg("Terminal trocado", `O agente deste computador está configurado como outro terminal (${ag.terminal_id}).`, "erro");
-      st([["Agente de outro terminal", "p-bad"]]); await esperar(5000); continue;
-    }
-    st([["Servidor online", "p-ok"], [`Leitor ${ag.modelo || "ok"}`, "p-ok"], [pacoteOk ? "Digitais carregadas" : "Carregando digitais…", pacoteOk ? "p-aco" : "p-warn"]]);
     try {
-      if (!pacoteOk || Date.now() - ultimoPacote > 10 * 60000) {   // recarrega a lista a cada 10 min (novos cadastros)
-        const p = await api(`/terminal/${encodeURIComponent(tid)}/pacote`);
-        const r = await agente("/pacote", { terminal_id: tid, pacote: p.pacote }, 15000);
-        if (!r.ok) throw new Error(r.motivo || "O agente não aceitou as digitais.");
-        pacoteOk = true; ultimoPacote = Date.now();
-        st([["Servidor online", "p-ok"], [`Leitor ${ag.modelo || "ok"}`, "p-ok"], [`${p.pessoas} pessoa(s) com digital`, "p-aco"]]);
+      if (!conectado || ag.terminal_id !== T.id || !ag.digitais || Date.now() - ultimoPacote > 10 * 60000) {
+        await conectarLeitor(T);                                    // o login diz ao leitor qual é o terminal
+        const p = await api("/terminal/pacote");                    // digitais de todos os ativos (recarrega a cada 10 min)
+        const r = await agente("/pacote", { pacote: p.pacote }, 15000);
+        if (!r.ok) throw new Error(r.motivo || "O leitor não aceitou as digitais.");
+        conectado = true; ultimoPacote = Date.now(); qtdPessoas = p.pessoas;
       }
+      st([["Servidor online", "p-ok"], [`Leitor ${ag.modelo || "ok"}`, "p-ok"], [`${qtdPessoas} pessoa(s) com digital`, "p-aco"]]);
       if (!$("#mRes").innerHTML) msg("Coloque o dedo no leitor", "", "lendo");
-      const d = await api(`/desafio?terminal_id=${encodeURIComponent(tid)}`);
-      const r = await agente("/identificar", { terminal_id: tid, desafio: d.desafio, espera_seg: 25 }, 30000);
+      const d = await api("/desafio");
+      const r = await agente("/identificar", { desafio: d.desafio, espera_seg: 25 }, 30000);
       if (!ativo) break;
       if (!r.ok) {
         if (r.motivo === "tempo") continue;
+        if (r.motivo !== "nao_reconhecido") { conectado = false; continue; }
         bip(false); msg("Digital não reconhecida", "Tente de novo com o dedo bem apoiado. Se persistir, procure o gestor.", "erro");
         await esperar(2500); continue;
       }
-      const res = await post("/marcar", { terminal_id: tid, metodo: "digital", pessoa: r.pessoa, score: r.score, momento_aparelho: r.momento_aparelho, desafio: d.desafio, assinatura: r.assinatura });
+      const res = await post("/marcar", { metodo: "digital", pessoa: r.pessoa, score: r.score, momento_aparelho: r.momento_aparelho, desafio: d.desafio, assinatura: r.assinatura });
       mostrar(res); await esperar(1500);
     } catch (e) {
       if (!ativo) break;
       bip(false); msg(e.status === 409 ? "Já registrado" : "Não registrado", e.message, "erro");
-      if (e.status === 409) await esperar(3000); else { pacoteOk = e.status ? pacoteOk : false; await esperar(4000); }
+      if (e.status === 409) await esperar(3000); else { if (!e.status) conectado = false; await esperar(4000); }
     }
   }
 }
@@ -624,7 +611,7 @@ async function rTratamento(c) {
 let subCad = "pessoas", filtroCad = { busca: "", setor: "", situacao: "" };
 async function rCadastros(c) {
   const edita = pode("cadastros", 3), exclui = pode("cadastros", 4);
-  const subnav = `<nav class="subnav" role="tablist">${[["pessoas", "Colaboradores"], ["unidades", "Unidades"], ["terminais", "Terminais e leitores"], ["regras", "Regras e feriados"]].map(([k, n]) => `<button type="button" role="tab" data-sub="${k}" aria-selected="${subCad === k}">${n}</button>`).join("")}</nav>`;
+  const subnav = `<nav class="subnav" role="tablist">${[["pessoas", "Colaboradores"], ["unidades", "Unidades"], ["terminais", "Terminais"], ["regras", "Regras e feriados"]].map(([k, n]) => `<button type="button" role="tab" data-sub="${k}" aria-selected="${subCad === k}">${n}</button>`).join("")}</nav>`;
   const head = `<header><h2>Cadastros do Ponto</h2><p>${edita ? "Pessoas vêm do Organograma — aqui ficam só os dados do ponto." : "Seu acesso aqui é de consulta."}</p></header>`;
   const lig = () => $$("[data-sub]", c).forEach(b => b.onclick = () => { subCad = b.dataset.sub; rCadastros(c); });
   const aviso = !INI.cripto_ok ? `<div class="alerta"><b>Leitura de digital desligada:</b> ${!INI.cripto_lib ? "falta a biblioteca cryptography no servidor." : "falta a variável PONTO_CHAVE no Render."} O resto do cadastro funciona normalmente.</div>` : "";
@@ -648,34 +635,33 @@ async function rCadastros(c) {
 
   if (subCad === "terminais") {
     c.innerHTML = `<section>${head}${subnav}${aviso}
-      <div class="box"><h3>Como ligar um leitor</h3><ol class="passos">
-        <li>Ligue o leitor de digital USB no computador da loja e instale o <b>KingPonto Agente</b> (pasta <code>kingponto-agente</code> do PQI).</li>
-        <li>Crie o terminal aqui. Aparece um <b>segredo</b> uma única vez — digite-o no agente.</li>
-        <li>No mesmo computador, entre no PQI com o login do gestor da loja, abra <b>Ponto → Bater ponto</b>, escolha o terminal e clique em <b>Modo terminal</b>.</li></ol></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Terminal</th><th>Unidade</th><th>Situação</th><th>Último sinal</th><th>Segredo gerado em</th>${edita ? "<th></th>" : ""}</tr></thead><tbody>
-      ${INI.terminais.map(t => `<tr><td><b>${esc(t.nome)}</b><span class="sub">${esc(t.id)} · criado por ${esc(t.criado_por || "—")}</span></td><td>${esc(unidadeNome(t.unidade_id) || "—")}</td>
-        <td>${t.ativo ? '<span class="pill p-ok">Ativo</span>' : '<span class="pill p-bad">Bloqueado</span>'}</td><td>${esc((t.ultimo_sinal || "—").replace("T", " ").slice(0, 16))}</td><td>${esc((t.segredo_em || "—").replace("T", " ").slice(0, 16))}</td>
-        ${edita ? `<td style="white-space:nowrap"><button type="button" class="peq" data-ed="${t.id}">Editar</button> <button type="button" class="peq" data-bl="${t.id}">${t.ativo ? "Bloquear" : "Ativar"}</button> <button type="button" class="peq" data-sg="${t.id}">Novo segredo</button>${exclui ? ` <button type="button" class="peq warn" data-ex="${t.id}">Excluir</button>` : ""}</td>` : ""}</tr>`).join("") || '<tr><td colspan="6" class="muted">Nenhum terminal.</td></tr>'}
-      </tbody></table></div>${edita ? '<div class="acoes"><button type="button" class="primary" id="tN">+ Novo terminal</button></div>' : ""}</section>`;
+      <div class="box"><h3>O terminal é o login</h3><ol class="passos">
+        <li>Ligue o leitor de digital no aparelho (PC com o programa do leitor, ou celular Android com o app).</li>
+        <li>Entre no PQI com o login que tem a aba <b>Bater ponto</b> e abra <b>Ponto → Bater ponto</b>. Pronto: o aparelho vira o terminal daquele login, sozinho.</li>
+        <li>A unidade também é automática: a do cadastro de ponto de quem está logado (mesmo e-mail no Organograma) ou, se não houver, a de quem bater o primeiro ponto ali. Se precisar, corrija abaixo.</li></ol></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Terminal (login)</th><th>Unidade</th><th>Situação</th><th>Último sinal</th>${edita ? "<th></th>" : ""}</tr></thead><tbody>
+      ${INI.terminais.map(t => `<tr><td><b>${esc(t.nome)}</b><span class="sub">${esc(t.login || t.id)}</span></td>
+        <td>${edita ? `<select data-un="${esc(t.id)}" style="width:auto">${optUnidades(t.unidade_id, "— automática —")}</select>` : esc(unidadeNome(t.unidade_id) || "—")} ${t.unidade_id && t.unidade_auto ? '<span class="pill p-azul">automática</span>' : ""}</td>
+        <td>${t.ativo ? '<span class="pill p-ok">Ativo</span>' : '<span class="pill p-bad">Bloqueado</span>'}</td><td>${esc((t.ultimo_sinal || "—").replace("T", " ").slice(0, 16))}</td>
+        ${edita ? `<td style="white-space:nowrap"><button type="button" class="peq" data-bl="${t.id}">${t.ativo ? "Bloquear" : "Ativar"}</button>${exclui ? ` <button type="button" class="peq warn" data-ex="${t.id}">Excluir</button>` : ""}</td>` : ""}</tr>`).join("") || '<tr><td colspan="5" class="muted">Nenhum terminal ainda. Ele aparece aqui sozinho quando alguém abrir “Bater ponto”.</td></tr>'}
+      </tbody></table></div>
+      ${INI.admin ? `<div class="box"><h3>Testar batida sem leitor <span class="pill p-roxo">só administrador</span></h3>
+        <p class="cap">Registra no terminal do seu login, marcada como <b>teste</b> (não entra no saldo do espelho). Fica aqui, e não na tela de bater ponto, para que lá ninguém escolha nada.</p>
+        <div class="acoes"><select id="tsP" style="width:auto;min-width:260px"><option value="">Carregando pessoas…</option></select><button type="button" class="primary" id="tsB">Registrar batida de teste</button><span id="tsR" class="muted" style="font-size:13px"></span></div></div>` : ""}</section>`;
     lig();
     const recarregar = async () => { INI = await api("/inicio"); rCadastros(c); };
-    const mostraSegredo = t => abrirDlg(`<h3>Segredo do terminal “${esc(t.nome)}”</h3><p>Digite este código no <b>KingPonto Agente</b> do computador da loja. <b>Ele não aparece de novo</b> — se perder, gere outro.</p>
-      <div class="segredo">${esc(t.segredo)}</div><p class="cap">Id do terminal: <b>${esc(t.id)}</b> (o agente também pede).</p>
-      <div class="acts"><button type="button" id="sgC">Copiar</button><button type="button" class="primary" id="sgF">Já anotei</button></div>`, (el, fechar) => {
-      $("#sgC", el).onclick = () => { navigator.clipboard.writeText(`${t.id} ${t.segredo}`).then(() => toast("Copiado.")).catch(() => toast("Selecione e copie manualmente.", true)); };
-      $("#sgF", el).onclick = () => { fechar(); recarregar(); };
-    });
-    const form = (t, salvar) => abrirDlg(`<h3>${t ? "Editar terminal" : "Novo terminal"}</h3><div class="grade"><label class="f">Nome<input id="tnN" value="${esc(t ? t.nome : "")}" placeholder="Ex.: Loja Osasco — balcão"></label>
-      <label class="f">Unidade<select id="tnU">${optUnidades(t ? t.unidade_id : "", "— sem unidade —")}</select></label></div>
-      <div class="acts"><button type="button" id="tnC">Cancelar</button><button type="button" class="primary" id="tnS">${t ? "Salvar" : "Criar e gerar segredo"}</button></div>`, (el, fechar) => {
-      $("#tnC", el).onclick = fechar;
-      $("#tnS", el).onclick = async () => { try { await salvar({ nome: $("#tnN", el).value, unidade_id: $("#tnU", el).value }); } catch (e) { toast(e.message, true); } };
-    });
-    if ($("#tN")) $("#tN").onclick = () => form(null, async d => mostraSegredo(await post("/terminais", d)));
-    $$("[data-ed]", c).forEach(b => b.onclick = () => form(INI.terminais.find(t => t.id === b.dataset.ed), async d => { await put(`/terminais/${b.dataset.ed}`, d); fecharDlg(); toast("Terminal salvo."); recarregar(); }));
+    $$("[data-un]", c).forEach(s => s.onchange = async () => { try { await put(`/terminais/${s.dataset.un}`, { unidade_id: s.value }); toast("Unidade do terminal salva."); recarregar(); } catch (e) { toast(e.message, true); } });
     $$("[data-bl]", c).forEach(b => b.onclick = async () => { const t = INI.terminais.find(x => x.id === b.dataset.bl); try { await put(`/terminais/${t.id}`, { ativo: !t.ativo }); toast(t.ativo ? "Terminal bloqueado." : "Terminal ativado."); recarregar(); } catch (e) { toast(e.message, true); } });
-    $$("[data-sg]", c).forEach(b => b.onclick = async () => { if (!confirm("Gerar um segredo novo? O agente desse computador para de funcionar até receber o código novo.")) return; try { mostraSegredo(await post(`/terminais/${b.dataset.sg}/novo-segredo`)); } catch (e) { toast(e.message, true); } });
-    $$("[data-ex]", c).forEach(b => b.onclick = async () => { if (!confirm("Excluir este terminal?")) return; try { await del(`/terminais/${b.dataset.ex}`); toast("Terminal excluído."); recarregar(); } catch (e) { toast(e.message, true); } });
+    $$("[data-ex]", c).forEach(b => b.onclick = async () => { if (!confirm("Excluir este terminal? Se o login abrir “Bater ponto” de novo, ele volta a ser criado.")) return; try { await del(`/terminais/${b.dataset.ex}`); toast("Terminal excluído."); recarregar(); } catch (e) { toast(e.message, true); } });
+    if ($("#tsB")) {
+      api("/pessoas").then(ps => { $("#tsP").innerHTML = '<option value="">— pessoa —</option>' + ps.filter(p => p.ativo).map(p => `<option value="${esc(p.pid)}">${esc(p.nome)} · ${esc(p.setor)}</option>`).join(""); }).catch(() => {});
+      $("#tsB").onclick = async () => {
+        if (!$("#tsP").value) return toast("Escolha a pessoa.", true);
+        try { const r = await post("/marcar", { metodo: "teste", pessoa: $("#tsP").value, momento_aparelho: new Date().toISOString() });
+          $("#tsR").textContent = `✓ ${r.tipo} de ${r.nome} às ${r.hora} · NSR ${r.nsr}`; toast("Batida de teste registrada."); }
+        catch (e) { toast(e.message, true); }
+      };
+    }
     return;
   }
 
@@ -748,7 +734,7 @@ function dlgColab(p, depois) {
     <div class="box"><h3>Digitais</h3>
       <div class="dedos">${p.digitais.length ? p.digitais.map(d => `<span class="dedo tem">☝ ${esc(DEDOS[d.dedo] || "Dedo " + d.dedo)} <span class="muted" style="font-size:12px">${esc((d.em || "").slice(0, 10).split("-").reverse().join("/"))} · ${esc(d.por || "")}</span>${exclui ? ` <button type="button" class="peq warn" data-xd="${d.dedo}" title="Excluir esta digital">✕</button>` : ""}</span>`).join("") : '<span class="muted">Nenhuma digital cadastrada. Cadastre 2 dedos (se um machucar, o outro funciona).</span>'}</div>
       ${edita ? `<div class="grade" style="margin-top:12px"><label class="f">Dedo<select id="dd">${Object.entries(DEDOS).map(([k, n]) => `<option value="${k}"${+k === (p.digitais.length ? 7 : 2) ? " selected" : ""}>${n}</option>`).join("")}</select></label>
-        <label class="f">Leitor (terminal)<select id="dt">${INI.terminais.filter(t => t.ativo).map(t => `<option value="${esc(t.id)}"${t.id === lsGet("pto_terminal") ? " selected" : ""}>${esc(t.nome)}</option>`).join("") || '<option value="">nenhum terminal</option>'}</select></label></div>
+        </div>
         <label class="chk" style="margin-top:10px;align-items:flex-start"><input type="checkbox" id="lgpd"> <span>A pessoa leu e aceitou o <b>termo de uso da biometria</b>: a digital é usada só para registrar o ponto, fica guardada cifrada (nunca a imagem) e é apagada no desligamento (LGPD, dado sensível).</span></label>
         <div class="acoes"><button type="button" id="dL"${INI.cripto_ok ? "" : " disabled"}>☝ Ler digital no leitor</button>${INI.admin ? `<button type="button" class="peq" id="dT"${INI.cripto_ok ? "" : " disabled"}>Gravar digital de teste</button>` : ""}<span class="muted" id="dMsg" style="font-size:13px"></span></div>` : ""}</div>
     <div class="acts"><button type="button" id="cC">${edita ? "Cancelar" : "Fechar"}</button>${edita ? '<button type="button" class="primary" id="cS">Salvar cadastro</button>' : ""}</div>`, (el, fechar) => {
@@ -761,20 +747,19 @@ function dlgColab(p, depois) {
       if (!$("#lgpd", el).checked) return toast("Marque o aceite do termo de biometria (LGPD).", true);
       try {
         if (!p.cadastrado) await salvar();
-        const r = await post(`/colaboradores/${encodeURIComponent(p.pid)}/digital`, { dedo: +$("#dd", el).value, termo_lgpd: true, terminal_id: $("#dt", el).value, ...corpo });
+        const r = await post(`/colaboradores/${encodeURIComponent(p.pid)}/digital`, { dedo: +$("#dd", el).value, termo_lgpd: true, ...corpo });
         Object.assign(p, r); toast(`Digital do ${DEDOS[$("#dd", el).value].toLowerCase()} gravada.`); dlgColab(p, depois);
       } catch (e) { toast(e.message, true); $("#dMsg", el).textContent = ""; }
     };
     if ($("#dT", el)) $("#dT", el).onclick = () => gravarDigital({ teste: true });
     if ($("#dL", el)) $("#dL", el).onclick = async () => {
-      const tid = $("#dt", el).value;
-      if (!tid) return toast("Cadastre um terminal primeiro.", true);
       if (!$("#lgpd", el).checked) return toast("Marque o aceite do termo de biometria (LGPD).", true);
       const ag = await agenteStatus();
-      if (!ag || !ag.ok) return toast("Leitor não encontrado neste computador: abra o KingPonto Agente e confira o cabo USB.", true);
+      if (!ag || !ag.ok) return toast("Leitor não encontrado neste aparelho: confira o cabo e se o programa do leitor está aberto.", true);
       $("#dMsg", el).textContent = "Coloque o dedo 3 vezes no leitor, levantando entre uma e outra…";
       try {
-        const r = await agente("/capturar", { terminal_id: tid, leituras: 3 }, 60000);
+        await conectarLeitor(await api("/terminal"));   // o login conecta o leitor (sem escolher terminal)
+        const r = await agente("/capturar", { leituras: 3 }, 60000);
         if (!r.ok) throw new Error(r.motivo || "Leitura não concluída.");
         $("#dMsg", el).textContent = `Leitura ok (qualidade ${r.qualidade}). Gravando…`;
         await gravarDigital({ pacote: r.pacote, qualidade: r.qualidade });
