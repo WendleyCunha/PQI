@@ -317,6 +317,12 @@ def teste_paginas():
     t = TestClient(app)
     for rota in ("/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest", "/motorista/icone-192.png", "/motorista/icone-512.png"):
         ok(t.get(rota).status_code == 200, f"{rota} abre")
+    for rota in ("/qualidade-app/sw.js", "/qualidade-app/manifest.webmanifest", "/qualidade-app/icone-192.png", "/qualidade-app/icone-512.png"):
+        ok(t.get(rota).status_code == 200, f"{rota} abre (app da Qualidade)")
+    ok(t.get("/qualidade-app/sw.js").headers.get("service-worker-allowed") == "/qualidade", "service worker cobre a tela /qualidade")
+    import json as _j
+    mf = _j.loads(t.get("/qualidade-app/manifest.webmanifest").text)
+    ok(mf["scope"] == "/qualidade" and mf["display"] == "standalone", "manifesto do app da Qualidade")
     r = t.get("/motorista", follow_redirects=False)
     ok(r.status_code == 307 and r.headers["location"] == "/motorista/", "/motorista leva para /motorista/")
 

@@ -702,7 +702,12 @@ const $id = id => document.getElementById(id);
 function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 let CFG_LOGIN = { esqueci: false, lembrar: false, lembrar_dias: 30, senha_minimo: 8 };
 
+// [v5.3] veio de um app instalado (ex.: Qualidade)? depois do login volta direto para ele
+function destinoApp() {
+  try { const v = new URLSearchParams(location.search).get('voltar') || ''; return ['/qualidade'].includes(v) ? v : ''; } catch (_) { return ''; }
+}
 function aplicarSessao(dados) {
+  if (destinoApp() && dados.usuario && !dados.usuario.trocar_senha) { location.replace(destinoApp()); return; }
   USUARIO = dados.usuario;
   SISTEMAS = dados.modulos || [];
   const nome = USUARIO.nome || USUARIO.email;
@@ -813,6 +818,7 @@ $id('formSenha').addEventListener('submit', async (e) => {
     if (!r.ok) throw new Error(j.detail || 'Não consegui trocar a senha.');
     if (USUARIO) USUARIO.trocar_senha = false;
     $id('modalSenha').classList.remove('visivel');
+    if (destinoApp()) location.replace(destinoApp());
   } catch (err) { erro.textContent = err.message; }
   finally { btn.disabled = false; }
 });

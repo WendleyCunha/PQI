@@ -78,3 +78,13 @@ abas novas em `qualidade.html`, 2 abas em `modulos.py`, 7 linhas em `main.py` e 
 ```
 python testes_motorista.py
 ```
+
+# QUALIDADE COMO APP (v5.3)
+
+- Endereço: `https://<pqi>/qualidade` aberto **direto no Chrome do celular** (não pelo Painel).
+  Aparece **⤓ Instalar app** (ou menu ⋮ → Instalar app / Adicionar à tela inicial). Vira o ícone "Qualidade".
+- O login é o mesmo do PQI (e-mail e senha). Sem login, o app abre a tela de login e volta sozinho para a Qualidade.
+- Cada pessoa vê **só as abas liberadas** para ela (Segurança → abas da Qualidade). Quem tem uma aba só
+  (ex.: o chapa da Montagem) nem vê o menu: abre direto na etapa dele.
+- No app instalado o botão "Painel de Sistemas" vira **Sair** (para trocar de pessoa no mesmo celular).
+- Para não pedir login todo dia, ligue "Lembrar de mim" na configuração de login do PQI.

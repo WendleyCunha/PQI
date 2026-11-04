@@ -1,0 +1,17 @@
+{
+  "name": "King Star Qualidade",
+  "short_name": "Qualidade",
+  "description": "Montagem do palete, conferência na doca, retorno e PCL — cada pessoa vê só a etapa liberada para ela.",
+  "id": "/qualidade",
+  "start_url": "/qualidade?app=1",
+  "scope": "/qualidade",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F6F9",
+  "theme_color": "#2E4A7A",
+  "lang": "pt-BR",
+  "icons": [
+    {"src": "/qualidade-app/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/qualidade-app/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

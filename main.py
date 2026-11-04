@@ -138,6 +138,9 @@ ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",                      # [v4.2] co
 # [v5.2] App do motorista (instalável no Android). Não dá acesso a nada do PQI: tem cookie próprio.
 ROTAS_PUBLICAS |= {"/motorista", "/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest",
                    "/motorista/icone-192.png", "/motorista/icone-512.png"}
+# [v5.3] Qualidade como app instalável: só os arquivos do app são públicos (a tela continua pedindo o login do PQI)
+ROTAS_PUBLICAS |= {"/qualidade-app/sw.js", "/qualidade-app/manifest.webmanifest",
+                   "/qualidade-app/icone-192.png", "/qualidade-app/icone-512.png"}
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 _CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
@@ -302,9 +305,13 @@ def _usuario_da_requisicao(request: Request) -> Optional[dict]:
     return u
 
 
-def _negar(eh_api: bool, status: int, mensagem: str):
+def _negar(eh_api: bool, status: int, mensagem: str, voltar: str = ""):
     if eh_api:
         return JSONResponse({"detail": mensagem}, status_code=status)
+    # [v5.3] página aberta direto (app instalado, ex.: /qualidade): sem login vai para o login e volta para ela
+    ir = ""
+    if status == 401 and voltar in ("/qualidade",):
+        ir = f"<script>if (window.top === window.self) location.replace('/?voltar={voltar}');</script>"
     # Página dentro do túnel: mostra o aviso e manda o login abrir na janela
     # principal (target=_top), não dentro do iframe.
     return HTMLResponse(
@@ -313,7 +320,7 @@ def _negar(eh_api: bool, status: int, mensagem: str):
 <style>body{{font:15px Inter,Arial,sans-serif;background:#06070b;color:#f2f0ea;display:grid;place-items:center;
 height:100vh;margin:0}}div{{text-align:center;max-width:420px;padding:24px}}a{{color:#f3cd6f}}</style></head>
 <body><div><p style="font-size:36px;margin:0">🔒</p><p>{mensagem}</p>
-<p><a href="/" target="_top">Ir para o Painel</a></p></div></body></html>""",
+<p><a href="/" target="_top">Ir para o Painel</a></p></div>{ir}</body></html>""",
         status_code=status,
     )
 
@@ -330,7 +337,7 @@ async def porteiro(request: Request, call_next):
     except Exception as e:
         return _negar(eh_api, 503, f"Não consegui verificar seu acesso agora ({e.__class__.__name__}). Tente de novo.")
     if not usuario:
-        return _negar(eh_api, 401, "Sua sessão expirou ou você ainda não entrou. Faça login de novo.")
+        return _negar(eh_api, 401, "Sua sessão expirou ou você ainda não entrou. Faça login de novo.", caminho)
     request.state.usuario = usuario
 
     if caminho in ROTAS_QUALQUER_LOGADO:
