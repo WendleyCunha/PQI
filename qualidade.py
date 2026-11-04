@@ -155,6 +155,23 @@ LISTAS_PADRAO = {
 CAD: dict = {"produtos": None, "placas": None, "listas": None}
 
 
+def norm_placa(p) -> str:
+    """Placa no padrão único do PQI: só letras e números, sem traço nem espaço (FIB-3J44 → FIB3J44)."""
+    return re.sub(r"[^A-Z0-9]", "", str(p or "").upper())[:8]
+
+
+def _juntar_placas(itens: dict) -> tuple:
+    """Cadastro antigo com placa com traço → chave sem traço (se houver as duas, vale a gravada por último)."""
+    out: dict = {}
+    for k, v in sorted(itens.items(), key=lambda kv: str((kv[1] or {}).get("em") or "")):
+        pl = norm_placa(k)
+        if not pl:
+            continue
+        ant = out.get(pl) or {}
+        out[pl] = {**ant, **(v or {})} if (v or {}).get("motorista") or not ant.get("motorista") else ant
+    return out, set(out) != set(itens)
+
+
 def _cad(nome: str) -> dict:
     if CAD[nome] is None:
         d = _fs_get(COL_CAD, nome) or {}
@@ -162,7 +179,12 @@ def _cad(nome: str) -> dict:
             d = {**LISTAS_PADRAO, **{k: v for k, v in d.items() if k in LISTAS_PADRAO}}
         else:
             d = {"itens": d.get("itens") or {}}
+        mudou = False
+        if nome == "placas":
+            d["itens"], mudou = _juntar_placas(d["itens"])
         CAD[nome] = d
+        if mudou:
+            _cad_salvar(nome)
     return CAD[nome]
 
 
@@ -312,6 +334,10 @@ def no_periodo(de: str, ate: str) -> list:
 
 def migrar(c: dict) -> dict:
     """Cargas gravadas pela 1ª versão do módulo (conferencia/ajustes/"conferida") → formato atual."""
+    if c and c.get("placa") and c["placa"] != norm_placa(c["placa"]):
+        c["placa"] = norm_placa(c["placa"])   # placa sem traço (vale no app, no Ao vivo e nos indicadores)
+        if not c.get("motorista"):
+            c["motorista"] = (placas().get(c["placa"]) or {}).get("motorista") or ""
     if c and "montagem" not in c:
         conf = c.pop("conferencia", None)
         c["montagem"], c["doca"] = conf, None
@@ -601,7 +627,11 @@ def importar_mapa(payload: dict, q: dict) -> dict:
             if existente and existente.get("status") in FASE_RETORNO and (existente.get("status") != "validada" or (existente.get("retorno") or {}).get("itens")):
                 rel["bloqueadas"].append(num)   # o retorno já começou: não troca a versão por baixo dele
                 continue
-            pl = str(ci.get("placa") or "").upper()
+            rua_ex = (existente or {}).get("rua") or {}
+            if rua_ex.get("saida") or rua_ex.get("chegada") or any((v or {}).get("desfecho") for v in (rua_ex.get("pedidos") or {}).values()):
+                rel["bloqueadas"].append(num)   # o motorista já está com a carga na rua: o PDF novo não muda nada por baixo dele
+                continue
+            pl = norm_placa(ci.get("placa"))
             mot = (placas().get(pl) or {}).get("motorista") or ""
             base_carga = {"numero": num, "data_mapa": payload.get("data_mapa") or "", "data_iso": data_iso(payload.get("data_mapa")),
                           "placa": pl, "transportadora": str(ci.get("transportadora") or ""), "motorista": mot,
@@ -609,6 +639,9 @@ def importar_mapa(payload: dict, q: dict) -> dict:
             if existente:
                 c = existente
                 antigos = c.get("pedidos") or []
+                if c.get("trocas_placa") and c.get("placa") and pl == c["trocas_placa"][0].get("de"):
+                    # o PDF ainda traz a placa antiga: vale a troca feita no PCL (PDF com outra placa manda)
+                    base_carga["placa"], base_carga["motorista"] = c["placa"], c.get("motorista") or base_carga["motorista"]
                 c.update(base_carga)
                 c["versao"] = int(c.get("versao") or 1) + 1
                 gap_ant = {num_chave(p.get("pv")): p.get("gap") for p in antigos}   # GAP já analisado continua valendo
@@ -1115,7 +1148,105 @@ def rota_cargas(request: Request, de: str = "", ate: str = "", abertas: bool = T
 @router.get("/cargas/{numero}")
 def rota_carga(numero: str, request: Request):
     c = carga(numero)
-    return {**c, "resumo": resumo(c), "situacao_pedidos": situacao_pedidos(c), "montadores": sorted(_montadores(c)), "nomes_status": STATUS}
+    return {**c, "resumo": resumo(c), "situacao_pedidos": situacao_pedidos(c), "montadores": sorted(_montadores(c)), "nomes_status": STATUS,
+            "volta_montagem": not _pode_voltar_montagem(c), "fase2": exigir_conferencia()}
+
+
+class TrocaPlaca(BaseModel):
+    placa: str
+    motorista: Optional[str] = ""
+    motivo: Optional[str] = ""
+
+
+@router.put("/cargas/{numero}/placa")
+def rota_trocar_placa(numero: str, payload: TrocaPlaca, request: Request):
+    """Outro caminhão vai fazer a rota: a placa nova assume todas as entregas ainda pendentes.
+    O que o motorista anterior já registrou fica na carga; a placa antiga deixa de ver a carga no app."""
+    exigir(request, ["pcl", "aovivo"], 2, "Trocar a placa da carga")
+    q = quem(request)
+    pl = norm_placa(payload.placa)
+    if len(pl) < 5:
+        raise HTTPException(status_code=400, detail="Placa inválida.")
+    with TRAVA:
+        c = carga(numero)
+        de = c.get("placa") or ""
+        if pl == de:
+            raise HTTPException(status_code=400, detail="A carga já está nesta placa.")
+        if c.get("status") == "baixada":
+            raise HTTPException(status_code=409, detail="Carga já baixada.")
+        r = c.get("rua") or {}
+        if r.get("chegada"):
+            raise HTTPException(status_code=409, detail="O motorista já registrou a chegada no CD. Não dá para trocar a placa.")
+        ped_rua = r.get("pedidos") or {}
+        feitos = sum(1 for v in ped_rua.values() if (v or {}).get("desfecho"))
+        pendentes = max(0, len(c.get("pedidos") or []) - feitos)
+        mot_ant = (r.get("saida") or {}).get("nome") or c.get("motorista") or ""
+        mot = (payload.motorista or "").strip()[:120] or (placas().get(pl) or {}).get("motorista") or ""
+        c.setdefault("trocas_placa", []).append({"em": agora(), "por": q["por"], "email": q["email"], "de": de, "para": pl,
+                                                 "motorista_de": mot_ant, "motorista_para": mot, "motivo": (payload.motivo or "").strip()[:300],
+                                                 "registrados_antes": feitos, "pendentes": pendentes, "saida_anterior": r.get("saida")})
+        c["placa"], c["motorista"] = pl, mot
+        if r.get("saida"):
+            r["saida"] = None   # o motorista novo toca "Iniciar rota" no app dele; a trilha anterior fica
+            r["gps"] = None
+        hist(c, q, "placa trocada", f"{de or '—'} ({mot_ant or 'sem motorista'}) → {pl} ({mot or 'sem motorista'}) · "
+                                    f"{pendentes} entrega(s) pendente(s) passam para a placa nova · {feitos} já registrada(s) ficam"
+                                    + (f" · {payload.motivo.strip()[:200]}" if (payload.motivo or "").strip() else ""))
+        gravar(c)
+    return {"ok": True, "numero": numero, "placa": pl, "motorista": mot, "pendentes": pendentes, "registrados": feitos}
+
+
+def _pode_voltar_montagem(c: dict) -> str:
+    """'' se a carga entrou direto no retorno (fase 1) e ainda não tem nada de retorno nem de rua; senão o motivo."""
+    if c.get("status") != "validada":
+        return "Só carga validada e ainda sem retorno volta para a montagem."
+    if not str((c.get("validacao") or {}).get("como") or "").startswith("fase 1"):
+        return "Esta carga foi validada na doca."
+    if (c.get("retorno") or {}).get("itens"):
+        return "O retorno desta carga já começou."
+    r = c.get("rua") or {}
+    if r.get("saida") or r.get("chegada") or any((v or {}).get("desfecho") for v in (r.get("pedidos") or {}).values()):
+        return "O motorista já começou esta carga no app."
+    return ""
+
+
+def _voltar_montagem(c: dict, q: dict) -> None:
+    c["validacao"] = None
+    c["status"] = "importada"
+    recalcular(c)
+    hist(c, q, "voltou para a montagem", "entrou direto no retorno (fase 1) · agora passa por montagem do palete e doca")
+    gravar(c)
+
+
+class VoltarMontagem(BaseModel):
+    numeros: list = []
+    de: Optional[str] = ""
+    ate: Optional[str] = ""
+
+
+@router.post("/montagem/voltar")
+def rota_voltar_montagem(payload: VoltarMontagem, request: Request):
+    """Cargas que a fase 1 mandou direto para o Retorno → montagem do palete (exige a fase 2 ligada)."""
+    exigir(request, "pcl", 3, "Voltar cargas para a montagem")
+    if not exigir_conferencia():
+        raise HTTPException(status_code=409, detail="Ligue antes a fase 2 em Cadastros → Listas (montagem do palete e conferência na doca). "
+                                                    "Com a fase 1 ligada a carga voltaria sozinha para o Retorno.")
+    q = quem(request)
+    with TRAVA:
+        if payload.numeros:
+            alvo = [carga(str(n)) for n in payload.numeros]
+        else:
+            de = iso_ok(payload.de or "", hoje())
+            alvo = [c for c in no_periodo(de, iso_ok(payload.ate or "", "9999-12-31")) if c.get("aberta")]
+        feitas, puladas = [], []
+        for c in alvo:
+            motivo = _pode_voltar_montagem(c)
+            if motivo:
+                puladas.append({"numero": c["numero"], "motivo": motivo})
+                continue
+            _voltar_montagem(c, q)
+            feitas.append(c["numero"])
+    return {"voltaram": sorted(feitas), "puladas": puladas}
 
 
 @router.post("/importar")
@@ -1507,7 +1638,9 @@ def rota_add_ean(payload: AddEan, request: Request):
 def rota_placa(payload: Placa, request: Request):
     exigir(request, "cadastros", 3, "Cadastrar motorista")
     q = quem(request)
-    pl = re.sub(r"\s+", "", payload.placa.upper())
+    pl = norm_placa(payload.placa)
+    if len(pl) < 5:
+        raise HTTPException(status_code=400, detail="Placa inválida.")
     with TRAVA:
         placas()[pl] = {"motorista": payload.motorista.strip()[:120], "por": q["por"], "em": agora()}
         _cad_salvar("placas")

@@ -228,6 +228,89 @@ def teste_fluxo():
     ok(mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": M.SENHA_INICIAL}).status_code == 429, "5 erros bloqueiam a placa por alguns minutos")
 
 
+def entrar(cli, placa, nome, senha_nova="rota2026"):
+    r = cli.post("/api/motorista/login", json={"placa": placa, "senha": M.SENHA_INICIAL})
+    assert r.status_code == 200, r.text
+    r = cli.post("/api/motorista/senha", json={"nova": senha_nova, "repetir": senha_nova})
+    ms = {m["nome"]: m["id"] for m in r.json()["motoristas"]}
+    r = cli.post("/api/motorista/quem", json={"id": ms[nome]} if nome in ms else {"nome_novo": nome})
+    assert r.status_code == 200, r.text
+
+
+def teste_placas():
+    """Placa sem traço em tudo, login de placa vinda do PDF com traço, troca de placa e volta para a montagem."""
+    print("Placa sem traço, troca de placa e volta para a montagem")
+    ligar_memoria()
+    # dados como estavam em produção: cadastro e carga com traço, motorista de teste só no cadastro do app
+    BANCO.setdefault(Q.COL_CAD, {})["placas"] = {"itens": {"FIB-3J44": {"motorista": "Samuel Martins", "em": "2026-11-01T08:00:00"}}}
+    BANCO[Q.COL_CAD][M.DOC_APP] = {"placas": {}, "motoristas": {"m1234abcd": {"nome": "Wendley Cunha", "placas": ["FHZ-5B04"], "palavra": False, "ativo": True}}}
+    importar("068600", "FIB-3J44", [("800001", "Cliente Um", 1), ("800002", "Cliente Dois", 1), ("800003", "Cliente Tres", 1)])
+    importar("068601", "EQO-3572", [("800010", "Cliente Dez", 1)])
+    BANCO[Q.COL_CARGAS]["068601"]["placa"] = "EQO-3572"   # gravada pela versão antiga, com traço
+    Q.CARGAS.clear(); Q._CARREGADO.update(ok=False, desde=""); Q.CAD["placas"] = None; M.APP["dados"] = None
+    app = montar()
+    sam, wen, sam2, pq = TestClient(app), TestClient(app), TestClient(app), TestClient(app)
+
+    ok(Q.carga("068600")["placa"] == "FIB3J44", "PDF com traço (FIB-3J44) → carga gravada sem traço")
+    ok(Q.carga("068601")["placa"] == "EQO3572", "carga antiga com traço passa para sem traço ao carregar")
+    ok(list(Q.placas()) == ["FIB3J44"] and list(BANCO[Q.COL_CAD]["placas"]["itens"]) == ["FIB3J44"], "cadastro de placas migrado para sem traço")
+    ok(Q.carga("068600")["motorista"] == "Samuel Martins", "a placa do PDF já traz o motorista do cadastro")
+    ok(M.app_cfg()["motoristas"]["m1234abcd"]["placas"] == ["FHZ5B04"], "placas do cadastro de motoristas do app sem traço")
+
+    entrar(sam, "FIB-3J44", "Samuel Martins")
+    ok([c["numero"] for c in sam.get("/api/motorista/cargas").json()["cargas"]] == ["068600"], "Samuel entra com FIB-3J44 e vê a carga do PDF")
+    ok(sam2.post("/api/motorista/login", json={"placa": "fib 3j44", "senha": "rota2026"}).status_code == 200, "entra também digitando fib 3j44")
+    entrar(wen, "FHZ5B04", "Wendley Cunha")
+    ok(wen.get("/api/motorista/cargas").json()["cargas"] == [], "placa só no cadastro de motoristas (FHZ5B04) também entra")
+
+    ok(sam.post("/api/motorista/cargas/068600/saida", json={}).status_code == 200, "Samuel inicia a rota")
+    r = sam.post("/api/motorista/cargas/068600/pedido/800001", json={"desfecho": "entregue", "cid": "x1"})
+    ok(r.status_code == 200, "Samuel entrega o 1º pedido")
+
+    USUARIO["abas"] = {"retorno": 3}
+    ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FHZ5B04"}).status_code == 403, "trocar placa exige PCL ou Ao vivo")
+    USUARIO["abas"] = {"aovivo": 2}
+    ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FIB3J44"}).status_code == 400, "mesma placa recusada")
+    r = pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "fhz-5b04", "motivo": "caminhão quebrou"})
+    ok(r.status_code == 200 and r.json()["placa"] == "FHZ5B04" and r.json()["pendentes"] == 2, "PCL troca a placa: 2 entregas pendentes passam para FHZ5B04")
+    c = Q.carga("068600")
+    ok(c["trocas_placa"][0]["de"] == "FIB3J44" and c["trocas_placa"][0]["motivo"] == "caminhão quebrou", "troca fica no histórico da carga")
+    ok(not c["rua"].get("saida"), "a rota volta a esperar o motorista novo iniciar")
+    ok(sam.get("/api/motorista/cargas").json()["cargas"] == [], "a placa antiga deixa de ver a carga")
+    ok(sam.post("/api/motorista/cargas/068600/pedido/800002", json={"desfecho": "entregue", "cid": "x2"}).status_code == 404, "placa antiga não registra mais nada")
+    cs = wen.get("/api/motorista/cargas").json()["cargas"]
+    ok([x["numero"] for x in cs] == ["068600"], "a placa nova assume a carga")
+    ok(wen.post("/api/motorista/cargas/068600/saida", json={}).status_code == 200, "motorista novo inicia a rota")
+    ok(wen.post("/api/motorista/cargas/068600/pedido/800002", json={"desfecho": "entregue", "cid": "y1"}).status_code == 200, "placa nova registra as pendentes")
+    ok(Q.carga("068600")["rua"]["pedidos"][Q.num_chave("800001")]["desfecho"] == "entregue", "o que o Samuel registrou continua na carga")
+    viva = next(g for g in pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"] if g["numero"] == "068600")
+    ok(viva["placa"] == "FHZ5B04", "Ao vivo mostra a placa nova")
+
+    print("Voltar para a montagem")
+    USUARIO["abas"] = {"pcl": 3, "cadastros": 3}
+    ok(pq.post("/api/qualidade/montagem/voltar", json={"numeros": ["068601"]}).status_code == 409, "com a fase 1 ligada não volta (voltaria sozinha ao Retorno)")
+    ok(pq.put("/api/qualidade/cadastros/listas", json={"exigir_conferencia": True}).status_code == 200, "liga a fase 2")
+    ok(pq.get("/api/qualidade/cargas/068601").json()["volta_montagem"] is True, "detalhe avisa que a carga pode voltar")
+    r = pq.post("/api/qualidade/montagem/voltar", json={"de": Q.hoje()}).json()
+    ok(r["voltaram"] == ["068601"], "lote leva para a montagem a carga sem retorno nem app")
+    ok(any(x["numero"] == "068600" for x in r["puladas"]), "carga já na rua fica onde está")
+    ok(Q.carga("068601")["status"] == "importada", "carga volta para Aguardando montagem")
+    Q.CARGAS.clear(); Q._CARREGADO.update(ok=False, desde="")
+    ok(Q.carga("068601")["status"] == "importada", "continua na montagem depois de recarregar do banco")
+
+    print("PDF novo depois da troca")
+    r = importar("068600", "FIB-3J44", [("800001", "Cliente Um", 1), ("800002", "Cliente Dois", 1), ("800004", "Cliente Quatro", 1)])
+    ok("068600" in r["bloqueadas"] and Q.carga("068600")["status"] == "validada", "carga na rua não é trocada por PDF novo")
+    ok(pq.put("/api/qualidade/cargas/068601/placa", json={"placa": "FHZ5B04"}).status_code == 200, "troca a placa de uma carga ainda na montagem")
+    importar("068601", "EQO-3572", [("800010", "Cliente Dez", 1), ("800011", "Cliente Onze", 1)])
+    ok(Q.carga("068601")["placa"] == "FHZ5B04", "PDF novo com a placa antiga não desfaz a troca")
+    importar("068601", "GHI-7J88", [("800010", "Cliente Dez", 1)])
+    ok(Q.carga("068601")["placa"] == "GHI7J88", "PDF novo com outra placa manda")
+    wen.post("/api/motorista/cargas/068600/pedido/800003", json={"desfecho": "entregue", "cid": "y2"})
+    ok(wen.post("/api/motorista/cargas/068600/chegada", json={}).status_code == 200, "motorista novo registra a chegada")
+    ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FIB3J44"}).status_code == 409, "depois da chegada não troca mais a placa")
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
@@ -240,5 +323,6 @@ def teste_paginas():
 
 if __name__ == "__main__":
     teste_fluxo()
+    teste_placas()
     teste_paginas()
     print(f"\n{OK} verificações ok.")

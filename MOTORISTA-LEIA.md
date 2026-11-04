@@ -17,6 +17,30 @@ abas novas em `qualidade.html`, 2 abas em `modulos.py`, 7 linhas em `main.py` e 
 7. O **Retorno** do CD continua igual e agora mostra o que o motorista informou ("📱 Motorista: …").
    A peça só entra no estoque pelo Retorno. O app não muda o status da carga.
 
+## Placa (padrão único, sem traço)
+
+- Em todo o PQI a placa fica **sem traço e sem espaço**: o PDF traz `FIB-3J44` e o sistema grava `FIB3J44`.
+  Vale para o Mapa importado, Cadastros → placas, o app, o Ao vivo e os indicadores. Dados antigos com traço
+  são convertidos sozinhos ao carregar.
+- O motorista pode digitar com ou sem traço, maiúscula ou minúscula.
+- Uma placa entra no app se estiver em Cadastros → placas, em **Motoristas e app** (placas de um motorista)
+  ou numa carga dos últimos 15 dias.
+
+## Trocar a placa da carga
+
+- No detalhe da carga ou no Ao vivo: **🚚 Trocar placa** (aba PCL ou Ao vivo, nível Adicionar).
+- A placa nova **assume todas as entregas pendentes**. O que o motorista anterior já registrou fica na carga.
+  A placa antiga deixa de ver a carga no app. O motorista novo toca **Iniciar rota** de novo.
+- Fica no histórico (de → para, quem, quando, motivo). Depois de "Cheguei no CD" não dá mais para trocar.
+- PDF novo da mesma carga com a placa antiga não desfaz a troca; PDF com outra placa manda.
+- PDF novo **não mexe** em carga que o motorista já começou no app (fica em "bloqueadas" no relatório da importação).
+
+## Voltar para a montagem
+
+- Com a fase 1, a carga importada vai direto para o Retorno. Para passar a montar os paletes:
+  Cadastros → Listas → ligue a **fase 2** → **Gravar as listas** → **↩ Levar para a montagem**
+  (cargas de hoje em diante sem retorno e sem registro no app). Também há o botão em cada carga.
+
 ## Palavra da entrega
 
 - Cada pedido ganha uma palavra (ex.: GIRASSOL), diferente das outras da carga.
