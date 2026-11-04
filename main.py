@@ -133,7 +133,11 @@ app = FastAPI(title="PQI — Painel de Sistemas", version="3.0", lifespan=lifesp
 ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
                   "/api/auth/login", "/api/auth/logout", "/api/auth/me",
                   "/api/auth/esqueci", "/api/auth/config-login"}          # [v4.2] Esqueci minha senha
-ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",)                     # [v4.2] consulta/conclusão do pedido
+ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",                      # [v4.2] consulta/conclusão do pedido
+                          "/api/motorista/")                         # [v5.2] app do motorista: o login é a PLACA (motorista.py)
+# [v5.2] App do motorista (instalável no Android). Não dá acesso a nada do PQI: tem cookie próprio.
+ROTAS_PUBLICAS |= {"/motorista", "/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest",
+                   "/motorista/icone-192.png", "/motorista/icone-512.png"}
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 _CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
@@ -3274,6 +3278,10 @@ def acesso_js():
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld
 qld.ligar(app, usuario_atual=usuario_atual, exigir_aba=_exigir_aba, nivel_aba=_nivel_aba)
+
+# [v5.2] APP DO MOTORISTA + PAINEL AO VIVO — rotas em motorista.py (app: login pela placa · painel: abas da Qualidade)
+import motorista as mtr
+mtr.ligar(app)
 
 # [v5.1] PONTO — rotas em ponto.py (mesmo login e permissão por aba)
 import ponto as pto
