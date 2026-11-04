@@ -33,6 +33,7 @@ import base64
 import gzip
 import hashlib
 import json
+import os
 import re
 import threading
 import time
@@ -42,6 +43,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Optional
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import db_diario as db
@@ -60,6 +62,24 @@ H: dict = {}
 def ligar(app, usuario_atual: Callable, exigir_aba: Callable, nivel_aba: Callable) -> None:
     H.update(usuario_atual=usuario_atual, exigir_aba=exigir_aba, nivel_aba=nivel_aba)
     app.include_router(router)
+    for rota, arq, tipo in (("/qualidade-app/sw.js", "qualidade-sw.js", "application/javascript"),
+                            ("/qualidade-app/manifest.webmanifest", "qualidade.webmanifest", "application/manifest+json"),
+                            ("/qualidade-app/icone-192.png", "qualidade-192.png", "image/png"),
+                            ("/qualidade-app/icone-512.png", "qualidade-512.png", "image/png")):
+        app.add_api_route(rota, _servir_app(arq, tipo), methods=["GET", "HEAD"], include_in_schema=False)
+
+
+# App instalável (o login é o mesmo do PQI; cada usuário vê só as abas liberadas para ele)
+ROTAS_APP = {"/qualidade-app/sw.js", "/qualidade-app/manifest.webmanifest", "/qualidade-app/icone-192.png", "/qualidade-app/icone-512.png"}
+
+
+def _servir_app(arq: str, tipo: str):
+    def servir():
+        cab = {"Cache-Control": "no-cache"}
+        if arq.endswith("sw.js"):
+            cab["Service-Worker-Allowed"] = "/qualidade"
+        return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), arq), media_type=tipo, headers=cab)
+    return servir
 
 
 # ══════════════════════════════════════════════════════════════════════════

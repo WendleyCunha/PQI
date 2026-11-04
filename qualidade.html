@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Qualidade — Cargas e Retorno · King Star</title>
+<link rel="manifest" href="/qualidade-app/manifest.webmanifest">
+<meta name="theme-color" content="#2E4A7A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Qualidade">
+<link rel="apple-touch-icon" href="/qualidade-app/icone-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -67,7 +73,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--in
 .p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-roxo{background:var(--block-soft);color:var(--block)} .p-aco{background:var(--steel-soft);color:var(--steel)}
 .wrap{padding:24px 28px 64px}
 footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
-.shell-item{display:flex;align-items:flex-start;gap:22px}
+.shell-item{display:flex;align-items:flex-start;gap:22px} .side-rg[hidden]{display:none!important}
 .side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
   position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);max-height:calc(100vh - 90px);overflow-y:auto}
 .side-btn{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;border-radius:8px;border:1px solid transparent;background:none;
@@ -449,7 +455,9 @@ dialog .q-dlg h3{font-size:22px}
 <body>
 <div class="bar"><div class="bar-in">
   <span class="who" id="who"><i class="dot" id="dot"></i><span id="whoTxt">Carregando…</span></span>
-  <a class="btn peq" href="/" target="_top" title="Voltar ao Painel de Sistemas">⌂<span class="q-longo"> Painel de Sistemas</span></a>
+  <button type="button" class="btn peq" id="btInstalar" hidden title="Instalar a Qualidade como app neste aparelho">⤓ Instalar app</button>
+  <a class="btn peq" id="btPainel" href="/" target="_top" title="Voltar ao Painel de Sistemas">⌂<span class="q-longo"> Painel de Sistemas</span></a>
+  <button type="button" class="btn peq" id="btSair" hidden title="Sair desta conta">⎋<span class="q-longo"> Sair</span></button>
 </div></div>
 <div class="wrap">
   <div class="shell-item">
@@ -703,7 +711,7 @@ async function api(url, op = {}) {
   try { r = await fetch(API + url, { headers: { "Content-Type": "application/json" }, cache: "no-store", ...op }); }
   catch (e) { status("erro"); throw new Error("Sem conexão com o servidor. Tente de novo."); }
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401) { $("#root").innerHTML = '<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo pelo Painel. <a href="/" target="_top">Ir para o Painel</a></div>'; throw new Error("sessão expirada"); }
+  if (r.status === 401) { $("#root").innerHTML = '<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo. <a href="${window.top === window.self ? "/?voltar=/qualidade" : "/"}" target="_top">Entrar</a></div>'; throw new Error("sessão expirada"); }
   if (!r.ok) { status("erro"); throw new Error(j.detail || `HTTP ${r.status}`); }
   status("ok"); return j;
 }
@@ -770,6 +778,7 @@ function menu() {
   $("#menu").innerHTML = vis.map(x => x === "sep" ? '<div class="side-sep"></div>' :
     `<button type="button" class="side-btn${x[0] === secao ? " ativo" : ""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${CONT[x[0]] ? `<span class="n"${x[0] === "pcl" ? ' style="background:var(--bad)"' : ""}>${CONT[x[0]]}</span>` : ""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b => b.onclick = () => ir(b.dataset.s));
+  $("#menu").hidden = vis.filter(x => x !== "sep").length <= 1;   // [v5.3] quem tem uma etapa só (ex.: o chapa da montagem) não precisa do menu
 }
 function ir(s, carga, volta) { if (typeof pararAoVivo === "function" && s !== "aovivo") pararAoVivo(); secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
 async function render() {
@@ -1423,12 +1432,13 @@ async function lerPdf(arquivo) {
   }
   return linhas;
 }
-let FCG = { st: "", busca: "" };
+let FCG = { st: "", busca: "", outras: false };
 async function pclCargas(box) {
   const P = per("pcl_cg");
   const [fh, ligar] = filtroPeriodo(P, () => pclCargas(box), `<select id="fSt"><option value="">Todas as situações</option>${Object.keys(STATUS_COR).map(k => `<option value="${k}" ${FCG.st === k ? "selected" : ""}>${esc(STATUS_COR[k][0])}</option>`).join("")}</select><input type="search" id="fB" placeholder="Carga, placa, motorista" value="${esc(FCG.busca)}">`);
-  const lst = await api(`/cargas?de=${P.de}&ate=${P.ate}`);
-  box.innerHTML = fh + `<p class="cap">Inclui todas as cargas ainda não baixadas, de qualquer data.</p><div id="tC"></div>`; ligar(box);
+  const lst = await api(`/cargas?de=${P.de}&ate=${P.ate}&abertas=${FCG.outras ? "true" : "false"}`);
+  box.innerHTML = fh + `<label class="cap" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="fOut" ${FCG.outras ? "checked" : ""}> Mostrar também as cargas ainda não baixadas de outros dias</label><div id="tC"></div>`; ligar(box);
+  $("#fOut", box).onchange = e => { FCG.outras = e.target.checked; pclCargas(box); };
   const desenha = () => { const t = FCG.busca.trim().toUpperCase();
     const f = lst.filter(x => (!FCG.st || x.status === FCG.st) && (!t || `${x.numero} ${x.placa} ${x.motorista} ${x.transportadora}`.toUpperCase().includes(t)));
     $("#tC", box).innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Carga</th><th>Mapa</th><th>Placa · motorista</th><th>Situação</th><th class="num">Montagem</th><th class="num">Doca</th><th class="num">Alertas</th><th class="num">Pendências</th><th class="num">Retorno</th></tr></thead><tbody>${
@@ -1883,6 +1893,21 @@ window.addEventListener("resize", medirBarra); medirBarra();
   render();
 })();
 
+
+// ═══ APP INSTALÁVEL [v5.3] — mesmo login do PQI; cada pessoa vê só as abas liberadas para ela ═══
+(() => {
+  const topo = window.top === window.self;
+  if (!topo) return;   // dentro do Painel de Sistemas continua igual
+  const app = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/qualidade-app/sw.js", { scope: "/qualidade" }).catch(() => {});
+  const bp = document.getElementById("btPainel"), bs = document.getElementById("btSair"), bi = document.getElementById("btInstalar");
+  if (app) { if (bp) bp.hidden = true; if (bs) bs.hidden = false; }
+  if (bs) bs.onclick = async () => { try { await fetch("/api/auth/logout", { method: "POST" }); } catch (_) {} location.replace("/?voltar=/qualidade"); };
+  let pedido = null;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedido = e; if (bi && !app) bi.hidden = false; });
+  addEventListener("appinstalled", () => { if (bi) bi.hidden = true; });
+  if (bi) bi.onclick = async () => { if (!pedido) return; pedido.prompt(); try { await pedido.userChoice; } catch (_) {} pedido = null; bi.hidden = true; };
+})();
 </script>
 </body>
 </html>
