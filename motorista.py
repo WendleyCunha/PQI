@@ -114,7 +114,27 @@ def app_cfg() -> dict:
         d = _fs_get(qld.COL_CAD, DOC_APP) or {}
         APP["dados"] = {"placas": d.get("placas") or {}, "motoristas": d.get("motoristas") or {},
                         "cfg": {"tentativas": 5, **(d.get("cfg") or {})}}
+        if _padronizar(APP["dados"]):
+            app_salvar()
     return APP["dados"]
+
+
+def _padronizar(A: dict) -> bool:
+    """Placas gravadas com traço (FIB-3J44) → sem traço (FIB3J44), nas senhas e nos motoristas."""
+    mudou = False
+    novas: dict = {}
+    for k, v in A["placas"].items():
+        pl = norm_placa(k)
+        if pl != k:
+            mudou = True
+        if pl and (pl not in novas or str((v or {}).get("em") or "") > str(novas[pl].get("em") or "")):
+            novas[pl] = v
+    A["placas"] = novas
+    for m in A["motoristas"].values():
+        lp = sorted({norm_placa(x) for x in m.get("placas") or [] if norm_placa(x)})
+        if lp != (m.get("placas") or []):
+            m["placas"], mudou = lp, True
+    return mudou
 
 
 def app_salvar() -> None:
@@ -192,6 +212,10 @@ def placas_conhecidas() -> dict:
     out = {pl: {"motorista": (v or {}).get("motorista") or ""} for pl, v in qld.placas().items()}
     for pl in app_cfg()["placas"]:
         out.setdefault(pl, {"motorista": ""})
+    for m in app_cfg()["motoristas"].values():   # placa só no cadastro de motoristas do app também entra
+        if m.get("ativo", True):
+            for pl in m.get("placas") or []:
+                out.setdefault(norm_placa(pl), {"motorista": m.get("nome") or ""})
     return out
 
 
@@ -280,7 +304,7 @@ def _placa_existe(pl: str) -> bool:
         return True
     qld._carregar()
     limite = (datetime.now() - timedelta(days=15)).strftime("%Y-%m-%d")
-    return any(c.get("placa") == pl and (c.get("data_iso") or "") >= limite for c in qld.CARGAS.values())
+    return any(norm_placa(c.get("placa")) == pl and (c.get("data_iso") or "") >= limite for c in qld.CARGAS.values())
 
 
 @api.post("/login")
@@ -384,7 +408,7 @@ def cargas_da_placa(pl: str) -> list:
     limite = (datetime.now() - timedelta(days=DIAS_APP)).strftime("%Y-%m-%d")
     out = []
     for c in qld.CARGAS.values():
-        if c.get("placa") != pl or (c.get("data_iso") or "") < limite:
+        if norm_placa(c.get("placa")) != pl or (c.get("data_iso") or "") < limite:
             continue
         r = c.get("rua") or {}
         chegou_hoje = (r.get("chegada") or {}).get("em", "")[:10] == datetime.now().strftime("%Y-%m-%d")
@@ -434,7 +458,7 @@ def rota_cargas(request: Request):
 
 def _carga_do_motorista(s: dict, numero: str) -> dict:
     c = qld.carga(numero)
-    if c.get("placa") != s["placa"]:
+    if norm_placa(c.get("placa")) != s["placa"]:
         raise HTTPException(404, "Esta carga não é da sua placa.")
     if c.get("status") not in STATUS_RUA:
         raise HTTPException(409, "Esta carga não está liberada para entrega (ou já foi fechada no CD).")
@@ -682,7 +706,7 @@ def _carga_viva(c: dict, com_palavra: bool) -> dict:
     peds = [_ev_pub(c, p, com_palavra) for p in c.get("pedidos") or []]
     mot = (r.get("saida") or {}).get("nome") or c.get("motorista") or ""
     mid = (r.get("saida") or {}).get("mid")
-    pos = GPS.get(c.get("placa"))
+    pos = GPS.get(norm_placa(c.get("placa")))
     if r.get("chegada") or not r.get("saida"):
         pos_pub = None
     else:
@@ -822,7 +846,7 @@ def rota_palavras(request: Request, data: str = ""):
         for c in qld.no_periodo(dia, dia) + [x for x in qld.CARGAS.values() if x.get("status") in STATUS_RUA and not (x.get("rua") or {}).get("chegada")]:
             if garantir_palavras(c):
                 qld.gravar(c)
-            mids = {m for m, v in app_cfg()["motoristas"].items() if c.get("placa") in (v.get("placas") or [])}
+            mids = {m for m, v in app_cfg()["motoristas"].items() if norm_placa(c.get("placa")) in (v.get("placas") or [])}
             for p in c.get("pedidos") or []:
                 out.append({"carga": c["numero"], "data_iso": c.get("data_iso"), "placa": c.get("placa"), "pv": p.get("pv"), "cliente": p.get("cliente"),
                             "nome": p.get("nome"), "bairro": p.get("bairro"), "palavra": rua(c)["palavras"].get(chave_pv(p.get("pv")), ""),

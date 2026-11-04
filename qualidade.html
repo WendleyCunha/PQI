@@ -825,6 +825,30 @@ function pedirTexto(titulo, texto, obrig) {
   });
 }
 
+// ═══ troca de placa da carga (o caminhão X não pôde sair → a placa Y assume as entregas pendentes) ═══
+async function trocarPlaca(num, atual, depois) {
+  try { await cad(true); } catch (_) { }
+  const opc = Object.entries(PLACAS_CAD || {}).map(([pl, v]) => `<option value="${esc(pl)}">${esc(v.motorista || "")}</option>`).join("");
+  abrirDlg(`<h3>Trocar a placa da carga ${esc(num)}</h3><p class="cap">Hoje: <b>${esc(atual || "—")}</b>. A placa nova <b>assume todas as entregas pendentes</b>; o que o motorista anterior já registrou fica na carga. A placa antiga deixa de ver a carga no app. Placa sem traço (ex.: FIB3J44).</p>
+    <label class="f">Placa nova<input id="tpP" list="tpL" maxlength="10" autocomplete="off" style="text-transform:uppercase"><datalist id="tpL">${opc}</datalist></label>
+    <label class="f">Motorista (vazio = o do cadastro da placa)<input id="tpM" maxlength="120"></label>
+    <label class="f">Motivo<input id="tpO" maxlength="300" placeholder="Ex.: caminhão quebrou, motorista faltou"></label>
+    <div class="acts"><button type="button" id="tpC">Cancelar</button><button type="button" class="primary" id="tpOk">Trocar a placa</button></div>`, (el, fechar) => {
+    const pl = $("#tpP", el); pl.focus();
+    pl.oninput = () => { const v = pl.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (pl.value !== v) pl.value = v;
+      const m = (PLACAS_CAD || {})[v]; if (m && m.motorista && !$("#tpM", el).value) $("#tpM", el).placeholder = m.motorista; };
+    $("#tpC", el).onclick = fechar;
+    $("#tpOk", el).onclick = async () => { if (pl.value.length < 5) { pl.focus(); return; }
+      try { const r = await put(`/cargas/${encodeURIComponent(num)}/placa`, { placa: pl.value, motorista: $("#tpM", el).value, motivo: $("#tpO", el).value });
+        toast(`Carga ${num} agora na placa ${r.placa}${r.motorista ? " · " + r.motorista : ""} (${r.pendentes} entrega(s) pendente(s)).`); fechar(); depois && depois(); } catch (e) { toast(e.message, true); } };
+  });
+}
+async function voltarMontagem(numeros, depois) {
+  try { const r = await post("/montagem/voltar", { numeros });
+    toast(r.voltaram.length ? `${r.voltaram.length} carga(s) voltaram para a montagem.` : (r.puladas[0] || {}).motivo || "Nenhuma carga para voltar.", !r.voltaram.length);
+    depois && depois(r); } catch (e) { toast(e.message, true); }
+}
+
 // ═══ câmera (código de barras / QR) ═══
 let CAM = null, _ultCod = "", _ultEm = 0;
 async function abrirCamera(aoLer, titulo) {
@@ -850,8 +874,8 @@ function pararCamera() { const c = CAM; CAM = null; if (c) c.stop().then(() => c
 function pararSeCamera(daCam) { if (daCam) { pararCamera(); fecharDlg(); } }
 
 // ═══ cadastros em memória ═══
-let PROD = null, LISTAS = null;
-async function cad(forcar) { if (!PROD || forcar) { const j = await api("/cadastros"); PROD = j.produtos || {}; LISTAS = j.listas; } return { PROD, LISTAS }; }
+let PROD = null, LISTAS = null, PLACAS_CAD = {};
+async function cad(forcar) { if (!PROD || forcar) { const j = await api("/cadastros"); PROD = j.produtos || {}; LISTAS = j.listas; PLACAS_CAD = j.placas || {}; } return { PROD, LISTAS }; }
 const temEan = sku => !!(sku && PROD && PROD[sku] && (PROD[sku].eans || []).length);
 const opts = (lista, sel) => lista.map(x => `<option ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("");
 
@@ -1433,7 +1457,10 @@ async function rDetalhe(c, num) {
   const voltar = () => { const v = VOLTA || { secao, aberta: null }; VOLTA = null; ABERTA = v.aberta && !String(v.aberta).startsWith("det:") ? v.aberta : null; secao = v.secao; render(); };
   const alertas = (g.pedidos || []).flatMap(p => (p.alertas || []).map(a => ({ p, a })));
   c.innerHTML = `<div style="margin-bottom:10px"><button type="button" class="peq" id="voltar">← Voltar</button></div>
-    <div class="doc-head" style="border-left-color:${corStatus(g.status)}"><div><h1>Carga ${esc(g.numero)}</h1><p class="obj">🚚 ${esc(g.placa)} · ${esc(g.motorista || "motorista não cadastrado")} · ${esc(g.transportadora)}${g.transferencia ? " · Transferência" : ""}</p><p class="obj">${pillStatus(g.status)}</p></div>
+    <div class="doc-head" style="border-left-color:${corStatus(g.status)}"><div><h1>Carga ${esc(g.numero)}</h1><p class="obj">🚚 ${esc(g.placa)} · ${esc(g.motorista || "motorista não cadastrado")} · ${esc(g.transportadora)}${g.transferencia ? " · Transferência" : ""}</p><p class="obj">${pillStatus(g.status)}</p>
+      <p style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${(pode("pcl", 2) || pode("aovivo", 2)) && g.status !== "baixada" && !((g.rua || {}).chegada) ? '<button type="button" class="peq" id="btPlaca">🚚 Trocar placa</button>' : ""}
+        ${pode("pcl", 3) && g.volta_montagem ? `<button type="button" class="peq" id="btMontagem" title="${g.fase2 ? "" : "Ligue antes a fase 2 em Cadastros → Listas"}">↩ Voltar para a montagem</button>` : ""}</p>
+      ${(g.trocas_placa || []).length ? `<p class="cap">Placa trocada: ${g.trocas_placa.map(t => `${esc(t.de || "—")} → <b>${esc(t.para)}</b> (${horaBR(t.em)} · ${esc(t.por)}${t.motivo ? " · " + esc(t.motivo) : ""})`).join("; ")}</p>` : ""}</div>
       <div class="stamp"><div class="code">Mapa ${esc(g.data_mapa)}</div><dl><dt>Versão</dt><dd>${g.versao}</dd><dt>Pedidos</dt><dd>${int(r.pedidos)}</dd><dt>Unidades</dt><dd>${int(r.unidades)}</dd><dt>Cubagem</dt><dd>${esc(g.cubagem)}</dd>
         ${g.validacao ? `<dt>Validada</dt><dd>${horaBR(g.validacao.em)} · ${esc(g.validacao.por)}</dd>` : ""}${g.apontamento ? `<dt>Apontada</dt><dd>${horaBR(g.apontamento.em)} · ${esc(g.apontamento.por)}</dd>` : ""}</dl></div></div>
     ${pode("pcl", 3) && g.status === "retorno_concluido" ? `<div class="lembrete-area" style="--ac:var(--block)"><b>Retorno concluído — falta apontar no ERP.</b> <span class="muted">Use a lista abaixo (cliente por cliente, item por item) ou baixe o CSV.</span>
@@ -1456,6 +1483,10 @@ async function rDetalhe(c, num) {
         <td>${it.map(x => `${x.origem === "retirada" ? "↩ retirada" : "✕ voltou"}: ${esc(x.desc)} · ${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">${esc(x.avaria)}</b>` : "OK"} → <b>${esc(x.destino)}</b>${x.tabulacao ? ` <span class="pill p-ok">tabulada</span>` : ""}`).join("<br>") || "—"}</td></tr>`; }).join("")}</tbody></table></div>
     <h3>Histórico</h3><div class="box q-hist">${(g.historico || []).slice().reverse().map(h => `<div>${horaBR(h.em)} · <b>${esc(h.por)}</b> · ${esc(h.acao)}${h.det ? " — " + esc(h.det) : ""}</div>`).join("") || "—"}</div>`;
   $("#voltar", c).onclick = voltar;
+  const bp = $("#btPlaca", c); if (bp) bp.onclick = () => trocarPlaca(g.numero, g.placa, () => rDetalhe(c, num));
+  const bm = $("#btMontagem", c); if (bm) bm.onclick = async () => {
+    if (!g.fase2) { toast("Ligue antes a fase 2 em Cadastros → Listas (montagem do palete e conferência na doca).", true); return; }
+    await voltarMontagem([g.numero], () => rDetalhe(c, num)); };
   const ap = $("#btApontar", c); if (ap) ap.onclick = async () => { const t = await pedirTexto("Apontado no ERP", "Confirme que o retorno desta carga foi lançado no ERP. A carga será BAIXADA. Observação (opcional):", false); if (t == null) return;
     try { await post(`/cargas/${g.numero}/apontar`, { texto: t }); toast("Carga baixada."); VOLTA = { secao: "pcl", aberta: null }; voltar(); } catch (e) { toast(e.message, true); } };
   const rb = $("#btReabrir", c); if (rb) rb.onclick = async () => { const t = await pedirTexto("Reabrir o retorno", "Por que reabrir? O retorno volta para a aba Retorno.", true); if (t == null) return;
@@ -1583,6 +1614,8 @@ async function rCadastros(c) {
     corpo += `<div class="box" style="border-left:6px solid var(--amber)"><label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer">
         <input type="checkbox" data-li="exigir_conferencia" ${LISTAS.exigir_conferencia ? "checked" : ""} ${podeC ? "" : "disabled"} style="width:22px;height:22px;margin-top:2px">
         <span><b>Exigir montagem do palete e conferência na doca (fase 2)</b><span class="sub">Desligado (fase 1): a carga importada vai <b>direto para o Retorno</b>. Ligado: montagem → doca → retorno, para as cargas importadas daí em diante.</span></span></label></div>
+      ${podeC && pode("pcl", 3) ? `<div class="box" style="margin-top:8px"><b>Cargas que entraram direto no Retorno (fase 1)</b><span class="sub">Com a fase 2 ligada e gravada, leve para a <b>montagem do palete</b> as cargas de hoje em diante que ainda não têm retorno nem registro do motorista no app.</span>
+        <div class="acoes"><button type="button" id="btVoltaLote">↩ Levar para a montagem</button></div></div>` : ""}
       <p class="cap">Uma opção por linha. Mudar o nome de uma opção não muda o que já foi registrado.</p><div class="q-form">`;
     corpo += `
       ${ITENS.map(([k, t]) => `<label class="f">${t}<textarea data-li="${k}" rows="7" ${podeC ? "" : "disabled"}>${esc((LISTAS[k] || []).join("\n"))}</textarea></label>`).join("")}
@@ -1591,6 +1624,10 @@ async function rCadastros(c) {
     c.innerHTML = sec("Cadastros", "", "", corpo);
     const s = $("#sLi", c); if (s) s.onclick = async () => { const b = {}; c.querySelectorAll("[data-li]").forEach(el => { b[el.dataset.li] = el.type === "checkbox" ? el.checked : el.tagName === "TEXTAREA" ? el.value.split("\n").map(x => x.trim()).filter(Boolean) : el.value; });
       try { LISTAS = await put("/cadastros/listas", b); toast("Listas gravadas."); } catch (e) { toast(e.message, true); } };
+    const vl = $("#btVoltaLote", c); if (vl) vl.onclick = async () => {
+      if (!LISTAS.exigir_conferencia) { toast("Ligue a fase 2 e toque em Gravar as listas antes.", true); return; }
+      try { const r = await post("/montagem/voltar", { de: new Date().toLocaleDateString("sv-SE") });
+        toast(r.voltaram.length ? `${r.voltaram.length} carga(s) voltaram para a montagem: ${r.voltaram.join(", ")}.` : "Nenhuma carga para voltar (já começaram o retorno ou o app).", !r.voltaram.length); } catch (e) { toast(e.message, true); } };
   }
   c.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { VIS.cad = b.dataset.v; ULT = null; rCadastros(c); });
 }
@@ -1695,6 +1732,7 @@ function desenharAoVivo(c, d, silencioso) {
   c.querySelectorAll("[data-erp]").forEach(b => b.onclick = async () => {
     const [num, pv, f] = b.dataset.erp.split("|");
     try { await put(`${API_RUA}/cargas/${num}/baixa-erp/${encodeURIComponent(pv)}`, { feito: f === "1" }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-tplaca]").forEach(b => b.onclick = () => { const [num, pl] = b.dataset.tplaca.split("|"); trocarPlaca(num, pl, () => rAoVivo($("#root"))); });
   c.querySelectorAll("[data-reab]").forEach(b => b.onclick = async () => {
     const [num, pv] = b.dataset.reab.split("|");
     const nota = prompt("Por que reabrir o registro do motorista? Ele vai poder registrar de novo."); if (!nota) return;
@@ -1717,7 +1755,7 @@ function feedAoVivo(d) {
 }
 function detalheAoVivo(g, pode) {
   return `<div class="box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b class="cond" style="font-size:19px">Carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista || "—")}</b>
-      <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} <button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button></span></div>
+      <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} <button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button></span></div>
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
     <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
       ${g.pedidos.map(p => `<tr><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b><span class="sub">PV ${esc(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""}</span></td>
