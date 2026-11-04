@@ -118,12 +118,14 @@ MODULOS = [
         "apis": ["/api/qualidade"],
         "abas": [
             {"id": "pcl", "nome": "PCL (ajustes, retornos, importar)"},
+            {"id": "aovivo", "nome": "Ao vivo (entregas na rua)"},   # [v5.2] app do motorista: baixas, palavra, GPS
             {"id": "painel", "nome": "Painel"},
             {"id": "montagem", "nome": "Montagem do palete", "min": 2},
             {"id": "conferencia", "nome": "Conferência na doca", "min": 2},
             {"id": "retorno", "nome": "Retorno", "min": 2},
             {"id": "gap", "nome": "GAP"},
             {"id": "cadastros", "nome": "Cadastros", "min": 3},
+            {"id": "motoristas", "nome": "Motoristas e app", "min": 3},   # [v5.2] palavra por motorista, senha da placa
         ],
     },
     {

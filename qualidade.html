@@ -745,10 +745,12 @@ const ICO = {
   conferencia: SV + '<path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 8v8M11 8v8M15 8v8M18 8v8"/></svg>',
   retorno: SV + '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg>',
   gap: SV + '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>',
+  aovivo: SV + '<circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/></svg>',
+  motoristas: SV + '<rect x="1" y="6" width="14" height="10" rx="1"/><path d="M15 9h4l3 4v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
   cadastros: SV + '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
 };
-const SECOES = [["pcl", "PCL"], ["painel", "Painel"], "sep", ["montagem", "Montagem do palete"], ["conferencia", "Conferência na doca"], ["retorno", "Retorno"], "sep", ["gap", "GAP"], ["cadastros", "Cadastros"]];
-const MIN_ABA = { montagem: 2, conferencia: 2, retorno: 2, cadastros: 3 };
+const SECOES = [["pcl", "PCL"], ["aovivo", "Ao vivo"], ["painel", "Painel"], "sep", ["montagem", "Montagem do palete"], ["conferencia", "Conferência na doca"], ["retorno", "Retorno"], "sep", ["gap", "GAP"], ["cadastros", "Cadastros"], ["motoristas", "Motoristas e app"]];
+const MIN_ABA = { montagem: 2, conferencia: 2, retorno: 2, cadastros: 3, motoristas: 3 };
 function nivelAba(id) { if (ABAS_N && id in ABAS_N) return Number(ABAS_N[id]) || 0; const n = NIVEL_SIS; return n < (MIN_ABA[id] || 1) ? 0 : (n >= 3 ? 4 : n); }
 const pode = (aba, n) => nivelAba(aba) >= n;
 let secao = (() => { try { return sessionStorage.getItem("qld_secao") || ""; } catch (_) { return ""; } })();
@@ -769,7 +771,7 @@ function menu() {
     `<button type="button" class="side-btn${x[0] === secao ? " ativo" : ""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${CONT[x[0]] ? `<span class="n"${x[0] === "pcl" ? ' style="background:var(--bad)"' : ""}>${CONT[x[0]]}</span>` : ""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b => b.onclick = () => ir(b.dataset.s));
 }
-function ir(s, carga, volta) { secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
+function ir(s, carga, volta) { if (typeof pararAoVivo === "function" && s !== "aovivo") pararAoVivo(); secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
 async function render() {
   try { await carregarLista(); } catch (_) {}
   menu();
@@ -783,6 +785,8 @@ async function render() {
     else if (secao === "retorno") await (ABERTA ? rRetorno(c, ABERTA) : rListaRetorno(c));
     else if (secao === "gap") await rGap(c);
     else if (secao === "cadastros") await rCadastros(c);
+    else if (secao === "aovivo") await rAoVivo(c);
+    else if (secao === "motoristas") await rMotoristas(c);
   } catch (e) { c.innerHTML = `<div class="conflito">${esc(e.message)}</div>`; }
 }
 const abrirDetalhe = num => { VOLTA = { secao, aberta: ABERTA }; ABERTA = "det:" + num; render(); window.scrollTo(0, 0); };
@@ -1131,7 +1135,7 @@ function desenharRetorno(c) {
     return `<div class="q-ped ${s.situacao && s.situacao !== "entregue" ? "ret" : ""}">
       <div class="q-ped-h"><div><b class="n">${esc(p.nome)}</b> ${p.troca ? '<span class="pill p-roxo">Troca</span>' : ""} <span class="pill ${(SIT_PED[s.situacao] || ["", "p-cinza"])[1]}">${esc((SIT_PED[s.situacao] || ["—"])[0])}</span>
         ${s.retirada === "nao_feita" ? '<span class="pill p-bad">Retirada não feita</span>' : ""}
-        <span class="sub">Seq ${esc(p.seq)} · PV ${esc(p.pv)} · NF ${esc(p.nf)} · ${esc(p.bairro)} · ${esc(p.cidade)}</span></div>${btsPed}</div>
+        ${infoRua(g, p)}<span class="sub">Seq ${esc(p.seq)} · PV ${esc(p.pv)} · NF ${esc(p.nf)} · ${esc(p.bairro)} · ${esc(p.cidade)}</span></div>${btsPed}</div>
       ${linhas}${retir}${reg}</div>`;
   }).join("");
   c.innerHTML = `<div class="q-topo">
@@ -1156,6 +1160,14 @@ function desenharRetorno(c) {
   c.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { if (!confirm("Remover este registro do retorno?")) return;
     try { await post(`/cargas/${g.numero}/retorno/remover`, { texto: b.dataset.rm }); CG = await api(`/cargas/${g.numero}`); desenharRetorno(c); } catch (e) { toast(e.message, true); } });
   const bk = $("#btConcluir", c); if (bk) bk.onclick = () => concluirRetorno(g);
+}
+// [v5.2] o que o motorista registrou no app (expectativa — o CD confirma peça por peça)
+function infoRua(g, p) {
+  const ev = ((g.rua || {}).pedidos || {})[String(p.pv || "").replace(/\D/g, "").replace(/^0+/, "") || String(p.pv || "").trim()];
+  if (!ev || !ev.desfecho) return "";
+  const t = { entregue: ["Entregue", "p-ok"], retorno: ["Voltou tudo", "p-bad"], parcial: ["Parcial", "p-warn"] }[ev.desfecho] || [ev.desfecho, "p-cinza"];
+  return `<span class="pill ${t[1]}" title="Registrado pelo motorista no app">📱 Motorista: ${t[0]}${ev.motivo ? " — " + esc(ev.motivo) : ""} · ${esc(String(ev.em || "").slice(11, 16))}</span>
+    ${ev.desfecho === "parcial" && (ev.linhas || []).length ? `<span class="sub">Voltou, segundo o motorista: ${ev.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ")}</span>` : ""}`;
 }
 // Retorno de um pedido de uma vez: pedido todo (cliente ausente, recusou…) ou parcial, linha a linha e na quantidade
 function retornoPedido(pv, todo) {
@@ -1609,6 +1621,182 @@ function escolherSku(codigo, skus) {
       $("#dlg").onclose = () => fim(null);
     });
   });
+}
+
+// ═══ AO VIVO [v5.2] — o que o motorista registra na rua, na hora (motorista.py) ═══
+// Entregue / retorno / parcial por pedido, palavra da entrega, liberações, baixa no ERP (PCL marca),
+// retornos informados × recebidos no CD e o caminhão no mapa (GPS do app, só com o app aberto).
+const API_RUA = "/rua";
+let AV = { data: HOJE, sel: null, filtro: "todas", timer: null, mapa: null, camadas: null, ultimo: null };
+const DESF = { entregue: ["Entregue", "p-ok"], retorno: ["Retorno", "p-bad"], parcial: ["Parcial", "p-warn"] };
+const FASE = { aguardando: ["Liberada — aguarda saída", "p-azul"], rua: ["Na rua", "p-warn"], chegou: ["No CD", "p-ok"] };
+const chavePv = pv => (String(pv || "").replace(/\D/g, "").replace(/^0+/, "") || String(pv || "").trim());
+const haQuanto = s => s == null ? "" : s < 60 ? `há ${s}s` : s < 3600 ? `há ${Math.round(s / 60)} min` : `há ${Math.round(s / 3600)} h`;
+function pararAoVivo() { if (AV.timer) clearInterval(AV.timer); AV.timer = null; }
+function carregarLeaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = ok; s.onerror = erro; document.head.appendChild(s);
+  });
+}
+async function rAoVivo(c) {
+  pararAoVivo();
+  const d = await api(`${API_RUA}/ao-vivo?data=${AV.data}`);
+  AV.ultimo = d;
+  desenharAoVivo(c, d);
+  AV.timer = setInterval(async () => {
+    if (secao !== "aovivo" || document.visibilityState !== "visible" || $("#dlg").open) return;
+    try { const n = await api(`${API_RUA}/ao-vivo?data=${AV.data}`); AV.ultimo = n; desenharAoVivo($("#root"), n, true); } catch (_) {}
+  }, 20000);
+}
+function desenharAoVivo(c, d, silencioso) {
+  const k = d.kpi, pode = d.pode_tratar;
+  const libs = []; d.cargas.forEach(g => g.pedidos.forEach(p => { if ((p.liberacao || {}).status === "pendente") libs.push({ g, p }); }));
+  const filtros = { todas: () => true, rua: g => g.fase === "rua", aguardando: g => g.fase === "aguardando", chegou: g => g.fase === "chegou",
+    baixa: g => g.cont.sem_baixa_erp > 0, receber: g => g.cont.pecas_esperadas > g.cont.pecas_recebidas };
+  const lista = d.cargas.filter(filtros[AV.filtro] || filtros.todas);
+  if (AV.sel && !d.cargas.some(g => g.numero === AV.sel)) AV.sel = null;
+  const sel = d.cargas.find(g => g.numero === AV.sel);
+  const scroll = window.scrollY;
+  c.innerHTML = sec("Ao vivo — entregas na rua", `O motorista registra no app; aqui aparece na hora. Atualiza sozinho a cada 20 s · ${horaBR(d.servidor)}`,
+      `<input type="date" id="avData" value="${d.data}" style="width:auto;padding:5px 8px">`,
+    `<div class="kpis">${kpi("Na rua", int(k.na_rua), `${int(k.aguardando_saida)} liberada(s) aguardando saída · ${int(k.chegaram)} já no CD`, "k-warn")}
+      ${kpi("Entregues", int(k.entregues), `${int(k.pendentes)} pedido(s) ainda sem registro`, "k-ok")}
+      ${kpi("Sem baixa no ERP", int(k.sem_baixa_erp), "entregues que o PCL ainda não lançou no Protheus", k.sem_baixa_erp ? "k-bad" : "k-cinza")}
+      ${kpi("Retornos informados", int(k.retornos), `${int(k.pecas_a_receber)} peça(s) ainda a receber no CD`, "k-roxo")}
+      ${kpi("Liberações sem palavra", int(k.liberacoes), "motorista esperando o PCL", k.liberacoes ? "kpi-destaque" : "k-cinza")}</div>
+    ${libs.length ? `<div class="box" style="border-color:var(--bad)"><b>Motorista esperando liberação</b>${libs.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule-2)">
+        <span><b>${esc(p.nome)}</b> · PV ${esc(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">${esc(p.liberacao.motivo || "")} · pediu às ${esc(hora(p.liberacao.pedido_em))} · ${p.tentativas} tentativa(s) erradas · palavra certa: <b>${esc(p.palavra || "—")}</b></span></span>
+        ${pode ? `<span style="display:flex;gap:6px"><button type="button" class="primary peq" data-lib="${esc(g.numero)}|${esc(p.pv)}|liberar">Liberar sem palavra</button><button type="button" class="peq warn" data-lib="${esc(g.numero)}|${esc(p.pv)}|negar">Negar</button></span>` : ""}</div>`).join("")}</div>` : ""}
+    <div class="q-et" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)"><div class="box" style="margin:0;padding:0;overflow:hidden"><div id="avMapa" style="height:360px;background:var(--rule-2)"></div>
+      <p class="cap" style="margin:6px 10px">Caminhão = última posição do app (só com o app aberto). Pontos: onde cada registro foi feito.</p></div>
+      <div class="box" style="margin:0;max-height:400px;overflow:auto"><b>Últimos registros</b>${feedAoVivo(d)}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0">${seg2([["todas", "Todas"], ["rua", "Na rua"], ["aguardando", "Aguardando saída"], ["chegou", "No CD"], ["baixa", "Sem baixa no ERP"], ["receber", "Peças a receber"]], AV.filtro, "data-avf")}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Carga</th><th>Placa · motorista</th><th>Situação</th><th class="num">Pedidos</th><th class="num">Entregues</th><th class="num">Retorno</th><th class="num">Pendentes</th><th class="num">Sem baixa ERP</th><th class="num">Peças CD</th><th>GPS</th></tr></thead><tbody>
+      ${lista.map(g => `<tr class="clic" data-avc="${esc(g.numero)}" style="cursor:pointer${g.numero === AV.sel ? ";background:var(--amber-soft)" : ""}"><td><b>${esc(g.numero)}</b><span class="sub">Mapa ${dataBR(g.data_iso)}</span></td>
+        <td>${esc(g.placa)}<span class="sub">${esc(g.motorista || "—")}${g.palavra_ligada ? ' · <b style="color:var(--amber)">palavra</b>' : ""}</span></td>
+        <td><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span><span class="sub">${g.saida ? "saiu " + hora(g.saida.em) : ""}${g.chegada ? " · chegou " + hora(g.chegada.em) : ""}</span></td>
+        <td class="num">${g.cont.total}</td><td class="num">${g.cont.entregue}</td><td class="num">${g.cont.retorno + g.cont.parcial}</td><td class="num">${g.cont.pendente}</td>
+        <td class="num">${g.cont.sem_baixa_erp ? `<b style="color:var(--bad)">${g.cont.sem_baixa_erp}</b>` : "0"}</td>
+        <td class="num">${g.cont.pecas_recebidas}/${g.cont.pecas_esperadas}</td><td>${g.pos ? `${g.pos.ha_seg != null ? haQuanto(g.pos.ha_seg) : "último ponto " + hora(g.pos.em)}` : "—"}</td></tr>`).join("") ||
+        '<tr><td colspan="10" class="muted" style="text-align:center;padding:20px">Nenhuma carga nesta situação.</td></tr>'}</tbody></table></div>
+    ${sel ? detalheAoVivo(sel, pode) : '<p class="cap">Clique numa carga para ver os pedidos, a palavra, a foto e marcar a baixa no ERP.</p>'}`);
+  if (silencioso) window.scrollTo(0, scroll);
+  $("#avData", c).onchange = e => { AV.data = e.target.value || HOJE; rAoVivo($("#root")); };
+  c.querySelectorAll("[data-avf]").forEach(b => b.onclick = () => { AV.filtro = b.dataset.avf; desenharAoVivo(c, d); });
+  c.querySelectorAll("[data-avc]").forEach(r => r.onclick = () => { AV.sel = AV.sel === r.dataset.avc ? null : r.dataset.avc; desenharAoVivo(c, d); });
+  c.querySelectorAll("[data-lib]").forEach(b => b.onclick = async () => {
+    const [num, pv, acao] = b.dataset.lib.split("|");
+    const nota = acao === "negar" ? prompt("Por que negar? (o motorista vê que foi negado)") : "";
+    if (acao === "negar" && nota === null) return;
+    try { await put(`${API_RUA}/cargas/${num}/liberacao/${encodeURIComponent(pv)}`, { acao, nota: nota || "" }); toast(acao === "liberar" ? "Liberado: o motorista já pode registrar." : "Negado."); rAoVivo($("#root")); }
+    catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-erp]").forEach(b => b.onclick = async () => {
+    const [num, pv, f] = b.dataset.erp.split("|");
+    try { await put(`${API_RUA}/cargas/${num}/baixa-erp/${encodeURIComponent(pv)}`, { feito: f === "1" }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-reab]").forEach(b => b.onclick = async () => {
+    const [num, pv] = b.dataset.reab.split("|");
+    const nota = prompt("Por que reabrir o registro do motorista? Ele vai poder registrar de novo."); if (!nota) return;
+    try { await post(`${API_RUA}/cargas/${num}/pedido/${encodeURIComponent(pv)}/reabrir`, { nota }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => abrirDlg(`<h3>Foto do retorno</h3><img src="${API}${API_RUA}/foto/${esc(b.dataset.foto)}" alt="foto da peça" style="max-width:100%;border-radius:8px"><div class="acts"><button type="button" id="fF">Fechar</button></div>`, (el, f) => { $("#fF", el).onclick = f; }));
+  mapaAoVivo(d);
+}
+const hora = iso => iso ? String(iso).slice(11, 16) : "";
+function feedAoVivo(d) {
+  const ev = [];
+  d.cargas.forEach(g => {
+    if (g.saida) ev.push({ em: g.saida.em, t: `🚚 Carga ${g.numero} (${g.placa}) saiu · ${g.motorista}` });
+    if (g.chegada) ev.push({ em: g.chegada.em, t: `🏁 Carga ${g.numero} chegou no CD · ${g.cont.pecas_esperadas} peça(s) para conferir` });
+    g.pedidos.forEach(p => { if (p.desfecho) ev.push({ em: p.em, t: `${p.desfecho === "entregue" ? "✅" : p.desfecho === "parcial" ? "½" : "↩️"} ${g.numero} · ${p.nome}: ${(DESF[p.desfecho] || [p.desfecho])[0]}${p.motivo ? " — " + p.motivo : ""}${p.palavra_ok === false ? " · liberado sem palavra" : ""}` });
+      if ((p.liberacao || {}).pedido_em) ev.push({ em: p.liberacao.pedido_em, t: `⚠️ ${g.numero} · ${p.nome}: pediu liberação sem palavra` }); });
+  });
+  ev.sort((a, b) => String(b.em).localeCompare(String(a.em)));
+  return ev.slice(0, 60).map(e => `<div style="display:grid;grid-template-columns:46px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid var(--rule-2);font-size:13.5px"><span class="muted">${hora(e.em)}</span><span>${esc(e.t)}</span></div>`).join("")
+    || '<p class="cap">Os registros dos motoristas aparecem aqui.</p>';
+}
+function detalheAoVivo(g, pode) {
+  return `<div class="box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b class="cond" style="font-size:19px">Carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista || "—")}</b>
+      <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} <button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button></span></div>
+    <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
+      ${g.pedidos.map(p => `<tr><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b><span class="sub">PV ${esc(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""}</span></td>
+        <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : '<span class="pill p-cinza">Sem registro</span>'}
+          ${p.motivo ? `<span class="sub">${esc(p.motivo)}${p.linhas.length ? " · voltou: " + p.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ") : ""}</span>` : ""}${p.obs ? `<span class="sub">${esc(p.obs)}</span>` : ""}
+          ${p.foto ? `<button type="button" class="peq" data-foto="${esc(p.foto)}">📷 foto</button>` : ""}${p.corrigidos ? `<span class="sub">corrigido ${p.corrigidos}×</span>` : ""}</td>
+        <td>${p.em ? `${hora(p.em)}<span class="sub">${esc(p.por)}</span>` : "—"}</td>
+        <td>${p.palavra != null ? `<span class="mono" title="Visível só no PQI">${esc(p.palavra)}</span>` : ""}<span class="sub">${p.palavra_ok === true ? "conferida" : p.palavra_ok === false ? "liberado pelo PCL" : p.tentativas ? p.tentativas + " erro(s)" : ""}</span></td>
+        <td>${["entregue", "parcial"].includes(p.desfecho) ? (p.baixa_erp ? `<span class="pill p-ok">Baixado</span><span class="sub">${esc(p.baixa_erp.por)} · ${hora(p.baixa_erp.em)}</span>${pode ? `<button type="button" class="peq" data-erp="${esc(g.numero)}|${esc(p.pv)}|0">desfazer</button>` : ""}`
+            : pode ? `<button type="button" class="primary peq" data-erp="${esc(g.numero)}|${esc(p.pv)}|1">Marcar baixado</button>` : '<span class="pill p-warn">Pendente</span>') : "—"}</td>
+        <td>${p.retorno_esperado ? `<span class="pill ${p.retorno_recebido >= p.retorno_esperado ? "p-ok" : "p-warn"}">${p.retorno_recebido}/${p.retorno_esperado} recebida(s)</span>` : "—"}</td>
+        <td>${pode && p.desfecho ? `<button type="button" class="peq warn" data-reab="${esc(g.numero)}|${esc(p.pv)}" title="Apaga o registro do motorista para ele registrar de novo">Reabrir</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
+}
+async function mapaAoVivo(d) {
+  const el = $("#avMapa"); if (!el) return;
+  try { await carregarLeaflet(); } catch (_) { el.innerHTML = '<p class="cap" style="padding:12px">Não consegui carregar o mapa (sem internet para o OpenStreetMap).</p>'; return; }
+  if (!$("#avMapa")) return;
+  if (AV.mapa && AV.mapa.getContainer() !== el) { AV.mapa.remove(); AV.mapa = null; }
+  if (!AV.mapa) {
+    AV.mapa = L.map(el, { zoomControl: true }).setView([-23.55, -46.63], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(AV.mapa);
+    AV.camadas = L.layerGroup().addTo(AV.mapa); AV.enquadrado = false;
+  }
+  AV.camadas.clearLayers();
+  const cores = ["#C98A0B", "#2B63B0", "#6B46A8", "#2F7D4F", "#B83232", "#2E4A7A"], pts = [];
+  d.cargas.forEach((g, i) => {
+    const cor = cores[i % cores.length];
+    if (g.trilha && g.trilha.length > 1) L.polyline(g.trilha.map(t => [t[0], t[1]]), { color: cor, weight: 3, opacity: .7 }).addTo(AV.camadas);
+    g.pedidos.forEach(p => { if (p.lat != null && p.lng != null) { const f = p.desfecho === "entregue" ? "#2F7D4F" : p.desfecho ? "#B83232" : "#8A93A3";
+      L.circleMarker([p.lat, p.lng], { radius: 7, color: "#fff", weight: 2, fillColor: f, fillOpacity: 1 }).bindTooltip(`${g.numero} · ${p.seq} ${p.nome}: ${(DESF[p.desfecho] || ["—"])[0]} ${hora(p.em)}`).addTo(AV.camadas); pts.push([p.lat, p.lng]); } });
+    if (g.pos) { const ic = L.divIcon({ className: "", html: `<div style="background:${cor};color:#fff;border:2px solid #fff;border-radius:6px;padding:1px 5px;font:700 11px/1.3 'IBM Plex Mono',monospace;box-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap">🚚 ${esc(g.placa)}</div>`, iconSize: null });
+      L.marker([g.pos.lat, g.pos.lng], { icon: ic }).bindTooltip(`${g.motorista} · ${g.cont.entregue + g.cont.retorno + g.cont.parcial}/${g.cont.total} · ${g.pos.ha_seg != null ? haQuanto(g.pos.ha_seg) : hora(g.pos.em)}`).addTo(AV.camadas); pts.push([g.pos.lat, g.pos.lng]); }
+  });
+  if (pts.length && !AV.enquadrado) { AV.mapa.fitBounds(pts, { padding: [30, 30], maxZoom: 14 }); AV.enquadrado = true; }
+  setTimeout(() => AV.mapa && AV.mapa.invalidateSize(), 50);
+}
+
+// ═══ MOTORISTAS E APP [v5.2] — quem dirige cada placa, palavra por motorista, senha da placa ═══
+async function rMotoristas(c) {
+  const d = await api(`${API_RUA}/motoristas`);
+  const ed = d.pode_editar, url = location.origin + d.app_url;
+  const ACESSO = { sem: ["Ainda não entrou", "p-cinza"], inicial: ["Senha inicial — troca no 1º acesso", "p-warn"], propria: ["Senha própria", "p-ok"] };
+  c.innerHTML = sec("Motoristas e app", "Quem dirige cada placa, a palavra da entrega por motorista e a senha de cada placa no app.", "",
+    `<div class="box"><b>App do motorista</b>
+      <p class="cap" style="margin:6px 0">Endereço para abrir no celular: <b class="mono" id="mUrl">${esc(url)}</b> <button type="button" class="peq" id="mCopia">Copiar</button></p>
+      <p class="cap" style="margin:0">No Chrome do Android, o próprio app oferece <b>Instalar</b> e vira ícone na tela. Login: <b>placa</b> + senha inicial padrão; o app obriga a trocar no primeiro acesso.
+      A carga só aparece para o motorista depois de <b>validada</b> (montagem, doca ou importada direto na fase 1). O GPS só funciona com o app aberto.</p></div>
+    <h3>Motoristas</h3>
+    <p class="cap">Ligue a <b>palavra da entrega</b> por motorista, para implantar aos poucos. Com ela ligada, o app só registra <b>Entregue</b> com a palavra que o cliente recebeu.
+      Errou ${int(d.cfg.tentativas)} vezes → trava e o motorista pede liberação (aba Ao vivo).</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Motorista</th><th>Placas (separe por vírgula)</th><th>Palavra da entrega</th><th>Ativo</th><th></th></tr></thead><tbody>
+      ${d.motoristas.map(m => `<tr data-mid="${esc(m.id)}"><td><input value="${esc(m.nome)}" data-k="nome" ${ed ? "" : "disabled"} style="min-width:200px"><span class="sub">${esc(m.por || "")} · ${dataBR(m.em)}</span></td>
+        <td><input value="${esc((m.placas || []).join(", "))}" data-k="placas" class="mono" ${ed ? "" : "disabled"} style="min-width:150px"></td>
+        <td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-k="palavra" ${m.palavra ? "checked" : ""} ${ed ? "" : "disabled"} style="width:20px;height:20px"> ${m.palavra ? "<b>Ligada</b>" : "Desligada"}</label></td>
+        <td><input type="checkbox" data-k="ativo" ${m.ativo !== false ? "checked" : ""} ${ed ? "" : "disabled"} style="width:20px;height:20px"></td>
+        <td>${ed ? `<button type="button" class="primary peq" data-salva="${esc(m.id)}">Salvar</button>` : ""}</td></tr>`).join("") ||
+        '<tr><td colspan="5" class="muted" style="text-align:center;padding:16px">Nenhum motorista ainda. Os nomes de Cadastros → placa entram aqui sozinhos.</td></tr>'}</tbody></table></div>
+    ${ed ? `<div class="q-form" style="align-items:end"><label class="f">Novo motorista<input id="nmNome" placeholder="Nome completo"></label><label class="f">Placas<input id="nmPl" class="mono" placeholder="ABC1D23, XYZ9K87"></label>
+      <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="nmPal" style="width:20px;height:20px"> Palavra ligada</label><button type="button" class="primary" id="nmOk">Cadastrar</button></div>` : ""}
+    <h3>Placas no app</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Placa</th><th>Motorista no cadastro</th><th>Senha</th><th>Último acesso</th><th></th></tr></thead><tbody>
+      ${d.placas.map(p => `<tr><td class="mono"><b>${esc(p.placa)}</b></td><td>${esc(p.cadastro || "—")}</td>
+        <td><span class="pill ${ACESSO[p.acesso][1]}">${ACESSO[p.acesso][0]}</span>${p.bloqueada ? ' <span class="pill p-bad">Bloqueada por tentativas</span>' : ""}</td>
+        <td>${p.ultimo_acesso ? horaBR(p.ultimo_acesso) : "—"}</td>
+        <td>${ed && p.acesso !== "sem" ? `<button type="button" class="peq warn" data-reset="${esc(p.placa)}">Resetar senha</button>` : ""}</td></tr>`).join("")}</tbody></table></div>
+    <p class="cap">Resetar volta a placa para a senha inicial (troca obrigatória) e derruba o celular que estiver logado. Também tira o bloqueio por tentativas.</p>
+    ${ed ? `<div class="q-form" style="align-items:end;max-width:420px"><label class="f">Tentativas da palavra antes de travar<select id="cfgT">${[3, 4, 5, 6, 8, 10].map(n => `<option ${n === d.cfg.tentativas ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>` : ""}`);
+  $("#mCopia", c).onclick = () => { navigator.clipboard.writeText(url).then(() => toast("Endereço copiado.")).catch(() => toast("Copie o endereço à mão.", true)); };
+  c.querySelectorAll("[data-salva]").forEach(b => b.onclick = async () => {
+    const tr = b.closest("tr"), v = k => tr.querySelector(`[data-k="${k}"]`);
+    try { await put(`${API_RUA}/motoristas/${b.dataset.salva}`, { nome: v("nome").value, placas: v("placas").value.split(/[,;\s]+/).filter(Boolean), palavra: v("palavra").checked, ativo: v("ativo").checked });
+      toast("Motorista salvo."); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } });
+  const nm = $("#nmOk", c); if (nm) nm.onclick = async () => {
+    try { await post(`${API_RUA}/motoristas`, { nome: $("#nmNome", c).value, placas: $("#nmPl", c).value.split(/[,;\s]+/).filter(Boolean), palavra: $("#nmPal", c).checked });
+      toast("Motorista cadastrado."); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } };
+  c.querySelectorAll("[data-reset]").forEach(b => b.onclick = async () => {
+    if (!confirm(`Resetar a senha da placa ${b.dataset.reset}? O celular logado sai e o motorista entra de novo com a senha inicial.`)) return;
+    try { await post(`${API_RUA}/placas/${b.dataset.reset}/resetar`, {}); toast("Senha resetada."); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } });
+  const ct = $("#cfgT", c); if (ct) ct.onchange = async () => { try { await put(`${API_RUA}/cfg`, { tentativas: +ct.value }); toast("Salvo."); } catch (e) { toast(e.message, true); } };
 }
 
 // ═══ PAINEL ═══
