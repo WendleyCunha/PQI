@@ -50,6 +50,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .warnb{background:var(--amber);color:#1B2436;border-color:var(--amber)}
 .ghost{background:transparent;border-color:transparent;color:var(--steel);padding:8px 4px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grupo{margin:6px 2px 0;font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
 .motivo-gde{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
 .cont-reg{font:700 18px/1.2 "IBM Plex Mono",monospace;background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:6px 12px}
 .cont-reg.quase{background:var(--amber-soft);color:var(--amber)} .cont-reg.estourou{background:var(--bad-soft);color:var(--bad)}
@@ -65,7 +66,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .p-warn{background:var(--amber-soft);color:var(--amber)} .p-aco{background:var(--steel-soft);color:var(--steel)}
 .prog{height:9px;background:var(--rule-2);border-radius:99px;overflow:hidden;display:flex}
 .prog i{display:block;height:100%}
-.ped{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:12px;display:grid;grid-template-columns:34px 1fr auto auto;gap:10px;align-items:center}
+.ped{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:12px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center}
 .ped:focus-visible{outline:2px solid var(--gold)}
 .ped .n{font-family:"IBM Plex Mono",monospace;font-weight:600;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--rule-2)}
 .ped .c{min-width:0} .ped .c b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -266,8 +267,10 @@ function telaCarga() {
       ${!c.saida && !c.chegada ? `<button type="button" class="warnb big" id="btSaida">🚚 Iniciar rota</button><p class="cap">Liga o GPS e avisa o PCL que a carga saiu.</p>` : ""}
       ${c.chegada ? `<p class="cap">Chegada avisada às ${hora(c.chegada.em)}. O Retorno confere as peças no CD.</p>` : ""}
     </div>
-    ${c.pedidos.map(p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}" data-p="${esc(p.pv)}"><span class="n">${esc(p.seq)}</span>
-      <span class="c"><b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`).join("")}
+    ${(() => { const bt = p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}" data-p="${esc(p.pv)}"><span class="c"><b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`;
+      const pend = c.pedidos.filter(p => !p.desfecho), feitos = c.pedidos.filter(p => p.desfecho);   // [v5.7] pendentes em cima
+      return (pend.length ? `<h3 class="grupo">Pendentes (${pend.length})</h3>${pend.map(bt).join("")}` : "")
+        + (feitos.length ? `<h3 class="grupo">Já registrados (${feitos.length})</h3>${feitos.map(bt).join("")}` : ""); })()}
     <button type="button" class="ghost" id="btSair">Sair</button>`;
   if (c.saida && !c.chegada && pend === 0) {
     $("#foot").hidden = false;
@@ -304,8 +307,9 @@ function telaPedido() {
     acao = `<div class="card"><h3>${parc ? "Entrega parcial — o que VOLTOU?" : "Retorno — nada foi entregue"}</h3>
       ${parc ? p.itens.map(it => `<div class="it"><span>${esc(it.desc)}<br><small class="cap">${it.qtd} na nota</small></span>
         <span class="qtd"><button type="button" data-m="${it.i}">−</button><input type="number" inputmode="numeric" min="0" max="${it.qtd}" value="${S.linhas[it.i] || 0}" data-q="${it.i}"><button type="button" data-pl="${it.i}">+</button></span></div>`).join("") : ""}
-      <label class="f">Motivo<select id="pMot"><option value="">Escolha…</option>${(c.motivos || []).map(m => `<option ${S.motivo === m ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>
-      <div class="f" style="display:grid;gap:6px"><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Foto da peça ${/AVARIA|RECUS|DIVERG|ERRAD/i.test(S.motivo) ? "(obrigatória)" : "(se puder)"}</span>
+      ${p.motivo_chat ? `<div class="word" style="gap:2px"><span class="cap" style="color:var(--ink)">Motivo (o mesmo do chat com a frota)</span><b class="motivo-gde">${esc(p.motivo_chat)}</b></div>`
+        : `<label class="f">Motivo<select id="pMot"><option value="">Escolha…</option>${(c.motivos || []).map(m => `<option ${S.motivo === m ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>`}
+      <div class="f" style="display:grid;gap:6px"><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Foto da peça (obrigatória)</span>
         <div class="foto"><label class="pri" style="padding:12px 14px;border-radius:12px;cursor:pointer">📷 Tirar foto<input id="pFoto" type="file" accept="image/*" capture="environment" hidden></label>${S.foto ? `<img src="${S.foto}" alt="foto da peça">` : ""}</div></div>
       <label class="f">Observação<textarea id="pObs" rows="2">${esc(S.obs)}</textarea></label>
       ${c.palavra_ligada && parc ? blocoPalavra(c, p, bloqueio) : ""}
@@ -320,7 +324,7 @@ function telaPedido() {
   const nl = (p.chat || {}).nao_lidas || 0;
   $("#app").innerHTML = `<div class="row"><button type="button" class="ghost" id="btVolta">‹ Voltar</button>
       <button type="button" class="${(p.chat || {}).aberto ? "warnb" : ""}" id="btChat">💬 Chat com a frota${nl ? ` <span class="pill p-bad">${nl}</span>` : (p.chat || {}).aberto ? " (aberto)" : ""}</button></div>
-    <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span>${pillPed(p)}</div>
+    <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Pedido <span class="mono">${esc(p.pv)}</span></span>${pillPed(p)}</div>
       <h2 style="font-size:22px">${esc(p.nome)}</h2>
       <p style="margin:0">${esc(end)}${p.cep ? ` · CEP ${esc(p.cep)}` : ""}</p>
       <a class="nav" href="${mapa}" target="_blank" rel="noopener">🧭 Abrir no mapa</a>
@@ -378,9 +382,9 @@ async function registrar(c, p, desfecho) {
     if (!corpo.palavra) { S.erro = "Digite a palavra que o cliente informou."; return render(); }
   }
   if (desfecho !== "entregue") {
-    corpo.motivo = S.motivo; corpo.obs = S.obs; corpo.foto = S.foto || "";
+    corpo.motivo = p.motivo_chat || S.motivo; corpo.obs = S.obs; corpo.foto = S.foto || "";
     if (!corpo.motivo) { S.erro = "Escolha o motivo."; return render(); }
-    if (/AVARIA|RECUS|DIVERG|ERRAD/i.test(corpo.motivo) && !corpo.foto) { S.erro = "Este motivo pede a foto da peça."; return render(); }
+    if (!corpo.foto) { S.erro = "Tire a foto da peça para registrar."; return render(); }
     if (desfecho === "parcial") {
       corpo.linhas = Object.entries(S.linhas).map(([i, q]) => ({ i: +i, qtd: +q })).filter(x => x.qtd > 0);
       if (!corpo.linhas.length) { S.erro = "Marque quantas peças voltaram."; return render(); }
@@ -395,7 +399,7 @@ async function registrar(c, p, desfecho) {
     if (navigator.vibrate) navigator.vibrate(60);
   } catch (e) {
     if (e.offline) {   // sem sinal: guarda e segue a rota
-      enfileirar({ url, corpo, rotulo: `${p.seq} (${p.nome})` });
+      enfileirar({ url, corpo, rotulo: p.nome });
       p.enviando = true; p.desfecho = desfecho; S.ped = null; S.modo = ""; render();
     } else if (!e.tratado) { S.erro = e.message; render(); }
   }
@@ -440,7 +444,7 @@ function desenharChat() {
   const rascunho = ($("#chTxt") || {}).value || S.chatRascunho || "";
   const msgs = a ? htmlMsgs(a) : "";
   $("#app").innerHTML = `<button type="button" class="ghost" id="chVolta" style="justify-self:start">‹ Voltar para o cliente</button>
-    <div class="card" id="chTela"><span class="cap">Chat com a frota · Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span><h2 style="font-size:20px">${esc(p.nome)}</h2>
+    <div class="card" id="chTela"><span class="cap">Chat com a frota · Pedido <span class="mono">${esc(p.pv)}</span></span><h2 style="font-size:20px">${esc(p.nome)}</h2>
       ${a ? `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span class="motivo-gde">${esc(a.motivo)}</span>
         ${a.restante_seg != null ? `<span class="cont-reg" id="chCont" data-ate="${Date.now() + a.restante_seg * 1000}">${fmtCont(a.restante_seg)}</span>` : ""}</div>` : ""}</div>
     <div class="aviso" id="chErro" ${S.chatErro ? "" : "hidden"}>${esc(S.chatErro)}</div>

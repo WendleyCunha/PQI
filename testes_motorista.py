@@ -176,17 +176,22 @@ def teste_fluxo():
     ok(BANCO[Q.COL_CARGAS]["064201"]["rua"]["pedidos"][Q.num_chave("739835")]["palavra_ok"] is False, "fica registrado que entrou SEM palavra")
     ok(mot.post("/api/motorista/cargas/064201/pedido/739840", json={"desfecho": "retorno"}).status_code == 400, "retorno exige motivo")
     ok(mot.post("/api/motorista/cargas/064201/pedido/739840", json={"desfecho": "retorno", "motivo": "Avaria no transporte"}).status_code == 400,
-       "avaria exige foto")
+       "retorno exige foto")
     r = mot.post("/api/motorista/cargas/064201/pedido/739840", json={"desfecho": "retorno", "motivo": "Avaria no transporte", "foto": FOTO, "cid": "c1"})
     ok(r.json()["resultado"] == "ok" and len(BANCO[M.COL_FOTOS]) == 1, "retorno com avaria grava a foto")
     ok(mot.post("/api/motorista/cargas/064201/chegada", json={}).status_code == 409, "não fecha a carga com pedido sem registro")
     r = mot.post("/api/motorista/cargas/064201/pedido/739851", json={"desfecho": "parcial", "motivo": "Cliente ausente", "palavra": palavras[Q.num_chave("739851")],
                                                                      "linhas": [{"i": 0, "qtd": 2}], "cid": "d1"})
+    ok(r.status_code == 400, "parcial sem foto é recusado (foto obrigatória)")
+    r = mot.post("/api/motorista/cargas/064201/pedido/739851", json={"desfecho": "parcial", "motivo": "Cliente ausente", "palavra": palavras[Q.num_chave("739851")],
+                                                                     "linhas": [{"i": 0, "qtd": 2}], "cid": "d1", "foto": FOTO})
     ok(r.json()["resultado"] == "ok", "entrega PARCIAL: 2 de 3 peças voltam")
+    ok(sum(1 for x in BANCO[Q.COL_CARGAS]["064201"]["retorno"]["itens"] if x["fonte"] == "app") == 3, "Retorno já recebe as peças do app (1 do retorno + 2 do parcial)")
     r = mot.post("/api/motorista/cargas/064201/pedido/739851/desfazer")
     ok(r.status_code == 200 and not r.json()["pedidos"][3]["desfecho"], "motorista corrige o próprio registro em até 15 min")
+    ok(sum(1 for x in BANCO[Q.COL_CARGAS]["064201"]["retorno"]["itens"] if x["fonte"] == "app") == 1, "corrigir tira do Retorno as peças daquele registro")
     mot.post("/api/motorista/cargas/064201/pedido/739851", json={"desfecho": "parcial", "motivo": "Cliente ausente", "palavra": palavras[Q.num_chave("739851")],
-                                                                "linhas": [{"i": 0, "qtd": 2}], "cid": "d2"})
+                                                                "linhas": [{"i": 0, "qtd": 2}], "cid": "d2", "foto": FOTO})
 
     print("GPS e painel ao vivo")
     ok(mot.post("/api/motorista/gps", json={"lat": -23.56, "lng": -46.64, "prec": 12}).json()["ok"], "GPS recebido")
@@ -206,7 +211,7 @@ def teste_fluxo():
     ok(mot.post("/api/motorista/cargas/064201/pedido/739812/desfazer").status_code == 409, "depois da chegada, só o PCL corrige")
     ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["fase"] == "chegou", "painel mostra a carga no CD")
     cg = BANCO[Q.COL_CARGAS]["064201"]
-    ok(cg["status"] == "validada", "o status da carga no CD não muda: o Retorno continua recebendo as peças")
+    ok(cg["status"] == "em_retorno" and all(not x["recebido"] for x in cg["retorno"]["itens"]), "a carga já está Em retorno, com as peças informadas aguardando o CD")
     ok(any("motorista" in h["por"] for h in cg["historico"]), "histórico da carga registra o motorista e a placa")
     pal = pq.get("/api/qualidade/rua/palavras").json()
     ok(any(x["pv"] == "739812" and x["palavra"] == w and x["exigida"] for x in pal), "lista de palavras do dia para o ERP")

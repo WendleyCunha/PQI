@@ -136,3 +136,24 @@ Testes: `python testes_qualidade.py`
   (sem tela de escolha e sem "Não estou na lista"; o app não cadastra nome). Placa com mais de um motorista ativo:
   vale o cadastrado/alterado por último. Placa sem motorista: o app avisa para pedir ao PCL.
 - **Excluir motorista** (nível Excluir na aba): o celular dele sai; só volta se a placa aparecer de novo num PDF importado.
+
+# v5.7 — TUDO SE FALA: APP → RETORNO, AJUSTE NA CARGA, BUSCA NO AO VIVO
+
+- **Ao vivo**: 🔓 *Liberar sem palavra* em cada pedido sem registro (o PCL libera antes do motorista pedir) e
+  🔎 **busca** por carga, PV, cliente, código, NF, placa, motorista, palavra, bairro.
+- **App**: pendentes em cima, já registrados embaixo; sem o número de sequência.
+- **Motivos únicos**: a lista de Motoristas e app → Motivos vale para o chat E para Retorno/Parcial. Se o motorista
+  já escolheu o motivo no chat daquele cliente, o Retorno/Parcial usa esse motivo sem perguntar.
+- **Foto obrigatória** em todo Retorno e Parcial.
+- **Retorno alimentado pelo app**: o retorno/parcial do motorista já aparece na aba Retorno como
+  "📱 Motorista informou que voltou — aguardando chegar no CD". O CD toca **Recebida no CD** (ou lê o código)
+  e informa estado e destino. Não dá para concluir o retorno com peça do app não recebida (receba ou remova ✕).
+  Se o motorista corrigir o registro (ou o PCL reabrir), as peças ainda não recebidas saem do Retorno.
+- **Ajuste na carga (PCL)**, no detalhe da carga, antes de validar:
+  - ✂ **Retirar pedido**: o pedido sai da carga; as leituras dele saem do palete.
+  - ＋ **Agrupar pedido**: se o PV está em outra carga ainda no CD, ele MUDA de carga (as duas travam);
+    senão o PCL digita cliente e itens (SKU pela Carteira).
+  - A etapa em andamento (montagem, ou conferência se a montagem já fechou) fica **TRAVADA** — sem leitura e sem
+    fechar — até quem está na etapa tocar **✓ Ajuste feito no palete**. PDF novo da carga supera ajustes pendentes.
+
+Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
