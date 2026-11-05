@@ -50,6 +50,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .warnb{background:var(--amber);color:#1B2436;border-color:var(--amber)}
 .ghost{background:transparent;border-color:transparent;color:var(--steel);padding:8px 4px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.msg-ch{background:var(--rule-2);border-radius:12px 12px 12px 4px;padding:8px 10px;max-width:85%;justify-self:start;white-space:pre-wrap;word-break:break-word}
+.msg-ch.eu{background:var(--steel-soft);border-radius:12px 12px 4px 12px;justify-self:end}
+.msg-ch small{display:block;font-size:11px;color:var(--ink-3);margin-bottom:2px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .msg{font-size:14px;font-weight:600;min-height:1em}
 .msg.erro{color:var(--bad)} .msg.okm{color:var(--ok)}
@@ -59,7 +62,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .p-warn{background:var(--amber-soft);color:var(--amber)} .p-aco{background:var(--steel-soft);color:var(--steel)}
 .prog{height:9px;background:var(--rule-2);border-radius:99px;overflow:hidden;display:flex}
 .prog i{display:block;height:100%}
-.ped{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:12px;display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center}
+.ped{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:12px;display:grid;grid-template-columns:34px 1fr auto auto;gap:10px;align-items:center}
 .ped:focus-visible{outline:2px solid var(--gold)}
 .ped .n{font-family:"IBM Plex Mono",monospace;font-weight:600;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--rule-2)}
 .ped .c{min-width:0} .ped .c b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -102,7 +105,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
              set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
 
-const S = { me: null, dados: null, carga: null, ped: null, modo: "", msg: "", erro: "", foto: null, linhas: {}, palavra: "", motivo: "", obs: "",
+const S = { me: null, dados: null, carga: null, ped: null, chat: false, chatDados: null, chatErro: "", chatRascunho: "", modo: "", msg: "", erro: "", foto: null, linhas: {}, palavra: "", motivo: "", obs: "",
             gps: { estado: "parado", ult: null, enviado: 0, watch: null }, wake: null, online: navigator.onLine };
 
 async function api(url, corpo, metodo) {
@@ -164,6 +167,7 @@ function render() {
   if (!S.me) return telaLogin();
   if (S.me.trocar_senha) return telaSenha();
   if (!S.me.motorista) return telaQuem();
+  if (S.ped && S.chat) return telaChat();
   if (S.ped) return telaPedido();
   return telaCarga();
 }
@@ -221,7 +225,7 @@ function telaQuem() {
   $("#qOk") && ($("#qOk").onclick = () => esc_({ nome_novo: $("#qN").value }));
   $("#qSair").onclick = sair;
 }
-async function sair() { try { await api("/sair", {}); } catch (_) {} pararGps(); S.me = null; S.dados = null; S.carga = null; render(); }
+async function sair() { try { await api("/sair", {}); } catch (_) {} pararGps(); soltarTela(); S.me = null; S.dados = null; S.carga = null; render(); }
 
 function cargaAtual() {
   const cs = (S.dados && S.dados.cargas) || [];
@@ -243,8 +247,8 @@ function telaCarga() {
   if (!c) {
     $("#app").innerHTML = `${avisos}<div class="card"><h2>Nenhuma carga liberada</h2>
       <p class="cap">A carga aparece aqui depois da montagem, da conferência e da liberação no CD. A tela atualiza sozinha.</p>
-      <button type="button" id="btAtu">Atualizar agora</button><button type="button" class="ghost" id="btTroca">Trocar motorista</button><button type="button" class="ghost" id="btSair">Sair</button></div>`;
-    $("#btAtu").onclick = carregar; $("#btTroca").onclick = () => { S.me.motorista = null; render(); }; $("#btSair").onclick = sair;
+      <button type="button" id="btAtu">Atualizar agora</button><button type="button" class="ghost" id="btSair">Sair</button></div>`;
+    $("#btAtu").onclick = carregar; $("#btSair").onclick = sair;
     return;
   }
   S.carga = c.numero;
@@ -261,11 +265,10 @@ function telaCarga() {
       <p class="cap"><b>${ent}</b> entregue(s) · <b>${ret}</b> com retorno · <b>${pend}</b> pendente(s)</p>
       ${!c.saida && !c.chegada ? `<button type="button" class="warnb big" id="btSaida">🚚 Iniciar rota</button><p class="cap">Liga o GPS e avisa o PCL que a carga saiu.</p>` : ""}
       ${c.chegada ? `<p class="cap">Chegada avisada às ${hora(c.chegada.em)}. O Retorno confere as peças no CD.</p>` : ""}
-      ${c.saida && !c.chegada ? `<label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="wk" style="width:22px;height:22px" ${S.wake ? "checked" : ""}> Manter a tela ligada (o GPS só funciona com o app aberto)</label>` : ""}
     </div>
     ${c.pedidos.map(p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}" data-p="${esc(p.pv)}"><span class="n">${esc(p.seq)}</span>
-      <span class="c"><b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${pillPed(p)}</button>`).join("")}
-    <button type="button" class="ghost" id="btTroca">Trocar motorista</button><button type="button" class="ghost" id="btSair">Sair</button>`;
+      <span class="c"><b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`).join("")}
+    <button type="button" class="ghost" id="btSair">Sair</button>`;
   if (c.saida && !c.chegada && pend === 0) {
     $("#foot").hidden = false;
     $("#footIn").innerHTML = `<button type="button" class="pri big" id="btCheg">Cheguei no CD</button><p class="cap" style="text-align:center;margin-top:6px">${ret} pedido(s) com peça voltando para conferir.</p>`;
@@ -275,15 +278,13 @@ function telaCarga() {
   }
   document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { S.carga = b.dataset.c; render(); });
   document.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { abrirPedido(b.dataset.p); });
-  $("#btTroca").onclick = () => { S.me.motorista = null; pararGps(); render(); };
   $("#btSair").onclick = sair;
   const bs = $("#btSaida"); if (bs) bs.onclick = async () => {
     try { const pos = S.gps.ult || {}; atualizarCarga(await api(`/cargas/${c.numero}/saida`, { lat: pos.lat, lng: pos.lng })); ligarGps(); render(); }
     catch (e) { if (!e.tratado) avisar(e.message); } };
-  const wk = $("#wk"); if (wk) wk.onchange = () => wk.checked ? manterTela() : soltarTela();
 }
 
-function abrirPedido(pv) { S.ped = pv; S.modo = ""; S.erro = ""; S.msg = ""; S.foto = null; S.linhas = {}; S.palavra = ""; S.motivo = ""; S.obs = ""; render(); window.scrollTo(0, 0); }
+function abrirPedido(pv) { S.ped = pv; S.chat = false; S.modo = ""; S.erro = ""; S.msg = ""; S.foto = null; S.linhas = {}; S.palavra = ""; S.motivo = ""; S.obs = ""; render(); window.scrollTo(0, 0); }
 function telaPedido() {
   const c = cargaAtual(); const p = c && c.pedidos.find(x => x.pv === S.ped);
   if (!p) { S.ped = null; return render(); }
@@ -316,7 +317,9 @@ function telaPedido() {
       <button type="button" class="ok big" id="btEnt" ${bloqueio || (c.palavra_ligada && p.liberacao === "pendente") ? "disabled" : ""}>✓ Entregue</button>
       <div class="row"><button type="button" class="bad" id="btRet">↩ Retorno</button><button type="button" class="warnb" id="btPar">½ Parcial</button></div>`;
   }
-  $("#app").innerHTML = `<button type="button" class="ghost" id="btVolta" style="justify-self:start">‹ Voltar para a carga</button>
+  const nl = (p.chat || {}).nao_lidas || 0;
+  $("#app").innerHTML = `<div class="row"><button type="button" class="ghost" id="btVolta">‹ Voltar</button>
+      <button type="button" class="${(p.chat || {}).aberto ? "warnb" : ""}" id="btChat">💬 Chat com a frota${nl ? ` <span class="pill p-bad">${nl}</span>` : (p.chat || {}).aberto ? " (aberto)" : ""}</button></div>
     <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span>${pillPed(p)}</div>
       <h2 style="font-size:22px">${esc(p.nome)}</h2>
       <p style="margin:0">${esc(end)}${p.cep ? ` · CEP ${esc(p.cep)}` : ""}</p>
@@ -337,6 +340,7 @@ function blocoPalavra(c, p, bloqueio) {
 }
 function ligarPedido(c, p) {
   $("#btVolta").onclick = () => { S.ped = null; render(); };
+  $("#btChat").onclick = () => { S.chat = true; S.chatDados = null; render(); window.scrollTo(0, 0); };
   const pal = $("#pPal"); if (pal) pal.oninput = () => { S.palavra = pal.value; };
   const lib = $("#btLib"); if (lib) lib.onclick = async () => {
     try { atualizarCarga(await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/liberacao`, { motivo: "Cliente não tem a palavra" })); render(); }
@@ -397,6 +401,51 @@ async function registrar(c, p, desfecho) {
   }
 }
 
+// ═══ CHAT com a frota [v5.5] — 1ª vez escolhe o motivo; Voltar NÃO encerra (quem encerra é a frota) ═══
+let chatTimer = null;
+async function carregarChat(redesenhar) {
+  const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped); if (!p) return;
+  try { S.chatDados = await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chat`); S.chatErro = ""; }
+  catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: o chat precisa de conexão." : e.message; }
+  if (redesenhar && S.chat) desenharChat();
+}
+function telaChat() {
+  clearInterval(chatTimer);
+  chatTimer = setInterval(() => { if (S.chat && document.visibilityState === "visible") carregarChat(true); else if (!S.chat) clearInterval(chatTimer); }, 5000);
+  if (!S.chatDados) { $("#app").innerHTML = '<div class="card"><p class="cap">Abrindo o chat…</p></div>'; carregarChat(true); return; }
+  desenharChat();
+}
+function desenharChat() {
+  const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped);
+  if (!p) { S.chat = false; S.ped = null; return render(); }
+  const d = S.chatDados || {}, a = d.atual;
+  const rascunho = ($("#chTxt") || {}).value || S.chatRascunho || "";
+  const msgs = a ? a.msgs.map(m => m.de === "sistema" ? `<div class="cap" style="text-align:center">${esc(m.txt)} · ${hora(m.em)}</div>` :
+    `<div class="msg-ch ${m.de === "motorista" ? "eu" : ""}"><small>${esc(m.de === "motorista" ? "Você" : "Frota · " + m.nome)} · ${hora(m.em)}</small>${esc(m.txt)}</div>`).join("") : "";
+  $("#app").innerHTML = `<button type="button" class="ghost" id="chVolta" style="justify-self:start">‹ Voltar para o cliente</button>
+    <div class="card"><span class="cap">Chat com a frota · Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span><h2 style="font-size:20px">${esc(p.nome)}</h2>
+      ${a ? `<span class="pill p-warn">Motivo: ${esc(a.motivo)}</span>` : ""}</div>
+    ${S.chatErro ? `<div class="aviso">${esc(S.chatErro)}</div>` : ""}
+    ${!a ? `<div class="card"><h3>Qual é o motivo?</h3><p class="cap">A frota já vê o cliente, o pedido e as peças. Escolha o motivo para começar.</p>
+        ${(d.motivos || []).map(m => `<button type="button" class="big" data-mot="${esc(m)}">${esc(m)}</button>`).join("")}</div>`
+      : `<div class="card" id="chLista" style="gap:8px;max-height:52vh;overflow:auto">${msgs}</div>
+        <div class="card"><textarea id="chTxt" rows="2" placeholder="Escreva para a frota" maxlength="500">${esc(rascunho)}</textarea>
+          <button type="button" class="pri big" id="chEnv">Enviar</button><p class="cap">Voltar não encerra a conversa. Quem encerra é a frota.</p></div>`}`;
+  const lista = $("#chLista"); if (lista) lista.scrollTop = lista.scrollHeight;
+  $("#chVolta").onclick = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); render(); window.scrollTo(0, 0); };
+  document.querySelectorAll("[data-mot]").forEach(b => b.onclick = () => enviarChat({ motivo: b.dataset.mot }));
+  const t = $("#chTxt"); if (t) { t.oninput = () => { S.chatRascunho = t.value; }; }
+  const env = $("#chEnv"); if (env) env.onclick = () => { const v = ($("#chTxt").value || "").trim(); if (v) enviarChat({ texto: v }); };
+}
+async function enviarChat(corpo) {
+  const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped); if (!p) return;
+  try { const r = await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chat`, corpo);
+    S.chatDados = { ...(S.chatDados || {}), ...r }; S.chatErro = ""; if (corpo.texto) { S.chatRascunho = ""; const t = $("#chTxt"); if (t) t.value = ""; }
+    p.chat = { ...(p.chat || {}), aberto: true, nao_lidas: 0 }; }
+  catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: a mensagem não foi. Tente de novo." : e.message; }
+  desenharChat();
+}
+
 // ═══ GPS (só com o app aberto — o navegador não deixa rastrear com a tela apagada) ═══
 function ligarGps() {
   if (S.gps.watch != null || !("geolocation" in navigator)) { if (!("geolocation" in navigator)) S.gps.estado = "erro"; return; }
@@ -407,8 +456,10 @@ function ligarGps() {
     if (Date.now() - S.gps.enviado > (moveu ? 30000 : 90000)) { S.gps.enviado = Date.now(); api("/gps", { lat: p.lat, lng: p.lng, prec: p.prec }).catch(() => {}); }
   }, err => { S.gps.estado = err.code === 1 ? "negado" : "erro"; barraStatus(); }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
 }
-function pararGps() { if (S.gps.watch != null) navigator.geolocation.clearWatch(S.gps.watch); S.gps.watch = null; S.gps.estado = "parado"; soltarTela(); barraStatus(); }
-async function manterTela() { try { S.wake = await navigator.wakeLock.request("screen"); S.wake.addEventListener("release", () => { S.wake = null; }); } catch (_) { S.wake = null; avisar("Este celular não deixa manter a tela ligada pelo app."); } }
+function pararGps() { if (S.gps.watch != null) navigator.geolocation.clearWatch(S.gps.watch); S.gps.watch = null; S.gps.estado = "parado"; barraStatus(); }
+// [v5.5] a tela fica SEMPRE ligada com o motorista logado (sem opção na tela): o GPS só funciona com o app aberto
+async function manterTela() { if (S.wake || !("wakeLock" in navigator) || document.visibilityState !== "visible") return;
+  try { S.wake = await navigator.wakeLock.request("screen"); S.wake.addEventListener("release", () => { S.wake = null; }); } catch (_) { S.wake = null; } }
 function soltarTela() { try { if (S.wake) S.wake.release(); } catch (_) {} S.wake = null; }
 
 // ═══ carga e atualização automática ═══
@@ -423,21 +474,24 @@ async function carregar() {
   try {
     S.dados = await api("/cargas");
     marcarFila();
+    manterTela();
     const c = cargaAtual();
     if (c && c.saida && !c.chegada) ligarGps(); else if (S.gps.watch != null && !(c && c.saida && !c.chegada)) pararGps();
   } catch (e) { if (e.status === 403) { const me = await api("/me").catch(() => null); if (me) { S.me = me.logado ? me : null; } } else if (!e.tratado && !e.offline) avisar(e.message); }
   render();
 }
 function podeAtualizar() {   // não redesenha enquanto o motorista digita — só se esperar a liberação do PCL
+  if (S.chat) return false;   // o chat se atualiza sozinho
   if (!S.ped) return true;
   const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped);
   return !!(p && p.liberacao === "pendente" && !S.modo);
 }
 setInterval(() => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { enviarFila().then(() => { if (podeAtualizar()) carregar(); }); } }, 15000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { enviarFila(); carregar(); if (S.wake === null && $("#wk") && $("#wk").checked) manterTela(); } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { enviarFila(); carregar(); manterTela(); } });
 window.addEventListener("online", () => { S.online = true; barraStatus(); enviarFila().then(carregar); });
 window.addEventListener("offline", () => { S.online = false; barraStatus(); });
 
+document.addEventListener("click", () => { if (S.me && S.me.motorista) manterTela(); }, { passive: true });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/motorista/sw.js", { scope: "/motorista/" }).catch(() => {});
 (async () => {
   try { const me = await api("/me"); S.me = me.logado ? me : null; } catch (_) { S.me = null; }

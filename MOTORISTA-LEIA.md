@@ -112,3 +112,15 @@ python testes_motorista.py
   já Em retorno, e segue: concluir retorno → GAP → PCL aponta no ERP. Não aparece no app do motorista nem no Ao vivo.
 
 Testes: `python testes_qualidade.py`
+
+# v5.5 — CHAT MOTORISTA ↔ FROTA E CLIENTE COMPLETO NO AO VIVO
+
+- App: a tela fica **sempre ligada** com o motorista logado (sem opção na tela). Não existe mais "Trocar motorista"
+  (para trocar, **Sair** e entrar de novo).
+- No cliente: **‹ Voltar** e **💬 Chat com a frota**. Na 1ª vez o motorista escolhe o motivo (padrão: Ausente, Avaria,
+  Escadas — mude em **Motoristas e app → Motivos do chat**). **Voltar não encerra**; ao entrar de novo continua a conversa.
+  Quem encerra é a frota (Ao vivo). Depois de encerrado, um novo chat pede o motivo de novo.
+- Ao vivo: caixa **💬 Chat com motorista** (abertos, com mensagens novas primeiro). Clicar no cliente (ou "Abrir chat")
+  mostra **tudo do cliente**: endereço, NF, palavra-chave, peças, retirada, observações do Mapa, o registro da rua e o chat.
+- A conversa fica **gravada na carga, por cliente** (aparece no detalhe da carga em "Conversas com o motorista") e
+  abrir/encerrar entra no histórico.
