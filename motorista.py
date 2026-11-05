@@ -445,7 +445,7 @@ def _pedido_app(c: dict, p: dict, mid: str) -> dict:
             "palavra_conferida": bool(ev.get("palavra_ok")), "liberacao": lib.get("status") or "",
             "tentativas": tent, "pode_desfazer": bool(ev.get("desfecho")) and ev.get("mid") == mid and _min_desde(ev.get("em")) <= DESFAZER_MIN
                                                 and not ev.get("baixa_erp"),
-            "chat": _chat_resumo(c, p, "motorista")}
+            "chat": _chat_resumo(c, p, "motorista"), "motivo_chat": motivo_do_chat(c, p)}
 
 
 def carga_app(c: dict, mid: str) -> dict:
@@ -455,7 +455,7 @@ def carga_app(c: dict, mid: str) -> dict:
             "saida": r.get("saida"), "chegada": r.get("chegada"), "pedidos": peds,
             "feitos": sum(1 for p in peds if p["desfecho"]), "total": len(peds),
             "palavra_ligada": palavra_ligada(mid), "tentativas_max": int(app_cfg()["cfg"].get("tentativas") or 5),
-            "motivos": qld.listas().get("motivos_retorno") or [], "motivos_chat": motivos_chat()}
+            "motivos": motivos_chat(), "motivos_chat": motivos_chat()}   # [v5.7] retorno/parcial usam os MESMOS motivos do chat
 
 
 @api.get("/cargas")
@@ -570,10 +570,11 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
         motivo = str(payload.motivo or "").strip()[:120]
         linhas = []
         if payload.desfecho in ("retorno", "parcial"):
+            motivo = motivo or motivo_do_chat(c, p)[:120]
             if not motivo:
                 raise HTTPException(400, "Escolha o motivo do retorno.")
-            if FOTO_OBRIGATORIA.search(motivo) and not payload.foto:
-                raise HTTPException(400, "Este motivo pede a foto da peça.")
+            if not payload.foto:   # [v5.7] foto obrigatória em todo retorno e parcial
+                raise HTTPException(400, "Tire a foto da peça para registrar o retorno.")
         if payload.desfecho == "parcial":
             for ln in payload.linhas or []:
                 try:
@@ -591,11 +592,50 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
         ev.update(cid=str(payload.cid or "")[:40], desfecho=payload.desfecho, motivo=motivo if payload.desfecho != "entregue" else "",
                   linhas=linhas, obs=str(payload.obs or "")[:300], foto=foto_id, em=agora(), mid=s["mid"], por=s["nome"],
                   lat=payload.lat, lng=payload.lng, palavra_ok=palavra_ok)
+        if payload.desfecho in ("retorno", "parcial"):
+            _retorno_do_app(c, p, ev, s)
         rot = {"entregue": "ENTREGUE", "retorno": "RETORNO", "parcial": "ENTREGA PARCIAL"}[payload.desfecho]
         _hist(c, s, f"{rot} (app)", f"PV {p.get('pv')} · {p.get('nome')}" + (f" · {motivo}" if motivo and payload.desfecho != "entregue" else "")
               + (" · palavra conferida" if palavra_ok else (" · liberado pelo PCL" if palavra_ok is False else "")))
         qld.gravar(c)
         return {"resultado": "ok", "carga": carga_app(c, s["mid"])}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [v5.7] O RETORNO SE ALIMENTA DO APP: retorno/parcial registrado na rua já entra na aba Retorno
+# como "informado pelo motorista"; o CD só confirma que a peça chegou (estado e destino).
+# ══════════════════════════════════════════════════════════════════════════
+def _retorno_do_app(c: dict, p: dict, ev: dict, s: dict) -> int:
+    ret = c.get("retorno") or {"inicio": agora(), "por": "app do motorista", "email": "", "itens": [], "fim": None}
+    c["retorno"] = ret
+    linhas = ev.get("linhas") if ev.get("desfecho") == "parcial" else [{"i": i, "qtd": int(it.get("qtd") or 0)} for i, it in enumerate(p.get("entregar") or [])]
+    its = p.get("entregar") or []
+    avaria = bool(re.search(r"AVARI", ev.get("motivo") or "", re.I))
+    n = 0
+    for ln in linhas or []:
+        i = int(ln.get("i"))
+        if not 0 <= i < len(its):
+            continue
+        for _ in range(int(ln.get("qtd") or 0)):
+            ret["itens"].append({"id": uuid.uuid4().hex[:8], "pv": p.get("pv"), "seq": p.get("seq"), "i": i, "sku": its[i].get("sku"), "desc": its[i].get("desc"),
+                                 "nome": p.get("nome"), "origem": "nao_entregue", "motivo": ev.get("motivo") or "", "estado": "avariada" if avaria else "",
+                                 "avaria": "", "destino": "", "obs": ev.get("obs") or "", "modo": "app", "fonte": "app", "recebido": False,
+                                 "foto": ev.get("foto") or "", "app_cid": ev.get("cid") or "", "codigo": "", "lote": "",
+                                 "por": s["nome"], "email": f"motorista:{s['placa']}", "em": agora(), "tabulacao": None})
+            n += 1
+    if c.get("status") == "validada" and n:
+        c["status"] = "em_retorno"
+    return n
+
+
+def _tirar_retorno_do_app(c: dict, p: dict) -> int:
+    """Registro do motorista desfeito/reaberto: sai do Retorno o que ainda não foi recebido no CD."""
+    ret = c.get("retorno") or {}
+    antes = len(ret.get("itens") or [])
+    ret["itens"] = [x for x in ret.get("itens") or [] if not (x.get("fonte") == "app" and not x.get("recebido") and chave_pv(x.get("pv")) == chave_pv(p.get("pv")))]
+    if ret and not ret["itens"] and c.get("status") == "em_retorno":
+        c["status"] = "validada"
+    return antes - len(ret.get("itens") or [])
 
 
 @api.post("/cargas/{numero}/pedido/{pv}/desfazer")
@@ -610,6 +650,7 @@ def rota_desfazer(numero: str, pv: str, request: Request):
         if ev.get("mid") != s["mid"] or _min_desde(ev.get("em")) > DESFAZER_MIN or ev.get("baixa_erp"):
             raise HTTPException(409, f"Só dá para corrigir o próprio registro em até {DESFAZER_MIN} minutos. Fale com o PCL.")
         ant = {k: ev.get(k) for k in ("desfecho", "motivo", "em")}
+        _tirar_retorno_do_app(c, p)
         for k in ("cid", "desfecho", "motivo", "linhas", "obs", "foto", "em", "mid", "por", "lat", "lng", "palavra_ok"):
             ev.pop(k, None)
         ev.setdefault("corrigidos", []).append({**ant, "desfeito_em": agora()})
@@ -698,13 +739,14 @@ def _ev_pub(c: dict, p: dict, com_palavra: bool) -> dict:
     r = rua(c)
     k = chave_pv(p.get("pv"))
     ev = r["pedidos"].get(k) or {}
-    cd = [x for x in (c.get("retorno") or {}).get("itens") or [] if chave_pv(x.get("pv")) == k and x.get("origem") == "nao_entregue"]
+    cd = [x for x in (c.get("retorno") or {}).get("itens") or [] if chave_pv(x.get("pv")) == k and x.get("origem") == "nao_entregue" and x.get("recebido") is not False]
     esperado = 0
     if ev.get("desfecho") == "retorno":
         esperado = sum(int(i.get("qtd") or 0) for i in p.get("entregar") or [])
     elif ev.get("desfecho") == "parcial":
         esperado = sum(int(x.get("qtd") or 0) for x in ev.get("linhas") or [])
     out = {"seq": p.get("seq"), "pv": p.get("pv"), "nome": p.get("nome"), "bairro": p.get("bairro"), "cidade": p.get("cidade"),
+           "cliente": p.get("cliente"), "nf": p.get("nf"),
            "troca": bool(p.get("troca")), "pecas": sum(int(i.get("qtd") or 0) for i in p.get("entregar") or []),
            "desfecho": ev.get("desfecho") or "", "motivo": ev.get("motivo") or "", "obs": ev.get("obs") or "", "em": ev.get("em") or "",
            "por": ev.get("por") or "", "foto": ev.get("foto") or "", "lat": ev.get("lat"), "lng": ev.get("lng"),
@@ -784,6 +826,13 @@ def motivos_chat() -> list:
 def _chats(c: dict, p: dict) -> dict:
     r = rua(c)
     return r.setdefault("chats", {}).setdefault(chave_pv(p.get("pv")), {"atual": None, "atendimentos": []})
+
+
+def motivo_do_chat(c: dict, p: dict) -> str:
+    """O motivo escolhido no chat deste cliente (o atual ou o último) — vale para o Retorno/Parcial sem perguntar de novo."""
+    ch = ((c.get("rua") or {}).get("chats") or {}).get(chave_pv(p.get("pv"))) or {}
+    ats = ch.get("atendimentos") or []
+    return str(ats[-1].get("motivo") or "") if ats else ""
 
 
 def _chat_atual(ch: dict) -> Optional[dict]:
@@ -970,8 +1019,14 @@ def rota_decidir(numero: str, pv: str, payload: Decisao, request: Request):
         p = _ped_da_carga(c, pv)
         ev = rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}
         lib = ev.get("liberacao")
+        if ev.get("desfecho"):
+            raise HTTPException(409, "Este pedido já tem registro do motorista.")
         if not lib or lib.get("status") != "pendente":
-            raise HTTPException(409, "Não há pedido de liberação aberto para este pedido.")
+            if payload.acao != "liberar":
+                raise HTTPException(409, "Não há pedido de liberação aberto para este pedido.")
+            # [v5.7] o PCL libera antes do motorista pedir (ex.: cliente avisou que não recebeu a palavra)
+            lib = rua(c)["pedidos"].setdefault(chave_pv(p.get("pv")), {})["liberacao"] = {
+                "status": "pendente", "pedido_em": agora(), "pedido_por": f"PCL ({q['por']})", "motivo": "liberado direto pelo PCL"}
         lib.update(status="liberada" if payload.acao == "liberar" else "negada", decidido_por=q["por"], decidido_email=q["email"],
                    decidido_em=agora(), nota=str(payload.nota or "")[:300])
         qld.hist(c, q, f"entrega sem palavra {'LIBERADA' if payload.acao == 'liberar' else 'negada'}", f"PV {p.get('pv')} · {payload.nota or ''}")
@@ -1021,6 +1076,7 @@ def rota_pcl_reabrir(numero: str, pv: str, payload: Correcao, request: Request):
         if not ev.get("desfecho"):
             raise HTTPException(404, "Não há registro para reabrir.")
         ant = {k: ev.get(k) for k in ("desfecho", "motivo", "em", "por")}
+        _tirar_retorno_do_app(c, p)
         for k in ("cid", "desfecho", "motivo", "linhas", "obs", "foto", "em", "mid", "por", "lat", "lng", "palavra_ok", "baixa_erp"):
             ev.pop(k, None)
         ev.setdefault("corrigidos", []).append({**ant, "desfeito_em": agora(), "pelo_pcl": q["por"], "nota": payload.nota[:300]})

@@ -734,6 +734,7 @@ function bip(ok) {
   try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); const o = _ac.createOscillator(), g = _ac.createGain();
     o.frequency.value = ok ? 1250 : 330; g.gain.value = .08; o.connect(g); g.connect(_ac.destination); o.start(); o.stop(_ac.currentTime + (ok ? .09 : .35)); } catch (_) {}
 }
+const semAcento = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 const PVB = pv => `<b class="pvd">PV ${esc(pv)}</b>`;   // [v5.4] número do pedido em destaque
 const sec = (titulo, sub, direita, corpo) => `<section><header><h2>${titulo}</h2>${sub ? `<p>${sub}</p>` : ""}${direita ? `<span class="direita">${direita}</span>` : ""}</header>${corpo}</section>`;
 const kpi = (rot, val, sub, cls = "") => `<div class="kpi ${cls}"><span>${rot}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
@@ -864,6 +865,32 @@ async function trocarPlaca(num, atual, depois) {
         toast(`Carga ${num} agora na placa ${r.placa}${r.motorista ? " · " + r.motorista : ""} (${r.pendentes} entrega(s) pendente(s)).`); fechar(); depois && depois(); } catch (e) { toast(e.message, true); } };
   });
 }
+// ═══ [v5.7] AJUSTE NA CARGA (PCL): RETIRA / AGRUPAMENTO — trava a etapa até validar ═══
+function ajusteCarga(g, tipo, depois) {
+  const ret = tipo === "retira";
+  abrirDlg(`<h3>${ret ? "✂ Retirar pedido da carga" : "＋ Agrupar pedido na carga"} ${esc(g.numero)}</h3>
+    <p class="cap">A ${esc((g.montagem || {}).fim ? "conferência na doca" : "montagem do palete")} fica <b>TRAVADA</b> até quem está na etapa confirmar que fez o ajuste no palete.</p>
+    ${ret ? `<label class="f">Pedido<select id="ajcPv">${(g.pedidos || []).map(p => `<option value="${esc(p.pv)}">PV ${esc(p.pv)} · ${esc(p.nome)} · ${(p.entregar || []).map(i => i.qtd + "× " + esc(i.desc)).join(", ")}</option>`).join("")}</select></label>`
+      : `<label class="f">PV<input id="ajcPv" inputmode="numeric" maxlength="20" placeholder="Se estiver em outra carga do CD, o pedido MUDA de carga sozinho"></label>
+      <details><summary class="cap" style="cursor:pointer">PV que não está em nenhuma carga? Preencha o cliente e os itens</summary>
+        <div class="q-form"><label class="f">Cliente<input id="ajcNome" maxlength="120"></label><label class="f">NF<input id="ajcNf" maxlength="20"></label></div>
+        <div class="q-form"><label class="f">Endereço<input id="ajcEnd" maxlength="200"></label><label class="f">Bairro<input id="ajcBai" maxlength="80"></label><label class="f">Cidade<input id="ajcCid" maxlength="80"></label></div>
+        <label class="f">Itens (um por linha: quantidade e descrição, ex.: <span class="mono">2 CMP PRESIDENT 138X188</span>)<textarea id="ajcIt" rows="3"></textarea></label></details>`}
+    <label class="f">Motivo<input id="ajcMot" maxlength="200" placeholder="${ret ? "ex.: cliente pediu para adiar" : "ex.: entrega no mesmo bairro"}"></label>
+    <div class="acts"><button type="button" id="ajcC">Cancelar</button><button type="button" class="primary" id="ajcOk">${ret ? "Retirar e travar a etapa" : "Agrupar e travar a etapa"}</button></div><p class="msg erro" id="ajcMsg"></p>`, (el, fechar) => {
+    $("#ajcC", el).onclick = fechar;
+    $("#ajcOk", el).onclick = async () => {
+      const v = id => (($(id, el) || {}).value || "").trim();
+      const corpo = { tipo, pv: v("#ajcPv"), motivo: v("#ajcMot") };
+      if (!ret) Object.assign(corpo, { nome: v("#ajcNome"), nf: v("#ajcNf"), endereco: v("#ajcEnd"), bairro: v("#ajcBai"), cidade: v("#ajcCid"),
+        itens: v("#ajcIt").split("\n").map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(\d+)\s*[x×]?\s+(.+)$/i); return m ? { qtd: +m[1], desc: m[2] } : { qtd: 1, desc: l }; }) });
+      if (!corpo.pv || !corpo.motivo) { $("#ajcMsg", el).textContent = "Informe o PV e o motivo."; return; }
+      try { const r = await post(`/cargas/${encodeURIComponent(g.numero)}/ajuste-carga`, corpo); fechar();
+        toast(`${ret ? "Pedido retirado" : "Pedido agrupado"}${r.ajuste.ref ? ` (${ret ? "para" : "da"} carga ${r.ajuste.ref})` : ""}. Etapa travada até validar.`); await carregarLista(); depois && depois(); }
+      catch (e) { $("#ajcMsg", el).textContent = e.message; }
+    };
+  });
+}
 async function voltarMontagem(numeros, depois) {
   try { const r = await post("/montagem/voltar", { numeros });
     toast(r.voltaram.length ? `${r.voltaram.length} carga(s) voltaram para a montagem.` : (r.puladas[0] || {}).motivo || "Nenhuma carga para voltar.", !r.voltaram.length);
@@ -913,6 +940,7 @@ function cardCarga(c, alvo) {
     <div class="l m">${esc(c.transportadora)} · Mapa ${dataBR(c.data_iso)}${c.versao > 1 ? ` · v${c.versao}` : ""}${c.transferencia ? ' · <span class="pill p-roxo">Transferência</span>' : ""}</div>
     <div class="l">${alvo === "retorno" ? "" : `${int(r.pedidos)} pedidos · `}${prog}</div>
     ${alvo === "retorno" ? "" : `<div class="q-prog"><i style="width:${p}%"></i></div>`}
+    ${r.ajustes_pendentes && alvo !== "retorno" ? `<div class="l" style="color:var(--bad);font-weight:700">🔒 Ajuste do PCL na carga — validar antes de seguir</div>` : ""}
     ${off && alvo !== "retorno" ? `<div class="l" style="color:var(--bad)">⏸ ${c.status === "aguardando_pdf" ? "aguardando o novo PDF (PCL)" : "aguardando o PCL resolver as divergências"}</div>` : ""}
     ${r.alertas && alvo === "montagem" ? `<div class="l" style="color:var(--amber)">⚠ ${int(r.alertas)} alerta(s) da Carteira${r.pv_fora ? ` · ${int(r.pv_fora)} PV fora` : ""}</div>` : ""}
   </button>`;
@@ -964,8 +992,9 @@ function desenharEtapa(c) {
   const g = CG, et = ET, e = EST[et], E = g[et] || { leituras: {}, sobras: [] }, lidas = E.leituras || {};
   const ok = et === "montagem" ? ["importada", "em_montagem"] : ["montada", "em_conferencia"];
   const bloq = (g.bloqueios || {})[et] || "", souMontador = !!bloq;   // [v5.4] cada etapa por uma pessoa (o admin faz todas)
-  const podeLer = pode(e.aba, 2) && ok.includes(g.status) && !souMontador;
-  const base = et === "montagem" ? (g.unidades || []) : (g.unidades || []).filter(u => ((g.montagem || {}).leituras || {})[u.id]);
+  const ajPend = (g.ajustes_carga || []).filter(a => a.status === "pendente" && a.etapa === et);   // [v5.7] ajuste do PCL trava a etapa
+  const podeLer = pode(e.aba, 2) && ok.includes(g.status) && !souMontador && !ajPend.length;
+  const base = et === "montagem" ? (g.unidades || []) : (g.unidades || []).filter(u => ((g.montagem || {}).leituras || {})[u.id] || u.pos_montagem);
   const tot = base.length, n = base.filter(u => lidas[u.id]).length;
   const porSeq = new Map(); base.forEach(u => { if (!porSeq.has(u.seq)) porSeq.set(u.seq, []); porSeq.get(u.seq).push(u); });
   c.innerHTML = `<div class="q-topo">
@@ -979,6 +1008,12 @@ function desenharEtapa(c) {
       ${ULT ? `<div class="q-ult ${ULT.cls}">${ULT.ico} <span>${ULT.txt}</span></div>` : ""}
     </div>
     ${souMontador ? `<div class="conflito">🔒 ${esc(bloq)}</div>` : ""}
+    ${ajPend.map(a => `<div class="conflito" style="border-width:3px"><div style="font-size:20px;font-weight:800">🔒 AJUSTE NA CARGA: ${a.tipo === "retira" ? "RETIRA" : "AGRUPAMENTO"}</div>
+      <div style="margin:6px 0">${PVB(a.pv)} · <b>${esc(a.nome)}</b></div>
+      <div>${a.tipo === "retira" ? "<b>TIRE do palete</b>" : "<b>COLOQUE no palete</b>"}: ${a.itens.map(i => `${i.qtd}× ${esc(i.desc)}`).join(" · ")}</div>
+      ${a.tipo === "retira" && (a.ja_no_palete || a.ja_conferidas) ? `<div class="sub">${a.ja_no_palete} unidade(s) já estavam lidas no palete — as leituras foram tiradas.</div>` : ""}
+      <div class="sub">Motivo: ${esc(a.motivo)}${a.ref ? ` · ${a.tipo === "retira" ? "vai para" : "veio da"} carga ${esc(a.ref)}` : ""} · PCL ${esc(a.por)} · ${horaBR(a.em)}</div>
+      ${pode(e.aba, 2) && !souMontador ? `<button type="button" class="q-okb" data-validaj="${esc(a.id)}" style="margin-top:8px">✓ Ajuste feito no palete — liberar</button>` : '<div class="sub">Quem está na etapa precisa validar o ajuste.</div>'}</div>`).join("")}
     ${!ok.includes(g.status) ? `<div class="alerta">Esta carga está “${esc((STATUS_COR[g.status] || [g.status])[0])}”. ${["montagem_div", "doca_div", "aguardando_pdf"].includes(g.status) ? "O PCL precisa tratar as pendências antes de seguir." : ""}</div>` : ""}
     ${(g.mudancas_nao_solicitadas || []).length ? `<div class="alerta">⚠ O novo PDF mudou itens que ninguém pediu: ${g.mudancas_nao_solicitadas.map(m => `PV ${esc(m.pv)} · ${esc(m.desc)} (${m.antes}→${m.depois})`).join(" · ")}</div>` : ""}
     ${(E.sobras || []).length ? `<div class="box" style="border-color:var(--bad)"><b style="color:var(--bad)">Itens a mais / fora da carga</b>${E.sobras.map(s => `<div class="q-it"><div class="d">${esc(s.desc)}<small>código ${esc(s.codigo)} · ${esc(s.por)} · ${horaBR(s.em)}</small></div>${podeLer ? `<button type="button" class="peq warn" data-tira-sobra="${esc(s.id)}">Tirar</button>` : ""}</div>`).join("")}</div>` : ""}
@@ -996,6 +1031,9 @@ function desenharEtapa(c) {
   c.querySelectorAll("[data-tira-sobra]").forEach(b => b.onclick = async () => { try { await post(`/cargas/${g.numero}/${e.url}/desfazer`, { codigo: b.dataset.tiraSobra }); await recarregarCG(); } catch (x) { toast(x.message, true); } });
   c.querySelectorAll("[data-gap]").forEach(b => b.onclick = () => apontarGap(g.numero, b.dataset.gap));
   const ba = $("#btAjuste", c); if (ba) ba.onclick = () => pedirAjuste(g);
+  c.querySelectorAll("[data-validaj]").forEach(b => b.onclick = async () => {
+    try { const r = await post(`/cargas/${g.numero}/ajuste-carga/${b.dataset.validaj}/validar`, {}); toast(r.pendentes ? "Ajuste validado. Ainda há ajuste pendente." : "Ajuste validado — a etapa está liberada."); await recarregarCG(); }
+    catch (x) { toast(x.message, true); } });
   const bf = $("#btFechar", c); if (bf) bf.onclick = () => fecharEtapa(g);
 }
 function blocoPedido(g, p, uns, lidas, podeLer, et) {
@@ -1212,8 +1250,11 @@ function desenharRetorno(c) {
     const retir = p.troca && (p.col2 || []).length ? (p.col2 || []).map((it, i) => { const n = voltou.filter(x => x.origem === "retirada" && x.i === i).length;
       return `<div class="q-it roxo"><div class="d"><small>A retirar na troca</small>${esc(it.desc)}</div><span class="c">${n}/${it.qtd}</span>${podeR && n < it.qtd ? `<button type="button" class="peq" data-retira="${esc(p.pv)}|${i}">Retirado 1</button>` : ""}</div>`; }).join("") : "";
     // registros: os lançados juntos (pedido todo / parcial) aparecem agrupados, com um ✕ para o lote
-    const grupos = []; voltou.forEach(x => { const k = x.lote ? "lote:" + x.lote + "|" + x.i : x.id; const g0 = grupos.find(y => y.k === k); if (g0) g0.n++; else grupos.push({ k, x, n: 1 }); });
-    const reg = grupos.map(({ k, x, n }) => `<div class="q-it cinza"><div class="d"><b>${x.origem === "retirada" ? "Retirada" : "Voltou"}:</b> ${n > 1 ? `<b>${n}×</b> ` : ""}${esc(x.desc)}
+    const grupos = []; voltou.forEach(x => { if (x.fonte === "app" && !x.recebido) { grupos.push({ k: x.id, x, n: 1 }); return; } const k = x.lote ? "lote:" + x.lote + "|" + x.i : x.id; const g0 = grupos.find(y => y.k === k); if (g0) g0.n++; else grupos.push({ k, x, n: 1 }); });
+    const reg = grupos.map(({ k, x, n }) => x.fonte === "app" && !x.recebido ? `<div class="q-it" style="background:var(--amber-soft)"><div class="d"><b>📱 Motorista informou que voltou:</b> ${esc(x.desc)}
+        <small>${esc(x.motivo)} · ${esc(x.por)} ${horaBR(x.em)}${x.foto ? ` · <a href="${API}${API_RUA}/foto/${encodeURIComponent(x.foto)}" target="_blank" rel="noopener">📷 foto</a>` : ""} · <b>aguardando chegar no CD</b></small></div>
+        ${podeR ? `<button type="button" class="primary peq" data-receber="${esc(x.id)}">✓ Recebida no CD</button><button type="button" class="peq warn" data-rm="${esc(x.id)}" title="Não veio / registro errado">✕</button>` : ""}</div>`
+      : `<div class="q-it cinza"><div class="d"><b>${x.origem === "retirada" ? "Retirada" : "Voltou"}:</b> ${x.fonte === "app" ? "📱 " : ""}${n > 1 ? `<b>${n}×</b> ` : ""}${esc(x.desc)}
         <small>${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">avariada · ${esc(x.avaria)}</b>` : "peça OK"} · destino: <b>${esc(x.destino)}</b>${x.obs ? " · " + esc(x.obs) : ""}${x.modo === "sem_leitor" ? ` · <b style="color:var(--amber)">sem leitor: ${esc(x.motivo_sem_leitor)}</b>` : ""} · ${esc(x.por)} ${horaBR(x.em)}</small></div>
         ${podeR ? `<button type="button" class="peq warn" data-rm="${esc(x.lote ? "lote:" + x.lote : x.id)}" title="${x.lote ? "Remover o lançamento inteiro" : "Remover"}">✕</button>` : ""}</div>`).join("");
     const pendPed = (p.entregar || []).reduce((a, it, i) => a + it.qtd - voltou.filter(x => x.origem === "nao_entregue" && x.i === i).length, 0);
@@ -1241,6 +1282,7 @@ function desenharRetorno(c) {
   const inp = $("#cod", c); if (inp) inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const v = inp.value.trim(); inp.value = ""; if (v) retornar({ codigo: v, origem: RT.origem }); } };
   const bc = $("#btCam", c); if (bc) bc.onclick = () => abrirCamera(t => retornar({ codigo: t, origem: RT.origem }, true));
   c.querySelectorAll("[data-volta]").forEach(b => b.onclick = () => retornar({ item: b.dataset.volta, origem: "nao_entregue" }));
+  c.querySelectorAll("[data-receber]").forEach(b => b.onclick = () => retornar({ receber: b.dataset.receber, origem: "nao_entregue" }));
   c.querySelectorAll("[data-retira]").forEach(b => b.onclick = () => retornar({ item: b.dataset.retira, origem: "retirada" }));
   c.querySelectorAll("[data-ptodo]").forEach(b => b.onclick = () => retornoPedido(b.dataset.ptodo, true));
   c.querySelectorAll("[data-pparc]").forEach(b => b.onclick = () => retornoPedido(b.dataset.pparc, false));
@@ -1299,9 +1341,10 @@ function formPeca(r) {   // pergunta o que falta da peça: motivo, estado, avari
   return new Promise(res => {
     let feito = false; const fim = v => { if (!feito) { feito = true; res(v); } };
     const L = r.listas, x = r.item;
-    abrirDlg(`<h3>${r.origem === "retirada" ? "Peça retirada na troca" : "Peça que voltou"}</h3><p class="cap"><b>${esc(x.desc)}</b> · ${PVB(x.pv)} · ${esc(x.nome)}</p>
+    const rec = !!r.receber;
+    abrirDlg(`<h3>${rec ? "Chegou no CD — peça que o motorista informou" : r.origem === "retirada" ? "Peça retirada na troca" : "Peça que voltou"}</h3><p class="cap"><b>${esc(x.desc)}</b> · ${PVB(x.pv)} · ${esc(x.nome)}${rec && x.motivo ? ` · motivo do motorista: <b>${esc(x.motivo)}</b>` : ""}</p>
       <div class="q-form">
-        ${r.origem === "nao_entregue" ? `<label class="f">Por que voltou?<select id="pMot"><option value="">— escolha —</option>${opts(L.motivos)}</select></label>` : ""}
+        ${r.origem === "nao_entregue" && !rec ? `<label class="f">Por que voltou?<select id="pMot"><option value="">— escolha —</option>${opts(L.motivos)}</select></label>` : ""}
         <label class="f">Estado da peça<select id="pEst"><option value="">— escolha —</option><option value="ok">Peça OK (sem avaria)</option><option value="avariada">Avariada</option></select></label>
         <label class="f" id="pAvL" hidden>Tipo de avaria<select id="pAv"><option value="">— escolha —</option>${opts(L.avarias)}</select></label>
         <label class="f">Destino da peça<select id="pDest"><option value="">— escolha —</option>${opts(L.destinos)}</select></label></div>
@@ -1311,8 +1354,8 @@ function formPeca(r) {   // pergunta o que falta da peça: motivo, estado, avari
       $("#pC", el).onclick = () => { fim(null); fechar(); };
       $("#dlg").onclose = () => fim(null);
       $("#pO", el).onclick = () => {
-        const d = { motivo: r.origem === "nao_entregue" ? $("#pMot", el).value : "", estado: $("#pEst", el).value, avaria: $("#pAv", el).value, destino: $("#pDest", el).value, obs: $("#pObs", el).value };
-        if ((r.origem === "nao_entregue" && !d.motivo) || !d.estado || (d.estado === "avariada" && !d.avaria) || !d.destino) { $("#pMsg", el).textContent = "Preencha motivo, estado e destino."; return; }
+        const d = { motivo: r.origem === "nao_entregue" && !rec ? $("#pMot", el).value : "", estado: $("#pEst", el).value, avaria: $("#pAv", el).value, destino: $("#pDest", el).value, obs: $("#pObs", el).value };
+        if ((r.origem === "nao_entregue" && !rec && !d.motivo) || !d.estado || (d.estado === "avariada" && !d.avaria) || !d.destino) { $("#pMsg", el).textContent = "Preencha motivo, estado e destino."; return; }
         fim(d); fechar();
       };
     });
@@ -1337,7 +1380,7 @@ async function retornar(corpo, daCam) {
         pararSeCamera(daCam);
         const d = await formPeca(r);
         if (!d) { ULT = { cls: "warn", ico: "⏸", txt: "Registro cancelado." }; r = null; break; }
-        corpo = { ...corpo, pv: r.item.pv, ...d }; r = await post(url, corpo);
+        corpo = { ...corpo, pv: r.item.pv, ...(r.receber ? { receber: r.receber } : {}), ...d }; r = await post(url, corpo);
       } else break;
     }
     if (!r) { /* cancelado */ }
@@ -1531,6 +1574,7 @@ async function rDetalhe(c, num) {
   c.innerHTML = `<div style="margin-bottom:10px"><button type="button" class="peq" id="voltar">← Voltar</button></div>
     <div class="doc-head" style="border-left-color:${corStatus(g.status)}"><div><h1>Carga ${esc(g.numero)}</h1><p class="obj">🚚 ${esc(g.placa)} · ${esc(g.motorista || "motorista não cadastrado")} · ${esc(g.transportadora)}${g.transferencia ? " · Transferência" : ""}</p><p class="obj">${pillStatus(g.status)}</p>
       <p style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${(pode("pcl", 2) || pode("aovivo", 2)) && g.status !== "baixada" && !((g.rua || {}).chegada) ? '<button type="button" class="peq" id="btPlaca">🚚 Trocar placa</button>' : ""}
+        ${pode("pcl", 3) && ["importada", "em_montagem", "montagem_div", "montada", "em_conferencia", "doca_div", "aguardando_pdf"].includes(g.status) ? `<button type="button" class="peq warn" id="btRetira">✂ Retirar pedido</button><button type="button" class="peq" id="btAgrupa">＋ Agrupar pedido</button>` : ""}
         ${pode("pcl", 3) && g.volta_montagem ? `<button type="button" class="peq" id="btMontagem" title="${g.fase2 ? "" : "Ligue antes a fase 2 em Cadastros → Listas"}">↩ Voltar para a montagem</button>` : ""}</p>
       ${(g.trocas_placa || []).length ? `<p class="cap">Placa trocada: ${g.trocas_placa.map(t => `${esc(t.de || "—")} → <b>${esc(t.para)}</b> (${horaBR(t.em)} · ${esc(t.por)}${t.motivo ? " · " + esc(t.motivo) : ""})`).join("; ")}</p>` : ""}</div>
       <div class="stamp"><div class="code">Mapa ${esc(g.data_mapa)}</div><dl><dt>Versão</dt><dd>${g.versao}</dd><dt>Pedidos</dt><dd>${int(r.pedidos)}</dd><dt>Unidades</dt><dd>${int(r.unidades)}</dd><dt>Cubagem</dt><dd>${esc(g.cubagem)}</dd>
@@ -1553,10 +1597,16 @@ async function rDetalhe(c, num) {
         <td>${(p.entregar || []).map(i => `${esc(i.desc)} ×${i.qtd}${i.sku ? "" : ' <span class="pill p-warn">sem SKU</span>'}`).join("<br>")}</td>
         <td>${g.retorno ? `<span class="pill ${(SIT_PED[s.situacao] || ["", "p-cinza"])[1]}">${esc((SIT_PED[s.situacao] || ["—"])[0])}</span>` : "—"}${s.retirada === "nao_feita" ? '<span class="sub" style="color:var(--bad)">retirada não feita</span>' : s.retirada === "feita" ? '<span class="sub">retirada feita</span>' : ""}</td>
         <td>${it.map(x => `${x.origem === "retirada" ? "↩ retirada" : "✕ voltou"}: ${esc(x.desc)} · ${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">${esc(x.avaria)}</b>` : "OK"} → <b>${esc(x.destino)}</b>${x.tabulacao ? ` <span class="pill p-ok">tabulada</span>` : ""}`).join("<br>") || "—"}</td></tr>`; }).join("")}</tbody></table></div>
+    ${(g.ajustes_carga || []).length ? `<h3>Ajustes na carga (PCL)</h3>${g.ajustes_carga.slice().reverse().map(a => `<div class="box" style="border-left:6px solid ${a.status === "pendente" ? "var(--bad)" : "var(--ok)"}">
+      <b>${a.tipo === "retira" ? "✂ RETIRA" : "＋ AGRUPAMENTO"}</b> · ${PVB(a.pv)} · ${esc(a.nome)} · ${a.itens.map(i => `${i.qtd}× ${esc(i.desc)}`).join(", ")}
+      <span class="sub">${esc(a.motivo)}${a.ref ? ` · ${a.tipo === "retira" ? "foi para" : "veio da"} carga ${esc(a.ref)}` : ""} · ${esc(a.por)} ${horaBR(a.em)} · ${esc(a.etapa === "doca" ? "conferência" : "montagem")}</span>
+      <span class="pill ${a.status === "pendente" ? "p-bad" : a.status === "validado" ? "p-ok" : "p-cinza"}">${a.status === "pendente" ? "Aguardando validação na etapa" : a.status === "validado" ? `Validado por ${esc(a.validado_por)} ${horaBR(a.validado_em)}` : "Superado por PDF novo"}</span></div>`).join("")}` : ""}
     ${chatsDaCarga(g)}
     <h3>Histórico</h3><div class="box q-hist">${(g.historico || []).slice().reverse().map(h => `<div>${horaBR(h.em)} · <b>${esc(h.por)}</b> · ${esc(h.acao)}${h.det ? " — " + esc(h.det) : ""}</div>`).join("") || "—"}</div>`;
   $("#voltar", c).onclick = voltar;
   const bp = $("#btPlaca", c); if (bp) bp.onclick = () => trocarPlaca(g.numero, g.placa, () => rDetalhe(c, num));
+  const brt = $("#btRetira", c); if (brt) brt.onclick = () => ajusteCarga(g, "retira", () => rDetalhe(c, num));
+  const bag = $("#btAgrupa", c); if (bag) bag.onclick = () => ajusteCarga(g, "agrupa", () => rDetalhe(c, num));
   const bm = $("#btMontagem", c); if (bm) bm.onclick = async () => {
     if (!g.fase2) { toast("Ligue antes a fase 2 em Cadastros → Listas (montagem do palete e conferência na doca).", true); return; }
     await voltarMontagem([g.numero], () => rDetalhe(c, num)); };
@@ -1737,7 +1787,7 @@ function escolherSku(codigo, skus) {
 // Entregue / retorno / parcial por pedido, palavra da entrega, liberações, baixa no ERP (PCL marca),
 // retornos informados × recebidos no CD e o caminhão no mapa (GPS do app, só com o app aberto).
 const API_RUA = "/rua";
-let AV = { data: HOJE, sel: null, filtro: "todas", timer: null, mapa: null, camadas: null, ultimo: null };
+let AV = { data: HOJE, sel: null, filtro: "todas", busca: "", timer: null, mapa: null, camadas: null, ultimo: null };
 const DESF = { entregue: ["Entregue", "p-ok"], retorno: ["Retorno", "p-bad"], parcial: ["Parcial", "p-warn"] };
 const FASE = { aguardando: ["Liberada — aguarda saída", "p-azul"], rua: ["Na rua", "p-warn"], chegou: ["No CD", "p-ok"] };
 const chavePv = pv => (String(pv || "").replace(/\D/g, "").replace(/^0+/, "") || String(pv || "").trim());
@@ -1765,7 +1815,11 @@ function desenharAoVivo(c, d, silencioso) {
   const libs = []; d.cargas.forEach(g => g.pedidos.forEach(p => { if ((p.liberacao || {}).status === "pendente") libs.push({ g, p }); }));
   const filtros = { todas: () => true, rua: g => g.fase === "rua", aguardando: g => g.fase === "aguardando", chegou: g => g.fase === "chegou",
     baixa: g => g.cont.sem_baixa_erp > 0, receber: g => g.cont.pecas_esperadas > g.cont.pecas_recebidas };
-  const lista = d.cargas.filter(filtros[AV.filtro] || filtros.todas);
+  const termo = semAcento(AV.busca).trim();   // [v5.7] busca: carga, PV, cliente, código, NF, placa, motorista, palavra, bairro
+  const casa = (g, p) => termo && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.cidade, p.palavra, p.seq].join(" ")).includes(termo);
+  const casaCarga = g => !termo || semAcento([g.numero, g.placa, g.motorista, g.transportadora].join(" ")).includes(termo) || g.pedidos.some(p => casa(g, p));
+  const lista = d.cargas.filter(filtros[AV.filtro] || filtros.todas).filter(casaCarga);
+  if (termo && lista.length === 1 && AV.sel !== lista[0].numero) AV.sel = lista[0].numero;
   const chats = []; d.cargas.forEach(g => g.pedidos.forEach(p => { if (p.chat && p.chat.aberto) chats.push({ g, p }); }));
   chats.sort((a, b) => (b.p.chat.nao_lidas - a.p.chat.nao_lidas) || String(b.p.chat.ult_em).localeCompare(String(a.p.chat.ult_em)));
   if (AV.sel && !d.cargas.some(g => g.numero === AV.sel)) AV.sel = null;
@@ -1787,7 +1841,7 @@ function desenharAoVivo(c, d, silencioso) {
     <div class="q-et" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)"><div class="box" style="margin:0;padding:0;overflow:hidden"><div id="avMapa" style="height:360px;background:var(--rule-2)"></div>
       <p class="cap" style="margin:6px 10px">Caminhão = última posição do app (só com o app aberto). Pontos: onde cada registro foi feito.</p></div>
       <div class="box" style="margin:0;max-height:400px;overflow:auto"><b>Últimos registros</b>${feedAoVivo(d)}</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0">${seg2([["todas", "Todas"], ["rua", "Na rua"], ["aguardando", "Aguardando saída"], ["chegou", "No CD"], ["baixa", "Sem baixa no ERP"], ["receber", "Peças a receber"]], AV.filtro, "data-avf")}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0"><input type="search" id="avBusca" value="${esc(AV.busca)}" placeholder="🔎 Buscar carga, PV, cliente, código, NF, placa, motorista, palavra…" style="flex:1 1 320px;min-width:0">${seg2([["todas", "Todas"], ["rua", "Na rua"], ["aguardando", "Aguardando saída"], ["chegou", "No CD"], ["baixa", "Sem baixa no ERP"], ["receber", "Peças a receber"]], AV.filtro, "data-avf")}</div>
     <div class="tbl-wrap"><table><thead><tr><th>Carga</th><th>Placa · motorista</th><th>Situação</th><th class="num">Pedidos</th><th class="num">Entregues</th><th class="num">Retorno</th><th class="num">Pendentes</th><th class="num">Sem baixa ERP</th><th class="num">Peças CD</th><th>GPS</th></tr></thead><tbody>
       ${lista.map(g => `<tr class="clic" data-avc="${esc(g.numero)}" style="cursor:pointer${g.numero === AV.sel ? ";background:var(--amber-soft)" : ""}"><td><b>${esc(g.numero)}</b><span class="sub">Mapa ${dataBR(g.data_iso)}</span></td>
         <td>${esc(g.placa)}<span class="sub">${esc(g.motorista || "—")}${g.palavra_ligada ? ' · <b style="color:var(--amber)">palavra</b>' : ""}</span></td>
@@ -1800,6 +1854,11 @@ function desenharAoVivo(c, d, silencioso) {
   if (silencioso) window.scrollTo(0, scroll);
   $("#avData", c).onchange = e => { AV.data = e.target.value || HOJE; rAoVivo($("#root")); };
   c.querySelectorAll("[data-avf]").forEach(b => b.onclick = () => { AV.filtro = b.dataset.avf; desenharAoVivo(c, d); });
+  const ab = $("#avBusca", c); if (ab) {
+    ab.oninput = () => { AV.busca = ab.value; const pos = ab.selectionStart; desenharAoVivo(c, d, true); const n = $("#avBusca", c); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } };
+    if (AV.focoBusca) { ab.focus(); try { ab.setSelectionRange(ab.value.length, ab.value.length); } catch (_) {} }
+    ab.onfocus = () => { AV.focoBusca = true; }; ab.onblur = () => { AV.focoBusca = false; };
+  }
   c.querySelectorAll("[data-avc]").forEach(r => r.onclick = () => { AV.sel = AV.sel === r.dataset.avc ? null : r.dataset.avc; desenharAoVivo(c, d); });
   c.querySelectorAll("[data-lib]").forEach(b => b.onclick = async () => {
     const [num, pv, acao] = b.dataset.lib.split("|");
@@ -1838,7 +1897,7 @@ function detalheAoVivo(g, pode) {
       <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} <button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button></span></div>
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
     <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
-      ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
+      ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
         <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : '<span class="pill p-cinza">Sem registro</span>'}
           ${p.motivo ? `<span class="sub">${esc(p.motivo)}${p.linhas.length ? " · voltou: " + p.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ") : ""}</span>` : ""}${p.obs ? `<span class="sub">${esc(p.obs)}</span>` : ""}
           ${p.foto ? `<button type="button" class="peq" data-foto="${esc(p.foto)}">📷 foto</button>` : ""}${p.corrigidos ? `<span class="sub">corrigido ${p.corrigidos}×</span>` : ""}</td>
@@ -1847,7 +1906,9 @@ function detalheAoVivo(g, pode) {
         <td>${["entregue", "parcial"].includes(p.desfecho) ? (p.baixa_erp ? `<span class="pill p-ok">Baixado</span><span class="sub">${esc(p.baixa_erp.por)} · ${hora(p.baixa_erp.em)}</span>${pode ? `<button type="button" class="peq" data-erp="${esc(g.numero)}|${esc(p.pv)}|0">desfazer</button>` : ""}`
             : pode ? `<button type="button" class="primary peq" data-erp="${esc(g.numero)}|${esc(p.pv)}|1">Marcar baixado</button>` : '<span class="pill p-warn">Pendente</span>') : "—"}</td>
         <td>${p.retorno_esperado ? `<span class="pill ${p.retorno_recebido >= p.retorno_esperado ? "p-ok" : "p-warn"}">${p.retorno_recebido}/${p.retorno_esperado} recebida(s)</span>` : "—"}</td>
-        <td>${pode && p.desfecho ? `<button type="button" class="peq warn" data-reab="${esc(g.numero)}|${esc(p.pv)}" title="Apaga o registro do motorista para ele registrar de novo">Reabrir</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
+        <td>${pode && p.desfecho ? `<button type="button" class="peq warn" data-reab="${esc(g.numero)}|${esc(p.pv)}" title="Apaga o registro do motorista para ele registrar de novo">Reabrir</button>` : ""}
+          ${pode && !p.desfecho && (p.liberacao || {}).status !== "liberada" ? `<button type="button" class="peq" data-lib="${esc(g.numero)}|${esc(p.pv)}|liberar" title="O motorista registra a entrega sem a palavra-chave">🔓 Liberar sem palavra</button>` : ""}
+          ${(p.liberacao || {}).status === "liberada" && !p.desfecho ? '<span class="pill p-aco">Liberado sem palavra</span>' : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
 // ═══ [v5.5] CLIENTE COMPLETO + CHAT com o motorista ═══
 function chatsDaCarga(g) {   // as conversas ficam gravadas na carga, por cliente
@@ -1953,7 +2014,7 @@ async function rMotoristas(c) {
   const ed = d.pode_editar, url = location.origin + d.app_url;
   const ACESSO = { sem: ["Ainda não entrou", "p-cinza"], inicial: ["Senha inicial — troca no 1º acesso", "p-warn"], propria: ["Senha própria", "p-ok"] };
   const v = VIS.mot || "motoristas";
-  const tabs = abasInternas([["motoristas", "Motoristas", null], ["motivos", "Motivos do chat com a frota", null], ["prazo", "Prazo do atendimento", null]], v, "data-v");
+  const tabs = abasInternas([["motoristas", "Motoristas", null], ["motivos", "Motivos (chat, retorno e parcial)", null], ["prazo", "Prazo do atendimento", null]], v, "data-v");
   const corpoMot = `<div class="box"><b>App do motorista</b>
       <p class="cap" style="margin:6px 0">Endereço para abrir no celular: <b class="mono" id="mUrl">${esc(url)}</b> <button type="button" class="peq" id="mCopia">Copiar</button></p>
       <p class="cap" style="margin:0">No Chrome do Android, o próprio app oferece <b>Instalar</b> e vira ícone na tela. Login: <b>placa</b> + senha inicial padrão; o app obriga a trocar no primeiro acesso.
@@ -1979,7 +2040,7 @@ async function rMotoristas(c) {
     <p class="cap">Resetar volta a placa para a senha inicial (troca obrigatória) e derruba o celular que estiver logado. Também tira o bloqueio por tentativas.</p>
     ${ed ? `<div class="q-form" style="align-items:end;max-width:420px"><label class="f">Tentativas da palavra antes de travar<select id="cfgT">${[3, 4, 5, 6, 8, 10].map(n => `<option ${n === d.cfg.tentativas ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>` : ""}
 `;
-  const corpoMotivos = `    <div class="box" style="max-width:520px"><b>💬 Motivos do chat com a frota</b><span class="sub">O motorista escolhe um destes ao abrir o chat de um cliente. Um por linha (até 20).</span>
+  const corpoMotivos = `    <div class="box" style="max-width:520px"><b>💬 Motivos do chat com a frota</b><span class="sub">A MESMA lista vale para o chat com a frota e para o Retorno/Parcial no app. Se o motorista já escolheu o motivo no chat, o Retorno/Parcial usa esse motivo sem perguntar de novo. Um por linha (até 20).</span>
       <textarea id="cfgMot" rows="5" ${ed ? "" : "disabled"} style="margin-top:8px">${esc((d.cfg.motivos_chat || ["Ausente", "Avaria", "Escadas"]).join("\n"))}</textarea>
       ${ed ? '<div class="acoes"><button type="button" class="primary" id="cfgMotS">Gravar motivos</button></div>' : ""}</div>`;
   const corpoPrazo = `<div class="box" style="max-width:520px"><b>⏱ Prazo do atendimento</b><span class="sub">Quando o motorista escolhe o motivo do chat, começa uma contagem regressiva no app e no Ao vivo. Passou do prazo, fica em vermelho.</span>

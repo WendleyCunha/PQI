@@ -151,6 +151,105 @@ def teste_avulso():
     ok(t.post(f"/api/qualidade/cargas/{num}/apontar", json={"texto": ""}).json()["status"] == "baixada", "PCL aponta no ERP e baixa")
 
 
+def teste_ajuste_carga():
+    print("Ajuste na carga pelo PCL (retira / agrupamento) com trava")
+    T.ligar_memoria()
+    Q.listas()["exigir_conferencia"] = True
+    importar("070101", ["800001", "800002"])
+    importar("070102", ["800009"])
+    t = TestClient(T.montar())
+    como("mont@ks", {"montagem": 3})
+    u1 = [u for u in Q.carga("070101")["unidades"] if u["pv"] == "800001" and u["sku"] != "SKU-EAN"][0]
+    ok(t.post("/api/qualidade/cargas/070101/montagem/leitura", json={"unidade": u1["id"]}).json()["resultado"] == "ok", "montagem começou")
+    como("pcl2@ks", {"pcl": 3})
+    ok(t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "retira", "pv": "800001", "motivo": ""}).status_code == 400, "ajuste pede motivo")
+    r = t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "retira", "pv": "800001", "motivo": "cliente adiou"}).json()
+    ok(r["ajuste"]["tipo"] == "retira" and r["ajuste"]["ja_no_palete"] == 1 and r["ajuste"]["etapa"] == "montagem", "PCL retira o PV 800001 (1 unidade já estava no palete)")
+    c = Q.carga("070101")
+    ok(all(p["pv"] != "800001" for p in c["pedidos"]) and all(u["pv"] != "800001" for u in c["unidades"]), "o pedido sai da carga e das unidades esperadas")
+    ok(c["resumo"]["ajustes_pendentes"] == 1, "carga sinalizada com ajuste pendente")
+    como("mont@ks", {"montagem": 3})
+    u2 = [u for u in c["unidades"] if u["sku"] != "SKU-EAN"][0]
+    r = t.post("/api/qualidade/cargas/070101/montagem/leitura", json={"unidade": u2["id"]})
+    ok(r.status_code == 423 and "RETIRA" in r.json()["detail"], "montagem TRAVADA: não lê nem fecha até validar")
+    ok(t.post("/api/qualidade/cargas/070101/montagem/finalizar", json={}).status_code == 423, "não fecha o palete com o ajuste pendente")
+    como("pcl2@ks", {"pcl": 3, "montagem": 3})
+    aid = c["ajustes_carga"][0]["id"]
+    ok(t.post(f"/api/qualidade/cargas/070101/ajuste-carga/{aid}/validar").status_code == 403, "o PCL não valida o próprio ajuste (é a etapa da montagem)")
+    como("mont@ks", {"montagem": 3})
+    r = t.post(f"/api/qualidade/cargas/070101/ajuste-carga/{aid}/validar").json()
+    ok(r["ajuste"]["status"] == "validado" and r["pendentes"] == 0, "montador valida que tirou do palete")
+    ok(t.post("/api/qualidade/cargas/070101/montagem/leitura", json={"unidade": u2["id"]}).json()["resultado"] == "ok", "montagem destravada")
+
+    print("Agrupamento: o PV muda de carga sozinho")
+    como("pcl2@ks", {"pcl": 3})
+    r = t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "agrupa", "pv": "800009", "motivo": "mesmo bairro"}).json()
+    ok(r["ajuste"]["ref"] == "070102", "PV 800009 estava na carga 070102: muda para a 070101")
+    c1, c2 = Q.carga("070101"), Q.carga("070102")
+    ok(any(p["pv"] == "800009" for p in c1["pedidos"]) and not any(p["pv"] == "800009" for p in c2["pedidos"]), "sai de uma carga e entra na outra")
+    ok(sum(1 for u in c1["unidades"] if u["pv"] == "800009") == 2 and len({u["id"] for u in c1["unidades"]}) == len(c1["unidades"]), "unidades novas sem repetir id")
+    ok(c1["resumo"]["ajustes_pendentes"] == 1 and c2["resumo"]["ajustes_pendentes"] == 1, "as DUAS cargas ficam travadas até validar")
+    ok(t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "agrupa", "pv": "999999", "motivo": "x"}).status_code == 400,
+       "PV fora das cargas pede cliente e itens")
+    r = t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "agrupa", "pv": "999999", "motivo": "pedido urgente", "nome": "Cliente Novo",
+                                                                  "itens": [{"qtd": 1, "desc": "TRAVESSEIRO"}]}).json()
+    ok(r["ajuste"]["tipo"] == "agrupa" and any(p["pv"] == "999999" for p in Q.carga("070101")["pedidos"]), "agrupa PV novo digitado pelo PCL")
+    como("mont@ks", {"montagem": 3})
+    for a in [x for x in Q.carga("070101")["ajustes_carga"] if x["status"] == "pendente"]:
+        t.post(f"/api/qualidade/cargas/070101/ajuste-carga/{a['id']}/validar")
+    for u in Q.carga("070101")["unidades"]:
+        corpo = {"unidade": u["id"]} if u.get("sku") != "SKU-EAN" else {"unidade": u["id"], "sem_leitor": True, "motivo": "teste"}
+        t.post("/api/qualidade/cargas/070101/montagem/leitura", json=corpo)
+    ok(t.post("/api/qualidade/cargas/070101/montagem/finalizar", json={}).json()["resultado"] == "ok", "validados os ajustes, o palete fecha com os pedidos novos")
+
+    print("Agrupamento depois da montagem: a doca confere direto")
+    como("pcl2@ks", {"pcl": 3})
+    r = t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "agrupa", "pv": "888888", "motivo": "encaixe", "nome": "Cliente Doca",
+                                                                  "itens": [{"qtd": 1, "desc": "PROTETOR 090"}]}).json()
+    ok(r["ajuste"]["etapa"] == "doca", "ajuste depois da montagem trava a conferência na doca")
+    como("conf@ks", {"conferencia": 3})
+    a = [x for x in Q.carga("070101")["ajustes_carga"] if x["status"] == "pendente"][0]
+    ok(t.post(f"/api/qualidade/cargas/070101/ajuste-carga/{a['id']}/validar").json()["pendentes"] == 0, "conferente valida")
+    for u in Q.carga("070101")["unidades"]:
+        corpo = {"unidade": u["id"]} if u.get("sku") != "SKU-EAN" else {"unidade": u["id"], "sem_leitor": True, "motivo": "teste"}
+        t.post("/api/qualidade/cargas/070101/doca/leitura", json=corpo)
+    ok(t.post("/api/qualidade/cargas/070101/doca/finalizar", json={}).json()["status"] == "validada", "doca confere o pedido agrupado e valida a carga")
+    como("pcl2@ks", {"pcl": 3})
+    ok(t.post("/api/qualidade/cargas/070101/ajuste-carga", json={"tipo": "retira", "pv": "888888", "motivo": "x"}).status_code == 409,
+       "depois de validada (com o motorista), não ajusta mais")
+
+
+def teste_retorno_do_app():
+    print("Retorno alimentado pelo app")
+    T.ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    T.importar("070201", "ABC1D23", [("810001", "Ana", 2), ("810002", "Beto", 1)])
+    app = T.montar()
+    mot, t = TestClient(app), TestClient(app)
+    T.entrar(mot, "ABC1D23", "João Ferreira")
+    base = "/api/motorista/cargas/070201/pedido/810001"
+    mot.post(base + "/chat", json={"motivo": "Ausente"})
+    car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+    ok(car["motivos"] == ["Ausente", "Avaria", "Escadas"] and car["pedidos"][0]["motivo_chat"] == "Ausente", "retorno usa os motivos do chat e já traz o do chat")
+    r = mot.post(base, json={"desfecho": "retorno", "foto": T.FOTO, "cid": "r1"}).json()
+    ok(r["resultado"] == "ok" and r["carga"]["pedidos"][0]["motivo"] == "Ausente", "retorno sem escolher motivo: vale o motivo do chat")
+    c = Q.carga("070201")
+    its = [x for x in c["retorno"]["itens"] if x["pv"] == "810001"]
+    ok(len(its) == 2 and all(x["fonte"] == "app" and not x["recebido"] for x in its) and c["status"] == "em_retorno", "as 2 peças já aparecem no Retorno, aguardando chegar")
+    como("cd@ks", {"retorno": 2})
+    ok(t.post("/api/qualidade/cargas/070201/retorno/concluir", json={}).status_code == 409, "não conclui com peça do app ainda não recebida")
+    r = t.post("/api/qualidade/cargas/070201/retorno", json={"item": "810001|0", "origem": "nao_entregue"}).json()
+    ok(r["resultado"] == "precisa_dados" and r["receber"] and "motivo" not in r["falta"], "tocar na peça confirma a do app (pede só estado e destino)")
+    r = t.post("/api/qualidade/cargas/070201/retorno", json={"receber": r["receber"], "estado": "ok", "destino": "CD — volta ao estoque"}).json()
+    ok(r["resultado"] == "ok" and r["item"]["recebido"] and r["item"]["motivo"] == "Ausente", "peça recebida no CD, com o motivo do motorista")
+    outra = [x for x in Q.carga("070201")["retorno"]["itens"] if not x.get("recebido")][0]
+    ok(t.post("/api/qualidade/cargas/070201/retorno", json={"receber": outra["id"], "estado": "ok", "destino": "CD — volta ao estoque"}).json()["resultado"] == "ok", "segunda peça recebida")
+    ok(len([x for x in Q.carga("070201")["retorno"]["itens"] if x["pv"] == "810001"]) == 2, "não duplica: as peças do app viram as peças do Retorno")
+    como("pcl@ks", {"aovivo": 2, "pcl": 2})
+    r = t.put("/api/qualidade/rua/cargas/070201/liberacao/810002", json={"acao": "liberar"})
+    ok(r.status_code == 200 and r.json()["liberacao"]["status"] == "liberada", "PCL libera sem palavra ANTES do motorista pedir")
+
+
 def teste_app_pqi():
     print("App do PQI (arquivos)")
     import json
@@ -165,5 +264,7 @@ def teste_app_pqi():
 if __name__ == "__main__":
     teste_etapas()
     teste_avulso()
+    teste_ajuste_carga()
+    teste_retorno_do_app()
     teste_app_pqi()
     print(f"\n{T.OK} verificações ok.")

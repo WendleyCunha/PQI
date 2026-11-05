@@ -439,6 +439,7 @@ def resumo(c: dict) -> dict:
         "avariadas": sum(1 for x in itens_ret if x.get("estado") == "avariada"),
         "pedidos_nao_entregues": len(nao_ent),
         "a_tabular": sum(1 for x in itens_ret if not x.get("tabulacao")),
+        "ajustes_pendentes": sum(1 for a in c.get("ajustes_carga") or [] if a.get("status") == "pendente"),
     }
 
 
@@ -674,6 +675,8 @@ def importar_mapa(payload: dict, q: dict) -> dict:
                 _arquivar_etapa(c, "montagem", f"novo PDF (v{c['versao']})")
                 c["pedidos"], c["unidades"], c["validacao"], c["retorno"] = peds, _unidades(peds), None, None
                 c["status"] = "importada"
+                for aj in ajustes_pendentes(c):   # o PDF novo já traz a carga como ficou
+                    aj.update(status="superado", superado_em=agora(), superado_por=f"novo PDF (v{c['versao']})")
                 c["versoes"].append({"v": c["versao"], "em": agora(), "por": q["por"], "arquivo": payload.get("arquivo") or "", "assinatura": assin})
                 hist(c, q, "nova versão do Mapa", f"v{c['versao']} · {len(c['mudancas_nao_solicitadas'])} mudança(s) não solicitada(s) · volta para a montagem")
                 recalcular(c)
@@ -770,6 +773,7 @@ def _etapa(c: dict, nome: str, q: dict) -> dict:
 def ler_codigo(c: dict, nome: str, q: dict, codigo: str, unidade: Optional[str], pv: Optional[str], qr: Optional[str],
                sem_leitor: bool = False, motivo: str = "") -> dict:
     """Uma leitura na montagem ou na doca. Devolve o que a tela deve fazer."""
+    travar_se_ajuste(c, nome)
     et = _etapa(c, nome, q)
     lidas = et["leituras"]
     un = c.get("unidades") or []
@@ -835,8 +839,8 @@ def _divergencias(c: dict, nome: str) -> list:
     un = c.get("unidades") or []
     if nome == "montagem":
         esperadas = {x["id"] for x in un}
-    else:   # a doca confere o que foi MONTADO
-        esperadas = set((c.get("montagem") or {}).get("leituras") or {})
+    else:   # a doca confere o que foi MONTADO (+ o que o PCL agrupou depois da montagem)
+        esperadas = set((c.get("montagem") or {}).get("leituras") or {}) | {x["id"] for x in un if x.get("pos_montagem")}
     por_id = {x["id"]: x for x in un}
     div: dict = {}
 
@@ -857,6 +861,7 @@ def _divergencias(c: dict, nome: str) -> list:
 
 
 def finalizar_etapa(c: dict, nome: str, q: dict, respostas: list, obs: str) -> dict:
+    travar_se_ajuste(c, nome)
     et = _etapa(c, nome, q)
     todas = _divergencias(c, nome)
     resp = {d.get("chave"): d for d in respostas or []}
@@ -877,6 +882,175 @@ def finalizar_etapa(c: dict, nome: str, q: dict, respostas: list, obs: str) -> d
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# [v5.7] AJUSTE NA CARGA pelo PCL durante a montagem/conferência: RETIRA (tira um pedido) ou
+# AGRUPAMENTO (junta um pedido). A etapa em andamento fica TRAVADA até quem monta/confere
+# VALIDAR que fez o ajuste no palete.
+# ══════════════════════════════════════════════════════════════════════════
+STATUS_AJUSTE = ("importada", "em_montagem", "montagem_div", "montada", "em_conferencia", "doca_div", "aguardando_pdf")
+
+
+def etapa_do_ajuste(c: dict) -> str:
+    return "doca" if (c.get("montagem") or {}).get("fim") or c.get("status") in ("montada", "em_conferencia", "doca_div") else "montagem"
+
+
+def ajustes_pendentes(c: dict) -> list:
+    return [a for a in c.get("ajustes_carga") or [] if a.get("status") == "pendente"]
+
+
+def travar_se_ajuste(c: dict, nome: str) -> None:
+    pend = [a for a in ajustes_pendentes(c) if a.get("etapa") == nome]
+    if pend:
+        raise HTTPException(status_code=423, detail=f"Carga {c['numero']} travada: o PCL fez {len(pend)} ajuste(s) na carga "
+                                                    f"({', '.join(('RETIRA' if a['tipo'] == 'retira' else 'AGRUPAMENTO') + ' PV ' + str(a['pv']) for a in pend)}). "
+                                                    f"Faça o ajuste no palete e toque em “Ajuste feito” para seguir.")
+
+
+def _proximo_uid(c: dict) -> int:
+    return max([int(re.sub(r"\D", "", str(x.get("id") or "0")) or 0) for x in c.get("unidades") or []] + [0]) + 1
+
+
+def _retirar_pedido(c: dict, pv: str, q: dict, motivo: str, ref: str = "") -> dict:
+    p = next((x for x in c.get("pedidos") or [] if num_chave(x.get("pv")) == num_chave(pv)), None)
+    if not p:
+        raise HTTPException(404, f"PV {pv} não está na carga {c['numero']}.")
+    ids = {x["id"] for x in c.get("unidades") or [] if num_chave(x.get("pv")) == num_chave(pv)}
+    lidas = {}
+    for et in ("montagem", "doca"):
+        e = c.get(et) or {}
+        lidas[et] = sum(1 for u in ids if u in (e.get("leituras") or {}))
+        for u in ids:
+            (e.get("leituras") or {}).pop(u, None)
+    c["pedidos"] = [x for x in c["pedidos"] if x is not p]
+    c["unidades"] = [x for x in c.get("unidades") or [] if x["id"] not in ids]
+    c.setdefault("pedidos_retirados", []).append({**p, "retirado_em": agora(), "retirado_por": q["por"], "motivo_retirada": motivo, "para": ref})
+    et = etapa_do_ajuste(c)
+    a = {"id": uuid.uuid4().hex[:8], "tipo": "retira", "pv": p.get("pv"), "nome": p.get("nome"), "seq": p.get("seq"),
+         "itens": [{"desc": i.get("desc"), "qtd": int(i.get("qtd") or 0)} for i in p.get("entregar") or []],
+         "ja_no_palete": lidas.get("montagem", 0), "ja_conferidas": lidas.get("doca", 0), "motivo": motivo, "ref": ref,
+         "etapa": et, "status": "pendente", "por": q["por"], "email": q["email"], "em": agora()}
+    c.setdefault("ajustes_carga", []).append(a)
+    hist(c, q, "AJUSTE NA CARGA: RETIRA", f"PV {p.get('pv')} · {p.get('nome')} · {motivo}" + (f" · vai para a carga {ref}" if ref else "")
+         + f" · {a['ja_no_palete']} unidade(s) já estavam no palete · {NOMES_ETAPA[et]} travada até validar")
+    return a
+
+
+def _agrupar_pedido(c: dict, p: dict, q: dict, motivo: str, ref: str = "") -> dict:
+    if any(num_chave(x.get("pv")) == num_chave(p.get("pv")) for x in c.get("pedidos") or []):
+        raise HTTPException(409, f"O PV {p.get('pv')} já está nesta carga.")
+    seqs = [int(re.sub(r"\D", "", str(x.get("seq") or "0")) or 0) for x in c.get("pedidos") or []]
+    p = {**p, "seq": f"{(max(seqs + [0]) + 5):06d}", "agrupado": True}
+    et = etapa_do_ajuste(c)
+    n = _proximo_uid(c)
+    novas = []
+    for u in _unidades([p]):
+        u["id"] = f"u{n}"
+        n += 1
+        if et == "doca":
+            u["pos_montagem"] = True   # a doca confere direto (não passou pela montagem)
+        novas.append(u)
+    c.setdefault("pedidos", []).append(p)
+    c.setdefault("unidades", []).extend(novas)
+    a = {"id": uuid.uuid4().hex[:8], "tipo": "agrupa", "pv": p.get("pv"), "nome": p.get("nome"), "seq": p["seq"],
+         "itens": [{"desc": i.get("desc"), "qtd": int(i.get("qtd") or 0)} for i in p.get("entregar") or []],
+         "motivo": motivo, "ref": ref, "etapa": et, "status": "pendente", "por": q["por"], "email": q["email"], "em": agora()}
+    c.setdefault("ajustes_carga", []).append(a)
+    hist(c, q, "AJUSTE NA CARGA: AGRUPAMENTO", f"PV {p.get('pv')} · {p.get('nome')} · {len(novas)} unidade(s) · {motivo}"
+         + (f" · veio da carga {ref}" if ref else "") + f" · {NOMES_ETAPA[et]} travada até validar")
+    return a
+
+
+class AjusteCarga(BaseModel):
+    tipo: str                      # retira | agrupa
+    pv: str
+    motivo: str
+    nome: Optional[str] = ""       # agrupa manual (PV que não está em outra carga)
+    endereco: Optional[str] = ""
+    bairro: Optional[str] = ""
+    cidade: Optional[str] = ""
+    nf: Optional[str] = ""
+    itens: list = []
+
+
+@router.post("/cargas/{numero}/ajuste-carga")
+def rota_ajuste_carga(numero: str, payload: AjusteCarga, request: Request):
+    exigir(request, "pcl", 3, "Ajustar a carga (retira/agrupamento)")
+    q = quem(request)
+    motivo = payload.motivo.strip()[:200]
+    pv = re.sub(r"\s+", "", payload.pv)[:20]
+    if payload.tipo not in ("retira", "agrupa") or not pv or not motivo:
+        raise HTTPException(400, "Informe o tipo (retira/agrupamento), o PV e o motivo.")
+    with TRAVA:
+        c = carga(numero)
+        if c.get("status") not in STATUS_AJUSTE:
+            raise HTTPException(409, "Ajuste na carga só antes de validar (montagem ou conferência). Depois disso, a carga já está com o motorista.")
+        etapa_pessoa(c, "pcl", q)
+        if payload.tipo == "retira":
+            a = _retirar_pedido(c, pv, q, motivo)
+            gravar(c)
+            return {"ajuste": a, "carga": publico(c)}
+        # AGRUPAMENTO: o PV está em outra carga ainda no CD? então MUDA de carga (retira de lá, junta aqui)
+        origem = next((x for x in CARGAS.values() if x["numero"] != numero and x.get("status") in STATUS_AJUSTE
+                       and any(num_chave(pp.get("pv")) == num_chave(pv) for pp in x.get("pedidos") or [])), None)
+        if origem:
+            etapa_pessoa(origem, "pcl", q)
+            ped = next(pp for pp in origem["pedidos"] if num_chave(pp.get("pv")) == num_chave(pv))
+            ped = json.loads(json.dumps(ped))
+            a = _agrupar_pedido(c, ped, q, motivo, ref=origem["numero"])
+            _retirar_pedido(origem, pv, q, motivo, ref=numero)
+            gravar(origem)
+        else:
+            if any(x.get("status") not in STATUS_AJUSTE and any(num_chave(pp.get("pv")) == num_chave(pv) for pp in x.get("pedidos") or [])
+                   for x in CARGAS.values() if x["numero"] != numero and x.get("aberta")):
+                raise HTTPException(409, f"O PV {pv} está numa carga que já saiu do CD. Não dá para agrupar.")
+            itens = []
+            for it in payload.itens or []:
+                d = it if isinstance(it, dict) else {}
+                desc = str(d.get("desc") or "").strip()[:200]
+                try:
+                    qtd = max(0, min(99, int(d.get("qtd") or 0)))
+                except (TypeError, ValueError):
+                    qtd = 0
+                if desc and qtd:
+                    itens.append({"desc": desc, "qtd": qtd})
+            if not str(payload.nome or "").strip() or not itens:
+                raise HTTPException(400, f"O PV {pv} não está em outra carga do CD: informe o cliente e os itens para agrupar.")
+            ped = {"seq": "", "tipo": "VENDA", "pv": pv, "nf": str(payload.nf or "")[:20], "cliente": "", "nome": payload.nome.strip()[:120],
+                   "endereco": str(payload.endereco or "")[:200], "bairro": str(payload.bairro or "")[:80], "cidade": str(payload.cidade or "")[:80],
+                   "entregar": itens, "col2": [], "obs": [], "troca": False, "transferencia": False,
+                   "gap": {"flags": [], "conferente": None, "analise": None}, "alertas": [], "carteira": {"achado": False}}
+            try:   # SKU pela Carteira, como na importação do PDF
+                reg = buscar_na_carteira([pv]).get(num_chave(pv))
+                if reg:
+                    ped["entregar"], al = casar_itens(itens, reg["itens"])
+                    ped["alertas"] = al
+                    ped["carteira"] = {"achado": True, "data": reg.get("data"), "chave": reg.get("chave"), "cliente": reg.get("cliente")}
+                else:
+                    ped["entregar"] = [{**i, "sku": None} for i in itens]
+            except Exception:
+                ped["entregar"] = [{**i, "sku": None} for i in itens]
+            a = _agrupar_pedido(c, ped, q, motivo)
+        gravar(c)
+        return {"ajuste": a, "carga": publico(c)}
+
+
+@router.post("/cargas/{numero}/ajuste-carga/{aid}/validar")
+def rota_validar_ajuste(numero: str, aid: str, request: Request):
+    """Quem monta (ou confere) confirma que fez o ajuste no palete — só então a etapa segue."""
+    with TRAVA:
+        c = carga(numero)
+        a = next((x for x in ajustes_pendentes(c) if x["id"] == aid), None)
+        if not a:
+            raise HTTPException(404, "Ajuste não encontrado ou já validado.")
+        exigir(request, ETAPAS[a["etapa"]]["aba"], 2, "Validar o ajuste na carga")
+        q = quem(request)
+        etapa_pessoa(c, a["etapa"], q)
+        a.update(status="validado", validado_por=q["por"], validado_email=q["email"], validado_em=agora())
+        hist(c, q, "ajuste na carga VALIDADO", f"{'RETIRA' if a['tipo'] == 'retira' else 'AGRUPAMENTO'} PV {a['pv']} · {a.get('nome')} · {NOMES_ETAPA[a['etapa']]} liberada")
+        gravar(c)
+        return {"ajuste": a, "pendentes": len(ajustes_pendentes(c))}
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # RETORNO
 # ══════════════════════════════════════════════════════════════════════════
 def _candidatos_retorno(c: dict, origem: str) -> list:
@@ -892,9 +1066,55 @@ def _candidatos_retorno(c: dict, origem: str) -> list:
     return cand
 
 
+def _app_pendentes(c: dict) -> list:
+    return [x for x in (c.get("retorno") or {}).get("itens") or [] if x.get("fonte") == "app" and not x.get("recebido")]
+
+
+def receber_do_app(c: dict, q: dict, it: dict, dados: dict) -> dict:
+    """[v5.7] A peça que o motorista informou chegou no CD: o Retorno confirma estado e destino."""
+    estado = dados.get("estado") if dados.get("estado") in ("ok", "avariada") else ""
+    falta = [k for k, v in (("estado", estado), ("destino", dados.get("destino"))) if not v]
+    if estado == "avariada" and not dados.get("avaria"):
+        falta.append("avaria")
+    if falta:
+        L = listas()
+        return {"resultado": "precisa_dados", "falta": falta, "receber": it["id"], "origem": "nao_entregue",
+                "item": {k: it.get(k) for k in ("pv", "seq", "i", "sku", "desc", "nome", "motivo")},
+                "listas": {"motivos": L["motivos_retorno"], "avarias": L["avarias"], "destinos": L["destinos"]}}
+    it.update(estado=estado, avaria=str(dados.get("avaria") or "")[:120] if estado == "avariada" else "", destino=str(dados.get("destino"))[:120],
+              obs=" · ".join(x for x in (it.get("obs"), str(dados.get("obs") or "").strip()) if x)[:300],
+              recebido=True, recebido_em=agora(), recebido_por=q["por"], recebido_email=q["email"], codigo=str(dados.get("codigo") or it.get("codigo") or ""))
+    hist(c, q, "peça do app recebida no CD", f"PV {it.get('pv')} · {it.get('desc')} · {'avariada · ' + it['avaria'] if estado == 'avariada' else 'peça OK'} → {it['destino']}")
+    gravar(c)
+    return {"resultado": "ok", "item": it}
+
+
 def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
     _exigir_status(c, "validada", "em_retorno")
     etapa_pessoa(c, "retorno", q)
+    # [v5.7] primeiro: é uma peça que o motorista já informou pelo app? então é só confirmar que chegou
+    if dados.get("receber"):
+        it = next((x for x in _app_pendentes(c) if x["id"] == dados["receber"]), None)
+        if not it:
+            raise HTTPException(404, "Peça informada pelo app não encontrada (já recebida?).")
+        return receber_do_app(c, q, it, dados)
+    if (dados.get("origem") or "nao_entregue") == "nao_entregue":
+        cod = re.sub(r"\s+", "", str(dados.get("codigo") or ""))
+        sku_lido = indice_ean().get(cod) if cod else None
+        alvo = None
+        for x in _app_pendentes(c):
+            if dados.get("pv") and num_chave(x["pv"]) != num_chave(dados["pv"]):
+                continue
+            if sku_lido and x.get("sku") == sku_lido:
+                alvo = x
+            elif dados.get("item"):
+                pv_, i_ = str(dados["item"]).split("|", 1)
+                if num_chave(x["pv"]) == num_chave(pv_) and str(x["i"]) == i_:
+                    alvo = x
+            if alvo:
+                break
+        if alvo:
+            return receber_do_app(c, q, alvo, {**dados, "codigo": cod})
     L = listas()
     origem = dados.get("origem") if dados.get("origem") in ("nao_entregue", "retirada") else "nao_entregue"
     codigo = re.sub(r"\s+", "", str(dados.get("codigo") or ""))
@@ -1660,7 +1880,7 @@ def rota_retorno_remover(numero: str, payload: Texto, request: Request):
         its = [x for x in ret["itens"] if x.get("lote") == alvo[5:]] if alvo.startswith("lote:") else [x for x in ret["itens"] if x["id"] == alvo]
         if not its:
             raise HTTPException(status_code=404, detail="Item não encontrado.")
-        if any(it.get("email") != q["email"] for it in its) and nivel(request, "pcl") < 3:
+        if any(it.get("email") != q["email"] and it.get("fonte") != "app" for it in its) and nivel(request, "pcl") < 3:
             raise HTTPException(status_code=403, detail="Só quem registrou (ou o PCL) pode remover.")
         for it in its:
             ret["itens"].remove(it)
@@ -1678,6 +1898,10 @@ def rota_retorno_concluir(numero: str, payload: Concluir, request: Request):
         etapa_pessoa(c, "retorno", q)
         ret = c.get("retorno") or {"inicio": agora(), "por": q["por"], "email": q["email"], "itens": []}
         c["retorno"] = ret
+        pend_app = _app_pendentes(c)
+        if pend_app:
+            raise HTTPException(409, f"{len(pend_app)} peça(s) que o motorista informou no app ainda não foram recebidas no CD: "
+                                     f"confirme (Recebida no CD) ou remova antes de concluir.")
         ret["retirada_nao_feita"] = [str(s) for s in payload.retirada_nao_feita or []]
         pend = [s for s in situacao_pedidos(c) if s["retirada"] == "pendente"]
         if pend:
