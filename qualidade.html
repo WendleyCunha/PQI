@@ -835,6 +835,9 @@ function abrirDlg(html, montar) {
   return d;
 }
 const fecharDlg = () => { const d = $("#dlg"); if (d.open) d.close(); };
+// [v5.10] o "fechou" de uma janela anterior (ex.: a câmera) chega DEPOIS que a próxima já abriu (ex.: "Para qual
+// pedido vai esta peça?"). Se a janela está aberta, esse aviso é velho: não pode cancelar a escolha nova.
+$("#dlg").addEventListener("close", e => { if (e.currentTarget.open) e.stopImmediatePropagation(); }, true);
 function escolher(titulo, texto, opcoes) {
   return new Promise(res => {
     let feito = false; const fim = v => { if (!feito) { feito = true; res(v); } };
@@ -1079,12 +1082,13 @@ async function recarregarCG() { CG = await api(`/cargas/${CG.numero}`); desenhar
 let _lendo = false;
 async function ler(corpo, daCam) {
   if (_lendo) return; _lendo = true;
+  let parouCam = false;   // [v5.10] a câmera fechou para perguntar algo: reabre sozinha depois, para seguir lendo
   const url = `/cargas/${CG.numero}/${EST[ET].url}/leitura`;
   try {
     let r = await post(url, corpo);
     for (let volta = 0; volta < 4 && r; volta++) {
       if (r.resultado === "escolher_pedido") {
-        pararSeCamera(daCam);
+        if (daCam && CAM) parouCam = true; pararSeCamera(daCam);
         const pv = await escolher("Para qual pedido vai esta peça?", "Este produto está em mais de um pedido desta carga.", r.opcoes.map(o => ({ v: o.pv, t: `${o.nome} — PV ${o.pv}`, s: `${o.bairro} · ${o.cidade} · faltam ${o.faltam}` })));
         if (!pv) { ULT = { cls: "warn", ico: "⏸", txt: "Leitura cancelada." }; r = null; break; }
         corpo = { ...corpo, codigo: corpo.codigo || r.codigo, pv }; r = await post(url, corpo);
@@ -1093,12 +1097,12 @@ async function ler(corpo, daCam) {
         if (!mot) { ULT = { cls: "warn", ico: "🔒", txt: "Não confirmado: leia o código da peça." }; r = null; break; }
         corpo = { ...corpo, sem_leitor: true, motivo: mot }; r = await post(url, corpo);
       } else if (r.resultado === "exige_qr") {
-        pararSeCamera(daCam);
+        if (daCam && CAM) parouCam = true; pararSeCamera(daCam);
         const qr = await pedirTexto("QR da unidade", "Este produto exige o QR da unidade. Leia ou digite o QR:", true);
         if (!qr) { ULT = { cls: "warn", ico: "⏸", txt: "Falta o QR da unidade." }; r = null; break; }
         corpo = { ...corpo, pv: r.pv, qr }; r = await post(url, corpo);
       } else if (r.resultado === "desconhecido") {
-        pararSeCamera(daCam); bip(false);
+        if (daCam && CAM) parouCam = true; pararSeCamera(daCam); bip(false);
         if (!r.opcoes.length) { ULT = { cls: "bad", ico: "✕", txt: `Código ${esc(r.codigo)} não cadastrado e nenhum item desta carga está sem EAN. Avise o PCL.` }; r = null; break; }
         const sku = await escolher("Código ainda não cadastrado", `O código <b>${esc(r.codigo)}</b> não está ligado a nenhum produto. De qual item desta carga ele é? (fica cadastrado no seu nome)`, r.opcoes.map(o => ({ v: o.sku, t: o.desc, s: "SKU " + o.sku })));
         if (!sku) { ULT = { cls: "warn", ico: "⏸", txt: "Código não vinculado." }; r = null; break; }
@@ -1114,7 +1118,8 @@ async function ler(corpo, daCam) {
     else { bip(false); ULT = { cls: "bad", ico: "✕", txt: esc(r.mensagem || r.resultado) }; }
     CG = await api(`/cargas/${CG.numero}`);
   } catch (x) { bip(false); ULT = { cls: "bad", ico: "✕", txt: esc(x.message) }; }
-  finally { _lendo = false; if (CG && ["montagem", "conferencia"].includes(secao) && ABERTA === CG.numero) desenharEtapa($("#root")); }
+  finally { _lendo = false; if (CG && ["montagem", "conferencia"].includes(secao) && ABERTA === CG.numero) desenharEtapa($("#root"));
+    if (parouCam && $("#btCam") && !$("#dlg").open) setTimeout(() => { if (!$("#dlg").open) abrirCamera(t => ler({ codigo: t }, true)); }, 400); }
 }
 async function fecharEtapa(g) {
   const url = `/cargas/${g.numero}/${EST[ET].url}/finalizar`;
