@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1B2436">
-<title>King Star Entregas</title>
+<title>RouterKing · King Star</title>
 <link rel="manifest" href="/motorista/manifest.webmanifest">
 <link rel="icon" href="/motorista/icone-192.png">
 <link rel="apple-touch-icon" href="/motorista/icone-192.png">
@@ -90,7 +90,7 @@ a.nav{color:var(--steel);font-weight:600;text-decoration:none}
 </style>
 </head>
 <body>
-<div class="bar"><span class="brand">KING <b>STAR</b> · Entregas</span><span id="barPlaca"></span></div>
+<div class="bar"><span class="brand">ROUTER<b>KING</b> · Entregas</span><span id="barPlaca"></span></div>
 <div class="st" id="st" hidden></div>
 <main id="app"><div class="card"><p class="cap">Carregando…</p></div></main>
 <div class="foot" id="foot" hidden><div id="footIn"></div></div>
@@ -181,7 +181,7 @@ const instalado = () => matchMedia("(display-mode: standalone)").matches || navi
 function blocoInstalar() {
   if (instalado()) return "";
   return `<div class="inst"><b>Instale o app no celular</b>
-    ${deferredInstall ? `<button type="button" class="pri" id="btInst">📲 Instalar King Star Entregas</button>` :
+    ${deferredInstall ? `<button type="button" class="pri" id="btInst">📲 Instalar o RouterKing</button>` :
     `<span>No Chrome do Android: menu <b>⋮</b> → <b>Instalar app</b> (ou “Adicionar à tela inicial”). Vira um ícone na tela do celular.</span>`}</div>`;
 }
 function ligarInstalar() { const b = $("#btInst"); if (b) b.onclick = async () => { deferredInstall.prompt(); await deferredInstall.userChoice.catch(() => {}); deferredInstall = null; render(); }; }

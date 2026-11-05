@@ -143,9 +143,9 @@ def teste_fluxo():
     ok(not any(w in txt for w in palavras.values()), "nenhuma palavra sai na resposta do app")
     ok(r["cargas"][0]["palavra_ligada"] is False, "palavra desligada por padrão")
     USUARIO["abas"] = {"motoristas": 3, "aovivo": 2}
-    ms = pq.get("/api/qualidade/rua/motoristas").json()
+    ms = pq.get("/api/routerking/motoristas").json()
     joao = next(m for m in ms["motoristas"] if m["nome"] == "João Ferreira")
-    r = pq.put(f"/api/qualidade/rua/motoristas/{joao['id']}", json={"nome": "João Ferreira", "placas": joao["placas"], "palavra": True})
+    r = pq.put(f"/api/routerking/motoristas/{joao['id']}", json={"nome": "João Ferreira", "placas": joao["placas"], "palavra": True})
     ok(r.status_code == 200 and r.json()["palavra"] is True, "PCL liga a palavra só para o João")
     ok(mot.get("/api/motorista/cargas").json()["cargas"][0]["palavra_ligada"] is True, "app do João passa a pedir a palavra")
 
@@ -167,9 +167,9 @@ def teste_fluxo():
        "depois de 5 erros trava até o PCL liberar (nem a palavra certa passa)")
     r = mot.post("/api/motorista/cargas/064201/pedido/739835/liberacao", json={"motivo": "Cliente não recebeu a mensagem"})
     ok(r.status_code == 200 and r.json()["pedidos"][1]["liberacao"] == "pendente", "motorista pede liberação")
-    av = pq.get("/api/qualidade/rua/ao-vivo").json()
+    av = pq.get("/api/routerking/ao-vivo").json()
     ok(av["kpi"]["liberacoes"] == 1, "painel ao vivo mostra o pedido de liberação")
-    r = pq.put("/api/qualidade/rua/cargas/064201/liberacao/739835", json={"acao": "liberar", "nota": "cliente confirmou por telefone"})
+    r = pq.put("/api/routerking/cargas/064201/liberacao/739835", json={"acao": "liberar", "nota": "cliente confirmou por telefone"})
     ok(r.status_code == 200 and r.json()["liberacao"]["status"] == "liberada", "PCL libera")
     r = mot.post("/api/motorista/cargas/064201/pedido/739835", json={"desfecho": "entregue", "cid": "b1"})
     ok(r.json()["resultado"] == "ok", "liberado pelo PCL: registra ENTREGUE sem palavra")
@@ -195,40 +195,40 @@ def teste_fluxo():
 
     print("GPS e painel ao vivo")
     ok(mot.post("/api/motorista/gps", json={"lat": -23.56, "lng": -46.64, "prec": 12}).json()["ok"], "GPS recebido")
-    av = pq.get("/api/qualidade/rua/ao-vivo").json()
+    av = pq.get("/api/routerking/ao-vivo").json()
     c = av["cargas"][0]
     ok(c["fase"] == "rua" and c["pos"]["lat"] == -23.56, "carga aparece NA RUA com a posição ao vivo")
     ok(c["cont"] == {**c["cont"], "entregue": 2, "retorno": 1, "parcial": 1, "pendente": 0}, "contadores batem (2 entregues, 1 retorno, 1 parcial)")
     ok(c["cont"]["pecas_esperadas"] == 3 and c["cont"]["pecas_recebidas"] == 0, "3 peças esperadas no CD, nenhuma recebida ainda")
     ok(c["pedidos"][0]["palavra"] == w, "o PCL vê a palavra (suporte)")
     ok(c["cont"]["sem_baixa_erp"] == 3, "3 pedidos entregues/parciais esperando baixa no ERP")
-    ok(pq.put("/api/qualidade/rua/cargas/064201/baixa-erp/739840", json={"feito": True}).status_code == 409, "retorno não recebe baixa de entrega")
-    r = pq.put("/api/qualidade/rua/cargas/064201/baixa-erp/739812", json={"feito": True})
+    ok(pq.put("/api/routerking/cargas/064201/baixa-erp/739840", json={"feito": True}).status_code == 409, "retorno não recebe baixa de entrega")
+    r = pq.put("/api/routerking/cargas/064201/baixa-erp/739812", json={"feito": True})
     ok(r.status_code == 200 and r.json()["baixa_erp"]["por"] == "Ana PCL", "PCL marca a baixa no ERP com o nome dele")
     ok(mot.post("/api/motorista/cargas/064201/pedido/739812/desfazer").status_code == 409, "depois da baixa no ERP o motorista não corrige mais")
     r = mot.post("/api/motorista/cargas/064201/chegada", json={})
     ok(r.status_code == 200 and r.json()["chegada"], "Cheguei no CD fecha a rua")
     ok(mot.post("/api/motorista/cargas/064201/pedido/739812/desfazer").status_code == 409, "depois da chegada, só o PCL corrige")
-    ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["fase"] == "chegou", "painel mostra a carga no CD")
+    ok(pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["fase"] == "chegou", "painel mostra a carga no CD")
     cg = BANCO[Q.COL_CARGAS]["064201"]
     ok(cg["status"] == "em_retorno" and all(not x["recebido"] for x in cg["retorno"]["itens"]), "a carga já está Em retorno, com as peças informadas aguardando o CD")
     ok(any("motorista" in h["por"] for h in cg["historico"]), "histórico da carga registra o motorista e a placa")
-    pal = pq.get("/api/qualidade/rua/palavras").json()
+    pal = pq.get("/api/routerking/palavras").json()
     ok(any(x["pv"] == "739812" and x["palavra"] == w and x["exigida"] for x in pal), "lista de palavras do dia para o ERP")
 
     print("Senha, reset e permissões")
     USUARIO["abas"] = {"aovivo": 1}
-    ok(pq.post("/api/qualidade/rua/placas/ABC1D23/resetar").status_code == 403, "só quem tem a aba Motoristas (Editar) reseta")
-    ok(pq.put("/api/qualidade/rua/cargas/064201/baixa-erp/739835", json={"feito": True}).status_code == 403, "Visualizar não marca baixa")
+    ok(pq.post("/api/routerking/placas/ABC1D23/resetar").status_code == 403, "só quem tem a aba Motoristas (Editar) reseta")
+    ok(pq.put("/api/routerking/cargas/064201/baixa-erp/739835", json={"feito": True}).status_code == 403, "Visualizar não marca baixa")
     USUARIO["abas"] = {"motoristas": 3}
-    ok(pq.post("/api/qualidade/rua/placas/ABC1D23/resetar").status_code == 200, "reset da senha")
+    ok(pq.post("/api/routerking/placas/ABC1D23/resetar").status_code == 200, "reset da senha")
     ok(mot.get("/api/motorista/cargas").status_code == 401, "reset derruba o celular logado")
     r = mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": "rota2026"})
     ok(r.status_code == 401, "senha antiga não vale mais")
     r = mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": M.SENHA_INICIAL})
     ok(r.status_code == 200 and r.json()["trocar_senha"], "volta a entrar com a inicial e precisa trocar")
     USUARIO["abas"] = {}
-    ok(pq.get("/api/qualidade/rua/ao-vivo").status_code == 403, "sem a aba, sem painel ao vivo")
+    ok(pq.get("/api/routerking/ao-vivo").status_code == 403, "sem a aba, sem painel ao vivo")
     for _ in range(5):
         mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": "x"})
     ok(mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": M.SENHA_INICIAL}).status_code == 429, "5 erros bloqueiam a placa por alguns minutos")
@@ -274,10 +274,10 @@ def teste_placas():
     ok(r.status_code == 200, "Samuel entrega o 1º pedido")
 
     USUARIO["abas"] = {"retorno": 3}
-    ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FHZ5B04"}).status_code == 403, "trocar placa exige PCL ou Ao vivo")
+    ok(pq.put("/api/routerking/cargas/068600/placa", json={"placa": "FHZ5B04"}).status_code == 403, "trocar placa exige PCL ou Ao vivo")
     USUARIO["abas"] = {"aovivo": 2}
-    ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FIB3J44"}).status_code == 400, "mesma placa recusada")
-    r = pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "fhz-5b04", "motivo": "caminhão quebrou"})
+    ok(pq.put("/api/routerking/cargas/068600/placa", json={"placa": "FIB3J44"}).status_code == 400, "mesma placa recusada")
+    r = pq.put("/api/routerking/cargas/068600/placa", json={"placa": "fhz-5b04", "motivo": "caminhão quebrou"})
     ok(r.status_code == 200 and r.json()["placa"] == "FHZ5B04" and r.json()["pendentes"] == 2, "PCL troca a placa: 2 entregas pendentes passam para FHZ5B04")
     c = Q.carga("068600")
     ok(c["trocas_placa"][0]["de"] == "FIB3J44" and c["trocas_placa"][0]["motivo"] == "caminhão quebrou", "troca fica no histórico da carga")
@@ -289,7 +289,7 @@ def teste_placas():
     ok(wen.post("/api/motorista/cargas/068600/saida", json={}).status_code == 200, "motorista novo inicia a rota")
     ok(wen.post("/api/motorista/cargas/068600/pedido/800002", json={"desfecho": "entregue", "cid": "y1"}).status_code == 200, "placa nova registra as pendentes")
     ok(Q.carga("068600")["rua"]["pedidos"][Q.num_chave("800001")]["desfecho"] == "entregue", "o que o Samuel registrou continua na carga")
-    viva = next(g for g in pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"] if g["numero"] == "068600")
+    viva = next(g for g in pq.get("/api/routerking/ao-vivo").json()["cargas"] if g["numero"] == "068600")
     ok(viva["placa"] == "FHZ5B04", "Ao vivo mostra a placa nova")
 
     print("Voltar para a montagem")
@@ -339,28 +339,28 @@ def teste_chat():
     ok(r["atual"]["motivo"] == "Ausente" and r["atual"]["msgs"][-1]["txt"] == "Cliente não atende o interfone", "Voltar e entrar de novo: continua o mesmo chat, sem pedir motivo")
 
     USUARIO["abas"] = {"aovivo": 2}
-    av = pq.get("/api/qualidade/rua/ao-vivo").json()
+    av = pq.get("/api/routerking/ao-vivo").json()
     ped = next(p for p in av["cargas"][0]["pedidos"] if p["pv"] == "739812")
     ok(ped["chat"]["aberto"] and ped["chat"]["nao_lidas"] == 1 and av["kpi"]["chats_abertos"] == 1, "Ao vivo mostra o chat aberto e 1 mensagem nova")
     ok(14 * 60 < ped["chat"]["restante_seg"] <= 15 * 60, "Ao vivo mostra a mesma contagem regressiva")
     a = BANCO[Q.COL_CARGAS]["064501"]["rua"]["chats"]["739812"]["atendimentos"][0]
     a["prazo_ts"] -= 16 * 60; Q.CARGAS["064501"]["rua"]["chats"]["739812"]["atendimentos"][0]["prazo_ts"] -= 16 * 60
-    ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["restante_seg"] < 0, "prazo estourado fica negativo (tela mostra em vermelho)")
-    cli = pq.get("/api/qualidade/rua/cargas/064501/pedido/739812").json()
+    ok(pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["restante_seg"] < 0, "prazo estourado fica negativo (tela mostra em vermelho)")
+    cli = pq.get("/api/routerking/cargas/064501/pedido/739812").json()
     ok(cli["nome"] == "Ana Rocha" and cli["endereco"] == "Rua A, 1" and cli["itens"][0]["desc"] == "CMP TESTE 138", "frota vê o cliente completo (endereço e peças)")
     ok(cli["palavra"] and cli["palavra"] == BANCO[Q.COL_CARGAS]["064501"]["rua"]["palavras"]["739812"], "frota vê a palavra-chave do cliente")
     ok(cli["chat"]["atual"]["msgs"][-1]["de"] == "motorista", "frota vê a conversa")
-    ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["nao_lidas"] == 0, "abrir o cliente marca como lido")
-    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat", json={"texto": "Aguarde 10 min e tente de novo"}).status_code == 200, "frota responde")
+    ok(pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["nao_lidas"] == 0, "abrir o cliente marca como lido")
+    ok(pq.post("/api/routerking/cargas/064501/pedido/739812/chat", json={"texto": "Aguarde 10 min e tente de novo"}).status_code == 200, "frota responde")
     cs = mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"]
     ok(next(p for p in cs if p["pv"] == "739812")["chat"]["nao_lidas"] == 1, "app mostra 1 resposta nova da frota")
     ok(mot.get(base).json()["atual"]["msgs"][-1]["de"] == "frota", "motorista lê a resposta")
     ok(mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"][0]["chat"]["nao_lidas"] == 0, "lida pelo motorista")
-    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739835/chat", json={"texto": "x"}).status_code == 409, "frota não escreve em cliente sem chat aberto")
+    ok(pq.post("/api/routerking/cargas/064501/pedido/739835/chat", json={"texto": "x"}).status_code == 409, "frota não escreve em cliente sem chat aberto")
     USUARIO["abas"] = {"aovivo": 1}
-    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat", json={"texto": "x"}).status_code == 403, "só Visualizar no Ao vivo não responde")
+    ok(pq.post("/api/routerking/cargas/064501/pedido/739812/chat", json={"texto": "x"}).status_code == 403, "só Visualizar no Ao vivo não responde")
     USUARIO["abas"] = {"aovivo": 2}
-    r = pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat/encerrar", json={"texto": "reagendado"}).json()
+    r = pq.post("/api/routerking/cargas/064501/pedido/739812/chat/encerrar", json={"texto": "reagendado"}).json()
     ok(r["atual"] is None and r["atendimentos"][0]["fechado_por"], "frota encerra o atendimento")
     ok(mot.get(base).json()["atual"] is None, "depois de encerrado, o app pede o motivo de novo")
     c = BANCO[Q.COL_CARGAS]["064501"]
@@ -368,14 +368,14 @@ def teste_chat():
     ok(len(at["msgs"]) == 4 and any(h["acao"] == "chat com a frota aberto" for h in c["historico"]), "conversa inteira gravada na carga (cliente) e no histórico")
 
     USUARIO["abas"] = {"motoristas": 3}
-    ok(pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": []}).status_code == 400, "não deixa a lista de motivos vazia")
-    r = pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": ["Ausente", "Avaria", "Escadas", "Endereço não encontrado", "ausente"]}).json()
+    ok(pq.put("/api/routerking/cfg", json={"motivos_chat": []}).status_code == 400, "não deixa a lista de motivos vazia")
+    r = pq.put("/api/routerking/cfg", json={"motivos_chat": ["Ausente", "Avaria", "Escadas", "Endereço não encontrado", "ausente"]}).json()
     ok(r["motivos_chat"] == ["Ausente", "Avaria", "Escadas", "Endereço não encontrado"] and r["tentativas"] == 5, "PQI adiciona motivo (sem repetir) e mantém as tentativas")
     ok("Endereço não encontrado" in mot.get(base).json()["motivos"], "app passa a mostrar o motivo novo")
-    r = pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": ["Ausente", "Escadas"]}).json()
+    r = pq.put("/api/routerking/cfg", json={"motivos_chat": ["Ausente", "Escadas"]}).json()
     ok(r["motivos_chat"] == ["Ausente", "Escadas"], "PQI remove motivos")
-    ok(pq.put("/api/qualidade/rua/cfg", json={"chat_minutos": 0}).status_code == 400, "prazo fora de 1–120 min recusado")
-    ok(pq.put("/api/qualidade/rua/cfg", json={"chat_minutos": 20}).json()["chat_minutos"] == 20, "PQI ajusta o prazo do atendimento")
+    ok(pq.put("/api/routerking/cfg", json={"chat_minutos": 0}).status_code == 400, "prazo fora de 1–120 min recusado")
+    ok(pq.put("/api/routerking/cfg", json={"chat_minutos": 20}).json()["chat_minutos"] == 20, "PQI ajusta o prazo do atendimento")
     ok(mot.post(base, json={"motivo": "Avaria"}).status_code == 400, "motivo removido não abre mais chat")
     r = mot.post(base, json={"motivo": "Escadas"}).json()
     ok(r["atual"]["prazo_min"] == 20, "o próximo atendimento já usa o prazo novo")
@@ -391,18 +391,18 @@ def teste_excluir_motorista():
     mot, pq = TestClient(app), TestClient(app)
     entrar(mot, "ABC1D23", "João Ferreira")
     USUARIO["abas"] = {"motoristas": 3}
-    ms = pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]
+    ms = pq.get("/api/routerking/motoristas").json()["motoristas"]
     mid = next(m["id"] for m in ms if m["nome"] == "João Ferreira")
-    ok(pq.delete(f"/api/qualidade/rua/motoristas/{mid}").status_code == 403, "excluir exige o nível Excluir na aba")
+    ok(pq.delete(f"/api/routerking/motoristas/{mid}").status_code == 403, "excluir exige o nível Excluir na aba")
     USUARIO["abas"] = {"motoristas": 4}
-    ok(pq.delete(f"/api/qualidade/rua/motoristas/{mid}").json()["excluido"] == "João Ferreira", "PQI exclui o motorista")
+    ok(pq.delete(f"/api/routerking/motoristas/{mid}").json()["excluido"] == "João Ferreira", "PQI exclui o motorista")
     ok(mot.get("/api/motorista/cargas").status_code == 403, "o celular do motorista excluído perde as cargas (volta para a escolha do motorista)")
-    ok(all(m["nome"] != "João Ferreira" for m in pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]), "não volta sozinho pelo cadastro da placa")
+    ok(all(m["nome"] != "João Ferreira" for m in pq.get("/api/routerking/motoristas").json()["motoristas"]), "não volta sozinho pelo cadastro da placa")
     for e in M.app_cfg()["excluidos"].values():
         e["em"] = "2000-01-02T00:00:00"   # a exclusão foi antes do PDF novo (no teste tudo acontece no mesmo segundo)
     Q.CARGAS["064601"]["versoes"][-1]["em"] = "2000-01-01T00:00:00"
     importar("064602", "ABC-1D23", [("739999", "Beto Lima", 1)])
-    ok(any(m["nome"] == "João Ferreira" for m in pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]), "volta quando a placa aparece de novo num PDF")
+    ok(any(m["nome"] == "João Ferreira" for m in pq.get("/api/routerking/motoristas").json()["motoristas"]), "volta quando a placa aparece de novo num PDF")
 
 
 def teste_paginas():

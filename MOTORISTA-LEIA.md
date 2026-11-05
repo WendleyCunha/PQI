@@ -157,3 +157,27 @@ Testes: `python testes_qualidade.py`
     fechar — até quem está na etapa tocar **✓ Ajuste feito no palete**. PDF novo da carga supera ajustes pendentes.
 
 Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
+
+# v5.8 — ABA RETORNO MAIS SIMPLES
+
+- Lista: **🏁 Chegaram no CD** em destaque no topo (o motorista tocou "Cheguei no CD"), com quantas peças do app
+  faltam receber. Embaixo, as outras cargas pendentes de retorno (coluna "No app": Na rua / Não saiu).
+- Na carga: só aparece ação no que **voltou** (📱 peças do motorista → **Recebida no CD**). Pedido entregue fica limpo,
+  com **✎ Editar**: aí aparecem "Não entregue — pedido todo", "Entrega parcial" e "Voltou 1".
+- Editar um pedido que o motorista deu **ENTREGUE** e registrar que voltou vira **pendência no PCL**
+  ("ENTREGUE NO APP, MAS VOLTOU") para corrigir a baixa no ERP. O PCL resolve em PCL → Ajustes.
+
+# v5.9 — DOIS SISTEMAS: ROUTERKING e QUALIDADE
+
+- **RouterKing** (`/routerking`, bloco próprio no Painel de Sistemas): **Ao vivo**, **Histórico de entregas** e
+  **Motoristas e app**. O app do motorista passa a se chamar RouterKing. API do painel: `/api/routerking/*`
+  (as palavras do dia agora em `GET /api/routerking/palavras?data=AAAA-MM-DD`).
+- **Qualidade** (`/qualidade`): menu em dois grupos — **Operação** (PCL, Montagem do palete, Conferência na doca,
+  Retorno) e **Administrativo** (Painel, GAP, Cadastros).
+- A base é a mesma: o PDF alimenta os dois. Separamos telas e permissões, não os dados.
+- **Permissões**: quem tinha as abas Ao vivo/Motoristas da Qualidade continua com o mesmo acesso no RouterKing
+  (Ao vivo também libera o Histórico) até o admin configurar o RouterKing em Segurança — daí vale o configurado.
+- **Histórico de entregas**: todos os clientes do período (busca por cliente, PV, NF, código, carga, placa,
+  motorista, bairro), com desfecho, foto, palavra e conversas. **📄 PDF** gera o dossiê do caso (código de
+  identificação, data/hora de emissão, cliente, carga, peças, registro do motorista com GPS e foto, palavra-chave,
+  retorno no CD, conversa completa e linha do tempo) — o navegador salva como PDF, sem custo.

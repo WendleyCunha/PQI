@@ -1,6 +1,6 @@
 {
-  "name": "King Star Entregas",
-  "short_name": "Entregas",
+  "name": "RouterKing · King Star",
+  "short_name": "RouterKing",
   "description": "App do motorista: cargas da placa, baixa de entrega e retorno, GPS.",
   "id": "/motorista/",
   "start_url": "/motorista/",

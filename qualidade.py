@@ -143,11 +143,16 @@ def exigir(request: Request, abas, minimo: int, acao: str) -> None:
     H["exigir_aba"](request, MODULO, abas, minimo, acao)
 
 
-def nivel(request: Request, aba: str) -> int:
+def nivel(request: Request, aba: str, modulo: str = "") -> int:
     try:
-        return int(H["nivel_aba"](request, MODULO, aba))
+        return int(H["nivel_aba"](request, modulo or MODULO, aba))
     except Exception:
         return 0
+
+
+def exigir_mod(request: Request, modulo: str, abas, minimo: int, acao: str) -> None:
+    """[v5.9] Permissão por aba de OUTRO sistema que usa esta mesma base (ex.: RouterKing)."""
+    H["exigir_aba"](request, modulo, abas, minimo, acao)
 
 
 TRAVA = threading.RLock()   # reentrante: as rotas seguram a trava e chamam carga() → _carregar()
@@ -448,6 +453,8 @@ def publico(c: dict) -> dict:
     return {k: c.get(k) for k in ("numero", "data_mapa", "data_iso", "placa", "transportadora", "motorista", "cubagem",
                                    "status", "versao", "transferencia", "atualizado_em", "avulsa", "origem_avulsa")} | {
         "resumo": c.get("resumo") or resumo(c), "montagem": _etapa_pub(c.get("montagem")), "doca": _etapa_pub(c.get("doca")),
+        "rua": {"saida": ((c.get("rua") or {}).get("saida") or {}).get("em"), "chegada": ((c.get("rua") or {}).get("chegada") or {}).get("em"),
+                "app_pendentes": sum(1 for x in (c.get("retorno") or {}).get("itens") or [] if x.get("fonte") == "app" and not x.get("recebido"))},
         "validacao": c.get("validacao"),
         "retorno": {"por": ret.get("por"), "inicio": ret.get("inicio"), "fim_em": (ret.get("fim") or {}).get("em"),
                     "fim_por": (ret.get("fim") or {}).get("por")} if ret else None,
@@ -1066,6 +1073,24 @@ def _candidatos_retorno(c: dict, origem: str) -> list:
     return cand
 
 
+def _pend_entregue_voltou(c: dict, q: dict, novos: list) -> None:
+    """[v5.8] O motorista deu ENTREGUE no app, mas a peça voltou: o Retorno registra e o PCL corrige a baixa no ERP."""
+    ev_rua = (c.get("rua") or {}).get("pedidos") or {}
+    for it in novos:
+        ev = ev_rua.get(num_chave(it.get("pv"))) or {}
+        if ev.get("desfecho") != "entregue":
+            continue
+        a = next((x for x in c.get("pendencias") or [] if x.get("origem") == "retorno" and x.get("status") == "aberta"
+                  and num_chave(x.get("pv")) == num_chave(it.get("pv")) and x.get("desc") == it.get("desc")), None)
+        if a:
+            a["qtd"] = int(a.get("qtd") or 0) + 1
+        else:
+            c.setdefault("pendencias", []).append(_nova_pend("retorno", "entregue_voltou", it.get("pv"), it.get("desc"), 1, it.get("motivo") or "",
+                                                             f"motorista ({ev.get('por') or '—'}) deu ENTREGUE às {str(ev.get('em') or '')[11:16]}"
+                                                             + (" · baixa no ERP já feita" if ev.get("baixa_erp") else ""), q))
+        hist(c, q, "ENTREGUE no app, mas VOLTOU", f"PV {it.get('pv')} · {it.get('desc')} → pendência no PCL")
+
+
 def _app_pendentes(c: dict) -> list:
     return [x for x in (c.get("retorno") or {}).get("itens") or [] if x.get("fonte") == "app" and not x.get("recebido")]
 
@@ -1167,6 +1192,8 @@ def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
     if c["status"] == "validada":
         c["status"] = "em_retorno"
         hist(c, q, "retorno iniciado")
+    if origem == "nao_entregue":
+        _pend_entregue_voltou(c, q, [item])
     gravar(c)
     return {"resultado": "ok", "item": item}
 
@@ -1226,6 +1253,7 @@ def retorno_lote(c: dict, q: dict, dados: dict) -> dict:
         hist(c, q, "retorno iniciado")
     total_ped = sum(int(i.get("qtd") or 0) for i in ped.get("entregar") or [])
     voltaram = sum(1 for r in ret["itens"] if r["origem"] == "nao_entregue" and r["pv"] == ped.get("pv"))
+    _pend_entregue_voltou(c, q, novos)
     hist(c, q, "pedido não entregue" if voltaram >= total_ped else "entrega parcial",
          f"PV {ped.get('pv')} · {ped.get('nome')} · {len(novos)} peça(s) · {motivo}")
     gravar(c)
@@ -1474,8 +1502,11 @@ class TrocaPlaca(BaseModel):
 def rota_trocar_placa(numero: str, payload: TrocaPlaca, request: Request):
     """Outro caminhão vai fazer a rota: a placa nova assume todas as entregas ainda pendentes.
     O que o motorista anterior já registrou fica na carga; a placa antiga deixa de ver a carga no app."""
-    exigir(request, ["pcl", "aovivo"], 2, "Trocar a placa da carga")
-    q = quem(request)
+    exigir(request, "pcl", 2, "Trocar a placa da carga")
+    return trocar_placa(numero, payload, quem(request))
+
+
+def trocar_placa(numero: str, payload: TrocaPlaca, q: dict) -> dict:
     pl = norm_placa(payload.placa)
     if len(pl) < 5:
         raise HTTPException(status_code=400, detail="Placa inválida.")

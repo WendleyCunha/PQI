@@ -143,7 +143,7 @@ def teste_avulso():
     r2 = t.post("/api/qualidade/retorno/avulso", json={**base, "itens": [{"desc": "Outro", "qtd": 1}]}).json()
     ok(r2["numero"] != num, "a segunda entrada do dia ganha outro número")
     como("ret@ks", {"retorno": 2, "aovivo": 1})
-    ok(all(g["numero"] != num for g in t.get("/api/qualidade/rua/ao-vivo").json()["cargas"]), "avulsa não aparece no Ao vivo")
+    ok(all(g["numero"] != num for g in t.get("/api/routerking/ao-vivo").json()["cargas"]), "avulsa não aparece no Ao vivo")
     ok(any(x["numero"] == num and x["avulsa"] for x in t.get("/api/qualidade/cargas").json()), "aparece na lista de cargas marcada como avulsa")
     ok(t.post(f"/api/qualidade/cargas/{num}/retorno/concluir", json={}).json()["resultado"] == "ok", "conclui o retorno avulso")
     como("pcl@ks", {"pcl": 3, "gap": 3})
@@ -246,8 +246,72 @@ def teste_retorno_do_app():
     ok(t.post("/api/qualidade/cargas/070201/retorno", json={"receber": outra["id"], "estado": "ok", "destino": "CD — volta ao estoque"}).json()["resultado"] == "ok", "segunda peça recebida")
     ok(len([x for x in Q.carga("070201")["retorno"]["itens"] if x["pv"] == "810001"]) == 2, "não duplica: as peças do app viram as peças do Retorno")
     como("pcl@ks", {"aovivo": 2, "pcl": 2})
-    r = t.put("/api/qualidade/rua/cargas/070201/liberacao/810002", json={"acao": "liberar"})
+    r = t.put("/api/routerking/cargas/070201/liberacao/810002", json={"acao": "liberar"})
     ok(r.status_code == 200 and r.json()["liberacao"]["status"] == "liberada", "PCL libera sem palavra ANTES do motorista pedir")
+
+    print("Retorno: ENTREGUE no app mas voltou → pendência no PCL")
+    ok(mot.post("/api/motorista/cargas/070201/pedido/810002", json={"desfecho": "entregue", "cid": "e1"}).json()["resultado"] == "ok", "motorista deu ENTREGUE")
+    ok(mot.post("/api/motorista/cargas/070201/chegada", json={}).status_code == 200, "motorista avisou que chegou no CD")
+    como("cd@ks", {"retorno": 2})
+    lst = t.get("/api/qualidade/cargas").json()
+    x = next(c for c in lst if c["numero"] == "070201")
+    ok(x["rua"]["chegada"] and x["rua"]["app_pendentes"] == 0, "lista do Retorno sabe que a carga chegou no CD (destaque)")
+    r = t.post("/api/qualidade/cargas/070201/retorno/lote", json={"pv": "810002", "linhas": [{"i": 0, "qtd": 1}], "motivo": "Avaria", "estado": "avariada",
+                                                                  "avaria": "Rasgado", "destino": "AS — assistência (recuperar)"})
+    ok(r.status_code == 200, "CD edita o pedido entregue e registra que voltou")
+    pend = [a for a in Q.carga("070201")["pendencias"] if a["origem"] == "retorno"]
+    ok(len(pend) == 1 and pend[0]["tipo"] == "entregue_voltou" and pend[0]["status"] == "aberta", "vira pendência no PCL (corrigir a baixa no ERP)")
+    ok(t.post("/api/qualidade/cargas/070201/retorno/concluir", json={}).json()["resultado"] == "ok", "retorno concluído e enviado ao PCL")
+    como("pcl@ks", {"pcl": 3})
+    ok(any(a["origem"] == "retorno" for a in t.get("/api/qualidade/pendencias").json()), "PCL vê a pendência nos Ajustes")
+    r = t.put(f"/api/qualidade/cargas/070201/pendencias/{pend[0]['id']}", json={"acao": "resolver", "nota": "baixa estornada no ERP"})
+    ok(r.status_code == 200 and r.json()["pendencia"]["status"] == "resolvido", "PCL resolve depois de corrigir o ERP")
+
+
+def teste_routerking():
+    print("RouterKing: módulo próprio, histórico de entregas e acesso herdado")
+    import modulos as MD
+    u, per = {"email": "x"}, {"niveis": {"qualidade": 3}}
+    n = MD.niveis_do_usuario(u, per)
+    ok(n["routerking"] == 3 and MD.abas_do_usuario(u, per, n)["routerking"]["aovivo"] == 4, "quem tinha a Qualidade inteira continua com o RouterKing (herdado)")
+    per2 = {"niveis": {"qualidade": 3}, "abas": {"qualidade": {"aovivo": 0, "motoristas": 0}}}
+    n = MD.niveis_do_usuario(u, per2)
+    ok(n["routerking"] == 0, "quem NÃO tinha Ao vivo nem Motoristas não ganha o RouterKing")
+    u3 = {"email": "y", "abas": {"qualidade": {"aovivo": 2}}}
+    n = MD.niveis_do_usuario(u3, {"niveis": {"qualidade": 1}})
+    ok(n["routerking"] == 2 and MD.abas_do_usuario(u3, {"niveis": {"qualidade": 1}}, n)["routerking"] == {"aovivo": 2, "historico": 2, "motoristas": 0},
+       "aba Ao vivo da pessoa vira Ao vivo + Histórico no RouterKing")
+    per4 = {"niveis": {"qualidade": 3, "routerking": 1}}
+    n = MD.niveis_do_usuario(u, per4)
+    ok(n["routerking"] == 1, "depois que o admin configura o RouterKing, vale o configurado")
+    ok(MD.modulo_da_rota("/api/routerking/ao-vivo")["id"] == "routerking" and MD.modulo_da_rota("/routerking")["id"] == "routerking", "rotas do RouterKing protegidas pelo módulo")
+    ok(not any(a["id"] in ("aovivo", "motoristas") for a in MD.abas_de("qualidade")), "Qualidade fica só com Operação e Administrativo")
+
+    T.ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    T.importar("070301", "ABC1D23", [("820001", "Ana Lima", 1), ("820002", "Bruno Reis", 1)])
+    app = T.montar()
+    mot, t = TestClient(app), TestClient(app)
+    T.entrar(mot, "ABC1D23", "João Ferreira")
+    mot.post("/api/motorista/cargas/070301/pedido/820001/chat", json={"motivo": "Escadas"})
+    mot.post("/api/motorista/cargas/070301/pedido/820001", json={"desfecho": "retorno", "foto": T.FOTO, "cid": "h1"})
+    como("frota@ks", {"historico": 1})
+    h = t.get("/api/routerking/historico").json()
+    ok(h["total"] == 2, "histórico lista todos os clientes do período")
+    x = next(i for i in h["itens"] if i["pv"] == "820001")
+    ok(x["desfecho"] == "retorno" and x["chats"] == 1 and x["motivos_chat"] == ["Escadas"] and x["foto"], "com desfecho, foto e a conversa")
+    ok(t.get("/api/routerking/historico?busca=bruno").json()["total"] == 1, "busca por nome do cliente")
+    como("frota@ks", {"aovivo": 1})
+    d = t.get("/api/routerking/cargas/070301/pedido/820001").json()
+    ok(d["historico"] and d["chat"]["atendimentos"] and d["retorno_itens"] and d["evento"]["foto"], "dados do PDF do caso: linha do tempo, conversa, retorno e foto")
+    fid = d["evento"]["foto"]
+    ok(t.get(f"/api/routerking/foto/{fid}").status_code == 200, "foto abre no RouterKing")
+    como("cd@ks", {"retorno": 2})
+    ok(t.get(f"/api/qualidade/foto/{fid}").status_code == 200, "a mesma foto abre na Qualidade (Retorno)")
+    como("cd@ks", {"retorno": 2})
+    ok(t.get("/api/routerking/historico").status_code == 403, "quem só tem o Retorno não vê o histórico do RouterKing")
+    r = t.get("/routerking")
+    ok(r.status_code == 200 and 'data-modulo="routerking"' in r.text and "RouterKing" in r.text, "página /routerking com a permissão do RouterKing")
 
 
 def teste_app_pqi():
@@ -266,5 +330,6 @@ if __name__ == "__main__":
     teste_avulso()
     teste_ajuste_carga()
     teste_retorno_do_app()
+    teste_routerking()
     teste_app_pqi()
     print(f"\n{T.OK} verificações ok.")

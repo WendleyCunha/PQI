@@ -312,7 +312,7 @@ def _negar(eh_api: bool, status: int, mensagem: str, voltar: str = ""):
         return JSONResponse({"detail": mensagem}, status_code=status)
     # [v5.3] página aberta direto (app instalado, ex.: /qualidade): sem login vai para o login e volta para ela
     ir = ""
-    if status == 401 and voltar in ("/qualidade",):
+    if status == 401 and voltar in ("/qualidade", "/routerking"):
         ir = f"<script>if (window.top === window.self) location.replace('/?voltar={voltar}');</script>"
     # Página dentro do túnel: mostra o aviso e manda o login abrir na janela
     # principal (target=_top), não dentro do iframe.

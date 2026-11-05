@@ -718,7 +718,7 @@ let CFG_LOGIN = { esqueci: false, lembrar: false, lembrar_dias: 30, senha_minimo
 
 // [v5.3] veio de um app instalado (ex.: Qualidade)? depois do login volta direto para ele
 function destinoApp() {
-  try { const v = new URLSearchParams(location.search).get('voltar') || ''; return ['/qualidade'].includes(v) ? v : ''; } catch (_) { return ''; }
+  try { const v = new URLSearchParams(location.search).get('voltar') || ''; return ['/qualidade', '/routerking'].includes(v) ? v : ''; } catch (_) { return ''; }
 }
 function aplicarSessao(dados) {
   if (destinoApp() && dados.usuario && !dados.usuario.trocar_senha) { location.replace(destinoApp()); return; }

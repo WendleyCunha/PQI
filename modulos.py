@@ -112,20 +112,34 @@ MODULOS = [
         # Ninguém ganha acesso sozinho: o administrador libera em Segurança (sistema e abas).
         "id": "qualidade",
         "nome": "Qualidade — Cargas e Retorno",
-        "descricao": "Mapa de Entregas digital: PCL, montagem do palete, conferência na doca, retorno com destino da peça e GAP.",
+        "descricao": "Operação: PCL, montagem do palete, conferência na doca e retorno. Administrativo: painel, GAP e cadastros.",
         "url": "/qualidade", "icone": "✅", "tipo": "nuvem",
         "paginas": ["/qualidade"],
         "apis": ["/api/qualidade"],
-        "abas": [
+        "abas": [   # [v5.9] Operação: PCL, montagem, conferência, retorno · Administrativo: painel, GAP, cadastros
             {"id": "pcl", "nome": "PCL (ajustes, retornos, importar)"},
-            {"id": "aovivo", "nome": "Ao vivo (entregas na rua)"},   # [v5.2] app do motorista: baixas, palavra, GPS
-            {"id": "painel", "nome": "Painel"},
             {"id": "montagem", "nome": "Montagem do palete", "min": 2},
             {"id": "conferencia", "nome": "Conferência na doca", "min": 2},
             {"id": "retorno", "nome": "Retorno", "min": 2},
-            {"id": "gap", "nome": "GAP"},
-            {"id": "cadastros", "nome": "Cadastros", "min": 3},
-            {"id": "motoristas", "nome": "Motoristas e app", "min": 3},   # [v5.2] palavra por motorista, senha da placa
+            {"id": "painel", "nome": "Painel (administrativo)"},
+            {"id": "gap", "nome": "GAP (administrativo)"},
+            {"id": "cadastros", "nome": "Cadastros (administrativo)", "min": 3},
+        ],
+    },
+    {
+        # [v5.9] ROUTERKING — as entregas na rua: Ao vivo, Histórico de entregas e o app do motorista.
+        # Nasceu das abas "Ao vivo" e "Motoristas e app" da Qualidade (mesma base de cargas).
+        # Quem tinha essas abas continua com o mesmo acesso até o admin configurar o RouterKing (ver LEGADO).
+        "id": "routerking",
+        "nome": "RouterKing — Entregas",
+        "descricao": "Entregas na rua em tempo real: app do motorista, chat com a frota, palavra-chave, GPS e o histórico de cada cliente (PDF).",
+        "url": "/routerking", "icone": "🚚", "tipo": "nuvem",
+        "paginas": ["/routerking"],
+        "apis": ["/api/routerking"],
+        "abas": [
+            {"id": "aovivo", "nome": "Ao vivo (entregas na rua)"},
+            {"id": "historico", "nome": "Histórico de entregas"},
+            {"id": "motoristas", "nome": "Motoristas e app", "min": 3},
         ],
     },
     {
@@ -253,7 +267,35 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
         n = resolver_excecao(m, valor, perfis)
         if n is not None:
             saida[mid] = n
+    for mid in LEGADO:   # [v5.9] sistema novo que veio de abas de outro: herda o acesso antigo até ser configurado
+        if not _configurado(usuario, perfil, mid):
+            saida[mid] = min(3, max(_legado_abas(usuario, perfil, saida, mid).values() or [0]))
     return saida
+
+
+# [v5.9] RouterKing nasceu das abas "aovivo" e "motoristas" da Qualidade. Enquanto o admin não configurar
+# o RouterKing para a pessoa (ou para o perfil dela), vale o que ela tinha nessas abas — ninguém perde
+# nem ganha acesso no dia da mudança. {sistema novo: (sistema antigo, {aba nova: (aba antiga, mínimo)})}
+LEGADO = {"routerking": ("qualidade", {"aovivo": ("aovivo", 1), "historico": ("aovivo", 1), "motoristas": ("motoristas", 3)})}
+
+
+def _configurado(usuario: dict, perfil, mid: str) -> bool:
+    return (mid in (usuario.get("acessos") or {}) or mid in ((perfil or {}).get("niveis") or {})
+            or mid in (usuario.get("abas") or {}) or mid in ((perfil or {}).get("abas") or {}))
+
+
+def _legado_abas(usuario: dict, perfil, niveis: dict, mid: str) -> dict:
+    antigo, mapa = LEGADO[mid]
+    ns = int(niveis.get(antigo, 0))
+    du = (usuario.get("abas") or {}).get(antigo) or {}
+    dp = ((perfil or {}).get("abas") or {}).get(antigo) or {}
+    out = {}
+    for nova, (velha, minimo) in mapa.items():
+        v = _n_aba(du.get(velha))
+        if v is None:
+            v = _n_aba(dp.get(velha))
+        out[nova] = nivel_aba_herdado({"min": minimo}, ns) if v is None else v
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -312,6 +354,9 @@ def abas_do_usuario(usuario: dict, perfil, niveis: dict) -> dict:
         ns = int(niveis.get(m["id"], 0))
         dp = ((perfil or {}).get("abas") or {}).get(m["id"]) or {}
         du = (usuario.get("abas") or {}).get(m["id"]) or {}
+        if not admin and m["id"] in LEGADO and not _configurado(usuario, perfil, m["id"]):
+            saida[m["id"]] = _legado_abas(usuario, perfil, niveis, m["id"]) if ns > 0 else {a["id"]: 0 for a in abas}
+            continue
         r = {}
         for a in abas:
             if admin:

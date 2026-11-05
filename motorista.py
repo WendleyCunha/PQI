@@ -66,7 +66,7 @@ TRILHA_SEG = 180                           # 1 ponto gravado da trilha a cada 3 
 FOTO_MAX = 450_000                         # bytes (base64) de cada foto
 
 api = APIRouter(prefix="/api/motorista")          # app (rota pública: o login é a placa)
-painel_api = APIRouter(prefix="/api/qualidade/rua")   # PQI (módulo Qualidade, permissão por aba)
+painel_api = APIRouter(prefix="/api/routerking")   # [v5.9] PQI — módulo RouterKing (permissão por aba)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -80,6 +80,32 @@ def ligar(app) -> None:
                             ("/motorista/icone-512.png", "motorista-512.png", "image/png")):
         app.add_api_route(rota, _servir(arq, tipo), methods=["GET", "HEAD"], include_in_schema=False)
     app.add_api_route("/motorista", lambda: RedirectResponse("/motorista/", status_code=307), methods=["GET", "HEAD"], include_in_schema=False)
+    # [v5.9] RouterKing: a mesma tela-base da Qualidade, com o menu e a permissão do sistema RouterKing
+    app.add_api_route("/routerking", _pagina_rk, methods=["GET", "HEAD"], include_in_schema=False)
+    # a foto do motorista também abre na Qualidade (Retorno/GAP), com a permissão de lá
+    app.add_api_route("/api/qualidade/foto/{fid}", _foto_qualidade, methods=["GET"], include_in_schema=False)
+
+
+def _pagina_rk():
+    html = open(os.path.join(BASE_DIR, "qualidade.html"), encoding="utf-8").read()
+    html = html.replace('data-modulo="qualidade"', 'data-modulo="routerking"', 1)
+    html = re.sub(r"<title>.*?</title>", "<title>RouterKing — Entregas · King Star</title>", html, count=1)
+    html = html.replace('href="/qualidade-app/manifest.webmanifest"', 'href="/pqi-app/manifest.webmanifest"', 1)
+    return Response(html, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+def _foto_qualidade(fid: str, request: Request):
+    qld.exigir(request, ["retorno", "gap", "pcl"], 1, "Ver foto")
+    return _foto(fid)
+
+
+def _foto(fid: str):
+    if not re.fullmatch(r"[0-9a-f]{16}", fid):
+        raise HTTPException(404, "Foto não encontrada.")
+    d = _fs_get(COL_FOTOS, fid)
+    if not d:
+        raise HTTPException(404, "Foto não encontrada.")
+    return Response(base64.b64decode(d["b64"]), media_type=f"image/{d.get('tipo') or 'jpeg'}", headers={"Cache-Control": "private, max-age=86400"})
 
 
 def _servir(arq: str, tipo: str):
@@ -109,6 +135,15 @@ def _fs_set(col: str, doc_id: str, dados: dict) -> None:
 
 
 TRAVA = qld.TRAVA
+MODULO_RK = "routerking"   # [v5.9] Ao vivo, Histórico de entregas e Motoristas e app ficam no sistema RouterKing
+
+
+def rk_exigir(request: Request, abas, minimo: int, acao: str) -> None:
+    qld.exigir_mod(request, MODULO_RK, abas, minimo, acao)
+
+
+def rk_nivel(request: Request, aba: str) -> int:
+    return qld.nivel(request, aba, MODULO_RK)
 APP: dict = {"dados": None}
 
 
@@ -785,9 +820,9 @@ def _carga_viva(c: dict, com_palavra: bool) -> dict:
 
 @painel_api.get("/ao-vivo")
 def rota_ao_vivo(request: Request, data: str = ""):
-    qld.exigir(request, ["aovivo", "pcl"], 1, "Ver o painel ao vivo")
+    rk_exigir(request, ["aovivo"], 1, "Ver o painel ao vivo")
     dia = qld.iso_ok(data, qld.hoje())
-    com_palavra = qld.nivel(request, "aovivo") >= 1 or qld.nivel(request, "pcl") >= 1
+    com_palavra = rk_nivel(request, "aovivo") >= 1
     with TRAVA:
         qld._carregar()
         cs = []
@@ -804,7 +839,7 @@ def rota_ao_vivo(request: Request, data: str = ""):
                 cs.append(c)
         lista = [_carga_viva(c, com_palavra) for c in sorted(cs, key=lambda x: (x.get("data_iso") or "", x.get("numero") or ""))]
     soma = lambda k: sum(x["cont"][k] for x in lista)
-    return {"data": dia, "servidor": agora(), "pode_tratar": qld.nivel(request, "aovivo") >= 2 or qld.nivel(request, "pcl") >= 2,
+    return {"data": dia, "servidor": agora(), "pode_tratar": rk_nivel(request, "aovivo") >= 2,
             "kpi": {"na_rua": sum(1 for x in lista if x["fase"] == "rua"), "aguardando_saida": sum(1 for x in lista if x["fase"] == "aguardando"),
                     "chegaram": sum(1 for x in lista if x["fase"] == "chegou"), "entregues": soma("entregue"), "retornos": soma("retorno") + soma("parcial"),
                     "pendentes": soma("pendente"), "sem_baixa_erp": soma("sem_baixa_erp"), "liberacoes": soma("liberacoes"),
@@ -944,20 +979,24 @@ def _dados_cliente(c: dict, p: dict) -> dict:
                                      "despesas", "troca", "pv_retira", "nf_troca", "protocolo", "obs")},
             "itens": [{"desc": it.get("desc"), "sku": it.get("sku"), "qtd": int(it.get("qtd") or 0)} for it in p.get("entregar") or []],
             "retirar": [{"desc": it.get("desc"), "qtd": int(it.get("qtd") or 0)} for it in p.get("col2") or []],
-            "evento": _ev_pub(c, p, True)}
+            "evento": _ev_pub(c, p, True), "data_mapa": c.get("data_mapa"), "data_iso": c.get("data_iso"),
+            "saida": r.get("saida"), "chegada": r.get("chegada"), "trocas_placa": c.get("trocas_placa") or [],
+            "corrigidos": (r["pedidos"].get(k) or {}).get("corrigidos") or [],
+            "retorno_itens": [x for x in (c.get("retorno") or {}).get("itens") or [] if chave_pv(x.get("pv")) == k],
+            "historico": [h for h in c.get("historico") or [] if str(p.get("pv")) in str(h.get("det") or "") or k in str(h.get("det") or "")]}
 
 
 @painel_api.get("/cargas/{numero}/pedido/{pv}")
 def rota_cliente(numero: str, pv: str, request: Request):
     """Ao vivo: o cliente completo + o chat com o motorista (abrir marca as mensagens como lidas pela frota)."""
-    qld.exigir(request, ["aovivo", "pcl"], 1, "Ver o cliente")
+    rk_exigir(request, ["aovivo"], 1, "Ver o cliente")
     with TRAVA:
         c = qld.carga(numero)
         p = _ped_da_carga(c, pv)
         ch = _chats(c, p)
         a = _chat_atual(ch)
         mudou = bool(a and a.get("lido_frota") != len(a["msgs"]))
-        out = {**_dados_cliente(c, p), "chat": _chat_pub(ch, "frota"), "pode_tratar": qld.nivel(request, "aovivo") >= 2 or qld.nivel(request, "pcl") >= 2}
+        out = {**_dados_cliente(c, p), "chat": _chat_pub(ch, "frota"), "pode_tratar": rk_nivel(request, "aovivo") >= 2}
         if mudou:
             qld.gravar(c)
         return out
@@ -965,7 +1004,7 @@ def rota_cliente(numero: str, pv: str, request: Request):
 
 @painel_api.post("/cargas/{numero}/pedido/{pv}/chat")
 def rota_chat_frota(numero: str, pv: str, payload: ChatIn, request: Request):
-    qld.exigir(request, ["aovivo", "pcl"], 2, "Responder o motorista")
+    rk_exigir(request, ["aovivo"], 2, "Responder o motorista")
     q = qld.quem(request)
     txt = str(payload.texto or "").strip()
     if not txt:
@@ -984,7 +1023,7 @@ def rota_chat_frota(numero: str, pv: str, payload: ChatIn, request: Request):
 
 @painel_api.post("/cargas/{numero}/pedido/{pv}/chat/encerrar")
 def rota_chat_encerrar(numero: str, pv: str, payload: ChatIn, request: Request):
-    qld.exigir(request, ["aovivo", "pcl"], 2, "Encerrar o atendimento")
+    rk_exigir(request, ["aovivo"], 2, "Encerrar o atendimento")
     q = qld.quem(request)
     with TRAVA:
         c = qld.carga(numero)
@@ -1002,6 +1041,12 @@ def rota_chat_encerrar(numero: str, pv: str, payload: ChatIn, request: Request):
         return _chat_pub(ch, "frota")
 
 
+@painel_api.put("/cargas/{numero}/placa")
+def rota_trocar_placa_rk(numero: str, payload: qld.TrocaPlaca, request: Request):
+    rk_exigir(request, ["aovivo"], 2, "Trocar a placa da carga")
+    return qld.trocar_placa(numero, payload, qld.quem(request))
+
+
 class Decisao(BaseModel):
     acao: str                     # liberar | negar
     nota: Optional[str] = ""
@@ -1009,7 +1054,7 @@ class Decisao(BaseModel):
 
 @painel_api.put("/cargas/{numero}/liberacao/{pv}")
 def rota_decidir(numero: str, pv: str, payload: Decisao, request: Request):
-    qld.exigir(request, ["aovivo", "pcl"], 2, "Liberar entrega sem palavra")
+    rk_exigir(request, ["aovivo"], 2, "Liberar entrega sem palavra")
     q = qld.quem(request)
     if payload.acao not in ("liberar", "negar"):
         raise HTTPException(400, "Ação inválida.")
@@ -1042,7 +1087,7 @@ class Baixa(BaseModel):
 @painel_api.put("/cargas/{numero}/baixa-erp/{pv}")
 def rota_baixa_erp(numero: str, pv: str, payload: Baixa, request: Request):
     """O PCL lançou a baixa da entrega no Protheus (manual): fica marcado aqui."""
-    qld.exigir(request, ["aovivo", "pcl"], 2, "Marcar baixa no ERP")
+    rk_exigir(request, ["aovivo"], 2, "Marcar baixa no ERP")
     q = qld.quem(request)
     with TRAVA:
         c = qld.carga(numero)
@@ -1064,7 +1109,7 @@ class Correcao(BaseModel):
 @painel_api.post("/cargas/{numero}/pedido/{pv}/reabrir")
 def rota_pcl_reabrir(numero: str, pv: str, payload: Correcao, request: Request):
     """PCL apaga o registro do motorista (ex.: tocou errado) para ele registrar de novo."""
-    qld.exigir(request, ["aovivo", "pcl"], 3, "Reabrir registro do motorista")
+    rk_exigir(request, ["aovivo"], 3, "Reabrir registro do motorista")
     q = qld.quem(request)
     if not str(payload.nota or "").strip():
         raise HTTPException(400, "Diga o motivo.")
@@ -1087,19 +1132,47 @@ def rota_pcl_reabrir(numero: str, pv: str, payload: Correcao, request: Request):
 
 @painel_api.get("/foto/{fid}")
 def rota_foto(fid: str, request: Request):
-    qld.exigir(request, ["aovivo", "pcl", "retorno", "gap"], 1, "Ver foto")
-    if not re.fullmatch(r"[0-9a-f]{16}", fid):
-        raise HTTPException(404, "Foto não encontrada.")
-    d = _fs_get(COL_FOTOS, fid)
-    if not d:
-        raise HTTPException(404, "Foto não encontrada.")
-    return Response(base64.b64decode(d["b64"]), media_type=f"image/{d.get('tipo') or 'jpeg'}", headers={"Cache-Control": "private, max-age=86400"})
+    rk_exigir(request, ["aovivo", "historico"], 1, "Ver foto")
+    return _foto(fid)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [v5.9] HISTÓRICO DE ENTREGAS — todos os clientes do período, o que aconteceu e as conversas
+# ══════════════════════════════════════════════════════════════════════════
+@painel_api.get("/historico")
+def rota_historico(request: Request, de: str = "", ate: str = "", busca: str = ""):
+    rk_exigir(request, ["historico"], 1, "Ver o histórico de entregas")
+    ate = qld.iso_ok(ate, qld.hoje())
+    de = qld.iso_ok(de, (datetime.fromisoformat(ate) - timedelta(days=6)).strftime("%Y-%m-%d"))
+    termo = norm(busca)
+    out = []
+    with TRAVA:
+        for c in qld.no_periodo(de, ate):
+            if c.get("avulsa"):
+                continue
+            r = c.get("rua") or {}
+            mot = (r.get("saida") or {}).get("nome") or c.get("motorista") or ""
+            for p in c.get("pedidos") or []:
+                if termo and termo not in norm(" ".join(str(x or "") for x in (c["numero"], c.get("placa"), mot, p.get("pv"), p.get("nome"),
+                                                                                 p.get("cliente"), p.get("nf"), p.get("bairro"), p.get("cidade")))):
+                    continue
+                ev = (r.get("pedidos") or {}).get(chave_pv(p.get("pv"))) or {}
+                ch = (r.get("chats") or {}).get(chave_pv(p.get("pv"))) or {}
+                out.append({"carga": c["numero"], "data_iso": c.get("data_iso"), "placa": c.get("placa"), "motorista": mot,
+                            "pv": p.get("pv"), "nome": p.get("nome"), "cliente": p.get("cliente"), "nf": p.get("nf"),
+                            "bairro": p.get("bairro"), "cidade": p.get("cidade"), "desfecho": ev.get("desfecho") or "", "motivo": ev.get("motivo") or "",
+                            "em": ev.get("em") or "", "por": ev.get("por") or "", "foto": bool(ev.get("foto")), "palavra_ok": ev.get("palavra_ok"),
+                            "chats": len(ch.get("atendimentos") or []), "chat_aberto": bool(ch.get("atual")),
+                            "motivos_chat": [a.get("motivo") for a in ch.get("atendimentos") or []], "baixa_erp": bool(ev.get("baixa_erp")),
+                            "status_carga": c.get("status")})
+    out.sort(key=lambda x: (x["data_iso"] or "", x["carga"], x["em"] or ""), reverse=True)
+    return {"de": de, "ate": ate, "total": len(out), "itens": out[:2000]}
 
 
 @painel_api.get("/palavras")
 def rota_palavras(request: Request, data: str = ""):
     """Palavra de cada pedido das cargas do dia — para o ERP do Desenvolvimento (via ponte) avisar o cliente."""
-    qld.exigir(request, ["aovivo", "pcl"], 1, "Ver palavras da entrega")
+    rk_exigir(request, ["aovivo"], 1, "Ver palavras da entrega")
     dia = qld.iso_ok(data, qld.hoje())
     out = []
     with TRAVA:
@@ -1122,7 +1195,7 @@ def rota_palavras(request: Request, data: str = ""):
 # ── Motoristas e app ──────────────────────────────────────────────────────
 @painel_api.get("/motoristas")
 def rota_motoristas(request: Request):
-    qld.exigir(request, ["motoristas", "aovivo"], 1, "Ver motoristas")
+    rk_exigir(request, ["motoristas", "aovivo"], 1, "Ver motoristas")
     with TRAVA:
         if semear_motoristas():
             app_salvar()
@@ -1136,7 +1209,7 @@ def rota_motoristas(request: Request):
         mots = sorted([{"id": k, **{x: m.get(x) for x in ("nome", "placas", "palavra", "ativo", "em", "por")}} for k, m in A["motoristas"].items()],
                       key=lambda m: (not m.get("ativo", True), m["nome"]))
         return {"motoristas": mots, "placas": placas, "cfg": A["cfg"], "app_url": "/motorista/",
-                "pode_editar": qld.nivel(request, "motoristas") >= 3}
+                "pode_editar": rk_nivel(request, "motoristas") >= 3}
 
 
 class MotoristaIn(BaseModel):
@@ -1152,7 +1225,7 @@ def _limpa_placas(lst) -> list:
 
 @painel_api.post("/motoristas")
 def rota_motorista_novo(payload: MotoristaIn, request: Request):
-    qld.exigir(request, "motoristas", 3, "Cadastrar motorista")
+    rk_exigir(request, "motoristas", 3, "Cadastrar motorista")
     q = qld.quem(request)
     nome = re.sub(r"\s+", " ", payload.nome).strip()[:120]
     if len(nome) < 3:
@@ -1171,7 +1244,7 @@ def rota_motorista_novo(payload: MotoristaIn, request: Request):
 @painel_api.delete("/motoristas/{mid}")
 def rota_motorista_excluir(mid: str, request: Request):
     """[v5.6] Exclui o motorista (o celular dele sai). Só volta se a placa aparecer de novo num PDF importado."""
-    qld.exigir(request, "motoristas", 4, "Excluir motorista")
+    rk_exigir(request, "motoristas", 4, "Excluir motorista")
     q = qld.quem(request)
     with TRAVA:
         A = app_cfg()
@@ -1187,7 +1260,7 @@ def rota_motorista_excluir(mid: str, request: Request):
 
 @painel_api.put("/motoristas/{mid}")
 def rota_motorista_editar(mid: str, payload: MotoristaIn, request: Request):
-    qld.exigir(request, "motoristas", 3, "Editar motorista")
+    rk_exigir(request, "motoristas", 3, "Editar motorista")
     q = qld.quem(request)
     with TRAVA:
         A = app_cfg()
@@ -1215,7 +1288,7 @@ def rota_motorista_editar(mid: str, payload: MotoristaIn, request: Request):
 @painel_api.post("/placas/{placa}/resetar")
 def rota_resetar(placa: str, request: Request):
     """Senha da placa volta para a inicial (troca obrigatória no próximo acesso) e derruba quem estiver logado."""
-    qld.exigir(request, "motoristas", 3, "Resetar senha da placa")
+    rk_exigir(request, "motoristas", 3, "Resetar senha da placa")
     q = qld.quem(request)
     pl = norm_placa(placa)
     with TRAVA:
@@ -1236,7 +1309,7 @@ class CfgIn(BaseModel):
 
 @painel_api.put("/cfg")
 def rota_cfg(payload: CfgIn, request: Request):
-    qld.exigir(request, "motoristas", 3, "Mudar a configuração do app")
+    rk_exigir(request, "motoristas", 3, "Mudar a configuração do app")
     if payload.tentativas is not None and not 3 <= payload.tentativas <= 10:
         raise HTTPException(400, "Tentativas entre 3 e 10.")
     if payload.chat_minutos is not None and not 1 <= payload.chat_minutos <= 120:
