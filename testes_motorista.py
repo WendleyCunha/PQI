@@ -126,7 +126,7 @@ def teste_fluxo():
     ok(mot.post("/api/motorista/senha", json={"nova": "abc", "repetir": "abc"}).status_code == 400, "senha curta recusada")
     r = mot.post("/api/motorista/senha", json={"nova": "rota2026", "repetir": "rota2026"})
     ok(r.status_code == 200, "trocou a senha")
-    ok(mot.get("/api/motorista/cargas").status_code == 403, "sem escolher o motorista não vê carga")
+    ok(mot.get("/api/motorista/cargas").json()["motorista"]["nome"] == "João Ferreira", "trocou a senha e já entra nas entregas do motorista da placa (sem escolher)")
     mid_joao = r.json()["motoristas"][0]["id"]
     ok(mot.post("/api/motorista/quem", json={"id": "m00000000"}).status_code == 404, "motorista de outra placa não serve")
     r = mot.post("/api/motorista/quem", json={"nome_novo": "Marcos Lima"})

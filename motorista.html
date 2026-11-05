@@ -198,7 +198,7 @@ function telaLogin(msg) {
     if (!placa || !senha) { $("#lMsg").textContent = "Preencha placa e senha."; return; }
     $("#lOk").disabled = true;
     try { const r = await api("/login", { placa, senha }); ls.set("mot_placa", r.placa);
-      S.me = { placa: r.placa, trocar_senha: r.trocar_senha, motorista: null, motoristas: r.motoristas }; render(); }
+      S.me = { placa: r.placa, trocar_senha: r.trocar_senha, motorista: null, motoristas: r.motoristas }; await entrar(); }
     catch (e) { $("#lMsg").textContent = e.message; $("#lOk").disabled = false; }
   };
   $("#lOk").onclick = ir; $("#lSe").onkeydown = e => { if (e.key === "Enter") ir(); };
@@ -210,20 +210,20 @@ function telaSenha() {
       <label class="f">Repita a nova senha<input id="s2" type="password" autocomplete="new-password"></label>
       <button type="button" class="pri big" id="sOk">Salvar senha</button><p class="msg erro" id="sMsg"></p></div>`;
   $("#sOk").onclick = async () => {
-    try { const r = await api("/senha", { nova: $("#s1").value, repetir: $("#s2").value }); S.me.trocar_senha = false; S.me.motoristas = r.motoristas; render(); }
+    try { const r = await api("/senha", { nova: $("#s1").value, repetir: $("#s2").value }); S.me.trocar_senha = false; S.me.motoristas = r.motoristas; await entrar(); }
     catch (e) { if (!e.tratado) $("#sMsg").textContent = e.message; }
   };
 }
+// [v5.6] logou com a placa = é o motorista ligado a ela no PQI. Sem escolha e sem cadastro de nome no app.
+async function entrar() {
+  if (S.me && !S.me.trocar_senha) { const me = await api("/me").catch(() => null); if (me && me.logado) S.me = me; }
+  if (S.me && S.me.motorista) { await carregar(); } else render();
+}
 function telaQuem() {
-  const ms = S.me.motoristas || [];
-  $("#app").innerHTML = `<div class="card"><h1 style="font-size:24px">Quem está dirigindo hoje?</h1>
-      <p class="cap">Cada baixa fica registrada no seu nome.</p>
-      ${ms.map(m => `<button type="button" class="big" data-m="${esc(m.id)}" style="text-align:left">${esc(m.nome)}</button>`).join("") || '<p class="cap">Nenhum motorista ligado a esta placa. Peça ao PCL para cadastrar no PQI.</p>'}
-      <p class="msg erro" id="qMsg"></p><button type="button" class="ghost" id="qSair">Sair desta placa</button></div>`;
-  const esc_ = async corpo => { try { const r = await api("/quem", corpo); S.me.motorista = r.motorista; S.dados = null; await carregar(); } catch (e) { if (!e.tratado) $("#qMsg").textContent = e.message; } };
-  document.querySelectorAll("[data-m]").forEach(b => b.onclick = () => esc_({ id: b.dataset.m }));
-  if (ms.length === 1 && !S.quemAuto) { S.quemAuto = true; esc_({ id: ms[0].id }); }   // placa com um motorista só: entra direto
-  $("#qSair").onclick = sair;
+  $("#app").innerHTML = `<div class="card"><h1 style="font-size:24px">Placa sem motorista</h1>
+      <p class="cap">A placa <b>${esc(S.me.placa)}</b> ainda não está ligada a um motorista no PQI. Peça ao PCL para cadastrar em <b>Motoristas e app</b>.</p>
+      <button type="button" id="qAtu">Tentar de novo</button><button type="button" class="ghost" id="qSair">Sair desta placa</button></div>`;
+  $("#qAtu").onclick = entrar; $("#qSair").onclick = sair;
 }
 async function sair() { try { await api("/sair", {}); } catch (_) {} pararGps(); soltarTela(); S.me = null; S.dados = null; S.carga = null; render(); }
 

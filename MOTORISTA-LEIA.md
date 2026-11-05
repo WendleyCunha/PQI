@@ -132,5 +132,7 @@ Testes: `python testes_qualidade.py`
 - **Contagem regressiva** do atendimento: começa quando o motorista escolhe o motivo, aparece no app e no Ao vivo
   (amarelo nos últimos 3 min, vermelho quando estoura). Padrão 15 min — **Motoristas e app → Prazo do atendimento**.
 - **Motoristas e app** em 3 abas: Motoristas · Motivos do chat com a frota · Prazo do atendimento.
-- O app **não cadastra** nome: a placa já vem ligada ao motorista no PQI (um só → entra direto).
+- **Logou com a placa = está logado**: o app abre direto nas entregas do motorista ligado à placa em Motoristas e app
+  (sem tela de escolha e sem "Não estou na lista"; o app não cadastra nome). Placa com mais de um motorista ativo:
+  vale o cadastrado/alterado por último. Placa sem motorista: o app avisa para pedir ao PCL.
 - **Excluir motorista** (nível Excluir na aba): o celular dele sai; só volta se a placa aparecer de novo num PDF importado.

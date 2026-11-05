@@ -254,6 +254,12 @@ def semear_motoristas() -> bool:
     return mudou
 
 
+def mid_da_placa(pl: str) -> str:
+    """O motorista ligado à placa em Motoristas e app (ativo; se houver mais de um, o cadastrado/alterado por último)."""
+    ms = [(str(m.get("em") or ""), k) for k, m in app_cfg()["motoristas"].items() if m.get("ativo", True) and pl in (m.get("placas") or [])]
+    return max(ms)[1] if ms else ""
+
+
 def motoristas_da_placa(pl: str) -> list:
     return sorted([{"id": k, "nome": m["nome"]} for k, m in app_cfg()["motoristas"].items()
                    if m.get("ativo", True) and pl in (m.get("placas") or [])], key=lambda x: x["nome"])
@@ -284,12 +290,14 @@ def sessao(request: Request, precisa_motorista: bool = True) -> dict:
     reg = app_cfg()["placas"].get(pl)
     if not reg or int(reg.get("versao", 1)) != int(d.get("v", -1)):
         raise HTTPException(401, "A senha desta placa mudou. Entre de novo.")
+    mot = app_cfg()["motoristas"].get(mid)
+    if not mid or not mot or not mot.get("ativo", True) or pl not in (mot.get("placas") or []):
+        mid = mid_da_placa(pl)   # [v5.6] logou com a placa = é o motorista ligado a ela no PQI (sem tela de escolha)
     if precisa_motorista:
         if reg.get("trocar"):
             raise HTTPException(403, "Troque a senha inicial antes de continuar.")
-        mot = app_cfg()["motoristas"].get(mid)
-        if not mid or not mot or not mot.get("ativo", True) or pl not in (mot.get("placas") or []):
-            raise HTTPException(403, "Escolha quem está dirigindo.")
+        if not mid:
+            raise HTTPException(403, "Esta placa não tem motorista cadastrado no PQI. Peça ao PCL (Motoristas e app).")
     return {"placa": pl, "mid": mid, "reg": reg, "nome": (app_cfg()["motoristas"].get(mid) or {}).get("nome", "")}
 
 
