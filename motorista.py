@@ -57,6 +57,7 @@ DURACAO_SESSAO = 14 * 86400          # o celular fica logado 14 dias (reset da s
 DOC_APP = "app_motorista"
 MOTIVOS_CHAT = ("Ausente", "Avaria", "Escadas")   # [v5.5] padrão; o PQI muda em Motoristas e app
 CHAT_MAX_MSGS = 300
+CHAT_MINUTOS = 15   # [v5.6] contagem regressiva do atendimento (ajustável em Motoristas e app)
 COL_FOTOS = "qld_fotos"
 STATUS_RUA = ("validada", "em_retorno")   # cargas que o motorista vê e pode baixar
 DIAS_APP = 4                               # o app mostra cargas com Mapa de até 4 dias atrás
@@ -114,8 +115,8 @@ APP: dict = {"dados": None}
 def app_cfg() -> dict:
     if APP["dados"] is None:
         d = _fs_get(qld.COL_CAD, DOC_APP) or {}
-        APP["dados"] = {"placas": d.get("placas") or {}, "motoristas": d.get("motoristas") or {},
-                        "cfg": {"tentativas": 5, "motivos_chat": list(MOTIVOS_CHAT), **(d.get("cfg") or {})}}
+        APP["dados"] = {"placas": d.get("placas") or {}, "motoristas": d.get("motoristas") or {}, "excluidos": d.get("excluidos") or {},
+                        "cfg": {"tentativas": 5, "motivos_chat": list(MOTIVOS_CHAT), "chat_minutos": CHAT_MINUTOS, **(d.get("cfg") or {})}}
         if _padronizar(APP["dados"]):
             app_salvar()
     return APP["dados"]
@@ -221,13 +222,26 @@ def placas_conhecidas() -> dict:
     return out
 
 
+def _placa_no_pdf_depois(pl: str, desde: str) -> bool:
+    qld._carregar()
+    return any(norm_placa(c.get("placa")) == pl and not c.get("avulsa") and
+               max([str(v.get("em") or "") for v in c.get("versoes") or []] or [""]) > desde for c in qld.CARGAS.values())
+
+
 def semear_motoristas() -> bool:
     """O nome cadastrado em Cadastros → placa vira um motorista do app (palavra desligada)."""
     A = app_cfg()
     nomes = {(norm(m.get("nome")), pl) for m in A["motoristas"].values() for pl in m.get("placas") or []}
     mudou = False
+    exc = A.setdefault("excluidos", {})
     for pl, v in qld.placas().items():
         nome = str((v or {}).get("motorista") or "").strip()
+        e = exc.get(f"{norm(nome)}|{pl}")
+        if e:   # [v5.6] excluído no PQI: só volta quando a placa aparecer de novo num PDF importado depois da exclusão
+            if not _placa_no_pdf_depois(pl, e.get("em") or ""):
+                continue
+            exc.pop(f"{norm(nome)}|{pl}", None)
+            mudou = True
         if nome and (norm(nome), pl) not in nomes:
             existente = next((m for m in A["motoristas"].values() if norm(m.get("nome")) == norm(nome)), None)
             if existente:
@@ -238,6 +252,12 @@ def semear_motoristas() -> bool:
             nomes.add((norm(nome), pl))
             mudou = True
     return mudou
+
+
+def mid_da_placa(pl: str) -> str:
+    """O motorista ligado à placa em Motoristas e app (ativo; se houver mais de um, o cadastrado/alterado por último)."""
+    ms = [(str(m.get("em") or ""), k) for k, m in app_cfg()["motoristas"].items() if m.get("ativo", True) and pl in (m.get("placas") or [])]
+    return max(ms)[1] if ms else ""
 
 
 def motoristas_da_placa(pl: str) -> list:
@@ -270,12 +290,14 @@ def sessao(request: Request, precisa_motorista: bool = True) -> dict:
     reg = app_cfg()["placas"].get(pl)
     if not reg or int(reg.get("versao", 1)) != int(d.get("v", -1)):
         raise HTTPException(401, "A senha desta placa mudou. Entre de novo.")
+    mot = app_cfg()["motoristas"].get(mid)
+    if not mid or not mot or not mot.get("ativo", True) or pl not in (mot.get("placas") or []):
+        mid = mid_da_placa(pl)   # [v5.6] logou com a placa = é o motorista ligado a ela no PQI (sem tela de escolha)
     if precisa_motorista:
         if reg.get("trocar"):
             raise HTTPException(403, "Troque a senha inicial antes de continuar.")
-        mot = app_cfg()["motoristas"].get(mid)
-        if not mid or not mot or not mot.get("ativo", True) or pl not in (mot.get("placas") or []):
-            raise HTTPException(403, "Escolha quem está dirigindo.")
+        if not mid:
+            raise HTTPException(403, "Esta placa não tem motorista cadastrado no PQI. Peça ao PCL (Motoristas e app).")
     return {"placa": pl, "mid": mid, "reg": reg, "nome": (app_cfg()["motoristas"].get(mid) or {}).get("nome", "")}
 
 
@@ -367,18 +389,8 @@ def rota_quem(payload: Quem, request: Request):
             m = A["motoristas"].get(mid)
             if not m or not m.get("ativo", True) or s["placa"] not in (m.get("placas") or []):
                 raise HTTPException(404, "Motorista não encontrado nesta placa.")
-        else:
-            nome = re.sub(r"\s+", " ", str(payload.nome_novo or "")).strip()[:120]
-            if len(nome) < 3:
-                raise HTTPException(400, "Escreva o seu nome.")
-            achado = next((k for k, m in A["motoristas"].items() if norm(m.get("nome")) == norm(nome)), None)
-            if achado:
-                mid = achado
-                A["motoristas"][mid]["placas"] = sorted(set(A["motoristas"][mid].get("placas") or []) | {s["placa"]})
-            else:
-                mid = "m" + uuid.uuid4().hex[:8]
-                A["motoristas"][mid] = {"nome": nome, "placas": [s["placa"]], "palavra": False, "ativo": True, "em": agora(), "por": f"app ({s['placa']})"}
-            app_salvar()
+        else:   # [v5.6] o app não cadastra nome: a placa já vem ligada ao motorista no PQI
+            raise HTTPException(403, "O motorista desta placa é cadastrado pelo PQI (Motoristas e app). Peça ao PCL.")
         r = JSONResponse({"ok": True, "motorista": {"id": mid, "nome": A["motoristas"][mid]["nome"]}})
         _gravar_cookie(r, s["placa"], mid, int(s["reg"].get("versao", 1)))
         return r
@@ -778,6 +790,21 @@ def _chat_atual(ch: dict) -> Optional[dict]:
     return next((a for a in ch["atendimentos"] if a["id"] == ch.get("atual")), None) if ch.get("atual") else None
 
 
+def chat_minutos() -> int:
+    return int(app_cfg()["cfg"].get("chat_minutos") or CHAT_MINUTOS)
+
+
+def _restante(a: dict) -> Optional[int]:
+    """Segundos até o fim do prazo do atendimento (negativo = estourou). Contado no servidor (o relógio do celular não manda)."""
+    if not a or a.get("fechado_em") or not a.get("prazo_ts"):
+        return None
+    return int(float(a["prazo_ts"]) - time.time())
+
+
+def _a_pub(a: Optional[dict]) -> Optional[dict]:
+    return {**a, "restante_seg": _restante(a)} if a else None
+
+
 def _chat_resumo(c: dict, p: dict, lado: str) -> dict:
     ch = ((c.get("rua") or {}).get("chats") or {}).get(chave_pv(p.get("pv"))) or {"atual": None, "atendimentos": []}
     a = _chat_atual(ch)
@@ -786,6 +813,7 @@ def _chat_resumo(c: dict, p: dict, lado: str) -> dict:
     outro = "motorista" if lado == "frota" else "frota"
     lidas = int(a.get(f"lido_{lado}") or 0)
     return {"aberto": True, "motivo": a.get("motivo"), "ult_em": (a["msgs"][-1]["em"] if a["msgs"] else a.get("aberto_em")),
+            "restante_seg": _restante(a), "prazo_min": a.get("prazo_min"),
             "nao_lidas": sum(1 for m in a["msgs"][lidas:] if m.get("de") == outro), "atendimentos": len(ch["atendimentos"])}
 
 
@@ -793,7 +821,7 @@ def _chat_pub(ch: dict, lado: str) -> dict:
     a = _chat_atual(ch)
     if a:
         a[f"lido_{lado}"] = len(a["msgs"])
-    return {"atual": a, "atendimentos": ch["atendimentos"]}
+    return {"atual": _a_pub(a), "atendimentos": ch["atendimentos"]}
 
 
 def _msg(a: dict, de: str, nome: str, txt: str) -> None:
@@ -844,7 +872,8 @@ def rota_chat_app_enviar(numero: str, pv: str, payload: ChatIn, request: Request
             if motivo not in motivos_chat():
                 raise HTTPException(400, "Escolha o motivo para falar com a frota.")
             a = {"id": uuid.uuid4().hex[:8], "motivo": motivo, "aberto_em": agora(), "mid": s["mid"], "nome": s["nome"], "placa": s["placa"],
-                 "msgs": [], "lido_frota": 0, "lido_motorista": 0, "fechado_em": None, "fechado_por": None}
+                 "msgs": [], "lido_frota": 0, "lido_motorista": 0, "fechado_em": None, "fechado_por": None,
+                 "prazo_min": chat_minutos(), "prazo_ts": time.time() + chat_minutos() * 60}
             _msg(a, "sistema", "", f"{s['nome']} abriu o chat: {motivo}")
             ch["atendimentos"].append(a)
             ch["atual"] = a["id"]
@@ -853,7 +882,7 @@ def rota_chat_app_enviar(numero: str, pv: str, payload: ChatIn, request: Request
             _msg(a, "motorista", s["nome"], txt)
         a["lido_motorista"] = len(a["msgs"])
         qld.gravar(c)
-        return {"atual": a, "motivos": motivos_chat()}
+        return {"atual": _a_pub(a), "motivos": motivos_chat()}
 
 
 def _dados_cliente(c: dict, p: dict) -> dict:
@@ -1083,6 +1112,23 @@ def rota_motorista_novo(payload: MotoristaIn, request: Request):
         return {"id": mid, **A["motoristas"][mid]}
 
 
+@painel_api.delete("/motoristas/{mid}")
+def rota_motorista_excluir(mid: str, request: Request):
+    """[v5.6] Exclui o motorista (o celular dele sai). Só volta se a placa aparecer de novo num PDF importado."""
+    qld.exigir(request, "motoristas", 4, "Excluir motorista")
+    q = qld.quem(request)
+    with TRAVA:
+        A = app_cfg()
+        m = A["motoristas"].pop(mid, None)
+        if not m:
+            raise HTTPException(404, "Motorista não encontrado.")
+        exc = A.setdefault("excluidos", {})
+        for pl in m.get("placas") or []:
+            exc[f"{norm(m.get('nome'))}|{pl}"] = {"nome": m.get("nome"), "placa": pl, "em": agora(), "por": q["por"]}
+        app_salvar()
+        return {"ok": True, "excluido": m.get("nome"), "placas": m.get("placas") or []}
+
+
 @painel_api.put("/motoristas/{mid}")
 def rota_motorista_editar(mid: str, payload: MotoristaIn, request: Request):
     qld.exigir(request, "motoristas", 3, "Editar motorista")
@@ -1128,6 +1174,7 @@ def rota_resetar(placa: str, request: Request):
 
 class CfgIn(BaseModel):
     tentativas: Optional[int] = None
+    chat_minutos: Optional[int] = None
     motivos_chat: Optional[list] = None
 
 
@@ -1136,6 +1183,8 @@ def rota_cfg(payload: CfgIn, request: Request):
     qld.exigir(request, "motoristas", 3, "Mudar a configuração do app")
     if payload.tentativas is not None and not 3 <= payload.tentativas <= 10:
         raise HTTPException(400, "Tentativas entre 3 e 10.")
+    if payload.chat_minutos is not None and not 1 <= payload.chat_minutos <= 120:
+        raise HTTPException(400, "Prazo do atendimento entre 1 e 120 minutos.")
     mot = None
     if payload.motivos_chat is not None:
         mot = []
@@ -1150,5 +1199,7 @@ def rota_cfg(payload: CfgIn, request: Request):
             app_cfg()["cfg"]["tentativas"] = int(payload.tentativas)
         if mot is not None:
             app_cfg()["cfg"]["motivos_chat"] = mot[:20]
+        if payload.chat_minutos is not None:
+            app_cfg()["cfg"]["chat_minutos"] = int(payload.chat_minutos)
         app_salvar()
         return app_cfg()["cfg"]

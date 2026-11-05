@@ -79,6 +79,10 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 .chat-m.fr{background:var(--steel-soft);justify-self:end}
 .chat-m small{display:block;font-size:11px;color:var(--ink-3)}
 .chat-s{font-size:12px;color:var(--ink-3);text-align:center}
+.chat-abriu{text-align:center;font-size:12px;color:var(--ink-3)} .chat-abriu b{display:block;font-size:24px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+.motivo-gde{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--ink)}
+.cont-reg{display:inline-block;font:700 16px/1.2 "IBM Plex Mono",monospace;background:var(--ok-soft,#E1F2E7);color:var(--ok,#2F7D4F);border-radius:8px;padding:4px 10px}
+.cont-reg.quase{background:var(--amber-soft);color:var(--amber)} .cont-reg.estourou{background:var(--bad-soft,#FBE3E3);color:var(--bad)}
 .pvd{font-size:1.2em;font-weight:800;color:var(--ink);letter-spacing:.01em;white-space:nowrap}
 .shell-item{display:flex;align-items:flex-start;gap:22px} .side-rg[hidden]{display:none!important}
 .side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
@@ -1775,7 +1779,7 @@ function desenharAoVivo(c, d, silencioso) {
       ${kpi("Retornos informados", int(k.retornos), `${int(k.pecas_a_receber)} peça(s) ainda a receber no CD`, "k-roxo")}
       ${kpi("Liberações sem palavra", int(k.liberacoes), "motorista esperando o PCL", k.liberacoes ? "kpi-destaque" : "k-cinza")}</div>
     ${chats.length ? `<div class="box" style="border-color:var(--amber)"><b>💬 Chat com motorista (${chats.length} aberto(s))</b>${chats.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <span><span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">${esc(p.chat.motivo)}${p.chat.nao_lidas ? ` · ${p.chat.nao_lidas} nova(s)` : ""}</span> <b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
+        <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
         <button type="button" class="primary peq" data-chat="${esc(g.numero)}|${esc(p.pv)}">Abrir chat</button></div>`).join("")}</div>` : ""}
     ${libs.length ? `<div class="box" style="border-color:var(--bad)"><b>Motorista esperando liberação</b>${libs.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule-2)">
         <span><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">${esc(p.liberacao.motivo || "")} · pediu às ${esc(hora(p.liberacao.pedido_em))} · ${p.tentativas} tentativa(s) erradas · palavra certa: <b>${esc(p.palavra || "—")}</b></span></span>
@@ -1854,7 +1858,14 @@ function chatsDaCarga(g) {   // as conversas ficam gravadas na carga, por client
       <div class="chat-l" style="margin-top:6px">${msgsChat(a)}</div></div>`).join("")}</div>`; }).join("");
   return blocos ? `<h3>Conversas com o motorista</h3>${blocos}` : "";
 }
-const msgsChat = a => (a.msgs || []).map(m => m.de === "sistema" ? `<div class="chat-s">${esc(m.txt)} · ${horaBR(m.em)}</div>`
+// contagem regressiva do atendimento: o servidor manda os segundos que faltam; a tela conta sozinha a cada 1 s
+const relogio = seg => seg == null ? "" : `<span class="cont-reg" data-ate="${Date.now() + seg * 1000}">${fmtCont(seg)}</span>`;
+function fmtCont(seg) { const n = Math.abs(Math.round(seg)), t = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; return seg >= 0 ? `⏱ ${t}` : `⏱ esgotado há ${t}`; }
+setInterval(() => document.querySelectorAll("[data-ate]").forEach(el => { const seg = (+el.dataset.ate - Date.now()) / 1000;
+  el.textContent = fmtCont(seg); el.classList.toggle("estourou", seg < 0); el.classList.toggle("quase", seg >= 0 && seg < 180); }), 1000);
+const msgsChat = a => (a.msgs || []).map(m => m.de === "sistema" ? (/ abriu o chat: /.test(m.txt)
+    ? `<div class="chat-abriu">${esc(m.txt.split(" abriu o chat: ")[0])} abriu o chat · ${horaBR(m.em)}<b>${esc(m.txt.split(" abriu o chat: ")[1])}</b></div>`
+    : `<div class="chat-s">${esc(m.txt)} · ${horaBR(m.em)}</div>`)
   : `<div class="chat-m ${m.de === "frota" ? "fr" : ""}"><small>${m.de === "frota" ? "Frota · " : "🚚 "}${esc(m.nome)} · ${horaBR(m.em)}</small>${esc(m.txt)}</div>`).join("");
 let CLI_TIMER = null;
 async function abrirCliente(num, pv) {
@@ -1881,7 +1892,7 @@ async function abrirCliente(num, pv) {
     <div class="acts"><button type="button" id="cliF">Fechar</button></div>`, (el, fechar) => {
     const pinta = dd => {
       const a = dd.chat.atual, ant = (dd.chat.atendimentos || []).filter(x => !a || x.id !== a.id);
-      $("#cliSt", el).innerHTML = a ? `<span class="pill p-warn">Aberto · ${esc(a.motivo)}</span>` : '<span class="pill p-cinza">Sem chat aberto</span>';
+      $("#cliSt", el).innerHTML = a ? `<span class="motivo-gde">${esc(a.motivo)}</span> ${relogio(a.restante_seg)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
       const txt = ($("#cliTxt", el) || {}).value || "";
       $("#cliChat", el).innerHTML = (a ? `<div class="chat-l" id="cliL">${msgsChat(a)}</div>
           ${dd.pode_tratar ? `<div style="display:flex;gap:8px;margin-top:8px"><input id="cliTxt" maxlength="500" placeholder="Responder o motorista" value="${esc(txt)}" style="flex:1"><button type="button" class="primary" id="cliEnv">Enviar</button></div>
@@ -1941,8 +1952,9 @@ async function rMotoristas(c) {
   const d = await api(`${API_RUA}/motoristas`);
   const ed = d.pode_editar, url = location.origin + d.app_url;
   const ACESSO = { sem: ["Ainda não entrou", "p-cinza"], inicial: ["Senha inicial — troca no 1º acesso", "p-warn"], propria: ["Senha própria", "p-ok"] };
-  c.innerHTML = sec("Motoristas e app", "Quem dirige cada placa, a palavra da entrega por motorista e a senha de cada placa no app.", "",
-    `<div class="box"><b>App do motorista</b>
+  const v = VIS.mot || "motoristas";
+  const tabs = abasInternas([["motoristas", "Motoristas", null], ["motivos", "Motivos do chat com a frota", null], ["prazo", "Prazo do atendimento", null]], v, "data-v");
+  const corpoMot = `<div class="box"><b>App do motorista</b>
       <p class="cap" style="margin:6px 0">Endereço para abrir no celular: <b class="mono" id="mUrl">${esc(url)}</b> <button type="button" class="peq" id="mCopia">Copiar</button></p>
       <p class="cap" style="margin:0">No Chrome do Android, o próprio app oferece <b>Instalar</b> e vira ícone na tela. Login: <b>placa</b> + senha inicial padrão; o app obriga a trocar no primeiro acesso.
       A carga só aparece para o motorista depois de <b>validada</b> (montagem, doca ou importada direto na fase 1). O GPS só funciona com o app aberto.</p></div>
@@ -1954,7 +1966,7 @@ async function rMotoristas(c) {
         <td><input value="${esc((m.placas || []).join(", "))}" data-k="placas" class="mono" ${ed ? "" : "disabled"} style="min-width:150px"></td>
         <td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-k="palavra" ${m.palavra ? "checked" : ""} ${ed ? "" : "disabled"} style="width:20px;height:20px"> ${m.palavra ? "<b>Ligada</b>" : "Desligada"}</label></td>
         <td><input type="checkbox" data-k="ativo" ${m.ativo !== false ? "checked" : ""} ${ed ? "" : "disabled"} style="width:20px;height:20px"></td>
-        <td>${ed ? `<button type="button" class="primary peq" data-salva="${esc(m.id)}">Salvar</button>` : ""}</td></tr>`).join("") ||
+        <td style="white-space:nowrap">${ed ? `<button type="button" class="primary peq" data-salva="${esc(m.id)}">Salvar</button>` : ""}${pode("motoristas", 4) ? ` <button type="button" class="peq warn" data-excl="${esc(m.id)}" data-nome="${esc(m.nome)}" title="Excluir: só volta se a placa aparecer de novo num PDF">Excluir</button>` : ""}</td></tr>`).join("") ||
         '<tr><td colspan="5" class="muted" style="text-align:center;padding:16px">Nenhum motorista ainda. Os nomes de Cadastros → placa entram aqui sozinhos.</td></tr>'}</tbody></table></div>
     ${ed ? `<div class="q-form" style="align-items:end"><label class="f">Novo motorista<input id="nmNome" placeholder="Nome completo"></label><label class="f">Placas<input id="nmPl" class="mono" placeholder="ABC1D23, XYZ9K87"></label>
       <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="nmPal" style="width:20px;height:20px"> Palavra ligada</label><button type="button" class="primary" id="nmOk">Cadastrar</button></div>` : ""}
@@ -1966,14 +1978,25 @@ async function rMotoristas(c) {
         <td>${ed && p.acesso !== "sem" ? `<button type="button" class="peq warn" data-reset="${esc(p.placa)}">Resetar senha</button>` : ""}</td></tr>`).join("")}</tbody></table></div>
     <p class="cap">Resetar volta a placa para a senha inicial (troca obrigatória) e derruba o celular que estiver logado. Também tira o bloqueio por tentativas.</p>
     ${ed ? `<div class="q-form" style="align-items:end;max-width:420px"><label class="f">Tentativas da palavra antes de travar<select id="cfgT">${[3, 4, 5, 6, 8, 10].map(n => `<option ${n === d.cfg.tentativas ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>` : ""}
-    <div class="box" style="max-width:520px"><b>💬 Motivos do chat com a frota</b><span class="sub">O motorista escolhe um destes ao abrir o chat de um cliente. Um por linha (até 20).</span>
+`;
+  const corpoMotivos = `    <div class="box" style="max-width:520px"><b>💬 Motivos do chat com a frota</b><span class="sub">O motorista escolhe um destes ao abrir o chat de um cliente. Um por linha (até 20).</span>
       <textarea id="cfgMot" rows="5" ${ed ? "" : "disabled"} style="margin-top:8px">${esc((d.cfg.motivos_chat || ["Ausente", "Avaria", "Escadas"]).join("\n"))}</textarea>
-      ${ed ? '<div class="acoes"><button type="button" class="primary" id="cfgMotS">Gravar motivos</button></div>' : ""}</div>`);
-  $("#mCopia", c).onclick = () => { navigator.clipboard.writeText(url).then(() => toast("Endereço copiado.")).catch(() => toast("Copie o endereço à mão.", true)); };
+      ${ed ? '<div class="acoes"><button type="button" class="primary" id="cfgMotS">Gravar motivos</button></div>' : ""}</div>`;
+  const corpoPrazo = `<div class="box" style="max-width:520px"><b>⏱ Prazo do atendimento</b><span class="sub">Quando o motorista escolhe o motivo do chat, começa uma contagem regressiva no app e no Ao vivo. Passou do prazo, fica em vermelho.</span>
+      <div class="q-form" style="align-items:end;margin-top:8px"><label class="f">Minutos<input type="number" id="cfgMin" min="1" max="120" value="${int(d.cfg.chat_minutos || 15)}" ${ed ? "" : "disabled"}></label>
+      ${ed ? '<button type="button" class="primary" id="cfgMinS">Gravar prazo</button>' : ""}</div><p class="cap">Vale para os próximos chats abertos.</p></div>`;
+  c.innerHTML = sec("Motoristas e app", "Quem dirige cada placa, a palavra da entrega, a senha de cada placa e o chat com a frota.", "",
+    tabs + (v === "motivos" ? corpoMotivos : v === "prazo" ? corpoPrazo : corpoMot));
+  c.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { VIS.mot = b.dataset.v; rMotoristas(c); });
+  const cms = $("#cfgMinS", c); if (cms) cms.onclick = async () => { try { const r = await put(`${API_RUA}/cfg`, { chat_minutos: +$("#cfgMin", c).value }); $("#cfgMin", c).value = r.chat_minutos; toast(`Prazo do atendimento: ${r.chat_minutos} min.`); } catch (e) { toast(e.message, true); } };
+  const mc = $("#mCopia", c); if (mc) mc.onclick = () => { navigator.clipboard.writeText(url).then(() => toast("Endereço copiado.")).catch(() => toast("Copie o endereço à mão.", true)); };
   c.querySelectorAll("[data-salva]").forEach(b => b.onclick = async () => {
     const tr = b.closest("tr"), v = k => tr.querySelector(`[data-k="${k}"]`);
     try { await put(`${API_RUA}/motoristas/${b.dataset.salva}`, { nome: v("nome").value, placas: v("placas").value.split(/[,;\s]+/).filter(Boolean), palavra: v("palavra").checked, ativo: v("ativo").checked });
       toast("Motorista salvo."); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-excl]").forEach(b => b.onclick = async () => {
+    if (!confirm(`Excluir o motorista ${b.dataset.nome}? O celular dele sai do app. Ele só volta se a placa aparecer de novo num PDF importado.`)) return;
+    try { const r = await api(`${API_RUA}/motoristas/${b.dataset.excl}`, { method: "DELETE" }); toast(`${r.excluido} excluído.`); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } });
   const nm = $("#nmOk", c); if (nm) nm.onclick = async () => {
     try { await post(`${API_RUA}/motoristas`, { nome: $("#nmNome", c).value, placas: $("#nmPl", c).value.split(/[,;\s]+/).filter(Boolean), palavra: $("#nmPal", c).checked });
       toast("Motorista cadastrado."); rMotoristas($("#root")); } catch (e) { toast(e.message, true); } };
