@@ -249,6 +249,24 @@ def teste_retorno_do_app():
     r = t.put("/api/qualidade/rua/cargas/070201/liberacao/810002", json={"acao": "liberar"})
     ok(r.status_code == 200 and r.json()["liberacao"]["status"] == "liberada", "PCL libera sem palavra ANTES do motorista pedir")
 
+    print("Retorno: ENTREGUE no app mas voltou → pendência no PCL")
+    ok(mot.post("/api/motorista/cargas/070201/pedido/810002", json={"desfecho": "entregue", "cid": "e1"}).json()["resultado"] == "ok", "motorista deu ENTREGUE")
+    ok(mot.post("/api/motorista/cargas/070201/chegada", json={}).status_code == 200, "motorista avisou que chegou no CD")
+    como("cd@ks", {"retorno": 2})
+    lst = t.get("/api/qualidade/cargas").json()
+    x = next(c for c in lst if c["numero"] == "070201")
+    ok(x["rua"]["chegada"] and x["rua"]["app_pendentes"] == 0, "lista do Retorno sabe que a carga chegou no CD (destaque)")
+    r = t.post("/api/qualidade/cargas/070201/retorno/lote", json={"pv": "810002", "linhas": [{"i": 0, "qtd": 1}], "motivo": "Avaria", "estado": "avariada",
+                                                                  "avaria": "Rasgado", "destino": "AS — assistência (recuperar)"})
+    ok(r.status_code == 200, "CD edita o pedido entregue e registra que voltou")
+    pend = [a for a in Q.carga("070201")["pendencias"] if a["origem"] == "retorno"]
+    ok(len(pend) == 1 and pend[0]["tipo"] == "entregue_voltou" and pend[0]["status"] == "aberta", "vira pendência no PCL (corrigir a baixa no ERP)")
+    ok(t.post("/api/qualidade/cargas/070201/retorno/concluir", json={}).json()["resultado"] == "ok", "retorno concluído e enviado ao PCL")
+    como("pcl@ks", {"pcl": 3})
+    ok(any(a["origem"] == "retorno" for a in t.get("/api/qualidade/pendencias").json()), "PCL vê a pendência nos Ajustes")
+    r = t.put(f"/api/qualidade/cargas/070201/pendencias/{pend[0]['id']}", json={"acao": "resolver", "nota": "baixa estornada no ERP"})
+    ok(r.status_code == 200 and r.json()["pendencia"]["status"] == "resolvido", "PCL resolve depois de corrigir o ERP")
+
 
 def teste_app_pqi():
     print("App do PQI (arquivos)")

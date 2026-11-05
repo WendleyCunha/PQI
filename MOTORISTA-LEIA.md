@@ -157,3 +157,12 @@ Testes: `python testes_qualidade.py`
     fechar — até quem está na etapa tocar **✓ Ajuste feito no palete**. PDF novo da carga supera ajustes pendentes.
 
 Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
+
+# v5.8 — ABA RETORNO MAIS SIMPLES
+
+- Lista: **🏁 Chegaram no CD** em destaque no topo (o motorista tocou "Cheguei no CD"), com quantas peças do app
+  faltam receber. Embaixo, as outras cargas pendentes de retorno (coluna "No app": Na rua / Não saiu).
+- Na carga: só aparece ação no que **voltou** (📱 peças do motorista → **Recebida no CD**). Pedido entregue fica limpo,
+  com **✎ Editar**: aí aparecem "Não entregue — pedido todo", "Entrega parcial" e "Voltou 1".
+- Editar um pedido que o motorista deu **ENTREGUE** e registrar que voltou vira **pendência no PCL**
+  ("ENTREGUE NO APP, MAS VOLTOU") para corrigir a baixa no ERP. O PCL resolve em PCL → Ajustes.
