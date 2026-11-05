@@ -311,6 +311,61 @@ def teste_placas():
     ok(pq.put("/api/qualidade/cargas/068600/placa", json={"placa": "FIB3J44"}).status_code == 409, "depois da chegada não troca mais a placa")
 
 
+def teste_chat():
+    """[v5.5] Chat motorista ↔ frota por cliente: motivo na 1ª vez, Voltar não encerra, frota responde e encerra; fica gravado."""
+    print("Chat motorista ↔ frota (Ao vivo)")
+    ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064501", "ABC1D23", [("739812", "Ana Rocha", 1), ("739835", "Carlos Dias", 2)])
+    app = montar()
+    mot, pq = TestClient(app), TestClient(app)
+    entrar(mot, "ABC1D23", "João Ferreira")
+    base = "/api/motorista/cargas/064501/pedido/739812/chat"
+    r = mot.get(base).json()
+    ok(r["atual"] is None and r["motivos"] == ["Ausente", "Avaria", "Escadas"], "sem chat aberto: o app mostra os 3 motivos padrão")
+    ok(mot.post(base, json={"texto": "oi"}).status_code == 400, "não abre sem escolher o motivo")
+    ok(mot.post(base, json={"motivo": "Inventado"}).status_code == 400, "motivo fora da lista recusado")
+    r = mot.post(base, json={"motivo": "Ausente"}).json()
+    ok(r["atual"]["motivo"] == "Ausente", "motorista escolhe Ausente e abre o atendimento")
+    mot.post(base, json={"texto": "Cliente não atende o interfone"})
+    r = mot.get(base).json()
+    ok(r["atual"]["motivo"] == "Ausente" and r["atual"]["msgs"][-1]["txt"] == "Cliente não atende o interfone", "Voltar e entrar de novo: continua o mesmo chat, sem pedir motivo")
+
+    USUARIO["abas"] = {"aovivo": 2}
+    av = pq.get("/api/qualidade/rua/ao-vivo").json()
+    ped = next(p for p in av["cargas"][0]["pedidos"] if p["pv"] == "739812")
+    ok(ped["chat"]["aberto"] and ped["chat"]["nao_lidas"] == 1 and av["kpi"]["chats_abertos"] == 1, "Ao vivo mostra o chat aberto e 1 mensagem nova")
+    cli = pq.get("/api/qualidade/rua/cargas/064501/pedido/739812").json()
+    ok(cli["nome"] == "Ana Rocha" and cli["endereco"] == "Rua A, 1" and cli["itens"][0]["desc"] == "CMP TESTE 138", "frota vê o cliente completo (endereço e peças)")
+    ok(cli["palavra"] and cli["palavra"] == BANCO[Q.COL_CARGAS]["064501"]["rua"]["palavras"]["739812"], "frota vê a palavra-chave do cliente")
+    ok(cli["chat"]["atual"]["msgs"][-1]["de"] == "motorista", "frota vê a conversa")
+    ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["nao_lidas"] == 0, "abrir o cliente marca como lido")
+    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat", json={"texto": "Aguarde 10 min e tente de novo"}).status_code == 200, "frota responde")
+    cs = mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"]
+    ok(next(p for p in cs if p["pv"] == "739812")["chat"]["nao_lidas"] == 1, "app mostra 1 resposta nova da frota")
+    ok(mot.get(base).json()["atual"]["msgs"][-1]["de"] == "frota", "motorista lê a resposta")
+    ok(mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"][0]["chat"]["nao_lidas"] == 0, "lida pelo motorista")
+    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739835/chat", json={"texto": "x"}).status_code == 409, "frota não escreve em cliente sem chat aberto")
+    USUARIO["abas"] = {"aovivo": 1}
+    ok(pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat", json={"texto": "x"}).status_code == 403, "só Visualizar no Ao vivo não responde")
+    USUARIO["abas"] = {"aovivo": 2}
+    r = pq.post("/api/qualidade/rua/cargas/064501/pedido/739812/chat/encerrar", json={"texto": "reagendado"}).json()
+    ok(r["atual"] is None and r["atendimentos"][0]["fechado_por"], "frota encerra o atendimento")
+    ok(mot.get(base).json()["atual"] is None, "depois de encerrado, o app pede o motivo de novo")
+    c = BANCO[Q.COL_CARGAS]["064501"]
+    at = c["rua"]["chats"]["739812"]["atendimentos"][0]
+    ok(len(at["msgs"]) == 4 and any(h["acao"] == "chat com a frota aberto" for h in c["historico"]), "conversa inteira gravada na carga (cliente) e no histórico")
+
+    USUARIO["abas"] = {"motoristas": 3}
+    ok(pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": []}).status_code == 400, "não deixa a lista de motivos vazia")
+    r = pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": ["Ausente", "Avaria", "Escadas", "Endereço não encontrado", "ausente"]}).json()
+    ok(r["motivos_chat"] == ["Ausente", "Avaria", "Escadas", "Endereço não encontrado"] and r["tentativas"] == 5, "PQI adiciona motivo (sem repetir) e mantém as tentativas")
+    ok("Endereço não encontrado" in mot.get(base).json()["motivos"], "app passa a mostrar o motivo novo")
+    r = pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": ["Ausente", "Escadas"]}).json()
+    ok(r["motivos_chat"] == ["Ausente", "Escadas"], "PQI remove motivos")
+    ok(mot.post(base, json={"motivo": "Avaria"}).status_code == 400, "motivo removido não abre mais chat")
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
@@ -330,5 +385,6 @@ def teste_paginas():
 if __name__ == "__main__":
     teste_fluxo()
     teste_placas()
+    teste_chat()
     teste_paginas()
     print(f"\n{OK} verificações ok.")

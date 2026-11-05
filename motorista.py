@@ -55,6 +55,8 @@ SENHA_INICIAL = os.environ.get("MOTORISTA_SENHA_INICIAL") or "King@2026"
 COOKIE = "pqi_motorista"
 DURACAO_SESSAO = 14 * 86400          # o celular fica logado 14 dias (reset da senha derruba antes)
 DOC_APP = "app_motorista"
+MOTIVOS_CHAT = ("Ausente", "Avaria", "Escadas")   # [v5.5] padrão; o PQI muda em Motoristas e app
+CHAT_MAX_MSGS = 300
 COL_FOTOS = "qld_fotos"
 STATUS_RUA = ("validada", "em_retorno")   # cargas que o motorista vê e pode baixar
 DIAS_APP = 4                               # o app mostra cargas com Mapa de até 4 dias atrás
@@ -113,7 +115,7 @@ def app_cfg() -> dict:
     if APP["dados"] is None:
         d = _fs_get(qld.COL_CAD, DOC_APP) or {}
         APP["dados"] = {"placas": d.get("placas") or {}, "motoristas": d.get("motoristas") or {},
-                        "cfg": {"tentativas": 5, **(d.get("cfg") or {})}}
+                        "cfg": {"tentativas": 5, "motivos_chat": list(MOTIVOS_CHAT), **(d.get("cfg") or {})}}
         if _padronizar(APP["dados"]):
             app_salvar()
     return APP["dados"]
@@ -430,7 +432,8 @@ def _pedido_app(c: dict, p: dict, mid: str) -> dict:
             "desfecho": ev.get("desfecho") or "", "motivo": ev.get("motivo") or "", "em": ev.get("em") or "", "por": ev.get("por") or "",
             "palavra_conferida": bool(ev.get("palavra_ok")), "liberacao": lib.get("status") or "",
             "tentativas": tent, "pode_desfazer": bool(ev.get("desfecho")) and ev.get("mid") == mid and _min_desde(ev.get("em")) <= DESFAZER_MIN
-                                                and not ev.get("baixa_erp")}
+                                                and not ev.get("baixa_erp"),
+            "chat": _chat_resumo(c, p, "motorista")}
 
 
 def carga_app(c: dict, mid: str) -> dict:
@@ -440,7 +443,7 @@ def carga_app(c: dict, mid: str) -> dict:
             "saida": r.get("saida"), "chegada": r.get("chegada"), "pedidos": peds,
             "feitos": sum(1 for p in peds if p["desfecho"]), "total": len(peds),
             "palavra_ligada": palavra_ligada(mid), "tentativas_max": int(app_cfg()["cfg"].get("tentativas") or 5),
-            "motivos": qld.listas().get("motivos_retorno") or []}
+            "motivos": qld.listas().get("motivos_retorno") or [], "motivos_chat": motivos_chat()}
 
 
 @api.get("/cargas")
@@ -695,7 +698,7 @@ def _ev_pub(c: dict, p: dict, com_palavra: bool) -> dict:
            "por": ev.get("por") or "", "foto": ev.get("foto") or "", "lat": ev.get("lat"), "lng": ev.get("lng"),
            "linhas": ev.get("linhas") or [], "palavra_ok": ev.get("palavra_ok"), "tentativas": int(ev.get("tentativas") or 0),
            "liberacao": ev.get("liberacao"), "baixa_erp": ev.get("baixa_erp"), "corrigidos": len(ev.get("corrigidos") or []),
-           "retorno_esperado": esperado, "retorno_recebido": len(cd)}
+           "retorno_esperado": esperado, "retorno_recebido": len(cd), "chat": _chat_resumo(c, p, "frota")}
     if com_palavra:
         out["palavra"] = r["palavras"].get(k, "")
     return out
@@ -722,7 +725,8 @@ def _carga_viva(c: dict, com_palavra: bool) -> dict:
                      "pendente": sum(1 for p in peds if not p["desfecho"]),
                      "sem_baixa_erp": sum(1 for p in peds if p["desfecho"] in ("entregue", "parcial") and not p["baixa_erp"]),
                      "liberacoes": sum(1 for p in peds if (p["liberacao"] or {}).get("status") == "pendente"),
-                     "pecas_esperadas": sum(p["retorno_esperado"] for p in peds), "pecas_recebidas": sum(p["retorno_recebido"] for p in peds)}}
+                     "pecas_esperadas": sum(p["retorno_esperado"] for p in peds), "pecas_recebidas": sum(p["retorno_recebido"] for p in peds),
+                     "chats_abertos": sum(1 for p in peds if p["chat"]["aberto"]), "chats_nao_lidos": sum(p["chat"]["nao_lidas"] for p in peds)}}
 
 
 @painel_api.get("/ao-vivo")
@@ -750,8 +754,174 @@ def rota_ao_vivo(request: Request, data: str = ""):
             "kpi": {"na_rua": sum(1 for x in lista if x["fase"] == "rua"), "aguardando_saida": sum(1 for x in lista if x["fase"] == "aguardando"),
                     "chegaram": sum(1 for x in lista if x["fase"] == "chegou"), "entregues": soma("entregue"), "retornos": soma("retorno") + soma("parcial"),
                     "pendentes": soma("pendente"), "sem_baixa_erp": soma("sem_baixa_erp"), "liberacoes": soma("liberacoes"),
-                    "pecas_a_receber": max(0, soma("pecas_esperadas") - soma("pecas_recebidas"))},
+                    "pecas_a_receber": max(0, soma("pecas_esperadas") - soma("pecas_recebidas")),
+                    "chats_abertos": soma("chats_abertos"), "chats_nao_lidos": soma("chats_nao_lidos")},
             "cargas": lista}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [v5.5] CHAT motorista ↔ frota (Ao vivo), por cliente da carga. Fica gravado na carga.
+#   rua.chats[pv] = {"atual": id|None, "atendimentos": [{id, motivo, aberto_em, mid, nome,
+#                    msgs:[{de: motorista|frota|sistema, nome, txt, em}], lido_frota, lido_motorista,
+#                    fechado_em, fechado_por}]}
+# ══════════════════════════════════════════════════════════════════════════
+def motivos_chat() -> list:
+    return list(app_cfg()["cfg"].get("motivos_chat") or MOTIVOS_CHAT)
+
+
+def _chats(c: dict, p: dict) -> dict:
+    r = rua(c)
+    return r.setdefault("chats", {}).setdefault(chave_pv(p.get("pv")), {"atual": None, "atendimentos": []})
+
+
+def _chat_atual(ch: dict) -> Optional[dict]:
+    return next((a for a in ch["atendimentos"] if a["id"] == ch.get("atual")), None) if ch.get("atual") else None
+
+
+def _chat_resumo(c: dict, p: dict, lado: str) -> dict:
+    ch = ((c.get("rua") or {}).get("chats") or {}).get(chave_pv(p.get("pv"))) or {"atual": None, "atendimentos": []}
+    a = _chat_atual(ch)
+    if not a:
+        return {"aberto": False, "motivo": "", "nao_lidas": 0, "ult_em": "", "atendimentos": len(ch.get("atendimentos") or [])}
+    outro = "motorista" if lado == "frota" else "frota"
+    lidas = int(a.get(f"lido_{lado}") or 0)
+    return {"aberto": True, "motivo": a.get("motivo"), "ult_em": (a["msgs"][-1]["em"] if a["msgs"] else a.get("aberto_em")),
+            "nao_lidas": sum(1 for m in a["msgs"][lidas:] if m.get("de") == outro), "atendimentos": len(ch["atendimentos"])}
+
+
+def _chat_pub(ch: dict, lado: str) -> dict:
+    a = _chat_atual(ch)
+    if a:
+        a[f"lido_{lado}"] = len(a["msgs"])
+    return {"atual": a, "atendimentos": ch["atendimentos"]}
+
+
+def _msg(a: dict, de: str, nome: str, txt: str) -> None:
+    a["msgs"].append({"de": de, "nome": nome, "txt": txt[:500], "em": agora()})
+    a["msgs"] = a["msgs"][-CHAT_MAX_MSGS:]
+
+
+def _carga_chat_motorista(s: dict, numero: str) -> dict:
+    c = qld.carga(numero)
+    if norm_placa(c.get("placa")) != s["placa"]:
+        raise HTTPException(404, "Esta carga não é da sua placa.")
+    if c.get("status") not in STATUS_RUA:
+        raise HTTPException(409, "Esta carga não está mais com você.")
+    return c
+
+
+class ChatIn(BaseModel):
+    motivo: Optional[str] = ""
+    texto: Optional[str] = ""
+
+
+@api.get("/cargas/{numero}/pedido/{pv}/chat")
+def rota_chat_app(numero: str, pv: str, request: Request):
+    s = sessao(request)
+    with TRAVA:
+        c = _carga_chat_motorista(s, numero)
+        ch = _chats(c, _ped_da_carga(c, pv))
+        a = _chat_atual(ch)
+        mudou = bool(a and a.get("lido_motorista") != len(a["msgs"]))
+        out = {"atual": _chat_pub(ch, "motorista")["atual"], "motivos": motivos_chat()}
+        if mudou:
+            qld.gravar(c)
+        return out
+
+
+@api.post("/cargas/{numero}/pedido/{pv}/chat")
+def rota_chat_app_enviar(numero: str, pv: str, payload: ChatIn, request: Request):
+    """1ª vez: escolhe o motivo e abre o atendimento com a frota. Depois: manda mensagem."""
+    s = sessao(request)
+    txt = str(payload.texto or "").strip()
+    with TRAVA:
+        c = _carga_chat_motorista(s, numero)
+        p = _ped_da_carga(c, pv)
+        ch = _chats(c, p)
+        a = _chat_atual(ch)
+        if not a:
+            motivo = str(payload.motivo or "").strip()
+            if motivo not in motivos_chat():
+                raise HTTPException(400, "Escolha o motivo para falar com a frota.")
+            a = {"id": uuid.uuid4().hex[:8], "motivo": motivo, "aberto_em": agora(), "mid": s["mid"], "nome": s["nome"], "placa": s["placa"],
+                 "msgs": [], "lido_frota": 0, "lido_motorista": 0, "fechado_em": None, "fechado_por": None}
+            _msg(a, "sistema", "", f"{s['nome']} abriu o chat: {motivo}")
+            ch["atendimentos"].append(a)
+            ch["atual"] = a["id"]
+            _hist(c, s, "chat com a frota aberto", f"PV {p.get('pv')} · {p.get('nome')} · {motivo}")
+        if txt:
+            _msg(a, "motorista", s["nome"], txt)
+        a["lido_motorista"] = len(a["msgs"])
+        qld.gravar(c)
+        return {"atual": a, "motivos": motivos_chat()}
+
+
+def _dados_cliente(c: dict, p: dict) -> dict:
+    """Tudo do cliente para a frota: endereço, nota, peças, retirada, observações do Mapa e o que aconteceu na rua."""
+    r = rua(c)
+    k = chave_pv(p.get("pv"))
+    return {"carga": c["numero"], "placa": c.get("placa"), "motorista": ((r.get("saida") or {}).get("nome") or c.get("motorista") or ""),
+            "transportadora": c.get("transportadora"), "palavra": r["palavras"].get(k, ""),
+            **{x: p.get(x) for x in ("seq", "tipo", "pv", "nf", "serie", "cliente", "nome", "endereco", "compl", "bairro", "cidade", "cep",
+                                     "despesas", "troca", "pv_retira", "nf_troca", "protocolo", "obs")},
+            "itens": [{"desc": it.get("desc"), "sku": it.get("sku"), "qtd": int(it.get("qtd") or 0)} for it in p.get("entregar") or []],
+            "retirar": [{"desc": it.get("desc"), "qtd": int(it.get("qtd") or 0)} for it in p.get("col2") or []],
+            "evento": _ev_pub(c, p, True)}
+
+
+@painel_api.get("/cargas/{numero}/pedido/{pv}")
+def rota_cliente(numero: str, pv: str, request: Request):
+    """Ao vivo: o cliente completo + o chat com o motorista (abrir marca as mensagens como lidas pela frota)."""
+    qld.exigir(request, ["aovivo", "pcl"], 1, "Ver o cliente")
+    with TRAVA:
+        c = qld.carga(numero)
+        p = _ped_da_carga(c, pv)
+        ch = _chats(c, p)
+        a = _chat_atual(ch)
+        mudou = bool(a and a.get("lido_frota") != len(a["msgs"]))
+        out = {**_dados_cliente(c, p), "chat": _chat_pub(ch, "frota"), "pode_tratar": qld.nivel(request, "aovivo") >= 2 or qld.nivel(request, "pcl") >= 2}
+        if mudou:
+            qld.gravar(c)
+        return out
+
+
+@painel_api.post("/cargas/{numero}/pedido/{pv}/chat")
+def rota_chat_frota(numero: str, pv: str, payload: ChatIn, request: Request):
+    qld.exigir(request, ["aovivo", "pcl"], 2, "Responder o motorista")
+    q = qld.quem(request)
+    txt = str(payload.texto or "").strip()
+    if not txt:
+        raise HTTPException(400, "Mensagem vazia.")
+    with TRAVA:
+        c = qld.carga(numero)
+        ch = _chats(c, _ped_da_carga(c, pv))
+        a = _chat_atual(ch)
+        if not a:
+            raise HTTPException(409, "O motorista não tem chat aberto para este cliente.")
+        _msg(a, "frota", q["por"], txt)
+        a["lido_frota"] = len(a["msgs"])
+        qld.gravar(c)
+        return _chat_pub(ch, "frota")
+
+
+@painel_api.post("/cargas/{numero}/pedido/{pv}/chat/encerrar")
+def rota_chat_encerrar(numero: str, pv: str, payload: ChatIn, request: Request):
+    qld.exigir(request, ["aovivo", "pcl"], 2, "Encerrar o atendimento")
+    q = qld.quem(request)
+    with TRAVA:
+        c = qld.carga(numero)
+        p = _ped_da_carga(c, pv)
+        ch = _chats(c, p)
+        a = _chat_atual(ch)
+        if not a:
+            raise HTTPException(409, "Não há atendimento aberto.")
+        nota = str(payload.texto or "").strip()
+        _msg(a, "sistema", "", f"{q['por']} encerrou o atendimento" + (f": {nota}" if nota else "."))
+        a.update(fechado_em=agora(), fechado_por=q["por"], lido_frota=len(a["msgs"]))
+        ch["atual"] = None
+        qld.hist(c, q, "chat com o motorista encerrado", f"PV {p.get('pv')} · {p.get('nome')} · {a.get('motivo')} · {len(a['msgs'])} mensagem(ns)")
+        qld.gravar(c)
+        return _chat_pub(ch, "frota")
 
 
 class Decisao(BaseModel):
@@ -957,15 +1127,28 @@ def rota_resetar(placa: str, request: Request):
 
 
 class CfgIn(BaseModel):
-    tentativas: int
+    tentativas: Optional[int] = None
+    motivos_chat: Optional[list] = None
 
 
 @painel_api.put("/cfg")
 def rota_cfg(payload: CfgIn, request: Request):
     qld.exigir(request, "motoristas", 3, "Mudar a configuração do app")
-    if not 3 <= payload.tentativas <= 10:
+    if payload.tentativas is not None and not 3 <= payload.tentativas <= 10:
         raise HTTPException(400, "Tentativas entre 3 e 10.")
+    mot = None
+    if payload.motivos_chat is not None:
+        mot = []
+        for m in payload.motivos_chat:
+            m = str(m or "").strip()[:60]
+            if m and m.lower() not in [x.lower() for x in mot]:
+                mot.append(m)
+        if not mot:
+            raise HTTPException(400, "Deixe pelo menos um motivo para o chat.")
     with TRAVA:
-        app_cfg()["cfg"]["tentativas"] = int(payload.tentativas)
+        if payload.tentativas is not None:
+            app_cfg()["cfg"]["tentativas"] = int(payload.tentativas)
+        if mot is not None:
+            app_cfg()["cfg"]["motivos_chat"] = mot[:20]
         app_salvar()
         return app_cfg()["cfg"]
