@@ -50,6 +50,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .warnb{background:var(--amber);color:#1B2436;border-color:var(--amber)}
 .ghost{background:transparent;border-color:transparent;color:var(--steel);padding:8px 4px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.motivo-gde{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.cont-reg{font:700 18px/1.2 "IBM Plex Mono",monospace;background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:6px 12px}
+.cont-reg.quase{background:var(--amber-soft);color:var(--amber)} .cont-reg.estourou{background:var(--bad-soft);color:var(--bad)}
 .msg-ch{background:var(--rule-2);border-radius:12px 12px 12px 4px;padding:8px 10px;max-width:85%;justify-self:start;white-space:pre-wrap;word-break:break-word}
 .msg-ch.eu{background:var(--steel-soft);border-radius:12px 12px 4px 12px;justify-self:end}
 .msg-ch small{display:block;font-size:11px;color:var(--ink-3);margin-bottom:2px}
@@ -215,14 +218,11 @@ function telaQuem() {
   const ms = S.me.motoristas || [];
   $("#app").innerHTML = `<div class="card"><h1 style="font-size:24px">Quem está dirigindo hoje?</h1>
       <p class="cap">Cada baixa fica registrada no seu nome.</p>
-      ${ms.map(m => `<button type="button" class="big" data-m="${esc(m.id)}" style="text-align:left">${esc(m.nome)}</button>`).join("") || '<p class="cap">Nenhum motorista cadastrado nesta placa ainda.</p>'}
-      <details ${ms.length ? "" : "open"}><summary style="cursor:pointer;font-weight:600;color:var(--steel)">Não estou na lista</summary>
-        <div style="display:grid;gap:8px;margin-top:8px"><label class="f">Seu nome completo<input id="qN" autocomplete="name"></label>
-        <button type="button" class="pri" id="qOk">Continuar</button></div></details>
+      ${ms.map(m => `<button type="button" class="big" data-m="${esc(m.id)}" style="text-align:left">${esc(m.nome)}</button>`).join("") || '<p class="cap">Nenhum motorista ligado a esta placa. Peça ao PCL para cadastrar no PQI.</p>'}
       <p class="msg erro" id="qMsg"></p><button type="button" class="ghost" id="qSair">Sair desta placa</button></div>`;
   const esc_ = async corpo => { try { const r = await api("/quem", corpo); S.me.motorista = r.motorista; S.dados = null; await carregar(); } catch (e) { if (!e.tratado) $("#qMsg").textContent = e.message; } };
   document.querySelectorAll("[data-m]").forEach(b => b.onclick = () => esc_({ id: b.dataset.m }));
-  $("#qOk") && ($("#qOk").onclick = () => esc_({ nome_novo: $("#qN").value }));
+  if (ms.length === 1 && !S.quemAuto) { S.quemAuto = true; esc_({ id: ms[0].id }); }   // placa com um motorista só: entra direto
   $("#qSair").onclick = sair;
 }
 async function sair() { try { await api("/sair", {}); } catch (_) {} pararGps(); soltarTela(); S.me = null; S.dados = null; S.carga = null; render(); }
@@ -405,13 +405,31 @@ async function registrar(c, p, desfecho) {
 let chatTimer = null;
 async function carregarChat(redesenhar) {
   const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped); if (!p) return;
+  const antes = S.chatDados;
   try { S.chatDados = await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chat`); S.chatErro = ""; }
   catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: o chat precisa de conexão." : e.message; }
-  if (redesenhar && S.chat) desenharChat();
+  if (!redesenhar || !S.chat) return;
+  // [v5.6] só refaz a tela inteira se o atendimento mudou (abriu/encerrou); senão atualiza só as mensagens — o que está sendo escrito não some
+  const id = d => (d && d.atual && d.atual.id) || "";
+  if (!$("#chTela") || id(antes) !== id(S.chatDados)) desenharChat(); else atualizarMsgs();
 }
+function htmlMsgs(a) {
+  return a.msgs.map(m => m.de === "sistema" ? `<div class="cap" style="text-align:center">${esc(m.txt)} · ${hora(m.em)}</div>` :
+    `<div class="msg-ch ${m.de === "motorista" ? "eu" : ""}"><small>${esc(m.de === "motorista" ? "Você" : "Frota · " + m.nome)} · ${hora(m.em)}</small>${esc(m.txt)}</div>`).join("");
+}
+function atualizarMsgs() {
+  const a = (S.chatDados || {}).atual, l = $("#chLista"); if (!a || !l) return;
+  const sig = a.msgs.length + "|" + (a.msgs.length ? a.msgs[a.msgs.length - 1].em : "");
+  if (l.dataset.sig !== sig) { const noFim = l.scrollTop + l.clientHeight >= l.scrollHeight - 30; l.innerHTML = htmlMsgs(a); l.dataset.sig = sig; if (noFim) l.scrollTop = l.scrollHeight; }
+  const ct = $("#chCont"); if (ct && a.restante_seg != null) ct.dataset.ate = Date.now() + a.restante_seg * 1000;
+  const e = $("#chErro"); if (e) { e.hidden = !S.chatErro; e.textContent = S.chatErro || ""; }
+}
+const fmtCont = seg => { const n = Math.abs(Math.round(seg)), t = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; return seg >= 0 ? `⏱ ${t}` : `⏱ esgotado há ${t}`; };
+setInterval(() => document.querySelectorAll("[data-ate]").forEach(el => { const seg = (+el.dataset.ate - Date.now()) / 1000;
+  el.textContent = fmtCont(seg); el.classList.toggle("estourou", seg < 0); el.classList.toggle("quase", seg >= 0 && seg < 180); }), 1000);
 function telaChat() {
-  clearInterval(chatTimer);
-  chatTimer = setInterval(() => { if (S.chat && document.visibilityState === "visible") carregarChat(true); else if (!S.chat) clearInterval(chatTimer); }, 5000);
+  if (!chatTimer) chatTimer = setInterval(() => { if (!S.chat) { clearInterval(chatTimer); chatTimer = null; return; } if (document.visibilityState === "visible") carregarChat(true); }, 5000);
+  if ($("#chTela")) return;   // já está na tela do chat: não apaga o que está sendo escrito
   if (!S.chatDados) { $("#app").innerHTML = '<div class="card"><p class="cap">Abrindo o chat…</p></div>'; carregarChat(true); return; }
   desenharChat();
 }
@@ -420,19 +438,19 @@ function desenharChat() {
   if (!p) { S.chat = false; S.ped = null; return render(); }
   const d = S.chatDados || {}, a = d.atual;
   const rascunho = ($("#chTxt") || {}).value || S.chatRascunho || "";
-  const msgs = a ? a.msgs.map(m => m.de === "sistema" ? `<div class="cap" style="text-align:center">${esc(m.txt)} · ${hora(m.em)}</div>` :
-    `<div class="msg-ch ${m.de === "motorista" ? "eu" : ""}"><small>${esc(m.de === "motorista" ? "Você" : "Frota · " + m.nome)} · ${hora(m.em)}</small>${esc(m.txt)}</div>`).join("") : "";
+  const msgs = a ? htmlMsgs(a) : "";
   $("#app").innerHTML = `<button type="button" class="ghost" id="chVolta" style="justify-self:start">‹ Voltar para o cliente</button>
-    <div class="card"><span class="cap">Chat com a frota · Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span><h2 style="font-size:20px">${esc(p.nome)}</h2>
-      ${a ? `<span class="pill p-warn">Motivo: ${esc(a.motivo)}</span>` : ""}</div>
-    ${S.chatErro ? `<div class="aviso">${esc(S.chatErro)}</div>` : ""}
+    <div class="card" id="chTela"><span class="cap">Chat com a frota · Entrega ${esc(p.seq)} · Pedido <span class="mono">${esc(p.pv)}</span></span><h2 style="font-size:20px">${esc(p.nome)}</h2>
+      ${a ? `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span class="motivo-gde">${esc(a.motivo)}</span>
+        ${a.restante_seg != null ? `<span class="cont-reg" id="chCont" data-ate="${Date.now() + a.restante_seg * 1000}">${fmtCont(a.restante_seg)}</span>` : ""}</div>` : ""}</div>
+    <div class="aviso" id="chErro" ${S.chatErro ? "" : "hidden"}>${esc(S.chatErro)}</div>
     ${!a ? `<div class="card"><h3>Qual é o motivo?</h3><p class="cap">A frota já vê o cliente, o pedido e as peças. Escolha o motivo para começar.</p>
         ${(d.motivos || []).map(m => `<button type="button" class="big" data-mot="${esc(m)}">${esc(m)}</button>`).join("")}</div>`
-      : `<div class="card" id="chLista" style="gap:8px;max-height:52vh;overflow:auto">${msgs}</div>
+      : `<div class="card" id="chLista" data-sig="${a.msgs.length}|${a.msgs.length ? a.msgs[a.msgs.length - 1].em : ""}" style="gap:8px;max-height:52vh;overflow:auto">${msgs}</div>
         <div class="card"><textarea id="chTxt" rows="2" placeholder="Escreva para a frota" maxlength="500">${esc(rascunho)}</textarea>
           <button type="button" class="pri big" id="chEnv">Enviar</button><p class="cap">Voltar não encerra a conversa. Quem encerra é a frota.</p></div>`}`;
   const lista = $("#chLista"); if (lista) lista.scrollTop = lista.scrollHeight;
-  $("#chVolta").onclick = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); render(); window.scrollTo(0, 0); };
+  $("#chVolta").onclick = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); chatTimer = null; render(); window.scrollTo(0, 0); };
   document.querySelectorAll("[data-mot]").forEach(b => b.onclick = () => enviarChat({ motivo: b.dataset.mot }));
   const t = $("#chTxt"); if (t) { t.oninput = () => { S.chatRascunho = t.value; }; }
   const env = $("#chEnv"); if (env) env.onclick = () => { const v = ($("#chTxt").value || "").trim(); if (v) enviarChat({ texto: v }); };
@@ -440,10 +458,11 @@ function desenharChat() {
 async function enviarChat(corpo) {
   const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped); if (!p) return;
   try { const r = await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chat`, corpo);
+    const abriu = !(S.chatDados && S.chatDados.atual);
     S.chatDados = { ...(S.chatDados || {}), ...r }; S.chatErro = ""; if (corpo.texto) { S.chatRascunho = ""; const t = $("#chTxt"); if (t) t.value = ""; }
-    p.chat = { ...(p.chat || {}), aberto: true, nao_lidas: 0 }; }
-  catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: a mensagem não foi. Tente de novo." : e.message; }
-  desenharChat();
+    p.chat = { ...(p.chat || {}), aberto: true, nao_lidas: 0 };
+    if (abriu) desenharChat(); else { atualizarMsgs(); const l = $("#chLista"); if (l) l.scrollTop = l.scrollHeight; const t = $("#chTxt"); if (t) t.focus(); } }
+  catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: a mensagem não foi. Tente de novo." : e.message; atualizarMsgs(); if (!$("#chTela")) desenharChat(); }
 }
 
 // ═══ GPS (só com o app aberto — o navegador não deixa rastrear com a tela apagada) ═══

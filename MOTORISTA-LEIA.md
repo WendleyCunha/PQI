@@ -124,3 +124,13 @@ Testes: `python testes_qualidade.py`
   mostra **tudo do cliente**: endereço, NF, palavra-chave, peças, retirada, observações do Mapa, o registro da rua e o chat.
 - A conversa fica **gravada na carga, por cliente** (aparece no detalhe da carga em "Conversas com o motorista") e
   abrir/encerrar entra no histórico.
+
+# v5.6 — CHAT ESTÁVEL, PRAZO DO ATENDIMENTO, MOTORISTA SÓ PELO PQI
+
+- Chat do app não redesenha mais a tela: o que o motorista está escrevendo não some (só as mensagens atualizam).
+- Motivo do chat em destaque (grande, negrito) no app e no Ao vivo.
+- **Contagem regressiva** do atendimento: começa quando o motorista escolhe o motivo, aparece no app e no Ao vivo
+  (amarelo nos últimos 3 min, vermelho quando estoura). Padrão 15 min — **Motoristas e app → Prazo do atendimento**.
+- **Motoristas e app** em 3 abas: Motoristas · Motivos do chat com a frota · Prazo do atendimento.
+- O app **não cadastra** nome: a placa já vem ligada ao motorista no PQI (um só → entra direto).
+- **Excluir motorista** (nível Excluir na aba): o celular dele sai; só volta se a placa aparecer de novo num PDF importado.

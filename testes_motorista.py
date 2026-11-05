@@ -130,7 +130,8 @@ def teste_fluxo():
     mid_joao = r.json()["motoristas"][0]["id"]
     ok(mot.post("/api/motorista/quem", json={"id": "m00000000"}).status_code == 404, "motorista de outra placa não serve")
     r = mot.post("/api/motorista/quem", json={"nome_novo": "Marcos Lima"})
-    ok(r.status_code == 200 and r.json()["motorista"]["nome"] == "Marcos Lima", "motorista novo se cadastra pelo app (palavra desligada)")
+    ok(r.status_code == 403 and not any(m["nome"] == "Marcos Lima" for m in M.app_cfg()["motoristas"].values()),
+       "app NÃO cadastra motorista novo: o nome vem da placa no PQI")
     ok(mot.post("/api/motorista/quem", json={"id": mid_joao}).status_code == 200, "João assume a placa")
 
     print("Cargas e palavra")
@@ -233,7 +234,7 @@ def entrar(cli, placa, nome, senha_nova="rota2026"):
     assert r.status_code == 200, r.text
     r = cli.post("/api/motorista/senha", json={"nova": senha_nova, "repetir": senha_nova})
     ms = {m["nome"]: m["id"] for m in r.json()["motoristas"]}
-    r = cli.post("/api/motorista/quem", json={"id": ms[nome]} if nome in ms else {"nome_novo": nome})
+    r = cli.post("/api/motorista/quem", json={"id": ms[nome]})
     assert r.status_code == 200, r.text
 
 
@@ -327,6 +328,7 @@ def teste_chat():
     ok(mot.post(base, json={"motivo": "Inventado"}).status_code == 400, "motivo fora da lista recusado")
     r = mot.post(base, json={"motivo": "Ausente"}).json()
     ok(r["atual"]["motivo"] == "Ausente", "motorista escolhe Ausente e abre o atendimento")
+    ok(r["atual"]["prazo_min"] == 15 and 14 * 60 < r["atual"]["restante_seg"] <= 15 * 60, "contagem regressiva de 15 min começa ao escolher o motivo")
     mot.post(base, json={"texto": "Cliente não atende o interfone"})
     r = mot.get(base).json()
     ok(r["atual"]["motivo"] == "Ausente" and r["atual"]["msgs"][-1]["txt"] == "Cliente não atende o interfone", "Voltar e entrar de novo: continua o mesmo chat, sem pedir motivo")
@@ -335,6 +337,10 @@ def teste_chat():
     av = pq.get("/api/qualidade/rua/ao-vivo").json()
     ped = next(p for p in av["cargas"][0]["pedidos"] if p["pv"] == "739812")
     ok(ped["chat"]["aberto"] and ped["chat"]["nao_lidas"] == 1 and av["kpi"]["chats_abertos"] == 1, "Ao vivo mostra o chat aberto e 1 mensagem nova")
+    ok(14 * 60 < ped["chat"]["restante_seg"] <= 15 * 60, "Ao vivo mostra a mesma contagem regressiva")
+    a = BANCO[Q.COL_CARGAS]["064501"]["rua"]["chats"]["739812"]["atendimentos"][0]
+    a["prazo_ts"] -= 16 * 60; Q.CARGAS["064501"]["rua"]["chats"]["739812"]["atendimentos"][0]["prazo_ts"] -= 16 * 60
+    ok(pq.get("/api/qualidade/rua/ao-vivo").json()["cargas"][0]["pedidos"][0]["chat"]["restante_seg"] < 0, "prazo estourado fica negativo (tela mostra em vermelho)")
     cli = pq.get("/api/qualidade/rua/cargas/064501/pedido/739812").json()
     ok(cli["nome"] == "Ana Rocha" and cli["endereco"] == "Rua A, 1" and cli["itens"][0]["desc"] == "CMP TESTE 138", "frota vê o cliente completo (endereço e peças)")
     ok(cli["palavra"] and cli["palavra"] == BANCO[Q.COL_CARGAS]["064501"]["rua"]["palavras"]["739812"], "frota vê a palavra-chave do cliente")
@@ -363,7 +369,35 @@ def teste_chat():
     ok("Endereço não encontrado" in mot.get(base).json()["motivos"], "app passa a mostrar o motivo novo")
     r = pq.put("/api/qualidade/rua/cfg", json={"motivos_chat": ["Ausente", "Escadas"]}).json()
     ok(r["motivos_chat"] == ["Ausente", "Escadas"], "PQI remove motivos")
+    ok(pq.put("/api/qualidade/rua/cfg", json={"chat_minutos": 0}).status_code == 400, "prazo fora de 1–120 min recusado")
+    ok(pq.put("/api/qualidade/rua/cfg", json={"chat_minutos": 20}).json()["chat_minutos"] == 20, "PQI ajusta o prazo do atendimento")
     ok(mot.post(base, json={"motivo": "Avaria"}).status_code == 400, "motivo removido não abre mais chat")
+    r = mot.post(base, json={"motivo": "Escadas"}).json()
+    ok(r["atual"]["prazo_min"] == 20, "o próximo atendimento já usa o prazo novo")
+
+
+def teste_excluir_motorista():
+    """[v5.6] Excluir motorista: o celular sai; só volta quando a placa aparecer de novo num PDF importado."""
+    print("Excluir motorista")
+    ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064601", "ABC1D23", [("739812", "Ana Rocha", 1)])
+    app = montar()
+    mot, pq = TestClient(app), TestClient(app)
+    entrar(mot, "ABC1D23", "João Ferreira")
+    USUARIO["abas"] = {"motoristas": 3}
+    ms = pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]
+    mid = next(m["id"] for m in ms if m["nome"] == "João Ferreira")
+    ok(pq.delete(f"/api/qualidade/rua/motoristas/{mid}").status_code == 403, "excluir exige o nível Excluir na aba")
+    USUARIO["abas"] = {"motoristas": 4}
+    ok(pq.delete(f"/api/qualidade/rua/motoristas/{mid}").json()["excluido"] == "João Ferreira", "PQI exclui o motorista")
+    ok(mot.get("/api/motorista/cargas").status_code == 403, "o celular do motorista excluído perde as cargas (volta para a escolha do motorista)")
+    ok(all(m["nome"] != "João Ferreira" for m in pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]), "não volta sozinho pelo cadastro da placa")
+    for e in M.app_cfg()["excluidos"].values():
+        e["em"] = "2000-01-02T00:00:00"   # a exclusão foi antes do PDF novo (no teste tudo acontece no mesmo segundo)
+    Q.CARGAS["064601"]["versoes"][-1]["em"] = "2000-01-01T00:00:00"
+    importar("064602", "ABC-1D23", [("739999", "Beto Lima", 1)])
+    ok(any(m["nome"] == "João Ferreira" for m in pq.get("/api/qualidade/rua/motoristas").json()["motoristas"]), "volta quando a placa aparece de novo num PDF")
 
 
 def teste_paginas():
@@ -386,5 +420,6 @@ if __name__ == "__main__":
     teste_fluxo()
     teste_placas()
     teste_chat()
+    teste_excluir_motorista()
     teste_paginas()
     print(f"\n{OK} verificações ok.")
