@@ -94,6 +94,8 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 .side-btn.ativo{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
 .side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--amber);color:#fff;border-radius:8px;padding:0 5px}
 .side-sep{flex:none;width:70%;height:1px;background:var(--rule);margin:4px 0}
+.side-grp{flex:none;width:100%;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:0;overflow-wrap:anywhere;text-transform:uppercase;color:var(--ink-3);border-top:1px solid var(--rule);padding-top:8px;margin-top:4px}
+.side-grp:first-child{border-top:0;margin-top:0;padding-top:0}
 .conteudo-item{flex:1;min-width:0}
 section > header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:14px}
 section h2{margin:0;font-size:22px;font-weight:700}
@@ -260,7 +262,7 @@ tr.indev td:first-child{box-shadow:inset 4px 0 0 var(--bad)}
 @media (max-width:860px){
   .wrap{padding:18px 14px 50px} .bar-in{padding:10px 14px}
   .shell-item{flex-direction:column;align-items:stretch} .conteudo-item{width:100%} .filtros>*{min-width:0} .filtros input,.filtros select{width:100%;min-width:0} .side-rg{width:100%;flex-direction:row;overflow-x:auto;position:static;max-height:none}
-  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px}
+  .side-btn{width:auto;min-width:76px} .side-sep{width:1px;height:40px;margin:0 4px} .side-grp{width:auto;border-top:0;border-left:1px solid var(--rule);margin:0 2px;padding:0 6px;writing-mode:vertical-rl;transform:rotate(180deg)} .side-grp:first-child{border-left:0}
   .doc-head{grid-template-columns:1fr} .filtros .busca{grid-column:auto} .barra-l{grid-template-columns:110px 1fr 54px}
 }
 @media print{ .bar,.side-rg,.acoes,.filtros{display:none!important} body{background:#fff} .wrap{padding:0} .shell-item{display:block} }
@@ -689,6 +691,10 @@ const MAPA = (() => {
 // A regra de verdade (permissões, status) fica no servidor (qualidade.py).
 // ═══════════════════════════════════════════════════════════════════
 const API = "/api/qualidade";
+// [v5.9] a mesma tela serve dois sistemas: Qualidade (/qualidade) e RouterKing (/routerking)
+const MODO = location.pathname.startsWith("/routerking") ? "routerking" : "qualidade";
+const RK = MODO === "routerking";
+const fotoUrl = fid => `${RK ? "/api/routerking" : "/api/qualidade"}/foto/${encodeURIComponent(fid)}`;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const int = n => Number(n || 0).toLocaleString("pt-BR");
@@ -719,10 +725,10 @@ function status(t) { $("#dot").className = "dot " + t; }
 async function api(url, op = {}) {
   status("salvando");
   let r;
-  try { r = await fetch(API + url, { headers: { "Content-Type": "application/json" }, cache: "no-store", ...op }); }
+  try { r = await fetch((url.startsWith("/api/") ? "" : API) + url, { headers: { "Content-Type": "application/json" }, cache: "no-store", ...op }); }
   catch (e) { status("erro"); throw new Error("Sem conexão com o servidor. Tente de novo."); }
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401) { $("#root").innerHTML = '<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo. <a href="${window.top === window.self ? "/?voltar=/qualidade" : "/"}" target="_top">Entrar</a></div>'; throw new Error("sessão expirada"); }
+  if (r.status === 401) { $("#root").innerHTML = `<div class="conflito"><b>Sua sessão expirou.</b> Entre de novo. <a href="${window.top === window.self ? "/?voltar=" + location.pathname : "/"}" target="_top">Entrar</a></div>`; throw new Error("sessão expirada"); }
   if (!r.ok) { status("erro"); throw new Error(j.detail || `HTTP ${r.status}`); }
   status("ok"); return j;
 }
@@ -767,10 +773,13 @@ const ICO = {
   retorno: SV + '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg>',
   gap: SV + '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>',
   aovivo: SV + '<circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/></svg>',
+  historico: SV + '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5M12 7v5l3 3"/></svg>',
   motoristas: SV + '<rect x="1" y="6" width="14" height="10" rx="1"/><path d="M15 9h4l3 4v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
   cadastros: SV + '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
 };
-const SECOES = [["pcl", "PCL"], ["aovivo", "Ao vivo"], ["painel", "Painel"], "sep", ["montagem", "Montagem do palete"], ["conferencia", "Conferência na doca"], ["retorno", "Retorno"], "sep", ["gap", "GAP"], ["cadastros", "Cadastros"], ["motoristas", "Motoristas e app"]];
+const SECOES = RK ? [["aovivo", "Ao vivo"], ["historico", "Histórico de entregas"], ["motoristas", "Motoristas e app"]]
+  : ["grp:Operação", ["pcl", "PCL"], ["montagem", "Montagem do palete"], ["conferencia", "Conferência na doca"], ["retorno", "Retorno"],
+     "grp:Administrativo", ["painel", "Painel"], ["gap", "GAP"], ["cadastros", "Cadastros"]];
 const MIN_ABA = { montagem: 2, conferencia: 2, retorno: 2, cadastros: 3, motoristas: 3 };
 function nivelAba(id) { if (ABAS_N && id in ABAS_N) return Number(ABAS_N[id]) || 0; const n = NIVEL_SIS; return n < (MIN_ABA[id] || 1) ? 0 : (n >= 3 ? 4 : n); }
 const pode = (aba, n) => nivelAba(aba) >= n;
@@ -786,16 +795,19 @@ function contar() {
 }
 async function carregarLista() { LISTA = await api(`/cargas?de=${diasAtras(30)}&ate=${HOJE}`); contar(); }
 function menu() {
-  const vis = SECOES.filter(x => x === "sep" || nivelAba(x[0]) >= 1);
-  if (!vis.some(x => x !== "sep" && x[0] === secao)) secao = (vis.find(x => x !== "sep") || ["painel"])[0];
-  $("#menu").innerHTML = vis.map(x => x === "sep" ? '<div class="side-sep"></div>' :
+  const grp = x => typeof x === "string";
+  // grupo (Operação / Administrativo) só aparece se a pessoa tem alguma aba dele
+  const vis = []; let rotulo = null;
+  SECOES.forEach(x => { if (grp(x)) { rotulo = x; return; } if (nivelAba(x[0]) < 1) return; if (rotulo) { vis.push(rotulo); rotulo = null; } vis.push(x); });
+  if (!vis.some(x => !grp(x) && x[0] === secao)) secao = (vis.find(x => !grp(x)) || [RK ? "aovivo" : "painel"])[0];
+  $("#menu").innerHTML = vis.map(x => grp(x) ? `<div class="side-grp">${esc(x.slice(4))}</div>` :
     `<button type="button" class="side-btn${x[0] === secao ? " ativo" : ""}" data-s="${x[0]}" title="${x[1]}">${ICO[x[0]]}<span>${x[1]}</span>${CONT[x[0]] ? `<span class="n"${x[0] === "pcl" ? ' style="background:var(--bad)"' : ""}>${CONT[x[0]]}</span>` : ""}</button>`).join("");
   $("#menu").querySelectorAll("[data-s]").forEach(b => b.onclick = () => ir(b.dataset.s));
-  $("#menu").hidden = vis.filter(x => x !== "sep").length <= 1;   // [v5.3] quem tem uma etapa só (ex.: o chapa da montagem) não precisa do menu
+  $("#menu").hidden = vis.filter(x => !grp(x)).length <= 1;   // [v5.3] quem tem uma etapa só (ex.: o chapa da montagem) não precisa do menu
 }
 function ir(s, carga, volta) { if (typeof pararAoVivo === "function" && s !== "aovivo") pararAoVivo(); secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
 async function render() {
-  try { await carregarLista(); } catch (_) {}
+  if (!RK) { try { await carregarLista(); } catch (_) {} }
   menu();
   const c = $("#root");
   try {
@@ -808,6 +820,7 @@ async function render() {
     else if (secao === "gap") await rGap(c);
     else if (secao === "cadastros") await rCadastros(c);
     else if (secao === "aovivo") await rAoVivo(c);
+    else if (secao === "historico") await rHistorico(c);
     else if (secao === "motoristas") await rMotoristas(c);
   } catch (e) { c.innerHTML = `<div class="conflito">${esc(e.message)}</div>`; }
 }
@@ -861,7 +874,7 @@ async function trocarPlaca(num, atual, depois) {
       const m = (PLACAS_CAD || {})[v]; if (m && m.motorista && !$("#tpM", el).value) $("#tpM", el).placeholder = m.motorista; };
     $("#tpC", el).onclick = fechar;
     $("#tpOk", el).onclick = async () => { if (pl.value.length < 5) { pl.focus(); return; }
-      try { const r = await put(`/cargas/${encodeURIComponent(num)}/placa`, { placa: pl.value, motorista: $("#tpM", el).value, motivo: $("#tpO", el).value });
+      try { const r = await put(`${RK ? API_RUA : ""}/cargas/${encodeURIComponent(num)}/placa`, { placa: pl.value, motorista: $("#tpM", el).value, motivo: $("#tpO", el).value });
         toast(`Carga ${num} agora na placa ${r.placa}${r.motorista ? " · " + r.motorista : ""} (${r.pendentes} entrega(s) pendente(s)).`); fechar(); depois && depois(); } catch (e) { toast(e.message, true); } };
   });
 }
@@ -1262,7 +1275,7 @@ function desenharRetorno(c) {
     // registros: os lançados juntos (pedido todo / parcial) aparecem agrupados, com um ✕ para o lote
     const grupos = []; voltou.forEach(x => { if (x.fonte === "app" && !x.recebido) { grupos.push({ k: x.id, x, n: 1 }); return; } const k = x.lote ? "lote:" + x.lote + "|" + x.i : x.id; const g0 = grupos.find(y => y.k === k); if (g0) g0.n++; else grupos.push({ k, x, n: 1 }); });
     const reg = grupos.map(({ k, x, n }) => x.fonte === "app" && !x.recebido ? `<div class="q-it" style="background:var(--amber-soft)"><div class="d"><b>📱 Motorista informou que voltou:</b> ${esc(x.desc)}
-        <small>${esc(x.motivo)} · ${esc(x.por)} ${horaBR(x.em)}${x.foto ? ` · <a href="${API}${API_RUA}/foto/${encodeURIComponent(x.foto)}" target="_blank" rel="noopener">📷 foto</a>` : ""} · <b>aguardando chegar no CD</b></small></div>
+        <small>${esc(x.motivo)} · ${esc(x.por)} ${horaBR(x.em)}${x.foto ? ` · <a href="${fotoUrl(x.foto)}" target="_blank" rel="noopener">📷 foto</a>` : ""} · <b>aguardando chegar no CD</b></small></div>
         ${podeR ? `<button type="button" class="primary peq" data-receber="${esc(x.id)}">✓ Recebida no CD</button><button type="button" class="peq warn" data-rm="${esc(x.id)}" title="Não veio / registro errado">✕</button>` : ""}</div>`
       : `<div class="q-it cinza"><div class="d"><b>${x.origem === "retirada" ? "Retirada" : "Voltou"}:</b> ${x.fonte === "app" ? "📱 " : ""}${n > 1 ? `<b>${n}×</b> ` : ""}${esc(x.desc)}
         <small>${x.origem === "nao_entregue" ? esc(x.motivo) + " · " : ""}${x.estado === "avariada" ? `<b style="color:var(--bad)">avariada · ${esc(x.avaria)}</b>` : "peça OK"} · destino: <b>${esc(x.destino)}</b>${x.obs ? " · " + esc(x.obs) : ""}${x.modo === "sem_leitor" ? ` · <b style="color:var(--amber)">sem leitor: ${esc(x.motivo_sem_leitor)}</b>` : ""} · ${esc(x.por)} ${horaBR(x.em)}</small></div>
@@ -1799,7 +1812,7 @@ function escolherSku(codigo, skus) {
 // ═══ AO VIVO [v5.2] — o que o motorista registra na rua, na hora (motorista.py) ═══
 // Entregue / retorno / parcial por pedido, palavra da entrega, liberações, baixa no ERP (PCL marca),
 // retornos informados × recebidos no CD e o caminhão no mapa (GPS do app, só com o app aberto).
-const API_RUA = "/rua";
+const API_RUA = "/api/routerking";
 let AV = { data: HOJE, sel: null, filtro: "todas", busca: "", timer: null, mapa: null, camadas: null, ultimo: null };
 const DESF = { entregue: ["Entregue", "p-ok"], retorno: ["Retorno", "p-bad"], parcial: ["Parcial", "p-warn"] };
 const FASE = { aguardando: ["Liberada — aguarda saída", "p-azul"], rua: ["Na rua", "p-warn"], chegou: ["No CD", "p-ok"] };
@@ -1889,7 +1902,7 @@ function desenharAoVivo(c, d, silencioso) {
     const [num, pv] = b.dataset.reab.split("|");
     const nota = prompt("Por que reabrir o registro do motorista? Ele vai poder registrar de novo."); if (!nota) return;
     try { await post(`${API_RUA}/cargas/${num}/pedido/${encodeURIComponent(pv)}/reabrir`, { nota }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
-  c.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => abrirDlg(`<h3>Foto do retorno</h3><img src="${API}${API_RUA}/foto/${esc(b.dataset.foto)}" alt="foto da peça" style="max-width:100%;border-radius:8px"><div class="acts"><button type="button" id="fF">Fechar</button></div>`, (el, f) => { $("#fF", el).onclick = f; }));
+  c.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => abrirDlg(`<h3>Foto do retorno</h3><img src="${fotoUrl(b.dataset.foto)}" alt="foto da peça" style="max-width:100%;border-radius:8px"><div class="acts"><button type="button" id="fF">Fechar</button></div>`, (el, f) => { $("#fF", el).onclick = f; }));
   mapaAoVivo(d);
 }
 const hora = iso => iso ? String(iso).slice(11, 16) : "";
@@ -1907,7 +1920,7 @@ function feedAoVivo(d) {
 }
 function detalheAoVivo(g, pode) {
   return `<div class="box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b class="cond" style="font-size:19px">Carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista || "—")}</b>
-      <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} <button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button></span></div>
+      <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} ${RK ? "" : `<button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button>`}</span></div>
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
     <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
       ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
@@ -1923,6 +1936,73 @@ function detalheAoVivo(g, pode) {
           ${pode && !p.desfecho && (p.liberacao || {}).status !== "liberada" ? `<button type="button" class="peq" data-lib="${esc(g.numero)}|${esc(p.pv)}|liberar" title="O motorista registra a entrega sem a palavra-chave">🔓 Liberar sem palavra</button>` : ""}
           ${(p.liberacao || {}).status === "liberada" && !p.desfecho ? '<span class="pill p-aco">Liberado sem palavra</span>' : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
+// ═══ [v5.9] HISTÓRICO DE ENTREGAS (RouterKing) — todos os clientes, conversas e o PDF do caso ═══
+const HIST = { busca: "" };
+async function rHistorico(c) {
+  const P = per("hist_ent");
+  const [fh, ligar] = filtroPeriodo(P, () => rHistorico(c), `<input type="search" id="hB" placeholder="Cliente, PV, NF, código, carga, placa, motorista, bairro" value="${esc(HIST.busca)}" style="flex:1 1 280px;min-width:0">`);
+  const d = await api(`${API_RUA}/historico?de=${P.de}&ate=${P.ate}&busca=${encodeURIComponent(HIST.busca)}`);
+  const DS = { entregue: ["Entregue", "p-ok"], retorno: ["Retorno", "p-bad"], parcial: ["Parcial", "p-warn"] };
+  c.innerHTML = sec("Histórico de entregas", "Todos os clientes do período: o que o motorista registrou, as conversas com a frota e o PDF do caso (comprovação).", "",
+    fh + `<p class="cap">${int(d.total)} cliente(s) no período${d.total > d.itens.length ? ` (mostrando ${d.itens.length})` : ""}.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Cliente · pedido</th><th>Carga · motorista</th><th>Desfecho</th><th>Chat</th><th></th></tr></thead><tbody>${
+      d.itens.map(x => `<tr><td>${dataBR(x.data_iso)}<span class="sub">${x.em ? hora(x.em) : ""}</span></td>
+        <td><b>${esc(x.nome)}</b><span class="sub">${PVB(x.pv)} · NF ${esc(x.nf || "—")} · cód. ${esc(x.cliente || "—")} · ${esc(x.bairro || "")}</span></td>
+        <td>${esc(x.carga)}<span class="sub">${esc(x.placa || "")} · ${esc(x.motorista || "—")}</span></td>
+        <td>${x.desfecho ? `<span class="pill ${DS[x.desfecho][1]}">${DS[x.desfecho][0]}</span>` : '<span class="pill p-cinza">Sem registro</span>'}${x.motivo ? `<span class="sub">${esc(x.motivo)}</span>` : ""}
+          <span class="sub">${x.foto ? "📷 foto · " : ""}${x.palavra_ok === true ? "palavra conferida" : x.palavra_ok === false ? "liberado sem palavra" : ""}</span></td>
+        <td>${x.chats ? `💬 ${x.chats}${x.chat_aberto ? ' <span class="pill p-warn">aberto</span>' : ""}<span class="sub">${esc(x.motivos_chat.join(", "))}</span>` : "—"}</td>
+        <td style="white-space:nowrap"><button type="button" class="peq" data-hv="${esc(x.carga)}|${esc(x.pv)}">Ver</button> <button type="button" class="peq primary" data-hp="${esc(x.carga)}|${esc(x.pv)}">📄 PDF</button></td></tr>`).join("")
+      || '<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">Nada no período.</td></tr>'}</tbody></table></div>`);
+  ligar(c);
+  const hb = $("#hB", c); let t = null; if (hb) hb.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIST.busca = hb.value; await rHistorico(c); const n = $("#hB", c); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 400); };
+  c.querySelectorAll("[data-hv]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.hv.split("|"); abrirCliente(n, pv); });
+  c.querySelectorAll("[data-hp]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.hp.split("|"); dossie(n, pv); });
+}
+// PDF do caso: o navegador gera (Salvar como PDF) — sem serviço pago. Leva um código de identificação e a hora da emissão.
+async function dossie(num, pv) {
+  const w = window.open("", "_blank");
+  if (!w) return toast("O navegador bloqueou a janela do PDF. Libere pop-ups para o PQI.", true);
+  w.document.write("<p style='font:14px Arial;padding:20px'>Montando o PDF…</p>");
+  let d;
+  try { d = await api(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}`); } catch (e) { w.close(); return toast(e.message, true); }
+  const ev = d.evento || {}, agoraTxt = new Date().toLocaleString("pt-BR"), codigo = `DE-${num}-${String(pv).replace(/\W/g, "")}-${Date.now().toString(36).toUpperCase()}`;
+  const DSx = { entregue: "ENTREGUE", retorno: "RETORNO (nada entregue)", parcial: "ENTREGA PARCIAL" };
+  const linha = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : "";
+  const end = [d.endereco, d.compl, d.bairro, d.cidade].filter(Boolean).join(", ");
+  const lib = ev.liberacao || {};
+  const chats = (d.chat.atendimentos || []).map(a => `<div class="blk"><b>Atendimento: ${esc(a.motivo)}</b> — aberto ${horaBR(a.aberto_em)} por ${esc(a.nome || "")}${a.fechado_em ? ` · encerrado ${horaBR(a.fechado_em)} por ${esc(a.fechado_por || "")}` : " · em aberto"}
+    <table class="msgs">${(a.msgs || []).map(m => `<tr><td class="h">${horaBR(m.em)}</td><td class="q">${m.de === "frota" ? "Frota · " + esc(m.nome) : m.de === "motorista" ? "Motorista · " + esc(m.nome) : "Sistema"}</td><td>${esc(m.txt)}</td></tr>`).join("")}</table></div>`).join("") || "<p>Nenhuma conversa.</p>";
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Dossiê de entrega ${esc(num)} · PV ${esc(pv)}</title>
+  <style>body{font:12px/1.45 Arial,Helvetica,sans-serif;color:#111;margin:24px} h1{font-size:18px;margin:0} h2{font-size:13px;margin:18px 0 6px;padding-bottom:3px;border-bottom:1.5px solid #111;text-transform:uppercase;letter-spacing:.04em}
+  .top{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #111;padding-bottom:8px} .id{font:11px monospace;text-align:right}
+  table{border-collapse:collapse;width:100%} th{text-align:left;width:180px;vertical-align:top;padding:3px 8px 3px 0;color:#444;font-weight:600} td{padding:3px 0;vertical-align:top}
+  .msgs td{border-bottom:1px solid #ddd;padding:4px 6px} .msgs .h{white-space:nowrap;width:120px;color:#555} .msgs .q{white-space:nowrap;width:180px;font-weight:600}
+  .blk{margin:8px 0;page-break-inside:avoid} img{max-width:340px;max-height:340px;border:1px solid #ccc} .pal{font:700 14px monospace;letter-spacing:.08em}
+  .rod{margin-top:24px;font-size:10px;color:#555;border-top:1px solid #999;padding-top:6px} @media print{body{margin:10mm}}</style></head><body>
+  <div class="top"><div><h1>Dossiê de entrega — King Star</h1><div>RouterKing · comprovação do atendimento ao cliente</div></div>
+    <div class="id">Código: <b>${codigo}</b><br>Emitido em ${agoraTxt}<br>por ${esc(NOME || EMAIL)}</div></div>
+  <h2>Cliente</h2><table>${linha("Cliente", esc(d.nome))}${linha("Código do cliente", esc(d.cliente))}${linha("Pedido (PV)", esc(d.pv))}${linha("Nota fiscal", esc(d.nf))}${linha("Endereço", esc(end) + (d.cep ? " · CEP " + esc(d.cep) : ""))}</table>
+  <h2>Carga</h2><table>${linha("Carga", esc(d.carga))}${linha("Data do Mapa", esc(d.data_mapa || dataBR(d.data_iso)))}${linha("Placa", esc(d.placa))}${linha("Motorista", esc(d.motorista))}${linha("Transportadora", esc(d.transportadora))}
+    ${linha("Saída para entrega", d.saida ? horaBR(d.saida.em) + " · " + esc(d.saida.nome || "") : "")}${linha("Chegada no CD", d.chegada ? horaBR(d.chegada.em) + " · " + esc(d.chegada.nome || "") : "")}
+    ${(d.trocas_placa || []).map(t => linha("Troca de placa", `${esc(t.de)} → ${esc(t.para)} · ${horaBR(t.em)} · ${esc(t.por)}${t.motivo ? " · " + esc(t.motivo) : ""}`)).join("")}</table>
+  <h2>Peças</h2><table>${(d.itens || []).map(i => linha(i.qtd + "×", esc(i.desc) + (i.sku ? ` <span style="color:#666">(SKU ${esc(i.sku)})</span>` : ""))).join("")}${(d.retirar || []).length ? linha("A retirar", d.retirar.map(i => i.qtd + "× " + esc(i.desc)).join("<br>")) : ""}</table>
+  <h2>Registro do motorista</h2><table>${linha("Desfecho", ev.desfecho ? "<b>" + DSx[ev.desfecho] + "</b>" : "Sem registro")}${linha("Motivo", esc(ev.motivo))}${linha("Data e hora", ev.em ? horaBR(ev.em) : "")}${linha("Motorista", esc(ev.por))}
+    ${linha("Local (GPS)", ev.lat != null ? `${ev.lat}, ${ev.lng} — https://www.google.com/maps?q=${ev.lat},${ev.lng}` : "")}
+    ${linha("Palavra-chave", `<span class="pal">${esc(d.palavra || "—")}</span> · ${ev.palavra_ok === true ? "conferida pelo motorista (o cliente informou)" : ev.palavra_ok === false ? `entregue SEM a palavra, liberado por ${esc(lib.decidido_por || "PCL")} ${lib.decidido_em ? horaBR(lib.decidido_em) : ""}${lib.nota ? " · " + esc(lib.nota) : ""}` : "não exigida"}${ev.tentativas ? ` · ${ev.tentativas} tentativa(s) errada(s)` : ""}`)}
+    ${linha("Observação", esc(ev.obs))}${linha("Peças que voltaram", (ev.linhas || []).map(l => l.qtd + "× " + esc(l.desc)).join("<br>"))}
+    ${linha("Baixa no ERP", ev.baixa_erp ? horaBR(ev.baixa_erp.em) + " · " + esc(ev.baixa_erp.por) : "")}
+    ${(d.corrigidos || []).map(x => linha("Registro corrigido", `era ${esc(x.desfecho)} (${horaBR(x.em)}) · desfeito ${horaBR(x.desfeito_em)}${x.pelo_pcl ? " pelo PCL " + esc(x.pelo_pcl) + " · " + esc(x.nota || "") : " pelo motorista"}`)).join("")}</table>
+  ${ev.foto ? `<div class="blk"><b>Foto registrada pelo motorista</b><br><img src="${fotoUrl(ev.foto)}" alt="foto"></div>` : ""}
+  ${(d.retorno_itens || []).length ? `<h2>Retorno no CD</h2><table>${d.retorno_itens.map(x => linha(esc(x.desc), `${esc(x.motivo)} · ${x.estado === "avariada" ? "AVARIADA (" + esc(x.avaria) + ")" : x.estado === "ok" ? "peça OK" : "aguardando conferência"} · destino: ${esc(x.destino || "—")}${x.recebido_por ? " · recebida por " + esc(x.recebido_por) + " " + horaBR(x.recebido_em) : ""}`)).join("")}</table>` : ""}
+  <h2>Conversas motorista ↔ frota</h2>${chats}
+  ${(d.historico || []).length ? `<h2>Linha do tempo</h2><table class="msgs">${d.historico.map(h => `<tr><td class="h">${horaBR(h.em)}</td><td class="q">${esc(h.por)}</td><td>${esc(h.acao)}${h.det ? " — " + esc(h.det) : ""}</td></tr>`).join("")}</table>` : ""}
+  <div class="rod">Documento gerado pelo PQI · RouterKing a partir dos registros do sistema (app do motorista, painel Ao vivo e Retorno). Código ${codigo} · ${agoraTxt}.</div>
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+
 // ═══ [v5.5] CLIENTE COMPLETO + CHAT com o motorista ═══
 function chatsDaCarga(g) {   // as conversas ficam gravadas na carga, por cliente
   const ch = ((g.rua || {}).chats) || {};
@@ -1963,7 +2043,7 @@ async function abrirCliente(num, pv) {
       ${(d.obs || []).length ? `<p class="cap"><b>Observações do Mapa:</b><br>${d.obs.map(esc).join("<br>")}</p>` : ""}${d.despesas ? `<p class="cap">${esc(d.despesas)}</p>` : ""}</div>
     <div class="box"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><b>💬 Chat com o motorista</b><span id="cliSt"></span></div>
       <div id="cliChat"></div></div>
-    <div class="acts"><button type="button" id="cliF">Fechar</button></div>`, (el, fechar) => {
+    <div class="acts"><button type="button" id="cliPdf">📄 PDF do caso</button><button type="button" id="cliF">Fechar</button></div>`, (el, fechar) => {
     const pinta = dd => {
       const a = dd.chat.atual, ant = (dd.chat.atendimentos || []).filter(x => !a || x.id !== a.id);
       $("#cliSt", el).innerHTML = a ? `<span class="motivo-gde">${esc(a.motivo)}</span> ${relogio(a.restante_seg)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
@@ -1982,13 +2062,14 @@ async function abrirCliente(num, pv) {
         try { const r = await post(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}/chat/encerrar`, { texto: n }); pinta({ ...dd, chat: r }); toast("Atendimento encerrado."); } catch (e) { toast(e.message, true); } };
     };
     pinta(d);
-    el.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => window.open(`${API}${API_RUA}/foto/${encodeURIComponent(b.dataset.foto)}`, "_blank"));
+    el.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => window.open(fotoUrl(b.dataset.foto), "_blank"));
     clearInterval(CLI_TIMER);
     CLI_TIMER = setInterval(async () => {
       if (!$("#dlg").open || !$("#cliChat")) { clearInterval(CLI_TIMER); return; }
       if (document.activeElement && document.activeElement.id === "cliTxt" && document.activeElement.value) return;   // não apaga o que está sendo digitado
       try { const n = await api(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}`); pinta(n); } catch (_) {}
     }, 5000);
+    $("#cliPdf", el).onclick = () => dossie(num, pv);
     $("#cliF", el).onclick = () => { clearInterval(CLI_TIMER); fechar(); if (secao === "aovivo") rAoVivo($("#root")); };
     $("#dlg").onclose = () => clearInterval(CLI_TIMER);
   });
@@ -2122,7 +2203,8 @@ window.addEventListener("resize", medirBarra); medirBarra();
     const me = await fetch("/api/auth/me", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
     NOME = (me && me.usuario && (me.usuario.nome || me.usuario.email)) || EMAIL;
     if (!EMAIL && me && me.usuario) EMAIL = me.usuario.email;
-    $("#whoTxt").textContent = `${NOME} · Qualidade`;
+    $("#whoTxt").textContent = `${NOME} · ${RK ? "RouterKing" : "Qualidade"}`;
+    if (RK) { const f = $(".doc-foot"); if (f) f.textContent = "RouterKing · entregas na rua em tempo real: app do motorista, chat com a frota, palavra-chave, GPS e o histórico de cada cliente."; }
     status("ok");
   } catch (_) { status("erro"); }
   render();
@@ -2134,10 +2216,10 @@ window.addEventListener("resize", medirBarra); medirBarra();
   const topo = window.top === window.self;
   if (!topo) return;   // dentro do Painel de Sistemas continua igual
   const app = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/qualidade-app/sw.js", { scope: "/qualidade" }).catch(() => {});
+  if (!RK && "serviceWorker" in navigator) navigator.serviceWorker.register("/qualidade-app/sw.js", { scope: "/qualidade" }).catch(() => {});
   const bp = document.getElementById("btPainel"), bs = document.getElementById("btSair"), bi = document.getElementById("btInstalar");
   if (app) { if (bp) bp.hidden = true; if (bs) bs.hidden = false; }
-  if (bs) bs.onclick = async () => { try { await fetch("/api/auth/logout", { method: "POST" }); } catch (_) {} location.replace("/?voltar=/qualidade"); };
+  if (bs) bs.onclick = async () => { try { await fetch("/api/auth/logout", { method: "POST" }); } catch (_) {} location.replace("/?voltar=" + location.pathname); };
   let pedido = null;
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); pedido = e; if (bi && !app) bi.hidden = false; });
   addEventListener("appinstalled", () => { if (bi) bi.hidden = true; });

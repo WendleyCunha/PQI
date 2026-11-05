@@ -143,11 +143,16 @@ def exigir(request: Request, abas, minimo: int, acao: str) -> None:
     H["exigir_aba"](request, MODULO, abas, minimo, acao)
 
 
-def nivel(request: Request, aba: str) -> int:
+def nivel(request: Request, aba: str, modulo: str = "") -> int:
     try:
-        return int(H["nivel_aba"](request, MODULO, aba))
+        return int(H["nivel_aba"](request, modulo or MODULO, aba))
     except Exception:
         return 0
+
+
+def exigir_mod(request: Request, modulo: str, abas, minimo: int, acao: str) -> None:
+    """[v5.9] Permissão por aba de OUTRO sistema que usa esta mesma base (ex.: RouterKing)."""
+    H["exigir_aba"](request, modulo, abas, minimo, acao)
 
 
 TRAVA = threading.RLock()   # reentrante: as rotas seguram a trava e chamam carga() → _carregar()
@@ -1497,8 +1502,11 @@ class TrocaPlaca(BaseModel):
 def rota_trocar_placa(numero: str, payload: TrocaPlaca, request: Request):
     """Outro caminhão vai fazer a rota: a placa nova assume todas as entregas ainda pendentes.
     O que o motorista anterior já registrou fica na carga; a placa antiga deixa de ver a carga no app."""
-    exigir(request, ["pcl", "aovivo"], 2, "Trocar a placa da carga")
-    q = quem(request)
+    exigir(request, "pcl", 2, "Trocar a placa da carga")
+    return trocar_placa(numero, payload, quem(request))
+
+
+def trocar_placa(numero: str, payload: TrocaPlaca, q: dict) -> dict:
     pl = norm_placa(payload.placa)
     if len(pl) < 5:
         raise HTTPException(status_code=400, detail="Placa inválida.")
