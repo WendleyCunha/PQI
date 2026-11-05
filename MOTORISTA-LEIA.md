@@ -88,3 +88,27 @@ python testes_motorista.py
   (ex.: o chapa da Montagem) nem vê o menu: abre direto na etapa dele.
 - No app instalado o botão "Painel de Sistemas" vira **Sair** (para trocar de pessoa no mesmo celular).
 - Para não pedir login todo dia, ligue "Lembrar de mim" na configuração de login do PQI.
+
+# v5.4 — APP DO PQI, UMA ETAPA POR PESSOA, SEM LEITOR, ENTRADA AVULSA
+
+## App do PQI (sistema todo)
+- Tela de login: **⤓ Baixar o app no celular** (Chrome/Android instala; no iPhone mostra o passo a passo).
+- O app abre o Painel com os sistemas e as abas liberados para o login. Quem tem um sistema só abre direto nele.
+- **Manter conectado por 30 dias** vem marcado (os dias vêm de Configurações).
+
+## Cada etapa da carga por uma pessoa
+- Etapas: **PCL** (importar o PDF, pendências, refazer, trocar placa, Ao vivo, apontar no ERP),
+  **montagem**, **conferência na doca** e **retorno**.
+- Quem agiu numa etapa de uma carga não age em outra etapa **da mesma carga**. A tela mostra o aviso.
+- O **ADMIN** faz todas (para testes). Quem fez cada etapa fica em `etapas_pessoas` na carga.
+
+## Peça com código e sem leitor
+- Montagem/doca: **✓ 1 sem leitor** → pede o motivo → a peça conta, marcada "sem leitor" (aparece no detalhe da carga).
+- Retorno: **Voltou 1 (sem leitor)** e, no lote, o campo "Sem leitor? Motivo".
+- Se fechar o palete com a peça sem confirmar, ela vira FALTA (pendência no PCL), como antes.
+
+## Entrada avulsa (Retorno)
+- **＋ Entrada avulsa**: peça que chegou fora do PDF (loja, cliente, transferência…). Vira a carga **AVaammdd-nn**,
+  já Em retorno, e segue: concluir retorno → GAP → PCL aponta no ERP. Não aparece no app do motorista nem no Ao vivo.
+
+Testes: `python testes_qualidade.py`

@@ -734,6 +734,8 @@ def rota_ao_vivo(request: Request, data: str = ""):
         qld._carregar()
         cs = []
         for c in qld.CARGAS.values():
+            if c.get("avulsa"):
+                continue   # entrada avulsa no Retorno não sai para a rua
             r = c.get("rua") or {}
             ativa = c.get("status") in STATUS_RUA and not r.get("chegada") and (c.get("data_iso") or "") >= (
                 datetime.fromisoformat(dia) - timedelta(days=DIAS_APP)).strftime("%Y-%m-%d")
@@ -765,6 +767,7 @@ def rota_decidir(numero: str, pv: str, payload: Decisao, request: Request):
         raise HTTPException(400, "Ação inválida.")
     with TRAVA:
         c = qld.carga(numero)
+        qld.etapa_pessoa(c, "pcl", q)   # cada etapa por uma pessoa (o admin faz todas)
         p = _ped_da_carga(c, pv)
         ev = rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}
         lib = ev.get("liberacao")
@@ -789,6 +792,7 @@ def rota_baixa_erp(numero: str, pv: str, payload: Baixa, request: Request):
     q = qld.quem(request)
     with TRAVA:
         c = qld.carga(numero)
+        qld.etapa_pessoa(c, "pcl", q)   # cada etapa por uma pessoa (o admin faz todas)
         p = _ped_da_carga(c, pv)
         ev = rua(c)["pedidos"].get(chave_pv(p.get("pv")))
         if not ev or ev.get("desfecho") not in ("entregue", "parcial"):
@@ -812,6 +816,7 @@ def rota_pcl_reabrir(numero: str, pv: str, payload: Correcao, request: Request):
         raise HTTPException(400, "Diga o motivo.")
     with TRAVA:
         c = qld.carga(numero)
+        qld.etapa_pessoa(c, "pcl", q)   # cada etapa por uma pessoa (o admin faz todas)
         p = _ped_da_carga(c, pv)
         ev = rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}
         if not ev.get("desfecho"):

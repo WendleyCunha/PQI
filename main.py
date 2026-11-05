@@ -139,6 +139,8 @@ ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",                      # [v4.2] co
 ROTAS_PUBLICAS |= {"/motorista", "/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest",
                    "/motorista/icone-192.png", "/motorista/icone-512.png"}
 # [v5.3] Qualidade como app instalável: só os arquivos do app são públicos (a tela continua pedindo o login do PQI)
+# [v5.4] o PQI inteiro instalável como app (botão "Baixar o app" na tela de login)
+ROTAS_PUBLICAS |= {"/pqi-sw.js", "/pqi-app/manifest.webmanifest", "/pqi-app/icone-192.png", "/pqi-app/icone-512.png"}
 ROTAS_PUBLICAS |= {"/qualidade-app/sw.js", "/qualidade-app/manifest.webmanifest",
                    "/qualidade-app/icone-192.png", "/qualidade-app/icone-512.png"}
 ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
@@ -3275,6 +3277,20 @@ def _criar_rota_pagina(nome_arquivo: str):
         # no-cache: depois de um commit novo, o navegador já pega a versão nova
         return FileResponse(caminho, media_type="text/html", headers={"Cache-Control": "no-cache"})
     return servir
+
+
+def _servir_arquivo_app(arq: str, tipo: str):
+    def servir():
+        return FileResponse(os.path.join(BASE_DIR, arq), media_type=tipo, headers={"Cache-Control": "no-cache"})
+    return servir
+
+
+# [v5.4] app do PQI (PWA): o login é o de sempre; cada pessoa vê só os sistemas e as abas liberados
+for _rota, _arq, _tipo in (("/pqi-sw.js", "pqi-sw.js", "application/javascript"),
+                           ("/pqi-app/manifest.webmanifest", "pqi.webmanifest", "application/manifest+json"),
+                           ("/pqi-app/icone-192.png", "pqi-192.png", "image/png"),
+                           ("/pqi-app/icone-512.png", "pqi-512.png", "image/png")):
+    app.add_api_route(_rota, _servir_arquivo_app(_arq, _tipo), methods=["GET", "HEAD"], include_in_schema=False)
 
 
 @app.get("/pqi-acesso.js", include_in_schema=False)
