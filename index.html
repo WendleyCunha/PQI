@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Painel de Sistemas - Shell Unificado</title>
+<link rel="manifest" href="/pqi-app/manifest.webmanifest">
+<meta name="theme-color" content="#06070b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="King Star PQI">
+<link rel="apple-touch-icon" href="/pqi-app/icone-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -254,6 +260,9 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 .btn-cancelar{width:100%;background:none;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:500 13px 'Inter',sans-serif;cursor:pointer;margin-top:8px;}
 
 /* ══════════ [NOVO v4.2] LEMBRAR DE MIM · ESQUECI MINHA SENHA · SINO DO ADM ══════════ */
+.app-login{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);text-align:center}
+.app-login button{width:100%;background:none;border:1px solid var(--line-strong);color:var(--gold-soft);border-radius:10px;padding:11px 12px;font:600 14px 'Inter',sans-serif;cursor:pointer}
+.app-login p{margin:8px 0 0;font-size:12px;color:var(--ink-muted);line-height:1.45}
 .linha-login{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 14px;font-size:12.5px;color:var(--ink-muted);}
 .linha-login label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;}
 .linha-login input{width:16px;height:16px;accent-color:var(--gold);}
@@ -312,6 +321,11 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
     </div>
     <button class="btn-entrar" id="btnEntrar" type="submit">Entrar</button>
     <div class="erro-login" id="erroLogin" role="alert"></div>
+    <!-- [v5.4] app no celular: abre só os sistemas e as abas liberados para o login -->
+    <div class="app-login" id="appLogin" hidden>
+      <button type="button" id="btBaixarApp">⤓ Baixar o app no celular</button>
+      <p id="txtBaixarApp">Instala o PQI como aplicativo. Cada pessoa vê só as etapas liberadas para ela.</p>
+    </div>
     <p class="rodape-login" id="rodapeLogin">Esqueceu a senha? Peça ao administrador para gerar uma nova.</p>
   </form>
 
@@ -725,6 +739,8 @@ function aplicarSessao(dados) {
   esqLimpar();
   if (USUARIO.trocar_senha) abrirTrocaSenha(true);
   iniciarSino();   // [v4.2]
+  // [v5.4] app instalado e a pessoa só tem um sistema (ex.: o chapa da montagem): abre direto nele
+  if (APP_INSTALADO && SISTEMAS.length === 1 && !USUARIO.trocar_senha) abrirSistema(SISTEMAS[0]);
 }
 
 function mostrarLogin(aviso) {
@@ -755,7 +771,7 @@ $id('formLogin').addEventListener('submit', async (e) => {
   try {
     const r = await fetch('/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: $id('loginEmail').value, senha: $id('loginSenha').value, lembrar: $id('loginLembrar').checked }),
+      body: JSON.stringify({ email: $id('loginEmail').value, senha: $id('loginSenha').value, lembrar: $id('loginLembrar').checked && !$id('boxLembrar').hidden }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.detail || 'Não consegui entrar agora. Tente de novo.');
@@ -833,7 +849,8 @@ async function carregarConfigLogin() {
   } catch (_) {}
   const dias = CFG_LOGIN.lembrar_dias || 30;
   $id('boxLembrar').hidden = !CFG_LOGIN.lembrar;
-  $id('txtLembrar').textContent = `Lembrar de mim (${dias} dias)`;
+  $id('txtLembrar').textContent = `Manter conectado por ${dias} dias`;
+  try { $id('loginLembrar').checked = localStorage.getItem('pqi_lembrar') !== '0'; } catch (_) { $id('loginLembrar').checked = true; }   // [v5.4] marcado por padrão
   $id('btnEsqueci').hidden = !CFG_LOGIN.esqueci;
   $id('rodapeLogin').textContent = CFG_LOGIN.esqueci
     ? 'Esqueceu a senha? Clique em “Esqueci minha senha”: o administrador libera e você mesmo cria uma nova.'
@@ -912,7 +929,8 @@ function esqLiberado(j) {
   if (CFG_LOGIN.senha_letra) regras.push('pelo menos uma letra');
   $id('esqRegras').textContent = 'Regras: ' + regras.join(' · ');
   $id('esqBoxLembrar').hidden = !CFG_LOGIN.lembrar;
-  $id('esqTxtLembrar').textContent = `Lembrar de mim (${CFG_LOGIN.lembrar_dias || 30} dias)`;
+  $id('esqTxtLembrar').textContent = `Manter conectado por ${CFG_LOGIN.lembrar_dias || 30} dias`;
+  try { $id('esqLembrar').checked = localStorage.getItem('pqi_lembrar') !== '0'; } catch (_) { $id('esqLembrar').checked = true; }
   clearInterval(esqRelogio);
   const conta = () => {
     if (!esqLiberadoAte) { $id('esqRestante').textContent = ''; return; }
@@ -1056,6 +1074,26 @@ setInterval(async () => {
 
 // Inicialização
 iniciarSessao();
+
+// ═══ [v5.4] APP DO PQI — "Baixar o app" na tela de login ═══
+const APP_INSTALADO = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let PEDIDO_INSTALAR = null;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/pqi-sw.js', { scope: '/' }).catch(() => {});
+(function () {
+  const box = $id('appLogin'), bt = $id('btBaixarApp'), txt = $id('txtBaixarApp');
+  if (!box || APP_INSTALADO) return;
+  box.hidden = false;
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); PEDIDO_INSTALAR = e; });
+  addEventListener('appinstalled', () => { box.hidden = true; });
+  bt.onclick = async () => {
+    if (PEDIDO_INSTALAR) { PEDIDO_INSTALAR.prompt(); try { await PEDIDO_INSTALAR.userChoice; } catch (_) {} PEDIDO_INSTALAR = null; return; }
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    txt.innerHTML = ios ? 'No iPhone (Safari): toque em <b>Compartilhar</b> ⬆ e depois em <b>Adicionar à Tela de Início</b>.'
+      : 'No Chrome: toque no menu <b>⋮</b> e depois em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).';
+  };
+})();
+// guarda a escolha de "Manter conectado"
+['loginLembrar', 'esqLembrar'].forEach(id => { const el = $id(id); if (el) el.addEventListener('change', () => { try { localStorage.setItem('pqi_lembrar', el.checked ? '1' : '0'); } catch (_) {} }); });
 </script>
 </body>
 </html>

@@ -136,7 +136,7 @@ def iso_ok(s: Optional[str], padrao: str) -> str:
 
 def quem(request: Request) -> dict:
     u = H["usuario_atual"](request)
-    return {"por": u.get("nome") or u.get("email"), "email": u.get("email")}
+    return {"por": u.get("nome") or u.get("email"), "email": u.get("email"), "admin": u.get("papel") == "admin"}
 
 
 def exigir(request: Request, abas, minimo: int, acao: str) -> None:
@@ -445,7 +445,7 @@ def resumo(c: dict) -> dict:
 def publico(c: dict) -> dict:
     ret, ap = c.get("retorno") or {}, c.get("apontamento") or {}
     return {k: c.get(k) for k in ("numero", "data_mapa", "data_iso", "placa", "transportadora", "motorista", "cubagem",
-                                   "status", "versao", "transferencia", "atualizado_em")} | {
+                                   "status", "versao", "transferencia", "atualizado_em", "avulsa", "origem_avulsa")} | {
         "resumo": c.get("resumo") or resumo(c), "montagem": _etapa_pub(c.get("montagem")), "doca": _etapa_pub(c.get("doca")),
         "validacao": c.get("validacao"),
         "retorno": {"por": ret.get("por"), "inicio": ret.get("inicio"), "fim_em": (ret.get("fim") or {}).get("em"),
@@ -687,6 +687,7 @@ def importar_mapa(payload: dict, q: dict) -> dict:
                 hist(c, q, "Mapa importado", payload.get("arquivo") or "")
                 recalcular(c)
                 rel["novas"].append(num)
+            marcar_etapa(c, "pcl", q)   # quem importa faz o PCL desta carga
             rel["alertas"] += sum(len(p["alertas"]) for p in peds)
             rel["pv_fora"] += sum(1 for p in peds if not p["carteira"]["achado"])
             gravar(c)
@@ -716,10 +717,49 @@ def _montadores(c: dict) -> set:
     return {x for x in s if x}
 
 
+# ── Cada etapa da carga é feita por uma pessoa diferente (só o ADMIN pode fazer todas) ──
+NOMES_ETAPA = {"pcl": "o PCL", "montagem": "a montagem do palete", "doca": "a conferência na doca", "retorno": "o retorno"}
+
+
+def pessoas_etapas(c: dict) -> dict:
+    """{etapa: {e-mails}} de quem já agiu em cada etapa desta carga (registro + o que já está nas etapas)."""
+    p = {k: set(v or []) for k, v in (c.get("etapas_pessoas") or {}).items()}
+    p.setdefault("montagem", set()).update(_montadores(c))
+    for a in c.get("etapas_anteriores") or []:
+        if a.get("etapa") in ("montagem", "doca"):
+            p.setdefault(a["etapa"], set()).update(v.get("email") for v in (a.get("leituras") or {}).values())
+            p[a["etapa"]].update({a.get("email"), (a.get("fim") or {}).get("email")})
+    dc = c.get("doca") or {}
+    p.setdefault("doca", set()).update({v.get("email") for v in (dc.get("leituras") or {}).values()} | {dc.get("email"), (dc.get("fim") or {}).get("email")})
+    rt = c.get("retorno") or {}
+    p.setdefault("retorno", set()).update({i.get("email") for i in rt.get("itens") or []} | {rt.get("email"), (rt.get("fim") or {}).get("email")})
+    return {k: {e for e in v if e} for k, v in p.items()}
+
+
+def checar_etapa(c: dict, nome: str, q: dict) -> None:
+    if q.get("admin") or not q.get("email"):
+        return
+    for et, emails in pessoas_etapas(c).items():
+        if et != nome and q["email"] in emails:
+            raise HTTPException(status_code=403, detail=f"Você já fez {NOMES_ETAPA.get(et, et)} da carga {c.get('numero')}. "
+                                                        f"{NOMES_ETAPA.get(nome, nome).capitalize()} precisa ser feito(a) por OUTRA pessoa.")
+
+
+def marcar_etapa(c: dict, nome: str, q: dict) -> None:
+    if q.get("email"):
+        lst = c.setdefault("etapas_pessoas", {}).setdefault(nome, [])
+        if q["email"] not in lst:
+            lst.append(q["email"])
+
+
+def etapa_pessoa(c: dict, nome: str, q: dict) -> None:
+    checar_etapa(c, nome, q)
+    marcar_etapa(c, nome, q)
+
+
 def _etapa(c: dict, nome: str, q: dict) -> dict:
     _exigir_status(c, *ETAPAS[nome]["pode"])
-    if nome == "doca" and q["email"] in _montadores(c):
-        raise HTTPException(status_code=403, detail="Você participou da montagem deste palete. A conferência na doca precisa ser feita por OUTRA pessoa.")
+    etapa_pessoa(c, nome, q)
     if not c.get(nome):
         c[nome] = {"inicio": agora(), "por": q["por"], "email": q["email"], "leituras": {}, "sobras": [], "fim": None}
         c["status"] = "em_montagem" if nome == "montagem" else "em_conferencia"
@@ -727,7 +767,8 @@ def _etapa(c: dict, nome: str, q: dict) -> dict:
     return c[nome]
 
 
-def ler_codigo(c: dict, nome: str, q: dict, codigo: str, unidade: Optional[str], pv: Optional[str], qr: Optional[str]) -> dict:
+def ler_codigo(c: dict, nome: str, q: dict, codigo: str, unidade: Optional[str], pv: Optional[str], qr: Optional[str],
+               sem_leitor: bool = False, motivo: str = "") -> dict:
     """Uma leitura na montagem ou na doca. Devolve o que a tela deve fazer."""
     et = _etapa(c, nome, q)
     lidas = et["leituras"]
@@ -738,8 +779,16 @@ def ler_codigo(c: dict, nome: str, q: dict, codigo: str, unidade: Optional[str],
             raise HTTPException(status_code=404, detail="Unidade não encontrada nesta carga.")
         if alvo["id"] in lidas:
             return {"resultado": "ja_lida", "unidade": alvo}
-        if tem_ean(alvo.get("sku")):
-            return {"resultado": "exige_codigo", "unidade": alvo, "mensagem": "Este produto já tem EAN cadastrado: leia o código de barras."}
+        if tem_ean(alvo.get("sku")) or exige_qr(alvo.get("sku")):
+            motivo = str(motivo or "").strip()
+            if not sem_leitor:
+                return {"resultado": "exige_codigo", "unidade": alvo, "mensagem": "Este produto tem código cadastrado: leia o código. Sem leitor? Confirme “sem leitor” e diga o motivo."}
+            if not motivo:
+                raise HTTPException(status_code=400, detail="Diga por que não foi possível ler o código.")
+            lidas[alvo["id"]] = {"modo": "sem_leitor", "codigo": "", "motivo": motivo[:200], "por": q["por"], "email": q["email"], "em": agora()}
+            hist(c, q, f"{ETAPAS[nome]['nome']}: confirmado sem ler o código", f"{alvo.get('desc')} (PV {alvo.get('pv')}) — {motivo[:200]}")
+            gravar(c)
+            return {"resultado": "ok", "unidade": alvo, "modo": "sem_leitor"}
         lidas[alvo["id"]] = {"modo": "manual", "codigo": "", "por": q["por"], "email": q["email"], "em": agora()}
         gravar(c)
         return {"resultado": "ok", "unidade": alvo, "modo": "manual"}
@@ -845,6 +894,7 @@ def _candidatos_retorno(c: dict, origem: str) -> list:
 
 def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
     _exigir_status(c, "validada", "em_retorno")
+    etapa_pessoa(c, "retorno", q)
     L = listas()
     origem = dados.get("origem") if dados.get("origem") in ("nao_entregue", "retirada") else "nao_entregue"
     codigo = re.sub(r"\s+", "", str(dados.get("codigo") or ""))
@@ -857,8 +907,11 @@ def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
     elif dados.get("item"):
         pv_, i_ = str(dados["item"]).split("|", 1)
         cand = [x for x in cand if num_chave(x["pv"]) == num_chave(pv_) and str(x["i"]) == i_]
-        if cand and tem_ean(cand[0].get("sku")) and not dados.get("sem_codigo_ok"):
-            return {"resultado": "exige_codigo", "mensagem": "Este produto tem EAN cadastrado: leia o código de barras."}
+        if cand and tem_ean(cand[0].get("sku")):
+            if not dados.get("sem_codigo_ok"):
+                return {"resultado": "exige_codigo", "mensagem": "Este produto tem EAN cadastrado: leia o código de barras. Sem leitor? Confirme “sem leitor” e diga o motivo."}
+            if not str(dados.get("motivo_sem_leitor") or "").strip():
+                raise HTTPException(400, "Diga por que não foi possível ler o código.")
     if dados.get("pv"):
         cand = [x for x in cand if num_chave(x["pv"]) == num_chave(dados["pv"])]
     if not cand:
@@ -887,7 +940,9 @@ def ler_retorno(c: dict, q: dict, dados: dict) -> dict:
             "origem": origem, "motivo": str(dados.get("motivo") or "")[:120] if origem == "nao_entregue" else "Retirada na troca",
             "estado": estado, "avaria": str(dados.get("avaria") or "")[:120] if estado == "avariada" else "",
             "destino": str(dados.get("destino") or "")[:120], "obs": str(dados.get("obs") or "")[:300],
-            "modo": "ean" if codigo else "manual", "codigo": codigo, "por": q["por"], "email": q["email"], "em": agora(), "tabulacao": None}
+            "modo": "ean" if codigo else ("sem_leitor" if dados.get("sem_codigo_ok") and tem_ean(x.get("sku")) else "manual"), "codigo": codigo,
+            "motivo_sem_leitor": str(dados.get("motivo_sem_leitor") or "")[:200] if dados.get("sem_codigo_ok") and tem_ean(x.get("sku")) else "",
+            "por": q["por"], "email": q["email"], "em": agora(), "tabulacao": None}
     ret["itens"].append(item)
     if c["status"] == "validada":
         c["status"] = "em_retorno"
@@ -901,6 +956,7 @@ def retorno_lote(c: dict, q: dict, dados: dict) -> dict:
     (entrega parcial). Um motivo, estado e destino para o lote; cada unidade vira um registro
     próprio (vai para o GAP peça por peça). Linhas cujo SKU tem EAN continuam exigindo a leitura."""
     _exigir_status(c, "validada", "em_retorno")
+    etapa_pessoa(c, "retorno", q)
     L = listas()
     pv = str(dados.get("pv") or "")
     ped = next((p for p in c.get("pedidos") or [] if num_chave(p.get("pv")) == num_chave(pv)), None)
@@ -927,8 +983,9 @@ def retorno_lote(c: dict, q: dict, dados: dict) -> dict:
             raise HTTPException(409, "Quantidade maior do que a pendente em uma das linhas — atualize a tela.")
         if tem_ean(x.get("sku")):
             exige.append(x["desc"])
-    if exige:
-        raise HTTPException(409, "Estes produtos têm EAN cadastrado e precisam ter o código lido: " + "; ".join(exige) + ".")
+    msl = str(dados.get("motivo_sem_leitor") or "").strip()
+    if exige and not (dados.get("sem_leitor") and msl):
+        raise HTTPException(409, "Estes produtos têm EAN cadastrado: leia o código na tela da carga, ou informe o motivo de registrar sem leitor: " + "; ".join(exige) + ".")
     ret = c.get("retorno") or {"inicio": agora(), "por": q["por"], "email": q["email"], "itens": [], "fim": None}
     c["retorno"] = ret
     lote, em = uuid.uuid4().hex[:8], agora()
@@ -939,7 +996,8 @@ def retorno_lote(c: dict, q: dict, dados: dict) -> dict:
             item = {"id": uuid.uuid4().hex[:8], "pv": x["pv"], "seq": x["seq"], "i": i, "sku": x.get("sku"), "desc": x["desc"], "nome": x.get("nome"),
                     "origem": "nao_entregue", "motivo": motivo[:120], "estado": estado,
                     "avaria": str(dados.get("avaria") or "")[:120] if estado == "avariada" else "",
-                    "destino": destino[:120], "obs": str(dados.get("obs") or "")[:300], "modo": "lote", "lote": lote, "codigo": "",
+                    "destino": destino[:120], "obs": str(dados.get("obs") or "")[:300], "lote": lote, "codigo": "",
+                    "modo": "sem_leitor" if tem_ean(x.get("sku")) else "lote", "motivo_sem_leitor": msl[:200] if tem_ean(x.get("sku")) else "",
                     "por": q["por"], "email": q["email"], "em": em, "tabulacao": None}
             ret["itens"].append(item)
             novos.append(item)
@@ -1081,6 +1139,8 @@ class Leitura(BaseModel):
     unidade: Optional[str] = ""
     pv: Optional[str] = ""
     qr: Optional[str] = ""
+    sem_leitor: bool = False     # [v5.4] produto com código, mas a pessoa está sem leitor/câmera
+    motivo: Optional[str] = ""
 
 
 class Finalizar(BaseModel):
@@ -1169,7 +1229,19 @@ def rota_cargas(request: Request, de: str = "", ate: str = "", abertas: bool = T
 def rota_carga(numero: str, request: Request):
     c = carga(numero)
     return {**c, "resumo": resumo(c), "situacao_pedidos": situacao_pedidos(c), "montadores": sorted(_montadores(c)), "nomes_status": STATUS,
-            "volta_montagem": not _pode_voltar_montagem(c), "fase2": exigir_conferencia()}
+            "volta_montagem": not _pode_voltar_montagem(c), "fase2": exigir_conferencia(), "bloqueios": _bloqueios(c, quem(request))}
+
+
+def _bloqueios(c: dict, q: dict) -> dict:
+    """Para a tela: em quais etapas desta carga ESTA pessoa não pode agir (já fez outra)."""
+    out = {}
+    for nome in NOMES_ETAPA:
+        try:
+            checar_etapa(c, nome, q)
+            out[nome] = ""
+        except HTTPException as e:
+            out[nome] = e.detail
+    return out
 
 
 class TrocaPlaca(BaseModel):
@@ -1197,6 +1269,7 @@ def rota_trocar_placa(numero: str, payload: TrocaPlaca, request: Request):
         r = c.get("rua") or {}
         if r.get("chegada"):
             raise HTTPException(status_code=409, detail="O motorista já registrou a chegada no CD. Não dá para trocar a placa.")
+        etapa_pessoa(c, "pcl", q)
         ped_rua = r.get("pedidos") or {}
         feitos = sum(1 for v in ped_rua.values() if (v or {}).get("desfecho"))
         pendentes = max(0, len(c.get("pedidos") or []) - feitos)
@@ -1261,6 +1334,11 @@ def rota_voltar_montagem(payload: VoltarMontagem, request: Request):
         feitas, puladas = [], []
         for c in alvo:
             motivo = _pode_voltar_montagem(c)
+            if not motivo:
+                try:
+                    etapa_pessoa(c, "pcl", q)
+                except HTTPException as e:
+                    motivo = e.detail
             if motivo:
                 puladas.append({"numero": c["numero"], "motivo": motivo})
                 continue
@@ -1282,7 +1360,7 @@ def rota_leitura(numero: str, et: str, payload: Leitura, request: Request):
     et = _etapa_url(et)
     exigir(request, ETAPAS[et]["aba"], 2, f"Registrar a {ETAPAS[et]['nome']}")
     with TRAVA:
-        return ler_codigo(carga(numero), et, quem(request), payload.codigo, payload.unidade, payload.pv, payload.qr)
+        return ler_codigo(carga(numero), et, quem(request), payload.codigo, payload.unidade, payload.pv, payload.qr, payload.sem_leitor, payload.motivo or "")
 
 
 @router.post("/cargas/{numero}/{et}/desfazer")
@@ -1294,6 +1372,8 @@ def rota_desfazer(numero: str, et: str, payload: Leitura, request: Request):
         c = carga(numero)
         _exigir_status(c, "em_montagem" if et == "montagem" else "em_conferencia")
         e = c[et]
+        dono = ((e.get("leituras") or {}).get(payload.unidade) or {}).get("email")
+        etapa_pessoa(c, et if (dono == q["email"] or not payload.unidade) and nivel(request, ETAPAS[et]["aba"]) >= 2 else "pcl", q)
         if payload.unidade and payload.unidade in e["leituras"]:
             if e["leituras"][payload.unidade].get("email") != q["email"] and nivel(request, "pcl") < 3:
                 raise HTTPException(status_code=403, detail="Só quem leu (ou o PCL) pode desfazer esta leitura.")
@@ -1347,6 +1427,9 @@ def rota_ajuste(numero: str, payload: Ajuste, request: Request):
         c = carga(numero)
         if c.get("status") in FASE_RETORNO:
             raise HTTPException(status_code=409, detail="A carga já foi validada — ajuste não vale mais.")
+        st = c.get("status")
+        etapa_pessoa(c, "montagem" if st in ("importada", "em_montagem", "montagem_div") and nivel(request, "montagem") >= 2 else
+                     "doca" if st in ("montada", "em_conferencia", "doca_div") and nivel(request, "conferencia") >= 2 else "pcl", q)
         a = _nova_pend("manual", payload.tipo, payload.pv, payload.desc, payload.qtd, payload.motivo, payload.obs, q, status="aguardando_pdf", pdf=payload.tipo)
         c.setdefault("pendencias", []).append(a)
         hist(c, q, "ajuste solicitado", f"{'SAIR' if a['tipo'] == 'sair' else 'ENTRAR'} {a['qtd']}× {a['desc']} (PV {a['pv']}) — {a['motivo']}")
@@ -1361,6 +1444,7 @@ def rota_pendencia(numero: str, pid: str, payload: PendAcao, request: Request):
     q = quem(request)
     with TRAVA:
         c = carga(numero)
+        etapa_pessoa(c, "pcl", q)
         a = next((x for x in c.get("pendencias") or [] if x["id"] == pid), None)
         if not a or a.get("status") not in ("aberta", "aguardando_pdf"):
             raise HTTPException(status_code=404, detail="Pendência aberta não encontrada.")
@@ -1395,6 +1479,7 @@ def rota_refazer(numero: str, et: str, payload: Texto, request: Request):
         c = carga(numero)
         if c.get("status") in FASE_RETORNO or c.get("status") == "aguardando_pdf":
             raise HTTPException(status_code=409, detail="Agora não dá para refazer esta etapa.")
+        etapa_pessoa(c, "pcl", q)
         for a in c.get("pendencias") or []:
             if a.get("status") == "aberta" and (et == "montagem" or a.get("origem") == "doca"):
                 a.update(status="refazer", nota=f"{ETAPAS[et]['nome']} refeita", tratado_por=q["por"], tratado_em=agora())
@@ -1486,6 +1571,75 @@ def rota_retorno(numero: str, payload: dict, request: Request):
         return ler_retorno(carga(numero), quem(request), payload or {})
 
 
+class ItemAvulso(BaseModel):
+    sku: Optional[str] = ""
+    desc: str
+    qtd: int = 1
+
+
+class EntradaAvulsa(BaseModel):
+    origem: str                     # Loja / Cliente / Transferência / Fornecedor / Outro
+    referencia: str                 # qual loja, qual cliente…
+    pv: Optional[str] = ""
+    nf: Optional[str] = ""
+    itens: list
+    motivo: str
+    estado: str
+    avaria: Optional[str] = ""
+    destino: str
+    obs: Optional[str] = ""
+
+
+ORIGENS_AVULSO = ("Loja", "Cliente", "Transferência", "Fornecedor", "Outro")
+
+
+@router.post("/retorno/avulso")
+def rota_retorno_avulso(payload: EntradaAvulsa, request: Request):
+    """[v5.4] Peça que chegou no CD fora do PDF (retorno de loja, item inesperado…).
+    Vira uma "carga avulsa" (AV…) com um pedido só e entra no mesmo fluxo: Retorno → GAP → PCL aponta no ERP."""
+    exigir(request, "retorno", 2, "Registrar entrada avulsa")
+    q = quem(request)
+    origem = payload.origem if payload.origem in ORIGENS_AVULSO else "Outro"
+    ref = payload.referencia.strip()[:120]
+    itens = []
+    for it in payload.itens or []:
+        d = it if isinstance(it, dict) else {}
+        desc, sku = str(d.get("desc") or "").strip()[:200], str(d.get("sku") or "").strip()[:60]
+        try:
+            qtd = max(0, min(99, int(d.get("qtd") or 0)))
+        except (TypeError, ValueError):
+            qtd = 0
+        if sku and not desc:
+            desc = (produtos().get(sku) or {}).get("desc") or sku
+        if desc and qtd:
+            itens.append({"sku": sku or None, "desc": desc, "qtd": qtd})
+    if not ref or not itens:
+        raise HTTPException(400, "Informe de onde veio (loja/cliente) e ao menos um item com quantidade.")
+    with TRAVA:
+        _carregar()
+        dia = hoje()
+        base = "AV" + dia[2:].replace("-", "")
+        n = 1 + sum(1 for k in CARGAS if str(k).startswith(base + "-"))
+        while f"{base}-{n:02d}" in CARGAS or _fs_get(COL_CARGAS, f"{base}-{n:02d}"):
+            n += 1
+        num = f"{base}-{n:02d}"
+        pv = re.sub(r"\s+", "", str(payload.pv or ""))[:20] or num
+        ped = {"seq": "1", "tipo": "AVULSO", "pv": pv, "nf": str(payload.nf or "").strip()[:20], "cliente": "", "nome": f"{origem}: {ref}",
+               "endereco": "", "bairro": origem, "cidade": "", "entregar": itens, "col2": [], "obs": [], "troca": False, "alertas": [],
+               "transferencia": False, "carteira": {"achado": True}, "gap": {"flags": [], "conferente": None, "analise": None}}
+        c = {"numero": num, "avulsa": True, "origem_avulsa": {"origem": origem, "referencia": ref}, "data_mapa": datetime.now().strftime("%d/%m/%Y"),
+             "data_iso": dia, "placa": "", "transportadora": "ENTRADA AVULSA", "motorista": "", "cubagem": 0, "transferencia": False,
+             "versao": 1, "status": "validada", "pedidos": [ped], "unidades": _unidades([ped]), "montagem": None, "doca": None,
+             "validacao": {"em": agora(), "por": q["por"], "email": q["email"], "como": "entrada avulsa (fora do PDF)"},
+             "pendencias": [], "retorno": None, "apontamento": None, "mudancas_nao_solicitadas": [], "etapas_anteriores": [],
+             "versoes": [{"v": 1, "em": agora(), "por": q["por"], "arquivo": "entrada avulsa", "assinatura": ""}], "historico": [], "criado_em": agora()}
+        hist(c, q, "entrada avulsa", f"{origem}: {ref}" + (f" · PV {payload.pv}" if payload.pv else "") + (f" · NF {payload.nf}" if payload.nf else ""))
+        r = retorno_lote(c, q, {"pv": pv, "linhas": [{"i": i, "qtd": it["qtd"]} for i, it in enumerate(itens)], "motivo": payload.motivo,
+                                "estado": payload.estado, "avaria": payload.avaria, "destino": payload.destino, "obs": payload.obs,
+                                "sem_leitor": True, "motivo_sem_leitor": "entrada avulsa (fora do PDF)"})
+        return {"numero": num, "itens": len(r.get("itens") or []), "carga": publico(c)}
+
+
 @router.post("/cargas/{numero}/retorno/lote")
 def rota_retorno_lote(numero: str, payload: dict, request: Request):
     exigir(request, "retorno", 2, "Registrar retorno")
@@ -1500,6 +1654,7 @@ def rota_retorno_remover(numero: str, payload: Texto, request: Request):
     with TRAVA:
         c = carga(numero)
         _exigir_status(c, "em_retorno")
+        etapa_pessoa(c, "retorno", q)
         ret = c["retorno"]
         alvo = str(payload.texto or "")
         its = [x for x in ret["itens"] if x.get("lote") == alvo[5:]] if alvo.startswith("lote:") else [x for x in ret["itens"] if x["id"] == alvo]
@@ -1520,6 +1675,7 @@ def rota_retorno_concluir(numero: str, payload: Concluir, request: Request):
     with TRAVA:
         c = carga(numero)
         _exigir_status(c, "validada", "em_retorno")
+        etapa_pessoa(c, "retorno", q)
         ret = c.get("retorno") or {"inicio": agora(), "por": q["por"], "email": q["email"], "itens": []}
         c["retorno"] = ret
         ret["retirada_nao_feita"] = [str(s) for s in payload.retirada_nao_feita or []]
@@ -1543,6 +1699,7 @@ def rota_apontar(numero: str, payload: Texto, request: Request):
     with TRAVA:
         c = carga(numero)
         _exigir_status(c, "retorno_concluido")
+        etapa_pessoa(c, "pcl", q)
         c["apontamento"] = {"em": agora(), "por": q["por"], "email": q["email"], "obs": str(payload.texto or "")[:500]}
         c["status"] = "baixada"
         hist(c, q, "apontado no ERP — carga baixada", payload.texto or "")
@@ -1557,6 +1714,7 @@ def rota_reabrir(numero: str, payload: Texto, request: Request):
     with TRAVA:
         c = carga(numero)
         _exigir_status(c, "retorno_concluido")
+        etapa_pessoa(c, "pcl", q)
         c["retorno"]["fim"] = None
         c["status"] = "em_retorno"
         hist(c, q, "retorno reaberto", payload.texto or "")
