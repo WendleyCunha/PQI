@@ -1164,7 +1164,7 @@ async function pedirAjuste(g) {
   const { LISTAS: L } = await cad();
   const itens = []; (g.pedidos || []).forEach(p => (p.entregar || []).forEach(it => itens.push({ pv: p.pv, desc: it.desc, qtd: it.qtd, nome: p.nome })));
   abrirDlg(`<h3>Pedir ajuste — carga ${esc(g.numero)}</h3>
-    <p class="cap">Vai para o <b>PCL</b> gerar o novo PDF no Protheus. O novo PDF confere se o ajuste foi feito e a carga volta para a montagem, inteira.</p>
+    <p class="cap">Vai para o <b>PCL</b> gerar o novo PDF no Protheus. O novo PDF confere se o ajuste foi feito. O que já foi lido continua lido — só o que mudou fica para ler.</p>
     ${seg2([["sair", "Item SAI da carga"], ["entrar", "Item ENTRA na carga"]], "sair", "data-t")}
     <div id="ajSair" style="margin-top:10px"><label class="f">Item<select id="ajItem">${itens.map((x, i) => `<option value="${i}">PV ${esc(x.pv)} · ${esc(x.desc)} (×${x.qtd}) — ${esc(x.nome)}</option>`).join("")}</select></label></div>
     <div id="ajEntrar" hidden style="margin-top:10px"><div class="q-form"><label class="f">PV<input id="ajPv" inputmode="numeric"></label><label class="f">Produto (descrição)<input id="ajDesc"></label></div></div>
@@ -1546,7 +1546,7 @@ let IMP = null, ULT_REL = "";
 function pclImportar(box) {
   if (!pode("pcl", 3)) { box.innerHTML = '<div class="aviso">Importar o Mapa exige o nível “Editar” na aba PCL.</div>'; return; }
   box.innerHTML = `<div class="box"><b>Importar o Mapa de Entregas (PDF do Protheus)</b>
-    <p class="cap">O PDF é lido aqui no navegador. Cada PV é procurado na base da Carteira. Carga que já existe entra como <b>nova versão</b>, confronta os pedidos de novo PDF e volta para a montagem. Carga já validada não é trocada.</p>
+    <p class="cap">O PDF é lido aqui no navegador. Cada PV é procurado na base da Carteira. Carga que já existe entra como <b>nova versão</b> e confronta os pedidos: o que já foi lido na montagem e na doca <b>continua lido</b> — só o que mudou fica para ler. Carga já validada não é trocada.</p>
     <input type="file" id="pdf" accept="application/pdf,.pdf"><div id="impPrev">${ULT_REL}</div></div>`;
   const f = $("#pdf", box);
   f.onchange = async () => {
