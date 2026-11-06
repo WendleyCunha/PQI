@@ -162,3 +162,159 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();
+
+/* ═══ [v5.11] TELA ESTÁVEL + ATALHOS (Ctrl+Z · Ctrl+Y · Ctrl+C · Ctrl+V) em todo o Painel ═══
+   • ESTÁVEL: quando a tela é redesenhada (render, desenhar…), a altura fica travada
+     durante a troca — a página não "encolhe" e por isso não pula para o topo; a rolagem
+     das áreas internas (com id) e o campo onde a pessoa estava digitando continuam onde
+     estavam. Nunca põe foco num campo que não estava com foco (não abre teclado no celular).
+     window.render é estabilizado sozinho; outras funções: PQI_ESTAVEL.estabilizar("nome", …).
+   • HISTÓRICO: PQI_ESTAVEL.historico({lista, salvar, redesenhar}) dá Ctrl+Z / Ctrl+Y à tela:
+     a tela chama h.registrar(item) a cada alteração (antes de gravar).
+   • ATALHOS: dentro de campo de texto, Ctrl+Z/C/V são os do navegador. Fora deles:
+     Ctrl+Z desfaz · Ctrl+Y (ou Ctrl+Shift+Z) refaz · Ctrl+C sem texto selecionado copia a
+     célula/valor que está sob o mouse · a tela pode tratar Ctrl+C/Ctrl+V (desenhos) com
+     PQI_ESTAVEL.aoCopiar / PQI_ESTAVEL.aoColar (devolvem true quando trataram).
+   ═══════════════════════════════════════════════════════════════════ */
+(function () {
+  "use strict";
+  var E = window.PQI_ESTAVEL = window.PQI_ESTAVEL || {};
+  var prof = 0;
+
+  function raiz() { return document.getElementById("root") || document.body; }
+  function emCampo(el) { return !!(el && el.closest && el.closest("input,textarea,select,[contenteditable='true'],[contenteditable='']")); }
+
+  // ── tela estável ──
+  function antes() {
+    var r = raiz(), st = { r: r, mh: r.style.minHeight, rol: [], foco: null };
+    r.style.minHeight = r.offsetHeight + "px";
+    Array.prototype.forEach.call(r.querySelectorAll("[id]"), function (el) {
+      if (el.scrollTop || el.scrollLeft) st.rol.push([el.id, el.scrollTop, el.scrollLeft]);
+    });
+    var a = document.activeElement;
+    if (a && a.id && a !== document.body && r.contains(a)) {
+      st.foco = { id: a.id, s: null, e: null };
+      try { st.foco.s = a.selectionStart; st.foco.e = a.selectionEnd; } catch (_) {}
+    }
+    return st;
+  }
+  function depois(st) {
+    st.rol.forEach(function (x) { var el = document.getElementById(x[0]); if (el) { el.scrollTop = x[1]; el.scrollLeft = x[2]; } });
+    if (st.foco) {
+      var el = document.getElementById(st.foco.id), a = document.activeElement;
+      if (el && el !== a && (!a || a === document.body || !a.isConnected)) {
+        try { el.focus({ preventScroll: true }); if (st.foco.s != null) el.setSelectionRange(st.foco.s, st.foco.e); } catch (_) {}
+      }
+    }
+    requestAnimationFrame(function () { requestAnimationFrame(function () { st.r.style.minHeight = st.mh; }); });
+  }
+  E.estabilizar = function () {
+    Array.prototype.forEach.call(arguments, function (nome) {
+      var f = window[nome];
+      if (typeof f !== "function" || f._pqiEstavel) return;
+      var g = function () {
+        if (prof) return f.apply(this, arguments);   // render dentro de render: o de fora já cuida
+        prof++; var st = antes(), res;
+        try { res = f.apply(this, arguments); }
+        catch (e) { prof--; depois(st); throw e; }
+        if (res && typeof res.then === "function") {
+          prof--;   // assíncrono: libera para outras ações; a altura fica travada até terminar
+          return res.then(function (v) { depois(st); aposRender(); return v; }, function (e) { depois(st); throw e; });
+        }
+        prof--; depois(st); aposRender(); return res;
+      };
+      g._pqiEstavel = true; window[nome] = g;
+    });
+  };
+  var hooksRender = [];
+  function aposRender() { hooksRender.forEach(function (h) { try { h(); } catch (_) {} }); }
+  function auto() { E.estabilizar("render"); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", auto); else setTimeout(auto, 0);
+
+  // ── aviso curto no rodapé ──
+  E.aviso = function (txt) {
+    var a = document.getElementById("pqi-aviso-atalho");
+    if (!a) { a = document.createElement("div"); a.id = "pqi-aviso-atalho";
+      a.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483000;background:#1B2436;color:#fff;font:500 13px system-ui,sans-serif;padding:8px 14px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none";
+      document.body.appendChild(a); }
+    a.textContent = txt; a.style.opacity = "1";
+    clearTimeout(a._t); a._t = setTimeout(function () { a.style.opacity = "0"; }, 1800);
+  };
+
+  // ── área de transferência ──
+  E.copiarTexto = function (txt) {
+    txt = String(txt == null ? "" : txt);
+    function velho() { var t = document.createElement("textarea"); t.value = txt; t.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch (_) {} t.remove(); }
+    try { if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(txt).catch(velho); } catch (_) {}
+    velho(); return Promise.resolve();
+  };
+  var sob = null;
+  document.addEventListener("mouseover", function (e) { sob = e.target; }, true);
+  E.sob = function () { return sob && sob.isConnected ? sob : null; };
+  function textoSob() {
+    var el = E.sob(); if (!el || el === document.body || el === document.documentElement) return "";
+    var alvo = el.closest("td,th,li,dt,dd,.pill,.chip,.sub,b,small,label,h1,h2,h3,h4") || el;
+    if (alvo.closest("button,svg")) return "";
+    var t = (alvo.innerText || alvo.textContent || "").replace(/\s+\n/g, "\n").trim();
+    return t.length > 0 && t.length <= 400 ? t : "";
+  }
+
+  // ── histórico (desfazer / refazer) ──
+  var HIST = null;
+  E.historico = function (op) {
+    var base = {}, undo = [], redo = [], ultT = 0, ultId = null, aplicando = false;
+    var js = function (it) { try { return JSON.stringify(it.dados); } catch (_) { return null; } };
+    var acha = function (id) { return (op.lista() || []).find(function (x) { return x.id === id; }); };
+    var h = {
+      semear: function () { if (aplicando) return; (op.lista() || []).forEach(function (it) { if (it && it.id) base[it.id] = js(it); }); },
+      registrar: function (it) {
+        if (aplicando || !it || !it.id) return;
+        var cur = js(it), b = base[it.id], agora = Date.now();
+        if (b == null) { base[it.id] = cur; return; }
+        if (cur === b) return;
+        var digitando = emCampo(document.activeElement);
+        if (!(digitando && ultId === it.id && agora - ultT < 900)) { undo.push({ id: it.id, j: b }); if (undo.length > 40) undo.shift(); }
+        base[it.id] = cur; redo = []; ultT = agora; ultId = it.id;
+      },
+      mover: function (de, para, rot) {
+        var x = de.pop(); if (!x) { E.aviso(rot === "desfazer" ? "Nada para desfazer." : "Nada para refazer."); return; }
+        var it = acha(x.id); if (!it) return;
+        para.push({ id: x.id, j: js(it) });
+        aplicando = true;
+        try { it.dados = JSON.parse(x.j); base[x.id] = x.j; ultId = null; op.salvar(it); op.redesenhar(); }
+        finally { aplicando = false; }
+        E.aviso(rot === "desfazer" ? "↶ Desfeito (Ctrl+Y refaz)" : "↷ Refeito");
+      },
+      desfazer: function () { h.mover(undo, redo, "desfazer"); },
+      refazer: function () { h.mover(redo, undo, "refazer"); }
+    };
+    hooksRender.push(h.semear);
+    HIST = h; return h;
+  };
+
+  // ── teclado ──
+  document.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    var k = (e.key || "").toLowerCase();
+    if ("zycv".indexOf(k) < 0 || k === "") return;
+    if (emCampo(e.target) || emCampo(document.activeElement)) return;   // campo de texto: atalhos do navegador
+    var dlg = document.querySelector("dialog[open]");
+    if (k === "z" || k === "y") {
+      if (!HIST || dlg) return;
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) HIST.refazer(); else HIST.desfazer();
+      return;
+    }
+    var sel = window.getSelection && String(window.getSelection() || "");
+    if (k === "c") {
+      if (sel) return;                                   // texto selecionado: cópia normal
+      if (typeof E.aoCopiar === "function" && E.aoCopiar(e)) { e.preventDefault(); return; }
+      var t = textoSob(); if (!t) return;
+      e.preventDefault(); E.copiarTexto(t); E.aviso("📋 Copiado: " + t.split("\n")[0].slice(0, 60));
+      return;
+    }
+    if (k === "v") {
+      if (typeof E.aoColar === "function" && E.aoColar(e)) e.preventDefault();
+    }
+  });
+})();

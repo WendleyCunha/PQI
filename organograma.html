@@ -380,7 +380,10 @@ async function api(url,op={}){
   return {r,j};
 }
 function setorPorId(id){ return SETORES.find(s=>s.id===id); }
-function salvar(s){ setStatus("salvando"); clearTimeout(pend[s.id]); pend[s.id]=setTimeout(()=>enfileirar(s),700); }
+// [v5.11] Ctrl+Z / Ctrl+Y: cada alteração guarda o estado anterior do setor (pqi-acesso.js)
+const HIST = window.PQI_ESTAVEL && PQI_ESTAVEL.historico ? PQI_ESTAVEL.historico({ lista:()=>SETORES, salvar:s=>salvarSemHist(s), redesenhar:()=>render() }) : null;
+function salvar(s){ if(HIST) HIST.registrar(s); salvarSemHist(s); }
+function salvarSemHist(s){ setStatus("salvando"); clearTimeout(pend[s.id]); pend[s.id]=setTimeout(()=>enfileirar(s),700); }
 function enfileirar(s,forcar){ delete pend[s.id]; s._fila=(s._fila||Promise.resolve()).then(()=>enviar(s,forcar)); return s._fila; }
 async function salvarAgora(s){ clearTimeout(pend[s.id]); return enfileirar(s); }
 async function enviar(s,forcar){
@@ -814,7 +817,7 @@ function visaoArvore(c,s){
       <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
       <button type="button" id="aReorg" title="Desfaz as posições ajustadas à mão" ${d.pessoas.some(p=>p.ox||p.oy)||Object.keys(d.pos_caixas||{}).length?"":"hidden"}>↺ Reorganizar</button>
       <span class="topo-drop" id="topoDrop">⤒ Solte aqui: topo do setor (sem gestor)</span></div>
-    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover a tela · arraste um <b>cartão</b> (ou o título de uma caixa) para reposicionar — solte sobre outra pessoa para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar.</p>
+    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover a tela · arraste um <b>cartão</b> (ou o título de uma caixa) para reposicionar — solte sobre outra pessoa para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar · <code>Ctrl+Z</code> desfaz · <code>Ctrl+Y</code> refaz · <code>Ctrl+C</code> / <code>Ctrl+V</code> sobre um cartão copia e cola.</p>
     <div id="aSug"></div>
     <div class="org-area" id="orgArea">
       <div class="tree-sizer" id="sizer"><div class="org-tree" id="tree"></div></div></div>`;
@@ -845,6 +848,22 @@ function visaoArvore(c,s){
   ligarCards(tree,s); ligarArrastar(c,s); ligarPan(area); ligarLinhas(s,tree,area);
 }
 if(window.ResizeObserver){ let t=null; new ResizeObserver(()=>{ clearTimeout(t); t=setTimeout(()=>redesenhar&&redesenhar(),80); }).observe(document.documentElement); }
+
+// [v5.11] Ctrl+C sobre um cartão copia a pessoa; Ctrl+V cola uma cópia (abaixo do cartão sob o mouse, ou com o mesmo gestor)
+let ORG_CLIP=null;
+if(window.PQI_ESTAVEL){
+  const cartaoSob=()=>{ const el=PQI_ESTAVEL.sob(); return el&&el.closest(".pcard[data-id]"); };
+  PQI_ESTAVEL.aoCopiar=()=>{ const card=cartaoSob(); if(vista!=="setor"||!card) return false; const s=setorPorId(atual), p=s&&s.dados.pessoas.find(x=>x.id===card.dataset.id); if(!p) return false;
+    ORG_CLIP=JSON.parse(JSON.stringify(p)); PQI_ESTAVEL.copiarTexto([tx(p.nome)||"Vaga em aberto",p.cargo,p.subsetor].filter(Boolean).join(" · "));
+    PQI_ESTAVEL.aviso(`📋 ${tx(p.nome)||"Vaga"} copiada — Ctrl+V cola uma cópia`); return true; };
+  PQI_ESTAVEL.aoColar=()=>{ if(!ORG_CLIP||vista!=="setor") return false; const s=setorPorId(atual); if(!s) return false;
+    if(typeof podeEditar==="function"&&!podeEditar()) return false;
+    const d=s.dados, card=cartaoSob(), alvo=card&&d.pessoas.some(x=>x.id===card.dataset.id)?card.dataset.id:null;
+    const n={...JSON.parse(JSON.stringify(ORG_CLIP)),id:uid(),nome:tx(ORG_CLIP.nome)?tx(ORG_CLIP.nome)+" (cópia)":"",foto:"",email:"",ramal:"",extras:[],abaixo_de:""};
+    delete n.ox; delete n.oy;
+    n.gestor_id = alvo || (d.pessoas.some(x=>x.id===ORG_CLIP.gestor_id)?ORG_CLIP.gestor_id:"");
+    d.pessoas.push(n); salvar(s); render(); $("#banner").textContent=`✓ Cópia colada${alvo?` abaixo de ${tx((d.pessoas.find(x=>x.id===alvo)||{}).nome)||"vaga"}`:""}. Ctrl+Z desfaz.`; return true; };
+}
 
 // segurar o botão esquerdo no fundo e arrastar = mover o organograma
 let PAN=null;
