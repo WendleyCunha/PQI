@@ -84,7 +84,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 .chat-abriu{text-align:center;font-size:12px;color:var(--ink-3)} .chat-abriu b{display:block;font-size:24px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
 .motivo-gde{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--ink)}
 .cont-reg{display:inline-block;font:700 16px/1.2 "IBM Plex Mono",monospace;background:var(--ok-soft,#E1F2E7);color:var(--ok,#2F7D4F);border-radius:8px;padding:4px 10px}
-.cont-reg.quase{background:var(--amber-soft);color:var(--amber)} .cont-reg.estourou{background:var(--bad-soft,#FBE3E3);color:var(--bad)}
+.cont-reg.quase{background:#FFE6CC;color:#C2410C} .cont-reg.estourou{background:var(--bad-soft,#FBE3E3);color:var(--bad)}
 .pvd{font-size:1.2em;font-weight:800;color:var(--ink);letter-spacing:.01em;white-space:nowrap}
 .shell-item{display:flex;align-items:flex-start;gap:22px} .side-rg[hidden]{display:none!important}
 .side-rg{flex:none;width:88px;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:12px 8px;
@@ -1896,7 +1896,7 @@ function desenharAoVivo(c, d, silencioso) {
           <span>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.motorista)}<span class="sub">digitou “${esc(p.validar_palavra.digitada || "—")}” · palavra certa <span class="palavra">${esc(p.palavra || "—")}</span> · registrado sem sinal às ${esc(String(p.validar_palavra.offline_em || "").slice(11, 16))}</span></span>
           <span>${pode ? `<button type="button" class="primary peq" data-vpal="${esc(g.numero)}|${esc(p.pv)}|aceitar">✓ Validar entrega</button> <button type="button" class="peq warn" data-vpal="${esc(g.numero)}|${esc(p.pv)}|reabrir">Reabrir</button>` : ""}</span></div>`).join("")}</div>` : ""; })()}
     ${chats.length ? `<div class="box" style="border-color:var(--amber)"><b>💬 Chat com motorista (${chats.length} aberto(s))</b>${chats.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
+        <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg, p.chat.prazo_min)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
         <button type="button" class="primary peq" data-chat="${esc(g.numero)}|${esc(p.pv)}">Abrir chat</button></div>`).join("")}</div>` : ""}
     ${libs.length ? `<div class="box" style="border-color:var(--bad)"><b>Motorista esperando liberação</b>${libs.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule-2)">
         <span><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">${esc(p.liberacao.motivo || "")} · pediu às ${esc(hora(p.liberacao.pedido_em))} · ${p.tentativas} tentativa(s) erradas · palavra certa: <b>${esc(p.palavra || "—")}</b></span></span>
@@ -2056,10 +2056,13 @@ function chatsDaCarga(g) {   // as conversas ficam gravadas na carga, por client
   return blocos ? `<h3>Conversas com o motorista</h3>${blocos}` : "";
 }
 // contagem regressiva do atendimento: o servidor manda os segundos que faltam; a tela conta sozinha a cada 1 s
-const relogio = seg => seg == null ? "" : `<span class="cont-reg" data-ate="${Date.now() + seg * 1000}">${fmtCont(seg)}</span>`;
+// [v5.11] cor do tempo dividida em 3: VERDE no 1º terço, LARANJA no 2º, VERMELHO no último terço (e quando estoura).
+// Ex.: 15 min → verde até faltar 10, laranja até faltar 5, vermelho nos últimos 5.
+const corTempo = (seg, total) => seg <= 0 || !total ? (seg <= 0 ? "estourou" : "") : seg > total * 2 / 3 ? "" : seg > total / 3 ? "quase" : "estourou";
+const relogio = (seg, min) => seg == null ? "" : `<span class="cont-reg ${corTempo(seg, (min || 15) * 60)}" data-ate="${Date.now() + seg * 1000}" data-total="${(min || 15) * 60}">${fmtCont(seg)}</span>`;
 function fmtCont(seg) { const n = Math.abs(Math.round(seg)), t = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; return seg >= 0 ? `⏱ ${t}` : `⏱ esgotado há ${t}`; }
 setInterval(() => document.querySelectorAll("[data-ate]").forEach(el => { const seg = (+el.dataset.ate - Date.now()) / 1000;
-  el.textContent = fmtCont(seg); el.classList.toggle("estourou", seg < 0); el.classList.toggle("quase", seg >= 0 && seg < 180); }), 1000);
+  const cor = corTempo(seg, +el.dataset.total || 900); el.textContent = fmtCont(seg); el.classList.toggle("estourou", cor === "estourou"); el.classList.toggle("quase", cor === "quase"); }), 1000);
 const msgsChat = a => (a.msgs || []).map(m => m.de === "sistema" ? (/ abriu o chat: /.test(m.txt)
     ? `<div class="chat-abriu">${esc(m.txt.split(" abriu o chat: ")[0])} abriu o chat · ${horaBR(m.em)}<b>${esc(m.txt.split(" abriu o chat: ")[1])}</b></div>`
     : `<div class="chat-s">${esc(m.txt)} · ${horaBR(m.em)}</div>`)
@@ -2090,7 +2093,7 @@ async function abrirCliente(num, pv) {
     <div class="acts"><button type="button" id="cliPdf">📄 PDF do caso</button><button type="button" id="cliF">Fechar</button></div>`, (el, fechar) => {
     const pinta = dd => {
       const a = dd.chat.atual, ant = (dd.chat.atendimentos || []).filter(x => !a || x.id !== a.id);
-      $("#cliSt", el).innerHTML = a ? `<span class="motivo-gde">${esc(a.motivo)}</span> ${relogio(a.restante_seg)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
+      $("#cliSt", el).innerHTML = a ? `<span class="motivo-gde">${esc(a.motivo)}</span> ${relogio(a.restante_seg, a.prazo_min)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
       const txt = ($("#cliTxt", el) || {}).value || "";
       $("#cliChat", el).innerHTML = (a ? `<div class="chat-l" id="cliL">${msgsChat(a)}</div>
           ${dd.pode_tratar ? `<div style="display:flex;gap:8px;margin-top:8px"><input id="cliTxt" maxlength="500" placeholder="Responder o motorista" value="${esc(txt)}" style="flex:1"><button type="button" class="primary" id="cliEnv">Enviar</button></div>
@@ -2152,7 +2155,7 @@ async function rMotoristas(c) {
   const ed = d.pode_editar, url = location.origin + d.app_url;
   const ACESSO = { sem: ["Ainda não entrou", "p-cinza"], inicial: ["Senha inicial — troca no 1º acesso", "p-warn"], propria: ["Senha própria", "p-ok"] };
   const v = VIS.mot || "motoristas";
-  const tabs = abasInternas([["motoristas", "Motoristas", null], ["motivos", "Motivos (chat, retorno e parcial)", null], ["prazo", "Prazo do atendimento", null]], v, "data-v");
+  const tabs = abasInternas([["motoristas", "Motoristas", null], ["motivos", "Motivos (chat, retorno e parcial)", null], ["prazo", "⏱ Tempo do atendimento", null], ["cotacao", "📦 Cotação", null]], v, "data-v");
   const corpoMot = `<div class="box"><b>App do motorista</b>
       <p class="cap" style="margin:6px 0">Endereço para abrir no celular: <b class="mono" id="mUrl">${esc(url)}</b> <button type="button" class="peq" id="mCopia">Copiar</button></p>
       <p class="cap" style="margin:0">No Chrome do Android, o próprio app oferece <b>Instalar</b> e vira ícone na tela. Login: <b>placa</b> + senha inicial padrão; o app obriga a trocar no primeiro acesso.
@@ -2183,9 +2186,26 @@ async function rMotoristas(c) {
       ${ed ? '<div class="acoes"><button type="button" class="primary" id="cfgMotS">Gravar motivos</button></div>' : ""}</div>`;
   const corpoPrazo = `<div class="box" style="max-width:520px"><b>⏱ Prazo do atendimento</b><span class="sub">Quando o motorista escolhe o motivo do chat, começa uma contagem regressiva no app e no Ao vivo. Passou do prazo, fica em vermelho.</span>
       <div class="q-form" style="align-items:end;margin-top:8px"><label class="f">Minutos<input type="number" id="cfgMin" min="1" max="120" value="${int(d.cfg.chat_minutos || 15)}" ${ed ? "" : "disabled"}></label>
-      ${ed ? '<button type="button" class="primary" id="cfgMinS">Gravar prazo</button>' : ""}</div><p class="cap">Vale para os próximos chats abertos.</p></div>`;
+      ${ed ? '<button type="button" class="primary" id="cfgMinS">Gravar prazo</button>' : ""}</div><p class="cap">Vale para os próximos chats abertos. A cor segue os terços do tempo: <b style="color:var(--ok)">verde</b> no 1º terço, <b style="color:#C2410C">laranja</b> no 2º, <b style="color:var(--bad)">vermelho</b> no último (ex.: 15 min → verde até faltar 10, laranja até faltar 5, vermelho nos últimos 5).</p></div>`;
+  const cfgCot = d.cfg.cotacao || { ufs_locais: ["SP"], enderecos: [] };
+  const linhaEnd = (e = {}) => `<div class="av-cot" style="display:flex;gap:8px;align-items:flex-end;margin-top:6px"><label class="f" style="flex:1;min-width:0">Rua / avenida<input data-cr maxlength="120" value="${esc(e.rua || "")}" placeholder="ex.: RUA DA AVIACAO" ${ed ? "" : "disabled"}></label>
+      <label class="f" style="width:110px;flex:none">Número<input data-cn maxlength="8" inputmode="numeric" value="${esc(e.numero || "")}" ${ed ? "" : "disabled"}></label>${ed ? '<button type="button" class="peq warn" data-cx title="Remover">✕</button>' : ""}</div>`;
+  const corpoCot = `<div class="box" style="max-width:640px"><b>📦 Classificar como COTAÇÃO</b><span class="sub">Entrega feita aqui que segue para outro estado. Aparece em roxo no app do motorista, no Ao vivo, no Histórico e no PDF do caso.</span>
+      <label class="f" style="margin-top:10px">UFs de entrega direta (fora delas = COTAÇÃO) — separe por vírgula<input id="cotUf" value="${esc((cfgCot.ufs_locais || []).join(", "))}" ${ed ? "" : "disabled"} placeholder="SP"></label>
+      <p class="cap">A UF vem do campo UF do PDF; quando o PDF não traz, vem do <b>CEP</b> do cliente.</p>
+      <b style="display:block;margin-top:10px">Endereços que são sempre COTAÇÃO (transportadoras)</b><span class="sub">"Rua", "Av.", "da/de/do" e acentos não importam. Sem número = qualquer número da rua.</span>
+      <div id="cotEnds">${(cfgCot.enderecos || []).map(linhaEnd).join("") || ""}</div>
+      ${ed ? `<button type="button" class="peq" id="cotMais">＋ endereço</button><div class="acoes"><button type="button" class="primary" id="cotS">Gravar cotação</button></div>` : ""}</div>`;
   c.innerHTML = sec("Motoristas e app", "Quem dirige cada placa, a palavra da entrega, a senha de cada placa e o chat com a frota.", "",
-    tabs + (v === "motivos" ? corpoMotivos : v === "prazo" ? corpoPrazo : corpoMot));
+    tabs + (v === "motivos" ? corpoMotivos : v === "prazo" ? corpoPrazo : v === "cotacao" ? corpoCot : corpoMot));
+  const cm2 = $("#cotMais", c); if (cm2) cm2.onclick = () => { $("#cotEnds", c).insertAdjacentHTML("beforeend", linhaEnd()); ligarCot(); };
+  const ligarCot = () => c.querySelectorAll("[data-cx]").forEach(b => b.onclick = () => b.closest(".av-cot").remove());
+  ligarCot();
+  const cs2 = $("#cotS", c); if (cs2) cs2.onclick = async () => {
+    const cot = { ufs_locais: $("#cotUf", c).value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean),
+      enderecos: [...c.querySelectorAll(".av-cot")].map(l => ({ rua: $("[data-cr]", l).value.trim(), numero: $("[data-cn]", l).value.trim() })).filter(e => e.rua) };
+    try { const r = await put(`${API_RUA}/cfg`, { cotacao: cot }); toast(`Cotação gravada: entrega direta em ${r.cotacao.ufs_locais.join(", ")} · ${r.cotacao.enderecos.length} endereço(s).`); rMotoristas(c); }
+    catch (e) { toast(e.message, true); } };
   c.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { VIS.mot = b.dataset.v; rMotoristas(c); });
   const cms = $("#cfgMinS", c); if (cms) cms.onclick = async () => { try { const r = await put(`${API_RUA}/cfg`, { chat_minutos: +$("#cfgMin", c).value }); $("#cfgMin", c).value = r.chat_minutos; toast(`Prazo do atendimento: ${r.chat_minutos} min.`); } catch (e) { toast(e.message, true); } };
   const mc = $("#mCopia", c); if (mc) mc.onclick = () => { navigator.clipboard.writeText(url).then(() => toast("Endereço copiado.")).catch(() => toast("Copie o endereço à mão.", true)); };

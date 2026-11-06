@@ -34,6 +34,7 @@ Firestore (gasta pouco do plano grátis)
   A posição AO VIVO fica só na memória; a trilha grava 1 ponto a cada 3 min.
 """
 import base64
+import json
 import os
 import re
 import secrets
@@ -68,6 +69,9 @@ FOTO_MAX = 450_000                         # bytes (base64) de cada foto
 api = APIRouter(prefix="/api/motorista")          # app (rota pública: o login é a placa)
 painel_api = APIRouter(prefix="/api/routerking")   # [v5.9] PQI — módulo RouterKing (permissão por aba)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+qld.H["cotacao_cfg"] = lambda: app_cfg()["cfg"].get("cotacao")   # [v5.11] regra de COTAÇÃO editável no RouterKing
 
 
 def ligar(app) -> None:
@@ -151,7 +155,8 @@ def app_cfg() -> dict:
     if APP["dados"] is None:
         d = _fs_get(qld.COL_CAD, DOC_APP) or {}
         APP["dados"] = {"placas": d.get("placas") or {}, "motoristas": d.get("motoristas") or {}, "excluidos": d.get("excluidos") or {},
-                        "cfg": {"tentativas": 5, "motivos_chat": list(MOTIVOS_CHAT), "chat_minutos": CHAT_MINUTOS, **(d.get("cfg") or {})}}
+                        "cfg": {"tentativas": 5, "motivos_chat": list(MOTIVOS_CHAT), "chat_minutos": CHAT_MINUTOS,
+                                "cotacao": json.loads(json.dumps(qld.COTACAO_PADRAO)), **(d.get("cfg") or {})}}
         if _padronizar(APP["dados"]):
             app_salvar()
     return APP["dados"]
@@ -1356,6 +1361,7 @@ def rota_resetar(placa: str, request: Request):
 class CfgIn(BaseModel):
     tentativas: Optional[int] = None
     chat_minutos: Optional[int] = None
+    cotacao: Optional[dict] = None   # [v5.11] {"ufs_locais": ["SP"], "enderecos": [{"rua", "numero"}]}
     motivos_chat: Optional[list] = None
 
 
@@ -1366,6 +1372,18 @@ def rota_cfg(payload: CfgIn, request: Request):
         raise HTTPException(400, "Tentativas entre 3 e 10.")
     if payload.chat_minutos is not None and not 1 <= payload.chat_minutos <= 120:
         raise HTTPException(400, "Prazo do atendimento entre 1 e 120 minutos.")
+    cot = None
+    if payload.cotacao is not None:
+        ufs = sorted({str(u).strip().upper()[:2] for u in payload.cotacao.get("ufs_locais") or [] if re.fullmatch(r"[A-Za-z]{2}", str(u).strip())})
+        if not ufs:
+            raise HTTPException(400, "Informe pelo menos uma UF de entrega direta (ex.: SP).")
+        ends = []
+        for e in payload.cotacao.get("enderecos") or []:
+            rua = re.sub(r"\s+", " ", str((e or {}).get("rua") or "")).strip()[:120]
+            num = re.sub(r"\D", "", str((e or {}).get("numero") or ""))[:8]
+            if rua and qld.palavras_rua(rua):
+                ends.append({"rua": rua.upper(), "numero": num})
+        cot = {"ufs_locais": ufs, "enderecos": ends[:50]}
     mot = None
     if payload.motivos_chat is not None:
         mot = []
@@ -1382,5 +1400,7 @@ def rota_cfg(payload: CfgIn, request: Request):
             app_cfg()["cfg"]["motivos_chat"] = mot[:20]
         if payload.chat_minutos is not None:
             app_cfg()["cfg"]["chat_minutos"] = int(payload.chat_minutos)
+        if cot is not None:
+            app_cfg()["cfg"]["cotacao"] = cot
         app_salvar()
         return app_cfg()["cfg"]

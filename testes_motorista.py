@@ -425,7 +425,7 @@ def teste_sem_sinal_e_cotacao():
     cot = {p["pv"]: p["cotacao"] for p in car["pedidos"]}
     ok(cot["830001"] is None, "cliente em SP: entrega normal")
     ok(cot["830002"]["uf"] == "MG", "CEP de MG: COTAÇÃO (MG) no app")
-    ok("Aviação" in cot["830003"]["motivo"], "Rua da Aviação, 350: COTAÇÃO no app")
+    ok("AVIACAO" in cot["830003"]["motivo"].upper(), "Rua da Aviação, 350: COTAÇÃO no app")
     ok(car["pedidos"][0]["nf"] and "obs" in car["pedidos"][0], "app recebe os dados completos da entrega (NF, observações)")
     pal = BANCO[Q.COL_CARGAS]["064701"]["rua"]["palavras"]
     base = "/api/motorista/cargas/064701/pedido/"
@@ -452,6 +452,20 @@ def teste_sem_sinal_e_cotacao():
     d = pq.get("/api/routerking/cargas/064701/pedido/830002").json()
     ok(d["cotacao"]["uf"] == "MG" and d["evento"]["validar_palavra"]["status"] == "aceita", "ficha/PDF trazem a cotação e a validação")
     ok(Q.cotacao({"cep": "09580-500", "endereco": "RUA DA AVIACAO, 3500"}) is None and Q.uf_do_cep("88010-000") == "SC", "regra: só o número 350; UF pelo CEP")
+
+    print("Cotação configurável (Motoristas e app → Cotação)")
+    USUARIO["abas"] = {"motoristas": 2}
+    ok(pq.put("/api/routerking/cfg", json={"cotacao": {"ufs_locais": ["SP"], "enderecos": []}}).status_code == 403, "só quem edita Motoristas e app muda a regra")
+    USUARIO["abas"] = {"motoristas": 3}
+    ok(pq.put("/api/routerking/cfg", json={"cotacao": {"ufs_locais": [], "enderecos": []}}).status_code == 400, "precisa de pelo menos uma UF de entrega direta")
+    r = pq.put("/api/routerking/cfg", json={"cotacao": {"ufs_locais": ["sp", "MG"], "enderecos": [{"rua": "Av. das Nações Unidas", "numero": "12.901"}]}}).json()
+    ok(r["cotacao"] == {"ufs_locais": ["MG", "SP"], "enderecos": [{"rua": "AV. DAS NAÇÕES UNIDAS", "numero": "12901"}]}, "grava UFs e endereços (Rua da Aviação removida)")
+    ok(Q.cotacao({"cep": "30140-071"}) is None, "MG virou entrega direta: deixa de ser cotação")
+    ok(Q.cotacao({"cep": "06000-000", "endereco": "RUA DA AVIACAO, 350"}) is None, "endereço removido deixa de ser cotação")
+    ok(Q.cotacao({"cep": "04794-000", "endereco": "AVENIDA DAS NACOES UNIDAS, 12901"})["uf"] == "SP", "endereço novo (escrito diferente) vira cotação")
+    ok(Q.cotacao({"cep": "88010-000"})["uf"] == "SC", "UF fora da lista continua cotação")
+    car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+    ok(next(p for p in car["pedidos"] if p["pv"] == "830002")["cotacao"] is None, "o app já reflete a regra nova")
 
 
 def teste_paginas():

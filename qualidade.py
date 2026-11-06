@@ -190,7 +190,31 @@ FAIXAS_CEP = [(1000, 19999, "SP"), (20000, 28999, "RJ"), (29000, 29999, "ES"), (
               (69000, 69299, "AM"), (69300, 69399, "RR"), (69400, 69899, "AM"), (69900, 69999, "AC"), (70000, 72799, "DF"),
               (72800, 72999, "GO"), (73000, 73699, "DF"), (73700, 76799, "GO"), (76800, 76999, "RO"), (77000, 77999, "TO"),
               (78000, 78899, "MT"), (79000, 79999, "MS"), (80000, 87999, "PR"), (88000, 89999, "SC"), (90000, 99999, "RS")]
-ENDERECOS_COTACAO = [(r"\bAVIA[CÇ][AÃ]O\b", "350")]   # RUA DA AVIAÇÃO, 350
+# [v5.11] o padrão; a frota muda em RouterKing → Motoristas e app → Cotação (guardado no cadastro do app)
+COTACAO_PADRAO = {"ufs_locais": ["SP"], "enderecos": [{"rua": "RUA DA AVIACAO", "numero": "350"}]}
+_TIPOS_RUA = {"RUA", "R", "AV", "AVENIDA", "ESTRADA", "EST", "ESTR", "RODOVIA", "ROD", "AL", "ALAMEDA", "TRAVESSA", "TV", "PRACA", "PC", "LARGO"}
+_LIGA = {"DA", "DE", "DO", "DAS", "DOS", "E"}
+
+
+def _sem_acento(t) -> str:
+    import unicodedata
+    return "".join(ch for ch in unicodedata.normalize("NFD", str(t or "").upper()) if unicodedata.category(ch) != "Mn")
+
+
+def palavras_rua(rua) -> list:
+    """'R. da Aviação' → ['AVIACAO'] (sem tipo do logradouro, sem 'da/de/do', sem acento)."""
+    ws = re.findall(r"[A-Z0-9]+", _sem_acento(rua))
+    while ws and ws[0] in _TIPOS_RUA:
+        ws = ws[1:]
+    return [w for w in ws if w not in _LIGA]
+
+
+def cfg_cotacao() -> dict:
+    try:
+        c = H.get("cotacao_cfg") and H["cotacao_cfg"]()
+    except Exception:
+        c = None
+    return c or COTACAO_PADRAO
 
 
 def uf_do_cep(cep) -> str:
@@ -203,14 +227,16 @@ def uf_do_cep(cep) -> str:
 
 def cotacao(p: dict) -> Optional[dict]:
     """None = entrega normal. Senão {"uf", "motivo"} — o app e o Ao vivo mostram COTAÇÃO bem diferente."""
+    cfg = cfg_cotacao()
+    locais = [str(x).upper() for x in cfg.get("ufs_locais") or ["SP"]]
     uf = str(p.get("uf") or "").strip().upper()[:2] or uf_do_cep(p.get("cep"))
-    if uf and uf != "SP":
-        return {"uf": uf, "motivo": f"cliente em {uf}: entrega em SP e segue para outro estado"}
-    end = str(p.get("endereco") or "").upper()
-    end = end.translate(str.maketrans("ÁÀÃÂÇÉÊÍÓÔÕÚ", "AAAACEEIOOOU"))
-    for rx, num in ENDERECOS_COTACAO:
-        if re.search(rx, end) and re.search(rf"(?<!\d){num}(?!\d)", end):
-            return {"uf": uf or "SP", "motivo": "endereço da transportadora de cotação (Rua da Aviação, 350)"}
+    if uf and uf not in locais:
+        return {"uf": uf, "motivo": f"cliente em {uf}: entrega em {'/'.join(locais)} e segue para outro estado"}
+    end = " " + " ".join(re.findall(r"[A-Z0-9]+", _sem_acento(p.get("endereco")))) + " "
+    for e in cfg.get("enderecos") or []:
+        ws, num = palavras_rua(e.get("rua")), re.sub(r"\D", "", str(e.get("numero") or ""))
+        if ws and all(f" {w} " in end for w in ws) and (not num or f" {num} " in end):
+            return {"uf": uf or locais[0], "motivo": f"endereço de cotação ({str(e.get('rua')).title()}{', ' + num if num else ''})"}
     return None
 
 
