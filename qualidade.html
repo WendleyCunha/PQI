@@ -73,6 +73,8 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--in
 .p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--ink-2)} .p-roxo{background:var(--block-soft);color:var(--block)} .p-aco{background:var(--steel-soft);color:var(--steel)}
 .wrap{padding:24px 28px 64px}
 footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
+.p-cot{background:#5B21B6;color:#fff;font-weight:800;letter-spacing:.04em}
+.faixa-cot{background:#5B21B6;color:#fff;border-radius:10px;padding:10px 14px;margin:0 0 10px} .faixa-cot b{font-size:20px;letter-spacing:.06em;margin-right:8px}
 .palavra{display:inline-block;font:700 15px/1.2 "IBM Plex Mono",monospace;letter-spacing:.06em;background:var(--amber-soft);color:var(--ink);border:1px solid var(--amber);border-radius:6px;padding:3px 8px}
 .chat-l{display:grid;gap:6px;max-height:340px;overflow:auto;background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:10px}
 .chat-m{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:6px 9px;max-width:85%;justify-self:start;white-space:pre-wrap;word-break:break-word}
@@ -628,7 +630,7 @@ const MAPA = (() => {
       if (!carga) continue;
       if ((m = t.match(/^Seq\.?:\s*(\d+)/i))) {
         ped = { seq: m[1], tipo: "", pv: "", nf: "", serie: "", pv_retira: "", nf_troca: "", serie_troca: "", fones: "", transportadora: "",
-          cliente: "", nome: "", endereco: "", compl: "", bairro: "", cidade: "", cep: "", origem: "", despesas: "",
+          cliente: "", nome: "", endereco: "", compl: "", bairro: "", cidade: "", uf: "", cep: "", origem: "", despesas: "",
           entregar: [], col2: [], pseudo: [], obs: [], protocolo: null };
         carga.pedidos.push(ped); modo = ""; ultimoNf = ""; continue;
       }
@@ -668,7 +670,10 @@ const MAPA = (() => {
       if (/^ENDERECO:/.test(T)) { ped.endereco = limpa(t.replace(/^[^:]*:/, "")); continue; }
       if (campo(/^Compl:\s*(.*)$/i, "compl")) continue;
       if (campo(/^Bairro\s+(.*)$/i, "bairro")) continue;
-      if (campo(/^Mun\s+(.*)$/i, "cidade")) continue;
+      if (campo(/^Mun\s+(.*)$/i, "cidade")) {   // [v5.10] "Mun CIDADE  UF XX" → separa a UF
+        const u = ped.cidade.match(/^(.*?)\s+(?:UF|Est(?:ado)?)\s*:?\s*([A-Z]{2})$/i); if (u) { ped.cidade = u[1]; ped.uf = u[2].toUpperCase(); }
+        continue; }
+      if ((m = t.match(/^(?:UF|Estado)\s*:?\s*([A-Z]{2})\b/i))) { ped.uf = m[1].toUpperCase(); continue; }
       if (campo(/^CEP\s+(\S+)/i, "cep")) continue;
       if (campo(/^Origem:\s*(.*)$/i, "origem")) continue;
       if (/^DESPESAS ACESSORIAS:/.test(T)) { ped.despesas = limpa(t.replace(/^[^:]*:/, "")); continue; }
@@ -741,6 +746,8 @@ function bip(ok) {
   try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); const o = _ac.createOscillator(), g = _ac.createGain();
     o.frequency.value = ok ? 1250 : 330; g.gain.value = .08; o.connect(g); g.connect(_ac.destination); o.start(); o.stop(_ac.currentTime + (ok ? .09 : .35)); } catch (_) {}
 }
+// [v5.10] COTAÇÃO: entrega em SP que segue para outro estado (UF ≠ SP ou Rua da Aviação, 350) — bem diferente na tela
+const PCOT = ct => ct ? `<span class="pill p-cot" title="${esc(ct.motivo)}">📦 COTAÇÃO${ct.uf && ct.uf !== "SP" ? " · " + esc(ct.uf) : ""}</span>` : "";
 const semAcento = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 const PVB = pv => `<b class="pvd">PV ${esc(pv)}</b>`;   // [v5.4] número do pedido em destaque
 const sec = (titulo, sub, direita, corpo) => `<section><header><h2>${titulo}</h2>${sub ? `<p>${sub}</p>` : ""}${direita ? `<span class="direita">${direita}</span>` : ""}</header>${corpo}</section>`;
@@ -1883,6 +1890,11 @@ function desenharAoVivo(c, d, silencioso) {
       ${kpi("Sem baixa no ERP", int(k.sem_baixa_erp), "entregues que o PCL ainda não lançou no Protheus", k.sem_baixa_erp ? "k-bad" : "k-cinza")}
       ${kpi("Retornos informados", int(k.retornos), `${int(k.pecas_a_receber)} peça(s) ainda a receber no CD`, "k-roxo")}
       ${kpi("Liberações sem palavra", int(k.liberacoes), "motorista esperando o PCL", k.liberacoes ? "kpi-destaque" : "k-cinza")}</div>
+    ${(() => { const vs = []; d.cargas.forEach(g => g.pedidos.forEach(p => { if ((p.validar_palavra || {}).status === "pendente") vs.push({ g, p }); }));
+      return vs.length ? `<div class="box" style="border-color:var(--bad)"><b>🔑 Entrega feita SEM SINAL — a palavra não conferiu (${vs.length})</b><span class="sub">O motorista entregou sem conexão e a palavra digitada não bateu. Confira com o cliente: valide a entrega ou reabra para o motorista registrar de novo.</span>
+        ${vs.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <span>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.motorista)}<span class="sub">digitou “${esc(p.validar_palavra.digitada || "—")}” · palavra certa <span class="palavra">${esc(p.palavra || "—")}</span> · registrado sem sinal às ${esc(String(p.validar_palavra.offline_em || "").slice(11, 16))}</span></span>
+          <span>${pode ? `<button type="button" class="primary peq" data-vpal="${esc(g.numero)}|${esc(p.pv)}|aceitar">✓ Validar entrega</button> <button type="button" class="peq warn" data-vpal="${esc(g.numero)}|${esc(p.pv)}|reabrir">Reabrir</button>` : ""}</span></div>`).join("")}</div>` : ""; })()}
     ${chats.length ? `<div class="box" style="border-color:var(--amber)"><b>💬 Chat com motorista (${chats.length} aberto(s))</b>${chats.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
         <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
         <button type="button" class="primary peq" data-chat="${esc(g.numero)}|${esc(p.pv)}">Abrir chat</button></div>`).join("")}</div>` : ""}
@@ -1920,6 +1932,9 @@ function desenharAoVivo(c, d, silencioso) {
   c.querySelectorAll("[data-erp]").forEach(b => b.onclick = async () => {
     const [num, pv, f] = b.dataset.erp.split("|");
     try { await put(`${API_RUA}/cargas/${num}/baixa-erp/${encodeURIComponent(pv)}`, { feito: f === "1" }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
+  c.querySelectorAll("[data-vpal]").forEach(b => b.onclick = async ev => { ev.stopPropagation(); const [n, pv, acao] = b.dataset.vpal.split("|");
+    try { await put(`${API_RUA}/cargas/${encodeURIComponent(n)}/validar-palavra/${encodeURIComponent(pv)}`, { acao }); toast(acao === "aceitar" ? "Entrega validada." : "Reaberto: o motorista registra de novo."); rAoVivo($("#root")); }
+    catch (e) { toast(e.message, true); } });
   c.querySelectorAll("[data-cli]").forEach(tr => tr.onclick = ev => { if (ev.target.closest("button")) return; const [n, pv] = tr.dataset.cli.split("|"); abrirCliente(n, pv); });
   c.querySelectorAll("[data-chat]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.chat.split("|"); abrirCliente(n, pv); });
   c.querySelectorAll("[data-tplaca]").forEach(b => b.onclick = () => { const [num, pl] = b.dataset.tplaca.split("|"); trocarPlaca(num, pl, () => rAoVivo($("#root"))); });
@@ -1948,7 +1963,7 @@ function detalheAoVivo(g, pode) {
       <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} ${RK ? "" : `<button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button>`}</span></div>
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
     <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
-      ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td><b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
+      ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
         <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : '<span class="pill p-cinza">Sem registro</span>'}
           ${p.motivo ? `<span class="sub">${esc(p.motivo)}${p.linhas.length ? " · voltou: " + p.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ") : ""}</span>` : ""}${p.obs ? `<span class="sub">${esc(p.obs)}</span>` : ""}
           ${p.foto ? `<button type="button" class="peq" data-foto="${esc(p.foto)}">📷 foto</button>` : ""}${p.corrigidos ? `<span class="sub">corrigido ${p.corrigidos}×</span>` : ""}</td>
@@ -1959,7 +1974,8 @@ function detalheAoVivo(g, pode) {
         <td>${p.retorno_esperado ? `<span class="pill ${p.retorno_recebido >= p.retorno_esperado ? "p-ok" : "p-warn"}">${p.retorno_recebido}/${p.retorno_esperado} recebida(s)</span>` : "—"}</td>
         <td>${pode && p.desfecho ? `<button type="button" class="peq warn" data-reab="${esc(g.numero)}|${esc(p.pv)}" title="Apaga o registro do motorista para ele registrar de novo">Reabrir</button>` : ""}
           ${pode && !p.desfecho && (p.liberacao || {}).status !== "liberada" ? `<button type="button" class="peq" data-lib="${esc(g.numero)}|${esc(p.pv)}|liberar" title="O motorista registra a entrega sem a palavra-chave">🔓 Liberar sem palavra</button>` : ""}
-          ${(p.liberacao || {}).status === "liberada" && !p.desfecho ? '<span class="pill p-aco">Liberado sem palavra</span>' : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
+          ${(p.liberacao || {}).status === "liberada" && !p.desfecho ? '<span class="pill p-aco">Liberado sem palavra</span>' : ""}
+          ${(p.validar_palavra || {}).status === "pendente" && pode ? `<button type="button" class="peq primary" data-vpal="${esc(g.numero)}|${esc(p.pv)}|aceitar">✓ Validar entrega</button><button type="button" class="peq warn" data-vpal="${esc(g.numero)}|${esc(p.pv)}|reabrir">Reabrir</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
 // ═══ [v5.9] HISTÓRICO DE ENTREGAS (RouterKing) — todos os clientes, conversas e o PDF do caso ═══
 const HIST = { busca: "" };
@@ -1972,7 +1988,7 @@ async function rHistorico(c) {
     fh + `<p class="cap">${int(d.total)} cliente(s) no período${d.total > d.itens.length ? ` (mostrando ${d.itens.length})` : ""}.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Cliente · pedido</th><th>Carga · motorista</th><th>Desfecho</th><th>Chat</th><th></th></tr></thead><tbody>${
       d.itens.map(x => `<tr><td>${dataBR(x.data_iso)}<span class="sub">${x.em ? hora(x.em) : ""}</span></td>
-        <td><b>${esc(x.nome)}</b><span class="sub">${PVB(x.pv)} · NF ${esc(x.nf || "—")} · cód. ${esc(x.cliente || "—")} · ${esc(x.bairro || "")}</span></td>
+        <td>${PCOT(x.cotacao)} <b>${esc(x.nome)}</b><span class="sub">${PVB(x.pv)} · NF ${esc(x.nf || "—")} · cód. ${esc(x.cliente || "—")} · ${esc(x.bairro || "")}</span></td>
         <td>${esc(x.carga)}<span class="sub">${esc(x.placa || "")} · ${esc(x.motorista || "—")}</span></td>
         <td>${x.desfecho ? `<span class="pill ${DS[x.desfecho][1]}">${DS[x.desfecho][0]}</span>` : '<span class="pill p-cinza">Sem registro</span>'}${x.motivo ? `<span class="sub">${esc(x.motivo)}</span>` : ""}
           <span class="sub">${x.foto ? "📷 foto · " : ""}${x.palavra_ok === true ? "palavra conferida" : x.palavra_ok === false ? "liberado sem palavra" : ""}</span></td>
@@ -2008,12 +2024,14 @@ async function dossie(num, pv) {
   .rod{margin-top:24px;font-size:10px;color:#555;border-top:1px solid #999;padding-top:6px} @media print{body{margin:10mm}}</style></head><body>
   <div class="top"><div><h1>Dossiê de entrega — King Star</h1><div>RouterKing · comprovação do atendimento ao cliente</div></div>
     <div class="id">Código: <b>${codigo}</b><br>Emitido em ${agoraTxt}<br>por ${esc(NOME || EMAIL)}</div></div>
+  ${d.cotacao ? `<div style="border:3px solid #111;padding:8px 12px;margin-top:12px;font-size:15px"><b>COTAÇÃO</b> — ${esc(d.cotacao.motivo)}.</div>` : ""}
   <h2>Cliente</h2><table>${linha("Cliente", esc(d.nome))}${linha("Código do cliente", esc(d.cliente))}${linha("Pedido (PV)", esc(d.pv))}${linha("Nota fiscal", esc(d.nf))}${linha("Endereço", esc(end) + (d.cep ? " · CEP " + esc(d.cep) : ""))}</table>
   <h2>Carga</h2><table>${linha("Carga", esc(d.carga))}${linha("Data do Mapa", esc(d.data_mapa || dataBR(d.data_iso)))}${linha("Placa", esc(d.placa))}${linha("Motorista", esc(d.motorista))}${linha("Transportadora", esc(d.transportadora))}
     ${linha("Saída para entrega", d.saida ? horaBR(d.saida.em) + " · " + esc(d.saida.nome || "") : "")}${linha("Chegada no CD", d.chegada ? horaBR(d.chegada.em) + " · " + esc(d.chegada.nome || "") : "")}
     ${(d.trocas_placa || []).map(t => linha("Troca de placa", `${esc(t.de)} → ${esc(t.para)} · ${horaBR(t.em)} · ${esc(t.por)}${t.motivo ? " · " + esc(t.motivo) : ""}`)).join("")}</table>
   <h2>Peças</h2><table>${(d.itens || []).map(i => linha(i.qtd + "×", esc(i.desc) + (i.sku ? ` <span style="color:#666">(SKU ${esc(i.sku)})</span>` : ""))).join("")}${(d.retirar || []).length ? linha("A retirar", d.retirar.map(i => i.qtd + "× " + esc(i.desc)).join("<br>")) : ""}</table>
-  <h2>Registro do motorista</h2><table>${linha("Desfecho", ev.desfecho ? "<b>" + DSx[ev.desfecho] + "</b>" : "Sem registro")}${linha("Motivo", esc(ev.motivo))}${linha("Data e hora", ev.em ? horaBR(ev.em) : "")}${linha("Motorista", esc(ev.por))}
+  <h2>Registro do motorista</h2><table>${linha("Desfecho", ev.desfecho ? "<b>" + DSx[ev.desfecho] + "</b>" : "Sem registro")}${linha("Motivo", esc(ev.motivo))}${linha("Data e hora", ev.em ? horaBR(ev.em) : "")}${linha("Sem sinal", ev.offline_em ? `registrado no celular SEM SINAL às ${esc(String(ev.offline_em).replace("T", " ").slice(0, 16))}; enviado quando a conexão voltou` : "")}
+    ${linha("Validação da frota", (ev.validar_palavra || {}).status ? `palavra digitada “${esc(ev.validar_palavra.digitada || "—")}” não conferiu · ${ev.validar_palavra.status === "pendente" ? "aguardando a frota" : ev.validar_palavra.status === "aceita" ? "entrega VALIDADA por " + esc(ev.validar_palavra.por) : "reaberta por " + esc(ev.validar_palavra.por)}` : "")}${linha("Motorista", esc(ev.por))}
     ${linha("Local (GPS)", ev.lat != null ? `${ev.lat}, ${ev.lng} — https://www.google.com/maps?q=${ev.lat},${ev.lng}` : "")}
     ${linha("Palavra-chave", `<span class="pal">${esc(d.palavra || "—")}</span> · ${ev.palavra_ok === true ? "conferida pelo motorista (o cliente informou)" : ev.palavra_ok === false ? `entregue SEM a palavra, liberado por ${esc(lib.decidido_por || "PCL")} ${lib.decidido_em ? horaBR(lib.decidido_em) : ""}${lib.nota ? " · " + esc(lib.nota) : ""}` : "não exigida"}${ev.tentativas ? ` · ${ev.tentativas} tentativa(s) errada(s)` : ""}`)}
     ${linha("Observação", esc(ev.obs))}${linha("Peças que voltaram", (ev.linhas || []).map(l => l.qtd + "× " + esc(l.desc)).join("<br>"))}
@@ -2053,6 +2071,7 @@ async function abrirCliente(num, pv) {
   const ev = d.evento || {}, end = [d.endereco, d.compl, d.bairro, d.cidade].filter(Boolean).join(", ");
   const pr = d.protocolo;
   abrirDlg(`<h3>${esc(d.nome)}</h3>
+    ${d.cotacao ? `<div class="faixa-cot"><b>📦 COTAÇÃO</b>${esc(d.cotacao.motivo)}</div>` : ""}
     <p class="cap">${PVB(d.pv)} · NF ${esc(d.nf || "—")} · Seq ${esc(d.seq)} · cliente ${esc(d.cliente || "—")} · ${esc(d.tipo || "")}${d.troca ? ' · <span class="pill p-roxo">Troca</span>' : ""}</p>
     <div class="det-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
       <div class="box" style="margin:0"><b>Endereço</b><p style="margin:4px 0">${esc(end) || "—"}${d.cep ? `<br>CEP ${esc(d.cep)}` : ""}</p>

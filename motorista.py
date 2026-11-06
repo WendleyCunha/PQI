@@ -480,7 +480,9 @@ def _pedido_app(c: dict, p: dict, mid: str) -> dict:
             "palavra_conferida": bool(ev.get("palavra_ok")), "liberacao": lib.get("status") or "",
             "tentativas": tent, "pode_desfazer": bool(ev.get("desfecho")) and ev.get("mid") == mid and _min_desde(ev.get("em")) <= DESFAZER_MIN
                                                 and not ev.get("baixa_erp"),
-            "chat": _chat_resumo(c, p, "motorista"), "motivo_chat": motivo_do_chat(c, p)}
+            "chat": _chat_resumo(c, p, "motorista"), "motivo_chat": motivo_do_chat(c, p),
+            "nf": p.get("nf"), "cliente": p.get("cliente"), "obs": p.get("obs") or [], "cotacao": qld.cotacao(p),
+            "validar_palavra": (ev.get("validar_palavra") or {}).get("status") or ""}
 
 
 def carga_app(c: dict, mid: str) -> dict:
@@ -542,6 +544,7 @@ class Desfecho(Posicao):
     linhas: list = []                # parcial: [{i, qtd}] que VOLTARAM
     obs: Optional[str] = ""
     foto: Optional[str] = ""         # data:image/jpeg;base64,...
+    offline_em: Optional[str] = ""   # [v5.10] registrado no celular SEM SINAL (hora do celular); enviado quando a conexão voltou
 
 
 class PedidoLib(BaseModel):
@@ -585,21 +588,29 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
             r["saida"] = {"em": agora(), "mid": s["mid"], "nome": s["nome"], "lat": payload.lat, "lng": payload.lng, "auto": True}
         maxt = int(app_cfg()["cfg"].get("tentativas") or 5)
         palavra_ok = None
+        validar = None
+        offline = bool(payload.offline_em)
         if payload.desfecho in ("entregue", "parcial") and palavra_ligada(s["mid"]):
             lib = (ev.get("liberacao") or {}).get("status")
             if lib != "liberada":
-                if int(ev.get("tentativas") or 0) >= maxt:
+                certa = norm(payload.palavra) == norm(r["palavras"].get(k)) and bool(str(payload.palavra or "").strip())
+                if offline and not certa:
+                    # [v5.10] entregou SEM SINAL e a palavra não confere (ou não foi digitada): o registro vale,
+                    # mas a FROTA precisa validar no Ao vivo
+                    validar = {"status": "pendente", "digitada": str(payload.palavra or "")[:60], "em": agora(), "offline_em": payload.offline_em}
+                elif int(ev.get("tentativas") or 0) >= maxt:
                     raise HTTPException(423, "Tentativas esgotadas. Peça a liberação ao PCL.")
-                if not str(payload.palavra or "").strip():
+                elif not str(payload.palavra or "").strip():
                     return {"resultado": "pede_palavra"}
-                if norm(payload.palavra) != norm(r["palavras"].get(k)):
+                elif not certa:
                     ev["tentativas"] = int(ev.get("tentativas") or 0) + 1
                     ev["ultima_tentativa"] = agora()
                     _hist(c, s, "palavra da entrega incorreta", f"PV {p.get('pv')} · {ev['tentativas']}/{maxt}")
                     qld.gravar(c)
                     restam = maxt - ev["tentativas"]
                     return {"resultado": "palavra_errada", "restam": restam, "carga": carga_app(c, s["mid"])}
-                palavra_ok = True
+                else:
+                    palavra_ok = True
             else:
                 palavra_ok = False   # liberada pelo PCL sem palavra
         motivo = str(payload.motivo or "").strip()[:120]
@@ -626,14 +637,17 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
             foto_id = _salvar_foto(payload.foto, c["numero"], p.get("pv"))
         ev.update(cid=str(payload.cid or "")[:40], desfecho=payload.desfecho, motivo=motivo if payload.desfecho != "entregue" else "",
                   linhas=linhas, obs=str(payload.obs or "")[:300], foto=foto_id, em=agora(), mid=s["mid"], por=s["nome"],
-                  lat=payload.lat, lng=payload.lng, palavra_ok=palavra_ok)
+                  lat=payload.lat, lng=payload.lng, palavra_ok=palavra_ok, validar_palavra=validar,
+                  offline_em=str(payload.offline_em or "")[:40] or None)
         if payload.desfecho in ("retorno", "parcial"):
             _retorno_do_app(c, p, ev, s)
         rot = {"entregue": "ENTREGUE", "retorno": "RETORNO", "parcial": "ENTREGA PARCIAL"}[payload.desfecho]
         _hist(c, s, f"{rot} (app)", f"PV {p.get('pv')} · {p.get('nome')}" + (f" · {motivo}" if motivo and payload.desfecho != "entregue" else "")
-              + (" · palavra conferida" if palavra_ok else (" · liberado pelo PCL" if palavra_ok is False else "")))
+              + (" · palavra conferida" if palavra_ok else (" · liberado pelo PCL" if palavra_ok is False else ""))
+              + (f" · registrado SEM SINAL às {str(payload.offline_em)[11:16]}" if offline else "")
+              + (" · PALAVRA NÃO CONFERIU: frota precisa validar" if validar else ""))
         qld.gravar(c)
-        return {"resultado": "ok", "carga": carga_app(c, s["mid"])}
+        return {"resultado": "ok", "validar_palavra": bool(validar), "carga": carga_app(c, s["mid"])}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -781,7 +795,8 @@ def _ev_pub(c: dict, p: dict, com_palavra: bool) -> dict:
     elif ev.get("desfecho") == "parcial":
         esperado = sum(int(x.get("qtd") or 0) for x in ev.get("linhas") or [])
     out = {"seq": p.get("seq"), "pv": p.get("pv"), "nome": p.get("nome"), "bairro": p.get("bairro"), "cidade": p.get("cidade"),
-           "cliente": p.get("cliente"), "nf": p.get("nf"),
+           "cliente": p.get("cliente"), "nf": p.get("nf"), "cotacao": qld.cotacao(p),
+           "validar_palavra": ev.get("validar_palavra"), "offline_em": ev.get("offline_em"),
            "troca": bool(p.get("troca")), "pecas": sum(int(i.get("qtd") or 0) for i in p.get("entregar") or []),
            "desfecho": ev.get("desfecho") or "", "motivo": ev.get("motivo") or "", "obs": ev.get("obs") or "", "em": ev.get("em") or "",
            "por": ev.get("por") or "", "foto": ev.get("foto") or "", "lat": ev.get("lat"), "lng": ev.get("lng"),
@@ -979,7 +994,7 @@ def _dados_cliente(c: dict, p: dict) -> dict:
                                      "despesas", "troca", "pv_retira", "nf_troca", "protocolo", "obs")},
             "itens": [{"desc": it.get("desc"), "sku": it.get("sku"), "qtd": int(it.get("qtd") or 0)} for it in p.get("entregar") or []],
             "retirar": [{"desc": it.get("desc"), "qtd": int(it.get("qtd") or 0)} for it in p.get("col2") or []],
-            "evento": _ev_pub(c, p, True), "data_mapa": c.get("data_mapa"), "data_iso": c.get("data_iso"),
+            "evento": _ev_pub(c, p, True), "cotacao": qld.cotacao(p), "data_mapa": c.get("data_mapa"), "data_iso": c.get("data_iso"),
             "saida": r.get("saida"), "chegada": r.get("chegada"), "trocas_placa": c.get("trocas_placa") or [],
             "corrigidos": (r["pedidos"].get(k) or {}).get("corrigidos") or [],
             "retorno_itens": [x for x in (c.get("retorno") or {}).get("itens") or [] if chave_pv(x.get("pv")) == k],
@@ -1039,6 +1054,43 @@ def rota_chat_encerrar(numero: str, pv: str, payload: ChatIn, request: Request):
         qld.hist(c, q, "chat com o motorista encerrado", f"PV {p.get('pv')} · {p.get('nome')} · {a.get('motivo')} · {len(a['msgs'])} mensagem(ns)")
         qld.gravar(c)
         return _chat_pub(ch, "frota")
+
+
+class ValidaPalavra(BaseModel):
+    acao: str            # aceitar | reabrir
+    nota: Optional[str] = ""
+
+
+@painel_api.put("/cargas/{numero}/validar-palavra/{pv}")
+def rota_validar_palavra(numero: str, pv: str, payload: ValidaPalavra, request: Request):
+    """[v5.10] Entrega feita SEM SINAL com a palavra errada: a frota aceita (vale a entrega) ou reabre (o motorista registra de novo)."""
+    rk_exigir(request, ["aovivo"], 2, "Validar entrega sem palavra")
+    q = qld.quem(request)
+    with TRAVA:
+        c = qld.carga(numero)
+        p = _ped_da_carga(c, pv)
+        ev = rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}
+        v = ev.get("validar_palavra") or {}
+        if v.get("status") != "pendente":
+            raise HTTPException(409, "Não há palavra para validar neste pedido.")
+        if payload.acao == "aceitar":
+            v.update(status="aceita", por=q["por"], decidido_em=agora(), nota=str(payload.nota or "")[:200])
+            ev["palavra_ok"] = False
+            ev["liberacao"] = {"status": "liberada", "pedido_em": v.get("em"), "pedido_por": "app (sem sinal)", "decidido_por": q["por"],
+                               "decidido_em": agora(), "nota": "entrega sem sinal validada pela frota" + (f": {payload.nota}" if payload.nota else "")}
+            qld.hist(c, q, "entrega sem sinal VALIDADA pela frota", f"PV {p.get('pv')} · {p.get('nome')} · palavra digitada: {v.get('digitada') or '—'}")
+        elif payload.acao == "reabrir":
+            v.update(status="reaberta", por=q["por"], decidido_em=agora(), nota=str(payload.nota or "")[:200])
+            ant = {kk: ev.get(kk) for kk in ("desfecho", "motivo", "em", "por")}
+            _tirar_retorno_do_app(c, p)
+            for kk in ("cid", "desfecho", "motivo", "linhas", "obs", "foto", "em", "mid", "por", "lat", "lng", "palavra_ok", "validar_palavra", "offline_em"):
+                ev.pop(kk, None)
+            ev.setdefault("corrigidos", []).append({**ant, "desfeito_em": agora(), "pelo_pcl": q["por"], "nota": "palavra não conferiu (sem sinal)"})
+            qld.hist(c, q, "entrega sem sinal REABERTA pela frota", f"PV {p.get('pv')} · {p.get('nome')} · palavra digitada: {v.get('digitada') or '—'}")
+        else:
+            raise HTTPException(400, "Ação inválida.")
+        qld.gravar(c)
+        return {"ok": True, "status": v.get("status")}
 
 
 @painel_api.put("/cargas/{numero}/placa")
@@ -1164,7 +1216,7 @@ def rota_historico(request: Request, de: str = "", ate: str = "", busca: str = "
                             "em": ev.get("em") or "", "por": ev.get("por") or "", "foto": bool(ev.get("foto")), "palavra_ok": ev.get("palavra_ok"),
                             "chats": len(ch.get("atendimentos") or []), "chat_aberto": bool(ch.get("atual")),
                             "motivos_chat": [a.get("motivo") for a in ch.get("atendimentos") or []], "baixa_erp": bool(ev.get("baixa_erp")),
-                            "status_carga": c.get("status")})
+                            "status_carga": c.get("status"), "cotacao": qld.cotacao(p)})
     out.sort(key=lambda x: (x["data_iso"] or "", x["carga"], x["em"] or ""), reverse=True)
     return {"de": de, "ate": ate, "total": len(out), "itens": out[:2000]}
 

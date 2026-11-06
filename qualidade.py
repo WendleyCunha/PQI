@@ -181,6 +181,39 @@ LISTAS_PADRAO = {
 CAD: dict = {"produtos": None, "placas": None, "listas": None}
 
 
+# ── [v5.10] COTAÇÃO: entrega feita em SP que segue para OUTRO ESTADO ──
+# Regra: UF do cliente diferente de SP (UF do PDF ou, sem ela, pelo CEP), ou o endereço da transportadora
+# de cotação (RUA DA AVIAÇÃO, 350).
+FAIXAS_CEP = [(1000, 19999, "SP"), (20000, 28999, "RJ"), (29000, 29999, "ES"), (30000, 39999, "MG"), (40000, 48999, "BA"),
+              (49000, 49999, "SE"), (50000, 56999, "PE"), (57000, 57999, "AL"), (58000, 58999, "PB"), (59000, 59999, "RN"),
+              (60000, 63999, "CE"), (64000, 64999, "PI"), (65000, 65999, "MA"), (66000, 68899, "PA"), (68900, 68999, "AP"),
+              (69000, 69299, "AM"), (69300, 69399, "RR"), (69400, 69899, "AM"), (69900, 69999, "AC"), (70000, 72799, "DF"),
+              (72800, 72999, "GO"), (73000, 73699, "DF"), (73700, 76799, "GO"), (76800, 76999, "RO"), (77000, 77999, "TO"),
+              (78000, 78899, "MT"), (79000, 79999, "MS"), (80000, 87999, "PR"), (88000, 89999, "SC"), (90000, 99999, "RS")]
+ENDERECOS_COTACAO = [(r"\bAVIA[CÇ][AÃ]O\b", "350")]   # RUA DA AVIAÇÃO, 350
+
+
+def uf_do_cep(cep) -> str:
+    d = re.sub(r"\D", "", str(cep or ""))
+    if len(d) < 5:
+        return ""
+    n = int(d[:5])
+    return next((uf for a, b, uf in FAIXAS_CEP if a <= n <= b), "")
+
+
+def cotacao(p: dict) -> Optional[dict]:
+    """None = entrega normal. Senão {"uf", "motivo"} — o app e o Ao vivo mostram COTAÇÃO bem diferente."""
+    uf = str(p.get("uf") or "").strip().upper()[:2] or uf_do_cep(p.get("cep"))
+    if uf and uf != "SP":
+        return {"uf": uf, "motivo": f"cliente em {uf}: entrega em SP e segue para outro estado"}
+    end = str(p.get("endereco") or "").upper()
+    end = end.translate(str.maketrans("ÁÀÃÂÇÉÊÍÓÔÕÚ", "AAAACEEIOOOU"))
+    for rx, num in ENDERECOS_COTACAO:
+        if re.search(rx, end) and re.search(rf"(?<!\d){num}(?!\d)", end):
+            return {"uf": uf or "SP", "motivo": "endereço da transportadora de cotação (Rua da Aviação, 350)"}
+    return None
+
+
 def norm_placa(p) -> str:
     """Placa no padrão único do PQI: só letras e números, sem traço nem espaço (FIB-3J44 → FIB3J44)."""
     return re.sub(r"[^A-Z0-9]", "", str(p or "").upper())[:8]
@@ -669,7 +702,7 @@ def importar_mapa(payload: dict, q: dict) -> dict:
             peds = []
             for p in ci.get("pedidos") or []:
                 p = {k: p.get(k) for k in ("seq", "tipo", "troca", "pv", "nf", "serie", "pv_retira", "nf_troca", "serie_troca",
-                                          "cliente", "nome", "endereco", "compl", "bairro", "cidade", "cep", "origem", "despesas",
+                                          "cliente", "nome", "endereco", "compl", "bairro", "cidade", "uf", "cep", "origem", "despesas",
                                           "entregar", "col2", "pseudo", "obs", "protocolo")}
                 p["entregar"] = [{"desc": str(i.get("desc") or "")[:200], "qtd": int(i.get("qtd") or 0)} for i in p.get("entregar") or []]
                 p["col2"] = [{"desc": str(i.get("desc") or "")[:200], "qtd": int(i.get("qtd") or 0)} for i in p.get("col2") or []]
