@@ -138,6 +138,9 @@ table.tbl input:focus,table.tbl select:focus,table.tbl textarea:focus{border-col
 .org-area{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:auto;padding:26px 20px 30px;min-height:420px;max-height:78vh;
   background-image:radial-gradient(var(--rule-2) 1px,transparent 1px);background-size:18px 18px;cursor:grab;position:relative}
 .org-area.panning{cursor:grabbing;user-select:none} .org-area.panning *{cursor:grabbing!important}
+.org-area.selecionando{cursor:crosshair}
+.pcard.multi{outline:2px dashed var(--steel);outline-offset:3px;box-shadow:0 0 0 6px color-mix(in srgb,var(--steel) 12%,transparent)}
+.org-laco{position:fixed;z-index:80;border:1.5px dashed #2B63B0;background:rgba(43,99,176,.10);border-radius:4px;pointer-events:none}
 .org-area.escolhendo .pcard{cursor:copy;outline:2px dashed var(--steel);outline-offset:2px}
 .tree-sizer{position:relative}
 .org-tree{position:absolute;top:0;left:0;display:inline-block;transform-origin:0 0}
@@ -817,7 +820,7 @@ function visaoArvore(c,s){
       <button type="button" id="zAjustar">Ajustar à tela</button><button type="button" id="aExp">Expandir tudo</button><button type="button" id="aRec">Recolher tudo</button>
       <button type="button" id="aReorg" title="Desfaz as posições ajustadas à mão" ${d.pessoas.some(p=>p.ox||p.oy)||Object.keys(d.pos_caixas||{}).length?"":"hidden"}>↺ Reorganizar</button>
       <span class="topo-drop" id="topoDrop">⤒ Solte aqui: topo do setor (sem gestor)</span></div>
-    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover a tela · arraste um <b>cartão</b> (ou o título de uma caixa) para reposicionar — solte sobre outra pessoa para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar · <code>Ctrl+Z</code> desfaz · <code>Ctrl+Y</code> refaz · <code>Ctrl+C</code> / <code>Ctrl+V</code> sobre um cartão copia e cola.</p>
+    <p class="dica" style="margin:0 0 10px">🖱️ Segure e arraste o fundo para mover a tela · arraste um <b>cartão</b> (ou o título de uma caixa) para reposicionar — solte sobre outra pessoa para ligar · puxe o ponto <b>●</b> de um cartão até outro para criar uma linha · clique numa <b>linha</b> para remover ou trocar · arraste uma linha para religar · <b>dois cliques no fundo</b> e arraste para selecionar vários cartões — depois segure um deles e mova o grupo · <code>Ctrl+Z</code> desfaz · <code>Ctrl+Y</code> refaz · <code>Ctrl+C</code> / <code>Ctrl+V</code> sobre um cartão copia e cola.</p>
     <div id="aSug"></div>
     <div class="org-area" id="orgArea">
       <div class="tree-sizer" id="sizer"><div class="org-tree" id="tree"></div></div></div>`;
@@ -845,8 +848,44 @@ function visaoArvore(c,s){
   $("#aExp",c).onclick=()=>{ recolhidos.clear(); render(); };
   const ro=$("#aReorg",c); if(ro) ro.onclick=()=>{ d.pessoas.forEach(p=>{ delete p.ox; delete p.oy; }); d.pos_caixas={}; salvar(s); render(); $("#banner").textContent="✓ Organograma reorganizado no desenho automático."; };
   $("#aRec",c).onclick=()=>{ const H=mapaHierarquia(d,filtroSub); H.raizes.forEach(r=>(H.filhos[r.id]||[]).forEach(f=>{ if((H.filhos[f.id]||[]).length) recolhidos.add(f.id); })); render(); };
-  ligarCards(tree,s); ligarArrastar(c,s); ligarPan(area); ligarLinhas(s,tree,area);
+  ligarCards(tree,s); ligarSelecaoArea(c,s,area,tree); ligarArrastar(c,s); ligarPan(area); ligarLinhas(s,tree,area);
 }
+
+// [v5.11] SELEÇÃO POR ÁREA: dois cliques no fundo liberam o retângulo; os cartões marcados se movem juntos (as linhas acompanham)
+let ORG_MULTI=new Set(), ORG_MODO=false, ORG_FIM=0, ORG_ULT=null;
+function marcarMultiOrg(tree){ tree.querySelectorAll(".pcard").forEach(c=>c.classList.toggle("multi",ORG_MULTI.has(c.dataset.id))); }
+function limparMultiOrg(area){ const tinha=ORG_MULTI.size||ORG_MODO; ORG_MULTI=new Set(); ORG_MODO=false; if(area){ area.classList.remove("selecionando"); const t=area.querySelector("#tree"); if(t) marcarMultiOrg(t); } return tinha; }
+function ligarSelecaoArea(c,s,area,tree){
+  ORG_MULTI=new Set([...ORG_MULTI].filter(id=>tree.querySelector(`.pcard[data-id="${id}"]`)));
+  marcarMultiOrg(tree); area.classList.toggle("selecionando",ORG_MODO);
+  const fundo=e=>!e.target.closest(".pcard,.equipe .eq-t,button,input,select,a,path.hit,.hnd");
+  const entrar=()=>{ if(Date.now()-ORG_FIM<450||ORG_MODO) return; ORG_MODO=true; area.classList.add("selecionando"); PQI_ESTAVEL.aviso("⬚ Arraste para marcar uma área · Esc cancela"); };
+  area.addEventListener("dblclick",e=>{ if(fundo(e)) entrar(); });
+  let baixo=null;
+  area.addEventListener("pointerdown",e=>{   // antes do "mover a tela": no modo área (ou no 2º clique já arrastando) desenha o retângulo
+    if(e.pointerType!=="mouse"||e.button!==0||!fundo(e)) return;
+    baixo={x:e.clientX,y:e.clientY};
+    const ult=ORG_ULT, agora=Date.now(); ORG_ULT={t:agora,x:e.clientX,y:e.clientY};
+    if(!(ORG_MODO||(ult&&agora-ult.t<380&&Math.hypot(e.clientX-ult.x,e.clientY-ult.y)<12))) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const x0=e.clientX, y0=e.clientY, laco=el("div","org-laco"); document.body.appendChild(laco);
+    const pos=(x,y)=>Object.assign(laco.style,{left:Math.min(x,x0)+"px",top:Math.min(y,y0)+"px",width:Math.abs(x-x0)+"px",height:Math.abs(y-y0)+"px"});
+    pos(x0,y0);
+    const m=ev=>pos(ev.clientX,ev.clientY);
+    const f=ev=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f); laco.remove();
+      if(Math.hypot(ev.clientX-x0,ev.clientY-y0)<5){ if(!ORG_MODO){ ORG_MODO=true; area.classList.add("selecionando"); PQI_ESTAVEL.aviso("⬚ Arraste para marcar uma área · Esc cancela"); } baixo=null; return; }   // dois cliques sem arrastar: fica no modo área
+      const L=Math.min(x0,ev.clientX), R=Math.max(x0,ev.clientX), T=Math.min(y0,ev.clientY), B=Math.max(y0,ev.clientY);
+      ORG_MULTI=new Set([...tree.querySelectorAll(".pcard")].filter(cd=>{ const r=cd.getBoundingClientRect(); return r.left<R&&r.right>L&&r.top<B&&r.bottom>T; }).map(cd=>cd.dataset.id));
+      ORG_MODO=false; ORG_FIM=Date.now(); area.classList.remove("selecionando"); marcarMultiOrg(tree); baixo=null;
+      PQI_ESTAVEL.aviso(ORG_MULTI.size?`${ORG_MULTI.size} cartão(ões) selecionado(s) — segure um deles e arraste o grupo · Esc cancela`:"Nenhum cartão na área."); };
+    window.addEventListener("pointermove",m); window.addEventListener("pointerup",f);
+  },true);
+  area.addEventListener("click",e=>{   // clique simples no fundo (sem arrastar) tira a seleção
+    if(!baixo||!fundo(e)||Math.hypot(e.clientX-baixo.x,e.clientY-baixo.y)>5) return;
+    if(ORG_MULTI.size&&Date.now()-ORG_FIM>450) limparMultiOrg(area);
+  });
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&(ORG_MULTI.size||ORG_MODO)) limparMultiOrg(document.getElementById("orgArea")); });
 if(window.ResizeObserver){ let t=null; new ResizeObserver(()=>{ clearTimeout(t); t=setTimeout(()=>redesenhar&&redesenhar(),80); }).observe(document.documentElement); }
 
 // [v5.11] Ctrl+C sobre um cartão copia a pessoa; Ctrl+V cola uma cópia (abaixo do cartão sob o mouse, ou com o mesmo gestor)
@@ -932,6 +971,23 @@ function ligarArrastar(c,s){
     const movel=card?(card.closest(".equipe")||card):(cab?cab.closest(".equipe"):null);
     if(!movel) return;
     e.preventDefault();
+    if(card&&ORG_MULTI.size>1&&ORG_MULTI.has(card.dataset.id)){   // [v5.11] arrasta o GRUPO; as linhas acompanham ao vivo
+      const sc=zoom[s.id]||1, ini={x:e.clientX,y:e.clientY};
+      let movs=[...new Set([...tree.querySelectorAll(".pcard")].filter(cd=>ORG_MULTI.has(cd.dataset.id)).map(cd=>cd.closest(".equipe")||cd))];
+      movs=movs.filter(m=>!movs.some(o=>o!==m&&o.contains(m)));
+      const bases=new Map(movs.map(m=>[m,desloc(m)])); let mov=false, dx=0, dy=0, pend=false;
+      const m=ev=>{ dx=(ev.clientX-ini.x)/sc; dy=(ev.clientY-ini.y)/sc; if(!mov&&Math.hypot(dx,dy)<5) return;
+        if(!mov){ mov=true; movs.forEach(x=>x.classList.add("arrastando")); }
+        movs.forEach(x=>{ const b=bases.get(x); x.style.transform=`translate(${b.x+dx}px,${b.y+dy}px)`; });
+        if(!pend){ pend=true; requestAnimationFrame(()=>{ pend=false; redesenhar&&redesenhar(); }); } };
+      const f=()=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f);
+        movs.forEach(x=>x.classList.remove("arrastando")); if(!mov) return; ARRASTOU=Date.now();
+        movs.forEach(x=>{ const b=bases.get(x); gravar(x,{x:b.x+dx,y:b.y+dy}); }); salvar(s); redesenhar&&redesenhar();
+        const ro=$("#aReorg"); if(ro) ro.hidden=false;
+        $("#banner").textContent=`✓ ${ORG_MULTI.size} cartão(ões) movido(s) juntos. Ctrl+Z desfaz · Esc tira a seleção.`; };
+      window.addEventListener("pointermove",m); window.addEventListener("pointerup",f);
+      return; }
+    if(ORG_MULTI.size) limparMultiOrg(area);
     const sc=zoom[s.id]||1, ini={x:e.clientX,y:e.clientY}, base=desloc(movel); let mov=false, dx=0, dy=0;
     const marcar=alvo=>{ area.querySelectorAll(".alvo").forEach(x=>{ if(x!==alvo) x.classList.remove("alvo"); }); if(alvo) alvo.classList.add("alvo"); };
     const sob=ev=>{ const t=document.elementFromPoint(ev.clientX,ev.clientY); if(!t) return null;
