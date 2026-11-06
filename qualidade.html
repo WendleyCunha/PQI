@@ -428,6 +428,7 @@ table.ar-t{min-width:1400px} table.ar-t td{vertical-align:top}
 .q-cont{font:700 26px/1 "IBM Plex Sans Condensed",sans-serif;text-align:right} .q-cont small{display:block;font:400 12px "IBM Plex Sans",sans-serif;color:var(--ink-3)}
 .q-leitor{display:flex;gap:8px;margin-top:8px} .q-leitor input{font-size:18px;letter-spacing:.5px;padding:10px 12px}
 .q-cam{background:var(--steel);color:#fff;border-color:var(--steel);font-size:20px;padding:0 18px;min-height:46px}
+.q-cam#btTec{background:var(--sheet);color:var(--ink);border-color:var(--rule-2,var(--rule))} .q-cam#btTec.ativo{background:var(--amber);color:#fff;border-color:var(--amber)}
 .q-ult{margin-top:8px;border-radius:8px;padding:9px 12px;font-weight:600;font-size:15px;display:flex;gap:8px;align-items:flex-start}
 .q-ult.ok{background:var(--ok-soft);color:var(--ok)} .q-ult.bad{background:var(--bad-soft);color:var(--bad)} .q-ult.warn{background:var(--amber-soft);color:var(--amber)}
 .q-ped{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;margin:8px 0;overflow:hidden}
@@ -1003,6 +1004,23 @@ async function rListaEtapa(c, et) {
 
 // ═══ MONTAGEM / DOCA — tela de leitura ═══
 let CG = null, ULT = null, ET = "montagem";
+// [v5.11] LEITOR SEM TECLADO NA TELA: no celular/coletor o campo do código fica com inputmode="none" —
+// o leitor (bipe) e o teclado físico funcionam, mas o teclado virtual não sobe sozinho a cada toque.
+// O botão ⌨ liga o modo "digitar" (teclado na tela) para quem precisa digitar o código à mão.
+const TOQUE = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
+let TECLADO = (() => { try { return localStorage.getItem("qld_teclado") === "1"; } catch (_) { return false; } })();
+const modoLeitor = () => (TOQUE && !TECLADO ? "none" : "numeric");
+const btTeclado = () => TOQUE ? `<button type="button" class="q-cam${TECLADO ? " ativo" : ""}" id="btTec" title="${TECLADO ? "Esconder o teclado da tela (usar só o leitor)" : "Digitar o código no teclado da tela"}" aria-pressed="${TECLADO}">⌨</button>` : "";
+function ligarTeclado(c, inp) {
+  const b = $("#btTec", c); if (!b || !inp) return;
+  b.onclick = () => { TECLADO = !TECLADO; try { localStorage.setItem("qld_teclado", TECLADO ? "1" : "0"); } catch (_) {}
+    inp.setAttribute("inputmode", modoLeitor()); b.classList.toggle("ativo", TECLADO); b.setAttribute("aria-pressed", TECLADO);
+    b.title = TECLADO ? "Esconder o teclado da tela (usar só o leitor)" : "Digitar o código no teclado da tela";
+    inp.blur(); setTimeout(() => inp.focus({ preventScroll: true }), 30); };
+}
+// foca o campo do leitor só quando não abre teclado na tela (ou quando a pessoa acabou de usar o próprio campo)
+function focarLeitor(inp, veioDoCampo) { if (!inp) return; if (modoLeitor() === "none" || !TOQUE || veioDoCampo) inp.focus({ preventScroll: true }); }
+let LEU_PELO_CAMPO = false;
 async function rEtapa(c, num, et) { ET = et; CG = await api(`/cargas/${num}`); await cad(); desenharEtapa(c); }
 function desenharEtapa(c) {
   const g = CG, et = ET, e = EST[et], E = g[et] || { leituras: {}, sobras: [] }, lidas = E.leituras || {};
@@ -1020,7 +1038,7 @@ function desenharEtapa(c) {
         <div class="q-cont">${n}/${tot}<small>${et === "montagem" ? "montadas" : "conferidas"}</small></div>
       </div>
       <div class="q-prog"><i style="width:${pct(n, tot)}%"></i></div>
-      ${podeLer ? `<div class="q-leitor"><input id="cod" inputmode="numeric" autocomplete="off" placeholder="Leia ou digite o código e Enter" aria-label="Código do produto"><button type="button" class="q-cam" id="btCam" title="Ler com a câmera">📷</button></div>` : ""}
+      ${podeLer ? `<div class="q-leitor"><input id="cod" inputmode="${modoLeitor()}" autocomplete="off" placeholder="Leia ou digite o código e Enter" aria-label="Código do produto">${btTeclado()}<button type="button" class="q-cam" id="btCam" title="Ler com a câmera">📷</button></div>` : ""}
       ${ULT ? `<div class="q-ult ${ULT.cls}">${ULT.ico} <span>${ULT.txt}</span></div>` : ""}
     </div>
     ${souMontador ? `<div class="conflito">🔒 ${esc(bloq)}</div>` : ""}
@@ -1040,7 +1058,8 @@ function desenharEtapa(c) {
       ${podeLer ? `<button type="button" class="q-okb" id="btFechar">✓ ${et === "montagem" ? "Palete OK" : "Doca OK"}</button>` : ""}</div>` : ""}`;
   $("#voltar", c).onclick = () => ir(secao);
   const inp = $("#cod", c);
-  if (inp) { inp.focus({ preventScroll: true }); inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); const v = inp.value.trim(); inp.value = ""; if (v) ler({ codigo: v }); } }; }
+  if (inp) { focarLeitor(inp, LEU_PELO_CAMPO); LEU_PELO_CAMPO = false; ligarTeclado(c, inp);
+    inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); const v = inp.value.trim(); inp.value = ""; if (v) { LEU_PELO_CAMPO = true; ler({ codigo: v }); } } }; }
   const bc = $("#btCam", c); if (bc) bc.onclick = () => abrirCamera(t => ler({ codigo: t }, true));
   c.querySelectorAll("[data-manual]").forEach(b => b.onclick = () => ler({ unidade: b.dataset.manual }));
   c.querySelectorAll("[data-desfaz]").forEach(b => b.onclick = async () => { try { await post(`/cargas/${g.numero}/${e.url}/desfazer`, { unidade: b.dataset.desfaz }); await recarregarCG(); } catch (x) { toast(x.message, true); } });
@@ -1300,7 +1319,7 @@ function desenharRetorno(c) {
         <span class="sub" style="font-size:13px">${g.avulsa ? `📦 Entrada avulsa · ${esc((g.origem_avulsa || {}).origem)}: ${esc((g.origem_avulsa || {}).referencia)} · ${dataBR(g.data_iso)}` : `🚚 ${esc(g.placa)} · ${esc(g.motorista || "motorista não cadastrado")} · ${esc(g.transportadora)} · Mapa ${dataBR(g.data_iso)}`}</span></div>
         <div class="q-cont">${int(g.resumo.retornadas)}<small>retornada(s) · ${int(g.resumo.retiradas)} retirada(s)</small></div></div>
       ${podeR ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">${seg2([["nao_entregue", "Voltou (não entregue)"], ["retirada", "Retirada na troca"]], RT.origem, "data-o")}<span class="cap" style="margin:0">a leitura do código vale para:</span></div>
-        <div class="q-leitor"><input id="cod" inputmode="numeric" autocomplete="off" placeholder="Leia o código da peça que voltou e Enter"><button type="button" class="q-cam" id="btCam">📷</button></div>` : ""}
+        <div class="q-leitor"><input id="cod" inputmode="${modoLeitor()}" autocomplete="off" placeholder="Leia o código da peça que voltou e Enter">${btTeclado()}<button type="button" class="q-cam" id="btCam">📷</button></div>` : ""}
       ${ULT ? `<div class="q-ult ${ULT.cls}">${ULT.ico} <span>${ULT.txt}</span></div>` : ""}
     </div>
     ${bloqR ? `<div class="conflito">🔒 ${esc(bloqR)}</div>` : ""}
@@ -1309,7 +1328,8 @@ function desenharRetorno(c) {
     ${podeR ? `<div class="q-rodape"><button type="button" class="q-okb" id="btConcluir">✓ Concluir o retorno — enviar ao PCL</button></div>` : ""}`;
   $("#voltar", c).onclick = () => ir("retorno");
   c.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { RT.origem = b.dataset.o; desenharRetorno(c); });
-  const inp = $("#cod", c); if (inp) inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const v = inp.value.trim(); inp.value = ""; if (v) retornar({ codigo: v, origem: RT.origem }); } };
+  const inp = $("#cod", c); if (inp) { ligarTeclado(c, inp); if (LEU_PELO_CAMPO) { focarLeitor(inp, true); LEU_PELO_CAMPO = false; }
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const v = inp.value.trim(); inp.value = ""; if (v) { LEU_PELO_CAMPO = true; retornar({ codigo: v, origem: RT.origem }); } } }; }
   const bc = $("#btCam", c); if (bc) bc.onclick = () => abrirCamera(t => retornar({ codigo: t, origem: RT.origem }, true));
   c.querySelectorAll("[data-volta]").forEach(b => b.onclick = () => retornar({ item: b.dataset.volta, origem: "nao_entregue" }));
   c.querySelectorAll("[data-receber]").forEach(b => b.onclick = () => retornar({ receber: b.dataset.receber, origem: "nao_entregue" }));
@@ -2215,6 +2235,9 @@ window.addEventListener("resize", medirBarra); medirBarra();
   render();
 })();
 
+
+// [v5.11] telas de leitura estáveis: confirmar/desfazer uma unidade redesenha sem pular a tela
+if (window.PQI_ESTAVEL) PQI_ESTAVEL.estabilizar("desenharEtapa", "desenharRetorno");
 
 // ═══ APP INSTALÁVEL [v5.3] — mesmo login do PQI; cada pessoa vê só as abas liberadas para ela ═══
 (() => {

@@ -258,7 +258,9 @@ table.matriz td.zero{color:var(--rule)}
 .fx-simb{display:flex;align-items:center;gap:6px;width:100%;padding:5px 6px;margin-bottom:4px;font-size:11.5px;line-height:1.2;text-align:left;cursor:grab;touch-action:none}
 .fx-simb svg{flex:none} .fx-simb svg *{vector-effect:non-scaling-stroke;stroke-width:1.6px}
 .fx-area{position:relative;overflow:auto;max-height:72vh;min-height:420px;border:1px solid var(--rule);border-radius:10px;background:#fff}
-.fx-area svg{display:block;user-select:none;touch-action:none}
+.fx-area svg{display:block;user-select:none;touch-action:none;cursor:grab}
+.fx-area.panning,.fx-area.panning *{cursor:grabbing!important}
+.fx-no{cursor:move}
 .fx-port{fill:#2B63B0;stroke:#fff;stroke-width:2;opacity:0;cursor:crosshair;transition:opacity .12s}
 .fx-no:hover .fx-port{opacity:1}
 .fx-edit{position:absolute;z-index:5;font:13px "IBM Plex Sans",sans-serif;border:2px solid var(--amber);border-radius:6px;padding:6px;background:#fff;color:#1B2436;resize:none}
@@ -419,7 +421,10 @@ function sessaoExpirada(){
 }
 function procPorId(id){ return PROCS.find(p=>p.id===id); }
 
-function salvar(p){
+// [v5.11] Ctrl+Z / Ctrl+Y: cada alteração guarda o estado anterior do processo (pqi-acesso.js)
+const HIST = window.PQI_ESTAVEL && PQI_ESTAVEL.historico ? PQI_ESTAVEL.historico({ lista:()=>CFG?PROCS.concat([CFG]):PROCS, salvar:p=>salvarSemHist(p), redesenhar:()=>render() }) : null;
+function salvar(p){ if(HIST) HIST.registrar(p); salvarSemHist(p); }
+function salvarSemHist(p){
   setStatus("salvando");
   clearTimeout(pend[p.id]);
   pend[p.id]=setTimeout(()=>enfileirar(p), 800);
@@ -1604,7 +1609,7 @@ function abaFluxo(c,p,d,sv){
       <div class="fx-area" id="fxArea">${!F.nos.length&&!F.raias.length?telaInicioFluxo(d,temPassos,setor):svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom})}</div>
       <div class="fx-props" id="fxProps"></div>
     </div>
-    <p class="cap" style="margin-top:8px">Arraste os símbolos · puxe pelos pontos <b>●</b> da borda para ligar · clique numa ligação e arraste o ponto do meio para desviar (ou as pontas para religar) · duplo clique edita o texto · <code>Delete</code> exclui o selecionado.</p>`;
+    <p class="cap" style="margin-top:8px">Arraste os símbolos · puxe pelos pontos <b>●</b> da borda para ligar · clique numa ligação e arraste o ponto do meio para desviar (ou as pontas para religar) · duplo clique edita o texto · <code>Delete</code> exclui o selecionado · segure e arraste o <b>fundo</b> para mover a tela · <code>Ctrl+Z</code> desfaz · <code>Ctrl+Y</code> refaz · <code>Ctrl+C</code> / <code>Ctrl+V</code> copia e cola o símbolo.</p>`;
   const svg=$("#fxSvg",c), area=$("#fxArea",c), props=$("#fxProps",c);
   if(!svg){ ligarInicioFluxo(c,d,sv,setor);
     c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ FX.ver=b.dataset.ver; FX.sel={}; render(); });
@@ -1673,7 +1678,11 @@ function abaFluxo(c,p,d,sv){
             n.x=Math.max(RAIA_W+16,Math.round(nx/10)*10); n.raia=r.id; n.ry=Math.max(10,Math.round((ny-r.y)/10)*10);
             F.ligacoes.forEach(l=>{ if(l.de===n.id||l.para===n.id) l.via=null; }); salvarFx(); redesenhar(); }); return; }
       if(cab){ FX.sel={tipo:"raia",id:cab.dataset.r}; redesenhar(); return; }
-      if(FX.sel.tipo){ FX.sel={}; redesenhar(); }
+      // [v5.11] fundo: segurar e arrastar move o fluxograma; clique simples tira a seleção
+      const x0=e.clientX, y0=e.clientY, sl=area.scrollLeft, st=area.scrollTop; let andou=false;
+      acompanhar(ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0; if(!andou&&Math.abs(dx)+Math.abs(dy)<5) return;
+          if(!andou){ andou=true; area.classList.add("panning"); } area.scrollLeft=sl-dx; area.scrollTop=st-dy; },
+        ()=>{ area.classList.remove("panning"); if(!andou&&FX.sel.tipo){ FX.sel={}; redesenhar(); } });
     };
     s.ondblclick=e=>{ const no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab"), lig=e.target.closest(".fx-hit,.fx-rot");
       if(no) editarTexto(F.nos.find(x=>x.id===no.dataset.n),no);
@@ -1695,9 +1704,22 @@ function abaFluxo(c,p,d,sv){
       F.nos.filter(x=>x.raia===r.id).forEach(x=>{ F.ligacoes=F.ligacoes.filter(l=>l.de!==x.id&&l.para!==x.id); }); F.nos=F.nos.filter(x=>x.raia!==r.id); F.raias=F.raias.filter(x=>x!==r); }
     else return;
     // o array foi trocado: grava de volta no processo
-    d.fluxo[FX.ver]=F; FX.sel={}; salvarFx(); render();
+    d.fluxo[FX.ver]=F; FX.sel={}; salvarFx(); redesenhar();   // [v5.11] sem refresh da página
   }
-  FX.excluir=excluirSel;
+  FX.excluir=excluirSel; FX.redesenhar=redesenhar;
+  // [v5.11] fundo da área fora do desenho (abaixo/à direita do SVG) também arrasta a tela
+  area.addEventListener("pointerdown",e=>{ if(e.button!==0||e.target.closest("#fxSvg,.fx-edit,textarea,input,button")) return;
+    e.preventDefault(); const x0=e.clientX, y0=e.clientY, sl=area.scrollLeft, st=area.scrollTop; let andou=false;
+    const m=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0; if(!andou&&Math.abs(dx)+Math.abs(dy)<5) return; if(!andou){ andou=true; area.classList.add("panning"); } area.scrollLeft=sl-dx; area.scrollTop=st-dy; };
+    const f=()=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f); area.classList.remove("panning"); if(!andou&&FX.sel.tipo){ FX.sel={}; redesenhar(); } };
+    window.addEventListener("pointermove",m); window.addEventListener("pointerup",f); });
+  // [v5.11] Ctrl+C / Ctrl+V: copia o símbolo selecionado e cola ao lado (mesma raia, ou na raia do símbolo selecionado)
+  FX.copiar=()=>{ if(FX.sel.tipo!=="no") return false; const n=F.nos.find(x=>x.id===FX.sel.id); if(!n) return false;
+    FX.clip=JSON.parse(JSON.stringify(n)); if(tx(n.texto)) PQI_ESTAVEL.copiarTexto(n.texto); PQI_ESTAVEL.aviso("📋 Símbolo copiado — Ctrl+V cola"); return true; };
+  FX.colar=()=>{ if(!FX.clip) return false; garantirRaia();
+    const ref=FX.sel.tipo==="no"&&F.nos.find(x=>x.id===FX.sel.id), raia=ref?ref.raia:(F.raias.some(r=>r.id===FX.clip.raia)?FX.clip.raia:F.raias[0].id);
+    const m={...JSON.parse(JSON.stringify(FX.clip)),id:uid(),raia,x:(ref?ref.x:FX.clip.x)+(SIMB[FX.clip.tipo]||SIMB.processo).w+40,ry:ref?ref.ry:FX.clip.ry};
+    F.nos.push(m); FX.sel={tipo:"no",id:m.id}; FX.clip={...FX.clip,x:m.x,ry:m.ry}; salvarFx(); redesenhar(); return true; };
   function desenharProps(){
     const S=FX.sel;
     if(S.tipo==="no"){ const n=F.nos.find(x=>x.id===S.id); if(!n){ FX.sel={}; return desenharProps(); }
@@ -1747,7 +1769,11 @@ function abaFluxo(c,p,d,sv){
 }
 document.addEventListener("keydown",e=>{ if(!document.getElementById("fxSvg")) return; if(e.target.closest&&e.target.closest("input,textarea,select")) return;
   if((e.key==="Delete"||e.key==="Backspace")&&FX.sel.tipo&&FX.excluir){ e.preventDefault(); FX.excluir(); }
-  if(e.key==="Escape"&&FX.sel.tipo){ FX.sel={}; render(); } });
+  if(e.key==="Escape"&&FX.sel.tipo){ FX.sel={}; FX.redesenhar?FX.redesenhar():render(); } });
+if(window.PQI_ESTAVEL){
+  PQI_ESTAVEL.aoCopiar=()=>!!(document.getElementById("fxSvg")&&FX.copiar&&FX.copiar());
+  PQI_ESTAVEL.aoColar=()=>!!(document.getElementById("fxSvg")&&FX.colar&&FX.colar());
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // VISUAL NO PADRÃO DO RG DO PEDIDO
