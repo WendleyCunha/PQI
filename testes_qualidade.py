@@ -313,6 +313,47 @@ def teste_routerking():
     r = t.get("/routerking")
     ok(r.status_code == 200 and 'data-modulo="routerking"' in r.text and "RouterKing" in r.text, "página /routerking com a permissão do RouterKing")
 
+def teste_novo_pdf_mantem_leituras():
+    print("[v5.12] Ajuste + novo PDF: o que já foi conferido continua conferido")
+    T.ligar_memoria()
+    Q.listas()["exigir_conferencia"] = True
+    importar("070401", ["830001", "830002", "830003"])
+    t = TestClient(T.montar())
+    ler = lambda et, u: t.post(f"/api/qualidade/cargas/070401/{et}/leitura",
+                              json={"unidade": u["id"]} if u.get("sku") != "SKU-EAN" else {"unidade": u["id"], "sem_leitor": True, "motivo": "teste"})
+    como("mont@ks", {"montagem": 3})
+    for u in [u for u in Q.carga("070401")["unidades"] if u["pv"] in ("830001", "830002")]:
+        ler("montagem", u)
+    ok(len(Q.carga("070401")["montagem"]["leituras"]) == 4, "montagem leu os 2 primeiros pedidos (4 unidades)")
+    como("pcl@ks", {"pcl": 3})
+    t.post("/api/qualidade/cargas/070401/ajuste-carga", json={"tipo": "retira", "pv": "830002", "motivo": "cliente adiou"})
+    como("mont@ks", {"montagem": 3})
+    aid = [a for a in Q.carga("070401")["ajustes_carga"] if a["status"] == "pendente"][0]["id"]
+    t.post(f"/api/qualidade/cargas/070401/ajuste-carga/{aid}/validar")
+    ok(len(Q.carga("070401")["montagem"]["leituras"]) == 2, "confirmado o ajuste, as leituras do PV 830001 continuam (só as do PV retirado saem)")
+    importar("070401", ["830001", "830003"])   # o PCL importa o PDF novo, já sem o 830002
+    c = Q.carga("070401")
+    ok(c["versao"] == 2 and c["status"] == "em_montagem", "nova versão do PDF não volta a carga para 'importada'")
+    lidas = c["montagem"]["leituras"]
+    ok(len(lidas) == 2 and all(any(u["id"] == k and u["pv"] == "830001" for u in c["unidades"]) for k in lidas),
+       "as 2 leituras do PV 830001 passaram para as unidades da versão nova")
+    for u in [u for u in c["unidades"] if u["pv"] == "830003"]:
+        ler("montagem", u)
+    ok(t.post("/api/qualidade/cargas/070401/montagem/finalizar", json={}).json()["resultado"] == "ok", "basta ler o que faltava para fechar o palete")
+
+    print("[v5.12] PDF novo depois do palete fechado: montagem continua fechada, a doca confere o que entrou")
+    como("conf@ks", {"conferencia": 3})
+    for u in Q.carga("070401")["unidades"]:
+        ler("doca", u)
+    importar("070401", ["830001", "830003", "830004"])   # PV agrupado pelo Protheus
+    c = Q.carga("070401")
+    ok(c["montagem"].get("fim") and c["status"] == "em_conferencia", "montagem segue fechada; carga volta para a conferência na doca")
+    novos = [u for u in c["unidades"] if u["pv"] == "830004"]
+    ok(all(u.get("pos_montagem") for u in novos) and len(c["doca"]["leituras"]) == 4, "o que já foi conferido na doca continua; o PV novo vai direto para a doca")
+    for u in novos:
+        ler("doca", u)
+    ok(t.post("/api/qualidade/cargas/070401/doca/finalizar", json={}).json()["status"] == "validada", "doca lê só o PV novo e valida a carga")
+
 
 def teste_app_pqi():
     print("App do PQI (arquivos)")
@@ -329,6 +370,7 @@ if __name__ == "__main__":
     teste_etapas()
     teste_avulso()
     teste_ajuste_carga()
+    teste_novo_pdf_mantem_leituras()
     teste_retorno_do_app()
     teste_routerking()
     teste_app_pqi()

@@ -12,8 +12,9 @@ Fluxo (cada etapa grava quem fez, no login da pessoa)
      montagem. Bateu → carga VALIDADA. Não bateu → pendência no PCL e a carga só
      é validada depois de resolvida.
   4. PCL resolve as pendências: resolvido sem novo PDF, refazer a etapa, ou pedir
-     NOVO PDF (item sai / entra). O novo PDF confronta o que foi pedido e a carga
-     volta para a montagem, inteira.
+     NOVO PDF (item sai / entra). O novo PDF confronta o que foi pedido. [v5.12] O que
+     já foi lido continua lido: só o que mudou (item novo / PV agrupado) fica para ler.
+     RETIRA e AGRUPAMENTO do PCL só pedem a confirmação "Ajuste feito" no palete.
   5. RETORNO: lista de todas as cargas validadas e ainda não baixadas. Por
      cliente: entregue ou retornou; por peça: motivo, estado e DESTINO (CD, AS,
      fornecedor, perda…). Concluído o retorno, a carga vai para o PCL apontar no
@@ -505,6 +506,54 @@ def _nova_pend(origem: str, tipo: str, pv: str, desc: str, qtd: int, motivo: str
             "motivo": (motivo or "")[:120], "obs": (obs or "")[:300], "por": q["por"], "email": q["email"], "em": agora(), "status": status, **extra}
 
 
+def _chave_unidade(u: dict) -> tuple:
+    return (num_chave(u.get("pv")), sem(u.get("desc") or ""))
+
+
+def _manter_leituras(c: dict, un_ant: list, un_nov: list, motivo: str) -> dict:
+    """[v5.12] Nova versão do PDF NÃO zera a conferência: cada leitura passa para a unidade
+    equivalente da versão nova (mesmo PV, mesmo item). Só deixa de valer a leitura de unidade
+    que saiu da carga. Etapa que já estava fechada continua fechada; o que entrou de novo
+    depois da montagem fechada vai direto para a doca (pos_montagem), como no AGRUPAMENTO."""
+    lidas_ant = set()
+    for nome in ("montagem", "doca"):
+        lidas_ant |= set(((c.get(nome) or {}).get("leituras") or {}).keys())
+    fila: dict = {}
+    for u in un_ant:   # unidades lidas primeiro: se a quantidade diminuiu, sai a que não foi lida
+        fila.setdefault(_chave_unidade(u), []).append(u)
+    for lst in fila.values():
+        lst.sort(key=lambda u: 0 if u["id"] in lidas_ant else 1)
+    mapa = {}
+    for u in un_nov:
+        lst = fila.get(_chave_unidade(u))
+        if lst:
+            velho = lst.pop(0)
+            mapa[velho["id"]] = u["id"]
+            if velho.get("pos_montagem"):
+                u["pos_montagem"] = True
+    res = {}
+    for nome in ("montagem", "doca"):
+        e = c.get(nome)
+        if not e:
+            continue
+        c.setdefault("etapas_anteriores", []).append({**json.loads(json.dumps(e)), "etapa": nome, "versao": c.get("versao"),
+                                                       "arquivada_em": agora(), "motivo_arquivo": motivo + " · leituras mantidas"})
+        c["etapas_anteriores"] = c["etapas_anteriores"][-20:]
+        antes = e.get("leituras") or {}
+        e["leituras"] = {mapa[k]: v for k, v in antes.items() if k in mapa}
+        res[nome] = {"mantidas": len(e["leituras"]), "perdidas": len(antes) - len(e["leituras"])}
+    mt, dc = c.get("montagem"), c.get("doca")
+    if mt and mt.get("fim"):
+        for u in un_nov:   # entrou depois da montagem fechada: a doca confere direto
+            if u["id"] not in (mt.get("leituras") or {}):
+                u["pos_montagem"] = True
+    if dc and dc.get("fim"):
+        base = [u for u in un_nov if u["id"] in ((mt or {}).get("leituras") or {}) or u.get("pos_montagem")]
+        if any(u["id"] not in dc["leituras"] for u in base):
+            dc["fim"] = None   # doca reabre só para ler o que entrou
+    return res
+
+
 def _arquivar_etapa(c: dict, nome: str, motivo: str) -> None:
     e = c.get(nome)
     if e:
@@ -576,7 +625,7 @@ def _confrontar(c: dict, antigos: list, novos: list) -> list:
                      nota=f"Antes {antes}, depois {depois} no novo PDF.")
             explicadas.add((num_chave(a["pv"]), sem(a["desc"])))
         elif a.get("status") == "aberta":
-            a.update(status="superada", nota="Novo PDF importado antes de resolver — a carga volta para a montagem.", verificado_em=agora())
+            a.update(status="superada", nota="Novo PDF importado antes de resolver.", verificado_em=agora())
     mud = []
     for k in set(va) | set(vn):
         if va.get(k, 0) != vn.get(k, 0) and not any(k[0] == e[0] and (k[1].startswith(e[1]) or e[1].startswith(k[1])) for e in explicadas):
@@ -678,14 +727,15 @@ def importar_mapa(payload: dict, q: dict) -> dict:
                     if g and (g.get("analise") or g.get("conferente")):
                         p["gap"] = {**p["gap"], "conferente": g.get("conferente"), "analise": g.get("analise")}
                 c["mudancas_nao_solicitadas"] = _confrontar({**c, "pedidos": peds}, antigos, peds)
-                _arquivar_etapa(c, "doca", f"novo PDF (v{c['versao']})")
-                _arquivar_etapa(c, "montagem", f"novo PDF (v{c['versao']})")
-                c["pedidos"], c["unidades"], c["validacao"], c["retorno"] = peds, _unidades(peds), None, None
+                novas_un = _unidades(peds)
+                mant = _manter_leituras(c, c.get("unidades") or [], novas_un, f"novo PDF (v{c['versao']})")   # [v5.12] não zera
+                c["pedidos"], c["unidades"], c["validacao"], c["retorno"] = peds, novas_un, None, None
                 c["status"] = "importada"
-                for aj in ajustes_pendentes(c):   # o PDF novo já traz a carga como ficou
-                    aj.update(status="superado", superado_em=agora(), superado_por=f"novo PDF (v{c['versao']})")
+                # [v5.12] ajuste do PCL ainda não confirmado continua pedindo o "Ajuste feito" no palete
                 c["versoes"].append({"v": c["versao"], "em": agora(), "por": q["por"], "arquivo": payload.get("arquivo") or "", "assinatura": assin})
-                hist(c, q, "nova versão do Mapa", f"v{c['versao']} · {len(c['mudancas_nao_solicitadas'])} mudança(s) não solicitada(s) · volta para a montagem")
+                txt_mant = " · ".join(f"{NOMES_ETAPA[k]}: {v['mantidas']} leitura(s) mantida(s)" + (f", {v['perdidas']} de peça que saiu" if v["perdidas"] else "")
+                                      for k, v in mant.items()) or "nenhuma leitura ainda"
+                hist(c, q, "nova versão do Mapa", f"v{c['versao']} · {len(c['mudancas_nao_solicitadas'])} mudança(s) não solicitada(s) · {txt_mant}")
                 recalcular(c)
                 rel["versoes"].append(num)
             else:
