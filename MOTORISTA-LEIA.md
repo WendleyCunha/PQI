@@ -194,3 +194,11 @@ Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
 - **COTAÇÃO** (entrega em SP que segue para outro estado): UF do cliente ≠ SP — pelo campo UF do PDF ou, sem ele,
   pelo **CEP** — ou endereço **RUA DA AVIAÇÃO, 350**. Aparece em roxo no app (lista e tela do cliente), no Ao vivo,
   na ficha, no Histórico e no PDF do caso. Endereços de cotação ficam em `qualidade.ENDERECOS_COTACAO`.
+
+# v5.11 — COTAÇÃO EDITÁVEL E CORES DO TEMPO
+
+- **RouterKing → Motoristas e app → 📦 Cotação**: UFs de entrega direta (fora delas = cotação; padrão SP) e a lista
+  de endereços que são sempre cotação (rua + número; "Rua/Av.", "da/de/do" e acentos não importam; sem número =
+  qualquer número da rua). Vale na hora para o app, Ao vivo, Histórico e PDF.
+- **⏱ Tempo do atendimento** (mesma tela): minutos do chat (padrão 15). A cor é dividida em **3 terços**:
+  verde → laranja → vermelho (15 min: verde até faltar 10, laranja até faltar 5, vermelho nos últimos 5 e quando estoura).
