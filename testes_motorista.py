@@ -405,6 +405,55 @@ def teste_excluir_motorista():
     ok(any(m["nome"] == "João Ferreira" for m in pq.get("/api/routerking/motoristas").json()["motoristas"]), "volta quando a placa aparece de novo num PDF")
 
 
+def teste_sem_sinal_e_cotacao():
+    """[v5.10] Baixa feita sem sinal (palavra conferida no envio; errada → frota valida) e COTAÇÃO (UF ≠ SP ou Rua da Aviação, 350)."""
+    print("Sem sinal e cotação")
+    ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064701", "ABC1D23", [("830001", "Ana Rocha", 1), ("830002", "Beto Lima", 1), ("830003", "Caio Reis", 1)])
+    c = Q.carga("064701")
+    c["pedidos"][1]["cep"] = "30140-071"                  # Belo Horizonte (MG)
+    c["pedidos"][2]["endereco"] = "RUA DA AVIACAO, 350"   # transportadora de cotação, em SP
+    Q.gravar(c)
+    app = montar()
+    mot, pq = TestClient(app), TestClient(app)
+    entrar(mot, "ABC1D23", "João Ferreira")
+    USUARIO["abas"] = {"motoristas": 3}
+    mid = next(m["id"] for m in pq.get("/api/routerking/motoristas").json()["motoristas"] if m["nome"] == "João Ferreira")
+    pq.put(f"/api/routerking/motoristas/{mid}", json={"nome": "João Ferreira", "placas": ["ABC1D23"], "palavra": True, "ativo": True})
+    car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+    cot = {p["pv"]: p["cotacao"] for p in car["pedidos"]}
+    ok(cot["830001"] is None, "cliente em SP: entrega normal")
+    ok(cot["830002"]["uf"] == "MG", "CEP de MG: COTAÇÃO (MG) no app")
+    ok("Aviação" in cot["830003"]["motivo"], "Rua da Aviação, 350: COTAÇÃO no app")
+    ok(car["pedidos"][0]["nf"] and "obs" in car["pedidos"][0], "app recebe os dados completos da entrega (NF, observações)")
+    pal = BANCO[Q.COL_CARGAS]["064701"]["rua"]["palavras"]
+    base = "/api/motorista/cargas/064701/pedido/"
+    r = mot.post(base + "830001", json={"desfecho": "entregue", "palavra": pal["830001"], "cid": "o1", "offline_em": "2026-11-06T10:15:00"}).json()
+    ok(r["resultado"] == "ok" and not r["validar_palavra"], "sem sinal com a palavra CERTA: baixa normal quando o sinal volta")
+    r = mot.post(base + "830002", json={"desfecho": "entregue", "palavra": "ERRADA", "cid": "o2", "offline_em": "2026-11-06T10:40:00"}).json()
+    ok(r["resultado"] == "ok" and r["validar_palavra"], "sem sinal com a palavra ERRADA: entrega enviada e sinalizada para a frota")
+    ok(mot.post(base + "830002", json={"desfecho": "entregue", "palavra": "ERRADA", "cid": "o2", "offline_em": "2026-11-06T10:40:00"}).json()["resultado"] == "ok",
+       "reenvio do mesmo registro não duplica")
+    ok(mot.post(base + "830003", json={"desfecho": "entregue", "palavra": "ERRADA", "cid": "x3"}).json()["resultado"] == "palavra_errada",
+       "COM sinal, palavra errada continua barrando (como antes)")
+    USUARIO["abas"] = {"aovivo": 2}
+    ped = {p["pv"]: p for p in pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"]}
+    ok(ped["830002"]["validar_palavra"]["status"] == "pendente" and ped["830002"]["validar_palavra"]["digitada"] == "ERRADA", "Ao vivo mostra para a frota validar")
+    ok(ped["830002"]["cotacao"]["uf"] == "MG" and ped["830001"]["offline_em"] == "2026-11-06T10:15:00", "Ao vivo mostra a cotação e a hora registrada sem sinal")
+    ok(pq.put("/api/routerking/cargas/064701/validar-palavra/830001", json={"acao": "aceitar"}).status_code == 409, "nada a validar quando a palavra conferiu")
+    r = pq.put("/api/routerking/cargas/064701/validar-palavra/830002", json={"acao": "aceitar"}).json()
+    ok(r["status"] == "aceita", "frota valida a entrega")
+    ev = BANCO[Q.COL_CARGAS]["064701"]["rua"]["pedidos"]["830002"]
+    ok(ev["desfecho"] == "entregue" and ev["palavra_ok"] is False and ev["liberacao"]["status"] == "liberada", "fica como entregue liberado pela frota")
+    mot.post(base + "830003", json={"desfecho": "entregue", "palavra": "OUTRA", "cid": "o3", "offline_em": "2026-11-06T11:00:00"})
+    r = pq.put("/api/routerking/cargas/064701/validar-palavra/830003", json={"acao": "reabrir"}).json()
+    ok(r["status"] == "reaberta" and not BANCO[Q.COL_CARGAS]["064701"]["rua"]["pedidos"]["830003"].get("desfecho"), "frota reabre: o motorista registra de novo")
+    d = pq.get("/api/routerking/cargas/064701/pedido/830002").json()
+    ok(d["cotacao"]["uf"] == "MG" and d["evento"]["validar_palavra"]["status"] == "aceita", "ficha/PDF trazem a cotação e a validação")
+    ok(Q.cotacao({"cep": "09580-500", "endereco": "RUA DA AVIACAO, 3500"}) is None and Q.uf_do_cep("88010-000") == "SC", "regra: só o número 350; UF pelo CEP")
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
@@ -426,5 +475,6 @@ if __name__ == "__main__":
     teste_placas()
     teste_chat()
     teste_excluir_motorista()
+    teste_sem_sinal_e_cotacao()
     teste_paginas()
     print(f"\n{OK} verificações ok.")

@@ -181,3 +181,16 @@ Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
   motorista, bairro), com desfecho, foto, palavra e conversas. **📄 PDF** gera o dossiê do caso (código de
   identificação, data/hora de emissão, cliente, carga, peças, registro do motorista com GPS e foto, palavra-chave,
   retorno no CD, conversa completa e linha do tempo) — o navegador salva como PDF, sem custo.
+
+# v5.10 — SEM SINAL E COTAÇÃO
+
+- **Dados no aparelho**: a cada carregamento com sinal, o app guarda no celular as cargas e os dados completos de
+  cada entrega (cliente, endereço, NF, peças, observações). Sem sinal — mesmo fechando e abrindo o app — ele mostra
+  esses dados ("Dados guardados no celular (hh:mm)"). Chat e atualização precisam de sinal.
+- **Baixas sem sinal**: ficam na fila do celular e sobem sozinhas quando a conexão volta, com a hora em que foram feitas.
+  A palavra é conferida no envio: **certa → baixa normal**; **errada → a entrega sobe e a FROTA valida** no Ao vivo
+  (caixa "🔑 Entrega feita SEM SINAL"): **✓ Validar entrega** ou **Reabrir** (o motorista registra de novo).
+  Com sinal, palavra errada continua barrando como antes.
+- **COTAÇÃO** (entrega em SP que segue para outro estado): UF do cliente ≠ SP — pelo campo UF do PDF ou, sem ele,
+  pelo **CEP** — ou endereço **RUA DA AVIAÇÃO, 350**. Aparece em roxo no app (lista e tela do cliente), no Ao vivo,
+  na ficha, no Histórico e no PDF do caso. Endereços de cotação ficam em `qualidade.ENDERECOS_COTACAO`.
