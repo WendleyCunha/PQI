@@ -35,12 +35,15 @@ Firestore (gasta pouco do plano grátis)
 """
 import base64
 import json
+import math
 import os
 import re
 import secrets
 import threading
 import time
 import unicodedata
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -65,6 +68,8 @@ DIAS_APP = 4                               # o app mostra cargas com Mapa de at�
 DESFAZER_MIN = 15                          # o motorista corrige o próprio registro em até 15 min
 TRILHA_SEG = 180                           # 1 ponto gravado da trilha a cada 3 min
 FOTO_MAX = 450_000                         # bytes (base64) de cada foto
+RAIO_CHEGADA_M = 250                       # [v6.1] dentro deste raio do endereço o pedido vira CHEGOU (ajustável: cfg.raio_chegada_m)
+GEO_UA = "PQI-KingStar/6.1 (app do motorista; entregas King Star)"
 
 api = APIRouter(prefix="/api/motorista")          # app (rota pública: o login é a placa)
 painel_api = APIRouter(prefix="/api/routerking")   # [v5.9] PQI — módulo RouterKing (permissão por aba)
@@ -229,6 +234,110 @@ def rua(c: dict) -> dict:
     r.setdefault("pedidos", {})
     r.setdefault("trilha", [])
     return r
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [v6.1] ENDEREÇO → LATITUDE/LONGITUDE (para conferir a CHEGADA no cliente)
+#   Gratuito: OpenStreetMap (Nominatim, 1 consulta por segundo) e, se não achar, o CEP (BrasilAPI).
+#   Cada pedido é consultado UMA vez e fica guardado em rua.geo[pv]; roda em segundo plano.
+# ══════════════════════════════════════════════════════════════════════════
+GEO_FILA: list = []
+GEO_ESTADO = {"rodando": False}
+
+
+def _http_json_get(url: str, timeout: int = 12):
+    req = urllib.request.Request(url, headers={"User-Agent": GEO_UA, "Accept": "application/json", "Accept-Language": "pt-BR"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
+def _so_digitos(x) -> str:
+    return re.sub(r"\D", "", str(x or ""))
+
+
+def geocodificar(p: dict) -> Optional[dict]:
+    """{lat, lng, fonte} do endereço de entrega, ou None se ninguém achou."""
+    rua_txt = str(p.get("endereco") or "").strip()
+    cidade = str(p.get("cidade") or "").strip()
+    cep = _so_digitos(p.get("cep"))
+    tentativas = []
+    if rua_txt and cidade:
+        tentativas.append({"street": rua_txt, "city": cidade, "country": "Brasil", **({"postalcode": cep} if len(cep) == 8 else {})})
+        tentativas.append({"q": ", ".join(x for x in (rua_txt, p.get("bairro"), cidade, "Brasil") if x)})
+    for t in tentativas:
+        try:
+            r = _http_json_get("https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({**t, "format": "json", "limit": 1, "countrycodes": "br"}))
+            time.sleep(1.1)   # política de uso do OpenStreetMap: no máximo 1 consulta por segundo
+            if r:
+                return {"lat": round(float(r[0]["lat"]), 6), "lng": round(float(r[0]["lon"]), 6), "fonte": "endereço"}
+        except Exception:
+            time.sleep(1.1)
+    if len(cep) == 8:
+        try:
+            r = _http_json_get(f"https://brasilapi.com.br/api/cep/v2/{cep}")
+            co = ((r or {}).get("location") or {}).get("coordinates") or {}
+            if co.get("latitude") and co.get("longitude"):
+                return {"lat": round(float(co["latitude"]), 6), "lng": round(float(co["longitude"]), 6), "fonte": "CEP"}
+        except Exception:
+            pass
+    return None
+
+
+def _geo_trabalhar() -> None:
+    while True:
+        with TRAVA:
+            if not GEO_FILA:
+                GEO_ESTADO["rodando"] = False
+                return
+            numero, k = GEO_FILA.pop(0)
+            try:
+                c = qld.carga(numero)
+            except Exception:
+                continue
+            p = next((x for x in c.get("pedidos") or [] if chave_pv(x.get("pv")) == k), None)
+            if not p or k in rua(c).setdefault("geo", {}):
+                continue
+            alvo = dict(p)
+        achou = geocodificar(alvo)
+        with TRAVA:
+            try:
+                c = qld.carga(numero)
+            except Exception:
+                continue
+            rua(c).setdefault("geo", {})[k] = ({**achou, "em": agora()} if achou else {"falhou": True, "em": agora()})
+            qld.gravar(c)
+
+
+def pedir_geo(c: dict) -> None:
+    """Põe na fila os pedidos da carga que ainda não têm coordenada (chamado dentro da TRAVA)."""
+    geo = rua(c).setdefault("geo", {})
+    for p in c.get("pedidos") or []:
+        k = chave_pv(p.get("pv"))
+        if k and k not in geo and (c["numero"], k) not in GEO_FILA:
+            GEO_FILA.append((c["numero"], k))
+    if GEO_FILA and not GEO_ESTADO["rodando"] and os.environ.get("MOTORISTA_GEO", "1") != "0":
+        GEO_ESTADO["rodando"] = True
+        threading.Thread(target=_geo_trabalhar, daemon=True).start()
+
+
+def destino(c: dict, p: dict) -> Optional[dict]:
+    g = ((c.get("rua") or {}).get("geo") or {}).get(chave_pv(p.get("pv"))) or {}
+    return {"lat": g["lat"], "lng": g["lng"], "fonte": g.get("fonte")} if g.get("lat") is not None else None
+
+
+def distancia_m(a_lat, a_lng, b_lat, b_lng) -> int:
+    r = 6371000.0
+    f1, f2 = math.radians(a_lat), math.radians(b_lat)
+    df, dl = math.radians(b_lat - a_lat), math.radians(b_lng - a_lng)
+    h = math.sin(df / 2) ** 2 + math.cos(f1) * math.cos(f2) * math.sin(dl / 2) ** 2
+    return int(round(2 * r * math.asin(math.sqrt(h))))
+
+
+def raio_chegada() -> int:
+    try:
+        return max(50, min(int(app_cfg()["cfg"].get("raio_chegada_m") or RAIO_CHEGADA_M), 2000))
+    except (TypeError, ValueError):
+        return RAIO_CHEGADA_M
 
 
 def garantir_palavras(c: dict) -> bool:
@@ -487,7 +596,8 @@ def _pedido_app(c: dict, p: dict, mid: str) -> dict:
                                                 and not ev.get("baixa_erp"),
             "chat": _chat_resumo(c, p, "motorista"), "motivo_chat": motivo_do_chat(c, p),
             "nf": p.get("nf"), "cliente": p.get("cliente"), "obs": p.get("obs") or [], "cotacao": qld.cotacao(p),
-            "validar_palavra": (ev.get("validar_palavra") or {}).get("status") or ""}
+            "validar_palavra": (ev.get("validar_palavra") or {}).get("status") or "",
+            "destino": destino(c, p), "chegou": ev.get("chegou")}   # [v6.1] conferir a chegada pelo GPS
 
 
 def carga_app(c: dict, mid: str) -> dict:
@@ -497,7 +607,8 @@ def carga_app(c: dict, mid: str) -> dict:
             "saida": r.get("saida"), "chegada": r.get("chegada"), "pedidos": peds,
             "feitos": sum(1 for p in peds if p["desfecho"]), "total": len(peds),
             "palavra_ligada": palavra_ligada(mid), "tentativas_max": int(app_cfg()["cfg"].get("tentativas") or 5),
-            "motivos": motivos_chat(), "motivos_chat": motivos_chat()}   # [v5.7] retorno/parcial usam os MESMOS motivos do chat
+            "motivos": motivos_chat(), "motivos_chat": motivos_chat(),   # [v5.7] retorno/parcial usam os MESMOS motivos do chat
+            "raio_chegada_m": raio_chegada()}
 
 
 @api.get("/cargas")
@@ -509,6 +620,7 @@ def rota_cargas(request: Request):
         for c in cs:
             if garantir_palavras(c):
                 qld.gravar(c)
+            pedir_geo(c)   # [v6.1] coordenadas do endereço, em segundo plano
         return {"placa": s["placa"], "motorista": {"id": s["mid"], "nome": s["nome"]}, "cargas": [carga_app(c, s["mid"]) for c in cs],
                 "servidor": agora()}
 
@@ -713,6 +825,44 @@ def rota_desfazer(numero: str, pv: str, request: Request):
         return carga_app(c, s["mid"])
 
 
+class Chegou(BaseModel):
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    prec: Optional[float] = None
+    auto: bool = False
+
+
+@api.post("/cargas/{numero}/pedido/{pv}/chegou")
+def rota_chegou(numero: str, pv: str, payload: Chegou, request: Request):
+    """[v6.1] Pendente → CHEGOU. Automático quando o GPS entra no raio do endereço; manual pelo botão 📍 Cheguei.
+    Confere a distância até o endereço (latitude/longitude). Manual longe do endereço fica registrado como NÃO conferido."""
+    s = sessao(request)
+    if payload.lat is None or payload.lng is None or not (-90 <= payload.lat <= 90 and -180 <= payload.lng <= 180):
+        raise HTTPException(400, "Sem a sua localização. Ligue o GPS do celular e tente de novo.")
+    with TRAVA:
+        c = _carga_do_motorista(s, numero)
+        p = _ped_da_carga(c, pv)
+        r = rua(c)
+        ev = r["pedidos"].setdefault(chave_pv(p.get("pv")), {})
+        if ev.get("chegou") or ev.get("desfecho"):
+            return {"chegou": ev.get("chegou"), "carga": carga_app(c, s["mid"])}
+        dest = destino(c, p)
+        dist = distancia_m(payload.lat, payload.lng, dest["lat"], dest["lng"]) if dest else None
+        folga = min(int(payload.prec or 0), 150)          # imprecisão do GPS (até 150 m) entra a favor do motorista
+        conferido = dist is not None and dist <= raio_chegada() + folga
+        if payload.auto and not conferido:
+            raise HTTPException(409, "Ainda longe do endereço.")
+        if not r.get("saida"):
+            r["saida"] = {"em": agora(), "mid": s["mid"], "nome": s["nome"], "lat": payload.lat, "lng": payload.lng, "auto": True}
+        ev["chegou"] = {"em": agora(), "lat": round(payload.lat, 6), "lng": round(payload.lng, 6), "prec": round(payload.prec or 0),
+                        "dist_m": dist, "conferido": conferido, "sem_endereco": dest is None, "auto": bool(payload.auto),
+                        "mid": s["mid"], "nome": s["nome"]}
+        det = (f"no endereço ({dist} m)" if conferido else (f"LONGE do endereço ({dist} m)" if dist is not None else "endereço sem coordenada"))
+        _hist(c, s, "chegou no cliente", f"PV {p.get('pv')} · {p.get('nome')} · {det}{' · automático' if payload.auto else ''}")
+        qld.gravar(c)
+        return {"chegou": ev["chegou"], "carga": carga_app(c, s["mid"])}
+
+
 @api.post("/cargas/{numero}/pedido/{pv}/liberacao")
 def rota_pedir_liberacao(numero: str, pv: str, payload: PedidoLib, request: Request):
     s = sessao(request)
@@ -807,7 +957,8 @@ def _ev_pub(c: dict, p: dict, com_palavra: bool) -> dict:
            "por": ev.get("por") or "", "foto": ev.get("foto") or "", "lat": ev.get("lat"), "lng": ev.get("lng"),
            "linhas": ev.get("linhas") or [], "palavra_ok": ev.get("palavra_ok"), "tentativas": int(ev.get("tentativas") or 0),
            "liberacao": ev.get("liberacao"), "baixa_erp": ev.get("baixa_erp"), "corrigidos": len(ev.get("corrigidos") or []),
-           "retorno_esperado": esperado, "retorno_recebido": len(cd), "chat": _chat_resumo(c, p, "frota")}
+           "retorno_esperado": esperado, "retorno_recebido": len(cd), "chat": _chat_resumo(c, p, "frota"),
+           "chegou": ev.get("chegou"), "destino": destino(c, p)}   # [v6.1]
     if com_palavra:
         out["palavra"] = r["palavras"].get(k, "")
     return out
@@ -832,6 +983,7 @@ def _carga_viva(c: dict, com_palavra: bool) -> dict:
             "cont": {"total": len(peds), "entregue": sum(1 for p in peds if p["desfecho"] == "entregue"),
                      "retorno": sum(1 for p in peds if p["desfecho"] == "retorno"), "parcial": sum(1 for p in peds if p["desfecho"] == "parcial"),
                      "pendente": sum(1 for p in peds if not p["desfecho"]),
+                     "chegou": sum(1 for p in peds if not p["desfecho"] and p.get("chegou")),
                      "sem_baixa_erp": sum(1 for p in peds if p["desfecho"] in ("entregue", "parcial") and not p["baixa_erp"]),
                      "liberacoes": sum(1 for p in peds if (p["liberacao"] or {}).get("status") == "pendente"),
                      "pecas_esperadas": sum(p["retorno_esperado"] for p in peds), "pecas_recebidas": sum(p["retorno_recebido"] for p in peds),
@@ -928,8 +1080,8 @@ def _chat_pub(ch: dict, lado: str) -> dict:
     return {"atual": _a_pub(a), "atendimentos": ch["atendimentos"]}
 
 
-def _msg(a: dict, de: str, nome: str, txt: str) -> None:
-    a["msgs"].append({"de": de, "nome": nome, "txt": txt[:500], "em": agora()})
+def _msg(a: dict, de: str, nome: str, txt: str, foto: str = "") -> None:
+    a["msgs"].append({"de": de, "nome": nome, "txt": txt[:500], "em": agora(), **({"foto": foto} if foto else {})})
     a["msgs"] = a["msgs"][-CHAT_MAX_MSGS:]
 
 
@@ -942,9 +1094,28 @@ def _carga_chat_motorista(s: dict, numero: str) -> dict:
     return c
 
 
+@api.get("/foto/{fid}")
+def rota_foto_app(fid: str, request: Request):
+    """[v6.1] Foto do chat no app: só de carga da placa logada."""
+    s = sessao(request)
+    if not re.fullmatch(r"[0-9a-f]{16}", fid):
+        raise HTTPException(404, "Foto não encontrada.")
+    d = _fs_get(COL_FOTOS, fid)
+    if not d:
+        raise HTTPException(404, "Foto não encontrada.")
+    try:
+        c = qld.carga(d.get("carga"))
+    except Exception:
+        raise HTTPException(404, "Foto não encontrada.")
+    if norm_placa(c.get("placa")) != s["placa"]:
+        raise HTTPException(404, "Foto não encontrada.")
+    return Response(base64.b64decode(d["b64"]), media_type=f"image/{d.get('tipo') or 'jpeg'}", headers={"Cache-Control": "private, max-age=86400"})
+
+
 class ChatIn(BaseModel):
     motivo: Optional[str] = ""
     texto: Optional[str] = ""
+    foto: Optional[str] = ""   # [v6.1] foto da câmera (com marca d'água), data URL
 
 
 @api.get("/cargas/{numero}/pedido/{pv}/chat")
@@ -982,7 +1153,9 @@ def rota_chat_app_enviar(numero: str, pv: str, payload: ChatIn, request: Request
             ch["atendimentos"].append(a)
             ch["atual"] = a["id"]
             _hist(c, s, "chat com a frota aberto", f"PV {p.get('pv')} · {p.get('nome')} · {motivo}")
-        if txt:
+        if payload.foto:
+            _msg(a, "motorista", s["nome"], txt or "📷 Foto", _salvar_foto(payload.foto, c["numero"], p.get("pv")))
+        elif txt:
             _msg(a, "motorista", s["nome"], txt)
         a["lido_motorista"] = len(a["msgs"])
         qld.gravar(c)

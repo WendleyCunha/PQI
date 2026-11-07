@@ -68,27 +68,7 @@ MODULOS = [
         "paginas": ["/diagnostico"],
         "apis": ["/api/diagnostico", "/api/diagnostico-ia"],
     },
-    {
-        "id": "parque",
-        "nome": "Parque Aliança — Gestão",
-        "descricao": "Relatórios, anúncios, passagens e manutenção da congregação.",
-        "url": "https://painelparquealianca.streamlit.app/?embedded=true", "icone": "🕊️", "tipo": "externo",
-        "paginas": [], "apis": [],
-    },
-    {
-        "id": "wendleysite",
-        "nome": "Wendley Site",
-        "descricao": "Tickets, ChecKing e Home — hub principal de módulos.",
-        "url": "https://wendleysite.streamlit.app/?embedded=true", "icone": "🗂️", "tipo": "externo",
-        "paginas": [], "apis": [],
-    },
-    {
-        "id": "wendleycunha",
-        "nome": "Wendley Cunha",
-        "descricao": "App pessoal no Streamlit Cloud.",
-        "url": "https://wendleycunha.streamlit.app/?embedded=true", "icone": "👤", "tipo": "externo",
-        "paginas": [], "apis": [],
-    },
+    # [v6.1] Removidos do Painel os externos Parque Aliança, Wendley Site e Wendley Cunha (Streamlit).
     {
         # [v3.1] Substitui o antigo card "Concierge — King Star".
         "id": "mapa",

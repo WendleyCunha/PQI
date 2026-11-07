@@ -14,6 +14,8 @@ import copy
 import os
 import sys
 
+os.environ.setdefault("MOTORISTA_GEO", "0")   # [v6.1] nos testes nada sai para a internet (OpenStreetMap/BrasilAPI)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import qualidade as Q  # noqa: E402
@@ -468,6 +470,80 @@ def teste_sem_sinal_e_cotacao():
     ok(next(p for p in car["pedidos"] if p["pv"] == "830002")["cotacao"] is None, "o app já reflete a regra nova")
 
 
+def teste_chegou_e_fotos():
+    """[v6.1] Pendente → CHEGOU conferindo latitude/longitude do endereço; foto no chat; resposta da frota acende o aviso."""
+    print("Chegou no cliente, foto no chat e aviso da frota")
+    ligar_memoria()
+    M.GEO_FILA.clear()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064601", "ABC1D23", [("750001", "Ana Rocha", 1), ("750002", "Carlos Dias", 1), ("750003", "Sem Mapa", 1)])
+    consultas = []
+
+    def geo_falso(p):
+        consultas.append(p["pv"])
+        return None if p["pv"] == "750003" else {"lat": -23.550000, "lng": -46.633000, "fonte": "endereço"}
+    orig = M.geocodificar
+    M.geocodificar = geo_falso
+    try:
+        app = montar()
+        mot, pq = TestClient(app), TestClient(app)
+        entrar(mot, "ABC1D23", "João Ferreira")
+        mot.get("/api/motorista/cargas")
+        ok(len(M.GEO_FILA) == 3, "ao abrir as cargas, os endereços entram na fila de coordenadas")
+        M._geo_trabalhar()
+        mot.get("/api/motorista/cargas")
+        ok(sorted(consultas) == ["750001", "750002", "750003"] and not M.GEO_FILA, "cada endereço é consultado uma vez só")
+        car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+        ps = {p["pv"]: p for p in car["pedidos"]}
+        ok(ps["750001"]["destino"] == {"lat": -23.55, "lng": -46.633, "fonte": "endereço"} and ps["750003"]["destino"] is None, "app recebe a coordenada do endereço (ou nada, se não achou)")
+        ok(car["raio_chegada_m"] == M.RAIO_CHEGADA_M and ps["750001"]["chegou"] is None, "raio de chegada vai para o app; pedido segue Pendente")
+        ok(len(consultas) == 3, "abrir de novo não consulta outra vez (fica guardado)")
+
+        base = "/api/motorista/cargas/064601/pedido/"
+        ok(mot.post(base + "750001/chegou", json={"auto": True}).status_code == 400, "sem GPS não marca chegada")
+        ok(mot.post(base + "750001/chegou", json={"lat": -23.5600, "lng": -46.6330, "auto": True}).status_code == 409, "automático a ~1,1 km NÃO vira Chegou")
+        r = mot.post(base + "750001/chegou", json={"lat": -23.5512, "lng": -46.6330, "prec": 20, "auto": True}).json()
+        k = r["chegou"]
+        ok(k["conferido"] and 100 <= k["dist_m"] <= 150 and k["auto"], "a ~130 m do endereço vira CHEGOU conferido pelo GPS")
+        ok(next(p for p in r["carga"]["pedidos"] if p["pv"] == "750001")["chegou"]["em"], "o app já recebe o pedido como Chegou")
+        ok(mot.post(base + "750001/chegou", json={"lat": 0, "lng": 0}).json()["chegou"]["em"] == k["em"], "marcar de novo não muda a primeira chegada")
+        k2 = mot.post(base + "750002/chegou", json={"lat": -23.5700, "lng": -46.6330}).json()["chegou"]
+        ok(not k2["conferido"] and k2["dist_m"] > 2000, "botão Cheguei longe do endereço registra, mas como NÃO conferido")
+        k3 = mot.post(base + "750003/chegou", json={"lat": -23.5, "lng": -46.6}).json()["chegou"]
+        ok(k3["sem_endereco"] and k3["dist_m"] is None and not k3["conferido"], "endereço sem coordenada: registra pelo GPS do motorista")
+        c = BANCO[Q.COL_CARGAS]["064601"]
+        ok(any(h["acao"] == "chegou no cliente" and "LONGE" in str(h) for h in c["historico"]), "chegada fica no histórico da carga")
+        USUARIO["abas"] = {"aovivo": 2}
+        av = pq.get("/api/routerking/ao-vivo").json()["cargas"][0]
+        ok(av["pedidos"][0]["chegou"]["conferido"] and av["cont"]["chegou"] == 3, "Ao vivo da frota mostra quem já CHEGOU")
+        mot.post(base + "750001", json={"cid": "x1", "desfecho": "entregue"})
+        ok(pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["cont"]["chegou"] == 2, "depois do Entregue sai da conta de Chegou")
+
+        ch = base + "750002/chat"
+        mot.post(ch, json={"motivo": "Ausente"})
+        ok(mot.post(ch, json={"foto": "data:image/gif;base64,AAAA"}).status_code == 413, "foto inválida recusada no chat")
+        r = mot.post(ch, json={"foto": FOTO}).json()
+        m = r["atual"]["msgs"][-1]
+        ok(m["foto"] and m["txt"] == "📷 Foto" and m["de"] == "motorista", "motorista manda foto pela câmera do chat")
+        ok(mot.get(f"/api/motorista/foto/{m['foto']}").status_code == 200, "o app abre a foto do chat")
+        ok(pq.get(f"/api/routerking/foto/{m['foto']}").status_code == 200, "a frota abre a foto do chat")
+        cli = pq.get("/api/routerking/cargas/064601/pedido/750002").json()
+        ok(cli["chat"]["atual"]["msgs"][-1].get("foto") == m["foto"], "a frota vê a foto na conversa")
+        outro = TestClient(app)
+        Q.placas()["XYZ9K87"] = {"motorista": "Pedro"}
+        entrar(outro, "XYZ9K87", "Pedro")
+        ok(outro.get(f"/api/motorista/foto/{m['foto']}").status_code == 404, "outra placa NÃO abre a foto")
+        ok(mot.get("/api/motorista/foto/nao-existe").status_code == 404, "foto inexistente: 404")
+        pq.post(ch.replace("/api/motorista", "/api/routerking"), json={"texto": "Pode voltar"})
+        ps = {p["pv"]: p for p in mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"]}
+        ok(ps["750002"]["chat"]["nao_lidas"] == 1, "resposta da frota acende o aviso (balão piscando) no app")
+    finally:
+        M.geocodificar = orig
+    ok(M.distancia_m(-23.55, -46.633, -23.55, -46.633) == 0 and 1100 <= M.distancia_m(-23.55, -46.633, -23.56, -46.633) <= 1120, "distância em metros (haversine)")
+    M.APP["dados"] = None
+    ok(M.raio_chegada() == M.RAIO_CHEGADA_M, "raio padrão de 250 m")
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
@@ -490,5 +566,6 @@ if __name__ == "__main__":
     teste_chat()
     teste_excluir_motorista()
     teste_sem_sinal_e_cotacao()
+    teste_chegou_e_fotos()
     teste_paginas()
     print(f"\n{OK} verificações ok.")
