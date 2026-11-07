@@ -13,6 +13,12 @@ a pessoa pergunta e recebe o **passo a passo oficial**, com a fonte (artigo, ver
 2. Quem alimenta responde a pendência → vira **artigo** (ou nova versão do artigo).
 3. Na hora, o agente passa a responder com o conteúdo novo.
 
+### Atribuir a uma pessoa do Organograma
+Na pendência, **👤 Atribuir a alguém** lista as pessoas do Organograma (por setor). A pessoa precisa ter, no
+Organograma, o **mesmo e-mail do login do PQI** — quem não tem aparece desabilitado ("sem login no PQI" /
+"sem e-mail no Organograma"). Ela vê um 📥 no agente e o número no botão, escreve a resposta e envia;
+quem alimenta **revisa e publica** (ou **devolve** com um recado). O histórico registra quem escreveu.
+
 Nada do que as pessoas escrevem entra na base sozinho: só o que passa pela ⚙️.
 Toda alteração fica no **Histórico**, e cada artigo guarda as últimas 20 versões (botão "Voltar a esta").
 

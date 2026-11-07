@@ -21,6 +21,13 @@ from fastapi.testclient import TestClient  # noqa: E402
 import agente as A  # noqa: E402
 
 BANCO: dict = {}
+SETORES = [{"id": "cx", "dados": {"nome": "CX", "pessoas": [
+    {"id": "1", "nome": "Maria Paula", "cargo": "Supervisora", "nivel": "C", "email": "Maria.Paula@ks"},
+    {"id": "2", "nome": "João Sem Login", "cargo": "Analista", "nivel": "D", "email": "joao@ks"},
+    {"id": "3", "nome": "Sem E-mail", "cargo": "Analista", "nivel": "D"},
+    {"id": "4", "nome": "", "cargo": "Analista", "vaga": True}]}},
+           {"id": "niv", "dados": {"_tipo": "niveis"}}]
+CONTAS = {"maria.paula@ks": {"nome": "Maria Paula", "ativo": True}}
 USUARIO: dict = {}
 FALHAS = []
 
@@ -50,7 +57,8 @@ def como(email, perfil_nome="Analista", admin=False):
 def montar():
     app = FastAPI()
     A.ligar(app, usuario_atual=lambda request: dict(USUARIO),
-            nome_perfil=lambda u: "Administrador" if u.get("papel") == "admin" else u.get("_perfil_nome"))
+            nome_perfil=lambda u: "Administrador" if u.get("papel") == "admin" else u.get("_perfil_nome"),
+            setores=lambda: SETORES, usuarios=lambda: CONTAS)
     return TestClient(app)
 
 
@@ -169,10 +177,59 @@ def teste_ia_simulada():
         os.environ.pop("AGENTE_IA", None); os.environ.pop("GROQ_API_KEY", None)
 
 
+def teste_atribuir():
+    print("Atribuir a uma pessoa do Organograma")
+    ligar_memoria(); t = montar()
+    como("ana@ks")
+    t.post("/api/agente/perguntar", json={"pergunta": "como faço a baixa de pasta da transportadora?"})
+    como("ger@ks", "Gerente")
+    pend = t.get("/api/agente/pendencias").json()["pendencias"][0]
+    ok(pend["fase"] == "sem_responsavel", "pendência nasce sem responsável")
+    ps = t.get("/api/agente/responsaveis").json()["pessoas"]
+    ok(len(ps) == 3 and not any(p["nome"] == "" for p in ps), "lista pessoas do Organograma (sem vagas e sem a config de níveis)")
+    ok(next(p for p in ps if p["nome"] == "Maria Paula")["tem_login"] is True, "liga ao login do PQI pelo e-mail (sem diferença de maiúscula)")
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/atribuir", json={"email": "joao@ks"}).status_code == 400, "não atribui a quem não tem login no PQI")
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/atribuir", json={"email": "fora@ks"}).status_code == 400, "não atribui a quem não está no Organograma")
+    como("ana@ks")
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/atribuir", json={"email": "maria.paula@ks"}).status_code == 403, "usuário comum não atribui")
+    como("ger@ks", "Gerente")
+    r = t.post(f"/api/agente/pendencias/{pend['id']}/atribuir", json={"email": "maria.paula@ks", "nota": "você conhece o processo"}).json()
+    ok(r["fase"] == "com_responsavel" and r["atribuida"]["setor"] == "CX", "atribuída com setor e recado")
+
+    como("ana@ks")
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/proposta", json={"titulo": "x", "passos": ["y"]}).status_code == 403, "só o responsável escreve a resposta")
+    como("maria.paula@ks")
+    me = t.get("/api/agente/me").json()
+    ok(me["comigo"] == 1 and me["pode_alimentar"] is False, "responsável vê 1 pergunta com ela (sem ser quem alimenta)")
+    prop = {"titulo": "Baixa de pasta da transportadora", "passos": ["Abra o protocolo.", "Anexe o comprovante."], "palavras": "baixa pasta protocolo"}
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/proposta", json=prop).json()["fase"] == "aguardando_aprovacao", "resposta enviada para aprovação")
+    ok(t.get("/api/agente/me").json()["comigo"] == 0, "sai da lista dela depois de enviar")
+    como("ana@ks")
+    ok(t.post("/api/agente/perguntar", json={"pergunta": "baixa de pasta da transportadora"}).json()["tipo"] == "nao_sei",
+       "antes da aprovação o agente ainda não responde")
+
+    como("ger@ks", "Gerente")
+    ok(t.post(f"/api/agente/pendencias/{pend['id']}/devolver", json={"motivo": "faltou o prazo"}).json()["fase"] == "com_responsavel", "devolver volta para o responsável")
+    como("maria.paula@ks")
+    c = t.get("/api/agente/comigo").json()["pendencias"][0]
+    ok(c["proposta"]["motivo_devolucao"] == "faltou o prazo", "responsável vê o motivo da devolução")
+    prop["passos"].append("Prazo: até 2 dias úteis.")
+    t.post(f"/api/agente/pendencias/{pend['id']}/proposta", json=prop)
+    como("ger@ks", "Gerente")
+    art = t.post("/api/agente/artigos", json={**prop, "setor": "CX", "pendencia_id": pend["id"]}).json()
+    ok(all(p["id"] != pend["id"] for p in t.get("/api/agente/pendencias").json()["pendencias"]), "publicar resolve a pendência")
+    his = [h for h in t.get("/api/agente/historico").json()["historico"] if h["artigo_id"] == art["id"]][0]
+    ok("Maria" in his["detalhe"] and "aprovada" in his["detalhe"], "histórico credita quem escreveu a resposta")
+    como("ana@ks")
+    r = t.post("/api/agente/perguntar", json={"pergunta": "baixa de pasta da transportadora"}).json()
+    ok(r["tipo"] == "resposta" and r["fonte"]["id"] == art["id"] and len(r["passos"]) == 3, "depois de publicada, o agente responde")
+
+
 if __name__ == "__main__":
     teste_permissoes()
     teste_perguntas()
     teste_ia_simulada()
+    teste_atribuir()
     print()
     print("TUDO CERTO ✔" if not FALHAS else f"{len(FALHAS)} FALHA(S): " + "; ".join(FALHAS))
     sys.exit(1 if FALHAS else 0)

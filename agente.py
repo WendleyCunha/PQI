@@ -51,8 +51,12 @@ MIN_PONTOS = 3            # pontuação mínima para considerar que um artigo re
 _CACHE_SEG = 60
 
 
-def ligar(app, usuario_atual: Callable, nome_perfil: Callable) -> None:
-    H.update(usuario_atual=usuario_atual, nome_perfil=nome_perfil)
+def ligar(app, usuario_atual: Callable, nome_perfil: Callable,
+          setores: Optional[Callable] = None, usuarios: Optional[Callable] = None) -> None:
+    """setores(): setores do Organograma ([{id, dados:{nome, pessoas:[{nome,cargo,email,vaga…}]}}]);
+    usuarios(): {email: {nome, ativo}} de quem tem login no PQI."""
+    H.update(usuario_atual=usuario_atual, nome_perfil=nome_perfil,
+             setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}))
     app.include_router(router)
 
 
@@ -275,11 +279,33 @@ def _abertas() -> list:
     return [p for p in P["listar"](COL_PEN) if p.get("status") == "aberta"]
 
 
+def _email(x) -> str:
+    return str(x or "").strip().lower()
+
+
+def fase(p: dict) -> str:
+    """sem_responsavel → com_responsavel → aguardando_aprovacao (quem alimenta publica ou devolve)."""
+    if p.get("proposta") and p["proposta"].get("status") == "enviada":
+        return "aguardando_aprovacao"
+    if (p.get("atribuida") or {}).get("email"):
+        return "com_responsavel"
+    return "sem_responsavel"
+
+
+def _comigo(u: dict) -> list:
+    eu = _email(u.get("email"))
+    return [p for p in _abertas() if _email((p.get("atribuida") or {}).get("email")) == eu and fase(p) == "com_responsavel"]
+
+
+def _com_fase(p: dict) -> dict:
+    return {**p, "fase": fase(p)}
+
+
 @router.get("/me")
 def agente_me(request: Request):
     u = _usuario(request)
     pode = pode_alimentar(u)
-    return {"pode_alimentar": pode, "pendencias": len(_abertas()) if pode else 0,
+    return {"pode_alimentar": pode, "pendencias": len(_abertas()) if pode else 0, "comigo": len(_comigo(u)),
             "ia": provedor() or "base", "nome": (u.get("nome") or u.get("email") or "").split(" ")[0],
             "sugestoes": [a.get("titulo") for a in sorted((a for a in artigos() if a.get("ativo", True)),
                                                            key=lambda a: -(a.get("usos") or 0))[:4]]}
@@ -369,13 +395,20 @@ def _historico(u: dict, acao: str, art: dict, detalhe: str = "") -> None:
                                      "titulo": art.get("titulo"), "versao": art.get("versao", 1), "detalhe": detalhe[:300]})
 
 
-def _fechar_pendencia(pid: Optional[str], u: dict, artigo_id: str) -> None:
+def _fechar_pendencia(pid: Optional[str], u: dict, artigo_id: str) -> str:
+    """Resolve a pendência; devolve o crédito ("resposta de Fulano") quando veio de um responsável."""
     if not pid:
-        return
+        return ""
     p = P["ler"](COL_PEN, pid)
-    if p and p.get("status") == "aberta":
-        p.update(status="resolvida", resolvida_em=agora(), resolvida_por=_quem(u), artigo_id=artigo_id)
-        P["gravar"](COL_PEN, pid, p)
+    if not p or p.get("status") != "aberta":
+        return ""
+    credito = ""
+    if fase(p) == "aguardando_aprovacao":
+        p["proposta"].update(status="aprovada", aprovada_em=agora(), aprovada_por=_quem(u))
+        credito = f"resposta de {(p['proposta'].get('por') or {}).get('nome', '')}, aprovada"
+    p.update(status="resolvida", resolvida_em=agora(), resolvida_por=_quem(u), artigo_id=artigo_id)
+    P["gravar"](COL_PEN, pid, p)
+    return credito
 
 
 def _conteudo(a: dict) -> dict:
@@ -397,8 +430,8 @@ def agente_artigo_criar(payload: Artigo, request: Request):
     art = {"id": aid, **payload.model_dump(exclude={"pendencia_id", "motivo"}), "versao": 1, "usos": 0,
            "criado_em": agora(), "criado_por": _quem(u), "atualizado_em": agora(), "atualizado_por": _quem(u), "versoes": []}
     P["gravar"](COL_ART, aid, art)
-    _historico(u, "criou", art, payload.motivo or ("respondeu uma pendência" if payload.pendencia_id else ""))
-    _fechar_pendencia(payload.pendencia_id, u, aid)
+    credito = _fechar_pendencia(payload.pendencia_id, u, aid)
+    _historico(u, "criou", art, payload.motivo or credito or ("respondeu uma pendência" if payload.pendencia_id else ""))
     esquecer_cache()
     return art
 
@@ -417,8 +450,8 @@ def agente_artigo_editar(aid: str, payload: Artigo, request: Request):
                versoes=([anterior] + list(art.get("versoes") or []))[:MAX_VERSOES])
     P["gravar"](COL_ART, aid, art)
     acao = "desativou" if anterior["ativo"] and not art["ativo"] else ("reativou" if not anterior["ativo"] and art["ativo"] else "editou")
-    _historico(u, acao, art, payload.motivo or "")
-    _fechar_pendencia(payload.pendencia_id, u, aid)
+    credito = _fechar_pendencia(payload.pendencia_id, u, aid)
+    _historico(u, acao, art, " · ".join(x for x in (payload.motivo or "", credito) if x))
     esquecer_cache()
     return art
 
@@ -444,7 +477,115 @@ def agente_artigo_restaurar(aid: str, payload: Restaurar, request: Request):
 @router.get("/pendencias")
 def agente_pendencias(request: Request):
     _exigir_alimentar(request)
-    return {"pendencias": sorted(_abertas(), key=lambda p: p.get("em") or "", reverse=True)}
+    return {"pendencias": [_com_fase(p) for p in sorted(_abertas(), key=lambda p: p.get("em") or "", reverse=True)]}
+
+
+# ── Atribuir a uma pessoa do ORGANOGRAMA: o responsável do setor escreve a resposta ──
+class Atribuir(BaseModel):
+    email: str
+    nota: Optional[str] = None
+
+
+class Proposta(BaseModel):
+    titulo: str
+    passos: List[str]
+    palavras: Optional[str] = ""
+
+    @field_validator("titulo")
+    @classmethod
+    def _t(cls, v):
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Dê um título à resposta.")
+        return v[:160]
+
+    @field_validator("passos")
+    @classmethod
+    def _p(cls, v):
+        v = [str(x).strip()[:600] for x in (v or []) if str(x).strip()]
+        if not v:
+            raise ValueError("Escreva pelo menos um passo.")
+        return v[:30]
+
+
+class Devolver(BaseModel):
+    motivo: str
+
+
+def responsaveis() -> list:
+    """Pessoas do Organograma (sem as vagas), com o setor e se têm login no PQI pelo e-mail."""
+    contas = {_email(k): v for k, v in (H["usuarios"]() or {}).items()}
+    saida = []
+    for s in H["setores"]() or []:
+        d = s.get("dados") or {}
+        for p in d.get("pessoas") or []:
+            if p.get("vaga") or not str(p.get("nome") or "").strip():
+                continue
+            em = _email(p.get("email"))
+            conta = contas.get(em) if em else None
+            saida.append({"setor_id": s.get("id"), "setor": d.get("nome") or "", "subsetor": p.get("subsetor") or "",
+                          "nome": p.get("nome"), "cargo": p.get("cargo") or "", "nivel": p.get("nivel") or "",
+                          "email": em, "tem_login": bool(conta and conta.get("ativo", True))})
+    return sorted(saida, key=lambda x: (x["setor"].lower(), x["nivel"] or "Z", x["nome"].lower()))
+
+
+@router.get("/responsaveis")
+def agente_responsaveis(request: Request):
+    _exigir_alimentar(request)
+    return {"pessoas": responsaveis()}
+
+
+@router.post("/pendencias/{pid}/atribuir")
+def agente_pendencia_atribuir(pid: str, payload: Atribuir, request: Request):
+    u = _exigir_alimentar(request)
+    p = P["ler"](COL_PEN, pid)
+    if not p or p.get("status") != "aberta":
+        raise HTTPException(status_code=404, detail="Pendência não encontrada ou já fechada.")
+    alvo = next((x for x in responsaveis() if x["email"] and x["email"] == _email(payload.email)), None)
+    if not alvo:
+        raise HTTPException(status_code=400, detail="Essa pessoa não está no Organograma com este e-mail.")
+    if not alvo["tem_login"]:
+        raise HTTPException(status_code=400, detail=f"{alvo['nome']} não tem login ativo no PQI com o e-mail do Organograma.")
+    p["atribuida"] = {k: alvo[k] for k in ("email", "nome", "cargo", "setor", "setor_id")}
+    p["atribuida"].update(em=agora(), por=_quem(u), nota=(payload.nota or "")[:300])
+    if p.get("proposta"):
+        p["proposta"]["status"] = "substituida"
+    P["gravar"](COL_PEN, pid, p)
+    return _com_fase(p)
+
+
+@router.get("/comigo")
+def agente_comigo(request: Request):
+    u = _usuario(request)
+    nomes = {a.get("id"): a for a in artigos()}
+    lst = sorted(_comigo(u), key=lambda p: (p.get("atribuida") or {}).get("em") or "", reverse=True)
+    return {"pendencias": [{**_com_fase(p), "artigo": ({k: nomes[p["artigo_id"]].get(k) for k in ("titulo", "passos", "palavras")}
+                                                        if p.get("artigo_id") in nomes else None)} for p in lst]}
+
+
+@router.post("/pendencias/{pid}/proposta")
+def agente_pendencia_proposta(pid: str, payload: Proposta, request: Request):
+    """O responsável escreve a resposta; ela só vira artigo depois que quem alimenta aprova."""
+    u = _usuario(request)
+    p = P["ler"](COL_PEN, pid)
+    if not p or p.get("status") != "aberta":
+        raise HTTPException(status_code=404, detail="Pendência não encontrada ou já fechada.")
+    if _email((p.get("atribuida") or {}).get("email")) != _email(u.get("email")):
+        raise HTTPException(status_code=403, detail="Esta pendência não está com você.")
+    p["proposta"] = {**payload.model_dump(), "status": "enviada", "em": agora(), "por": _quem(u)}
+    P["gravar"](COL_PEN, pid, p)
+    return _com_fase(p)
+
+
+@router.post("/pendencias/{pid}/devolver")
+def agente_pendencia_devolver(pid: str, payload: Devolver, request: Request):
+    u = _exigir_alimentar(request)
+    p = P["ler"](COL_PEN, pid)
+    if not p or fase(p) != "aguardando_aprovacao":
+        raise HTTPException(status_code=404, detail="Não há resposta aguardando aprovação nesta pendência.")
+    p["proposta"].update(status="devolvida", devolvida_em=agora(), devolvida_por=_quem(u), motivo_devolucao=(payload.motivo or "")[:300])
+    P["gravar"](COL_PEN, pid, p)
+    return _com_fase(p)
 
 
 @router.post("/pendencias/{pid}/descartar")

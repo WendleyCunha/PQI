@@ -49,6 +49,24 @@
 .ag-ib{width:34px;height:34px;border-radius:11px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer;
   display:grid;place-items:center;font-size:15px;transition:transform .25s cubic-bezier(.2,.9,.25,1.15),border-color .2s}
 .ag-ib[hidden]{display:none}
+.ag-ib{position:relative}
+.ag-ib .ag-mn{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--vermelho);color:#fff;font:700 10px Inter,sans-serif;display:flex;align-items:center;justify-content:center}
+.ag-pop.so-comigo .ag-tali{display:none}
+.ag-fs{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px;margin-left:4px}
+.ag-fs.s{background:rgba(128,128,128,.18);color:var(--ink-muted)}
+.ag-fs.r{background:color-mix(in srgb,var(--azul) 18%,transparent);color:var(--azul)}
+.ag-fs.a{background:color-mix(in srgb,var(--verde) 18%,transparent);color:var(--verde)}
+.ag-prop{margin:6px 0 8px;padding:9px 10px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--verde) 55%,transparent);background:color-mix(in srgb,var(--verde) 6%,transparent);font-size:12.5px}
+.ag-prop ol{margin:4px 0 0;padding-left:18px}
+.ag-pick{margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel)}
+.ag-pick .lst{max-height:220px;overflow:auto;margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.ag-pick .ps{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:9px;padding:7px 9px;cursor:pointer;font:12.5px Inter,sans-serif}
+.ag-pick .ps:hover:not(:disabled){border-color:var(--gold)}
+.ag-pick .ps.sel{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.ag-pick .ps:disabled{opacity:.5;cursor:not-allowed}
+.ag-pick .ps small{color:var(--ink-muted)}
+.ag-pick .gr{font:700 11px Inter,sans-serif;color:var(--ink-muted);margin:6px 0 2px;text-transform:uppercase;letter-spacing:.04em}
+.ag-dev{margin-top:6px;padding:7px 9px;border-radius:9px;background:color-mix(in srgb,var(--vermelho) 10%,transparent);color:var(--vermelho);font-size:12px}
 .ag-ib:hover{border-color:var(--gold)}
 .ag-ib.eng:hover{transform:rotate(30deg)}
 .ag-ib.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 16%,var(--panel-2))}
@@ -164,6 +182,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
       <div class="ag-cab">
         <div class="ag-av"><i></i></div>
         <div class="ag-tit"><b id="agTit">Agente PQI</b><small id="agSub">online · responde com base nos processos</small></div>
+        <button type="button" class="ag-ib" id="agMin" title="Pendências que estão com você" hidden>📥<span class="ag-mn" id="agMn">0</span></button>
         <button type="button" class="ag-ib eng" id="agEng" title="Alimentar o agente" hidden>⚙️</button>
         <button type="button" class="ag-ib" id="agFechar" title="Fechar (Esc)">✕</button>
       </div>
@@ -174,10 +193,11 @@ textarea.ag-f{min-height:130px;resize:vertical}
       </form>
       <div class="ag-cfg">
         <div class="ag-abas" id="agAbas">
-          <button type="button" class="on" data-a="art">📄 Artigos</button>
-          <button type="button" data-a="pen">📥 Pendências <span class="c" id="agPc" hidden>0</span></button>
-          <button type="button" data-a="his">🕘 Histórico</button>
-          <button type="button" data-a="pai">📊 Painel</button>
+          <button type="button" class="on ag-tali" data-a="art">📄 Artigos</button>
+          <button type="button" class="ag-tali" data-a="pen">📥 Pendências <span class="c" id="agPc" hidden>0</span></button>
+          <button type="button" data-a="min">✍️ Comigo <span class="c" id="agMc" hidden>0</span></button>
+          <button type="button" class="ag-tali" data-a="his">🕘 Histórico</button>
+          <button type="button" class="ag-tali" data-a="pai">📊 Painel</button>
         </div>
         <div class="ag-cc" id="agCc"></div>
       </div>`;
@@ -185,7 +205,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
     TOAST = document.createElement('div'); TOAST.className = 'ag-toast'; document.body.appendChild(TOAST);
 
     POP.querySelector('#agFechar').addEventListener('click', fechar);
-    POP.querySelector('#agEng').addEventListener('click', alternarCfg);
+    POP.querySelector('#agEng').addEventListener('click', () => alternarCfg('alimentar'));
+    POP.querySelector('#agMin').addEventListener('click', () => alternarCfg('comigo'));
     POP.querySelector('#agForm').addEventListener('submit', e => { e.preventDefault(); perguntar(POP.querySelector('#agIn').value); });
     POP.querySelectorAll('#agAbas button').forEach(b => b.addEventListener('click', () => {
       ABA = b.dataset.a; POP.querySelectorAll('#agAbas button').forEach(x => x.classList.toggle('on', x === b)); render();
@@ -214,15 +235,18 @@ textarea.ag-f{min-height:130px;resize:vertical}
   function fechar() { POP.classList.remove('aberto'); BTN.classList.remove('aberto'); }
 
   function contador() {
-    const n = ME && ME.pode_alimentar ? (ME.pendencias || 0) : 0;
+    const pend = ME && ME.pode_alimentar ? (ME.pendencias || 0) : 0, min = ME ? (ME.comigo || 0) : 0, n = pend + min;
     const el = BTN.querySelector('#agN'); el.textContent = n; el.style.display = n ? 'flex' : 'none';
-    const pc = POP.querySelector('#agPc'); pc.textContent = n; pc.hidden = !n;
+    BTN.title = min ? `Agente — ${min} pergunta(s) esperando a sua resposta` : 'Agente — tire dúvidas sobre os processos';
+    const pc = POP.querySelector('#agPc'); pc.textContent = pend; pc.hidden = !pend;
+    const mc = POP.querySelector('#agMc'); mc.textContent = min; mc.hidden = !min;
+    POP.querySelector('#agMn').textContent = min; POP.querySelector('#agMin').hidden = !min;
   }
 
   async function carregarMe() {
     try { ME = await api('/me'); } catch (_) { return; }
     POP.querySelector('#agEng').hidden = !ME.pode_alimentar;
-    if (!ME.pode_alimentar && POP.classList.contains('modo-cfg')) modoChat();
+    if (!ME.pode_alimentar && POP.classList.contains('modo-cfg') && !POP.classList.contains('so-comigo')) modoChat();
     POP.querySelector('#agSub').textContent = 'online · ' + (ME.ia === 'base' ? 'responde com base nos processos' : 'IA + base de processos');
     contador();
   }
@@ -302,21 +326,25 @@ textarea.ag-f{min-height:130px;resize:vertical}
 
   /* ───────── engrenagem: alimentar ───────── */
   function modoChat() {
-    POP.classList.remove('modo-cfg', 'largo'); POP.querySelector('#agEng').classList.remove('on');
+    POP.classList.remove('modo-cfg', 'largo', 'so-comigo'); POP.querySelector('#agEng').classList.remove('on'); POP.querySelector('#agMin').classList.remove('on');
     POP.querySelector('#agTit').textContent = 'Agente PQI'; carregarMe(); posicionar();
   }
-  function alternarCfg() {
-    if (POP.classList.contains('modo-cfg')) return modoChat();
-    POP.classList.add('modo-cfg', 'largo'); POP.querySelector('#agEng').classList.add('on');
-    POP.querySelector('#agTit').textContent = 'Alimentar o agente';
-    POP.querySelector('#agSub').textContent = 'Administrador e Gerente · clique na ⚙️ para voltar à conversa';
+  function alternarCfg(modo) {
+    const atual = POP.classList.contains('modo-cfg') ? (POP.classList.contains('so-comigo') || ABA === 'min' ? 'comigo' : 'alimentar') : '';
+    if (atual === modo) return modoChat();
+    const alimenta = modo === 'alimentar' || (ME && ME.pode_alimentar);
+    POP.classList.add('modo-cfg', 'largo'); POP.classList.toggle('so-comigo', !alimenta);
+    POP.querySelector('#agEng').classList.toggle('on', modo === 'alimentar'); POP.querySelector('#agMin').classList.toggle('on', modo === 'comigo');
+    POP.querySelector('#agTit').textContent = modo === 'comigo' ? 'Perguntas com você' : 'Alimentar o agente';
+    POP.querySelector('#agSub').textContent = modo === 'comigo' ? 'Escreva a resposta · quem alimenta aprova e publica' : 'Administrador e Gerente · clique na ⚙️ para voltar à conversa';
+    if (modo === 'comigo') irAba('min'); else if (ABA === 'min') irAba('art');
     posicionar(); render();
   }
   const cc = () => POP.querySelector('#agCc');
   function carregando() { cc().innerHTML = '<div class="ag-vz"><span class="ag-dig"><span></span><span></span><span></span></span></div>'; }
   function erroCfg(e) { cc().innerHTML = `<div class="ag-vz">⚠️ ${esc(e.message)}</div>`; }
   function irAba(a) { ABA = a; POP.querySelectorAll('#agAbas button').forEach(x => x.classList.toggle('on', x.dataset.a === a)); }
-  function render() { ({ art: rArt, pen: rPen, his: rHis, pai: rPai })[ABA](); }
+  function render() { ({ art: rArt, pen: rPen, his: rHis, pai: rPai, min: rMin })[ABA](); }
 
   async function rArt(pre) {
     if (!pre) { carregando(); try { ARTS = (await api('/artigos')).artigos || []; } catch (e) { return erroCfg(e); } }
@@ -328,7 +356,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
     const versoes = a && a.id && (a.versoes || []).length ? `<label>Versões anteriores</label>` + a.versoes.slice(0, 6).map(v =>
       `<div class="ag-dica" style="display:flex;justify-content:space-between;align-items:center;gap:8px">v${esc(v.versao)} · ${esc(dataBR(v.em))}${v.por ? ' · ' + esc(v.por) : ''}
        <button type="button" class="ag-b2" data-v="${esc(v.versao)}" style="padding:3px 9px">Voltar a esta</button></div>`).join('') : '';
-    const deP = PEND_ATUAL ? `<div class="ag-dica" style="margin-bottom:6px">📥 Respondendo a pendência: “${esc(PEND_ATUAL.pergunta)}”${PEND_ATUAL.obs ? ' — ' + esc(PEND_ATUAL.obs) : ''}</div>` : '';
+    const prop = PEND_ATUAL && PEND_ATUAL.fase === 'aguardando_aprovacao' ? PEND_ATUAL.proposta : null;
+    const deP = PEND_ATUAL ? `<div class="ag-dica" style="margin-bottom:6px">📥 ${prop ? `Revisando a resposta de <b>${esc((prop.por || {}).nome || '')}</b> para` : 'Respondendo a pendência:'} “${esc(PEND_ATUAL.pergunta)}”${PEND_ATUAL.obs ? ' — ' + esc(PEND_ATUAL.obs) : ''}${prop ? '<br>Ajuste se precisar e salve para publicar.' : ''}</div>` : '';
     cc().innerHTML = `<div class="ag-g2">
       <div class="ag-cx"><h5>Artigos (${ARTS.length})</h5><button type="button" class="ag-b1" id="agNovo" style="margin-bottom:8px">+ Novo artigo</button>${lista}</div>
       <div class="ag-cx"><h5>${a && a.id ? 'Editar artigo' : 'Novo artigo'}</h5>${deP}
@@ -369,26 +398,129 @@ textarea.ag-f{min-height:130px;resize:vertical}
     });
   }
 
+  let PESSOAS = null;
+  async function pessoas() {
+    if (!PESSOAS) PESSOAS = (await api('/responsaveis')).pessoas || [];
+    return PESSOAS;
+  }
+  const FASE = { sem_responsavel: ['s', 'Sem responsável'], com_responsavel: ['r', 'Com responsável'], aguardando_aprovacao: ['a', 'Resposta para aprovar'] };
+
   async function rPen() {
     carregando();
     let lst; try { lst = (await api('/pendencias')).pendencias || []; } catch (e) { return erroCfg(e); }
     if (ME) { ME.pendencias = lst.length; contador(); }
+    const ordem = { aguardando_aprovacao: 0, sem_responsavel: 1, com_responsavel: 2 };
+    lst.sort((a, b) => (ordem[a.fase] ?? 3) - (ordem[b.fase] ?? 3));
     cc().innerHTML = `<div class="ag-cx"><h5>Perguntas que o agente não resolveu</h5>
-      <div class="ag-dica" style="margin-bottom:10px">Responda e vira artigo. Nada do que as pessoas escrevem entra na base sem passar por aqui.</div>
-      ${lst.length ? lst.map(p => `<div class="ag-pd"><div class="q">${esc(p.pergunta)}</div>
-        <div class="m">${esc((p.de || {}).nome || '')} · ${esc(dataBR(p.em))} · <span class="ag-w ${p.motivo === 'nao_resolveu' ? 'b' : 'n'}">${p.motivo === 'nao_resolveu' ? '👎 Não resolveu' : 'Sem resposta na base'}</span>${p.obs ? '<br>“' + esc(p.obs) + '”' : ''}</div>
-        <div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-r="${esc(p.id)}">${p.artigo_id ? 'Corrigir o artigo' : 'Responder → virar artigo'}</button>
-        <button type="button" class="ag-b2" data-d="${esc(p.id)}">Descartar</button></div></div>`).join('') : '<div class="ag-vz">Nenhuma pendência 🎉</div>'}</div>`;
-    cc().querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', async () => {
-      PEND_ATUAL = lst.find(x => x.id === b.dataset.r); irAba('art');
+      <div class="ag-dica" style="margin-bottom:10px">Responda você mesmo ou <b>atribua a uma pessoa do Organograma</b>: ela escreve a resposta e você aprova antes de publicar.</div>
+      ${lst.length ? lst.map(p => {
+        const [fc, ft] = FASE[p.fase] || FASE.sem_responsavel, at = p.atribuida || {}, pr = p.proposta || {};
+        return `<div class="ag-pd" data-id="${esc(p.id)}"><div class="q">${esc(p.pergunta)}<span class="ag-fs ${fc}">${ft}</span></div>
+          <div class="m">${esc((p.de || {}).nome || '')} · ${esc(dataBR(p.em))} · <span class="ag-w ${p.motivo === 'nao_resolveu' ? 'b' : 'n'}">${p.motivo === 'nao_resolveu' ? '👎 Não resolveu' : 'Sem resposta na base'}</span>${p.obs ? '<br>“' + esc(p.obs) + '”' : ''}
+          ${at.email ? `<br>👤 Com <b>${esc(at.nome)}</b> · ${esc(at.cargo || '')}${at.setor ? ' · ' + esc(at.setor) : ''} · desde ${esc(dataBR(at.em))}${at.nota ? ' — “' + esc(at.nota) + '”' : ''}` : ''}</div>
+          ${p.fase === 'aguardando_aprovacao' ? `<div class="ag-prop"><b>✍️ Resposta de ${esc((pr.por || {}).nome || '')}</b> · ${esc(dataBR(pr.em))}<br><b>${esc(pr.titulo)}</b><ol>${(pr.passos || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol></div>` : ''}
+          ${pr.status === 'devolvida' ? `<div class="ag-dev">↩ Devolvida: ${esc(pr.motivo_devolucao || '')}</div>` : ''}
+          <div class="ag-bt" style="margin:0">
+            ${p.fase === 'aguardando_aprovacao'
+              ? `<button type="button" class="ag-b1" data-rev="${esc(p.id)}">✅ Revisar e publicar</button><button type="button" class="ag-b2" data-dev="${esc(p.id)}">↩ Devolver</button>`
+              : `<button type="button" class="ag-b1" data-at="${esc(p.id)}">👤 ${at.email ? 'Trocar responsável' : 'Atribuir a alguém'}</button><button type="button" class="ag-b2" data-r="${esc(p.id)}">${p.artigo_id ? 'Corrigir eu mesmo' : 'Responder eu mesmo'}</button>`}
+            <button type="button" class="ag-b2" data-d="${esc(p.id)}">Descartar</button></div>
+          <div class="ag-slot"></div></div>`;
+      }).join('') : '<div class="ag-vz">Nenhuma pendência 🎉</div>'}</div>`;
+
+    const abrirArtigo = async (p, conteudo) => {
+      PEND_ATUAL = p; irAba('art');
       try { ARTS = (await api('/artigos')).artigos || []; } catch (e) { return erroCfg(e); }
-      const alvo = PEND_ATUAL.artigo_id ? ARTS.find(x => x.id === PEND_ATUAL.artigo_id) : null;
+      const alvo = p.artigo_id ? ARTS.find(x => x.id === p.artigo_id) : null;
       SEL = alvo ? alvo.id : null;
-      rArt(alvo || { titulo: PEND_ATUAL.pergunta });
+      rArt(alvo ? { ...alvo, ...(conteudo || {}) } : (conteudo || { titulo: p.pergunta }));
+    };
+    cc().querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => abrirArtigo(lst.find(x => x.id === b.dataset.r))));
+    cc().querySelectorAll('[data-rev]').forEach(b => b.addEventListener('click', () => {
+      const p = lst.find(x => x.id === b.dataset.rev), pr = p.proposta || {};
+      abrirArtigo(p, { titulo: pr.titulo, passos: pr.passos, palavras: pr.palavras });
+    }));
+    cc().querySelectorAll('[data-dev]').forEach(b => b.addEventListener('click', () => {
+      const slot = b.closest('.ag-pd').querySelector('.ag-slot');
+      slot.innerHTML = `<div class="ag-pick"><label style="margin-top:0">O que precisa ajustar? (a pessoa vê este recado)</label>
+        <input class="ag-f" maxlength="300" placeholder="Ex.: faltou o caso de quando o Compras não deu data">
+        <div class="ag-bt"><button type="button" class="ag-b1">Devolver</button><button type="button" class="ag-b2">Cancelar</button></div></div>`;
+      const [ok, canc] = slot.querySelectorAll('button'), inp = slot.querySelector('input'); inp.focus();
+      canc.addEventListener('click', () => { slot.innerHTML = ''; });
+      ok.addEventListener('click', async () => {
+        if (!inp.value.trim()) { inp.focus(); return; }
+        try { await api(`/pendencias/${encodeURIComponent(b.dataset.dev)}/devolver`, 'POST', { motivo: inp.value.trim() }); toast('Devolvida para ajuste'); rPen(); } catch (e) { toast(e.message); }
+      });
+    }));
+    cc().querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', async () => {
+      const slot = b.closest('.ag-pd').querySelector('.ag-slot');
+      if (slot.innerHTML) { slot.innerHTML = ''; return; }
+      slot.innerHTML = '<div class="ag-pick"><div class="ag-vz" style="padding:8px">Carregando o Organograma…</div></div>';
+      let ps; try { ps = await pessoas(); } catch (e) { slot.innerHTML = `<div class="ag-pick ag-erro">${esc(e.message)}</div>`; return; }
+      let escolhido = null;
+      slot.innerHTML = `<div class="ag-pick">
+        <input class="ag-f" placeholder="Buscar pessoa, cargo ou setor do Organograma…">
+        <div class="lst"></div>
+        <label>Recado para a pessoa (opcional)</label><input class="ag-f ag-nota" maxlength="300" placeholder="Ex.: você é quem mais conhece esse processo">
+        <div class="ag-bt"><button type="button" class="ag-b1" disabled>Atribuir</button><button type="button" class="ag-b2">Cancelar</button></div>
+        <div class="ag-dica">Só aparece quem tem e-mail no Organograma igual ao login do PQI. Os demais ficam desabilitados.</div></div>`;
+      const busca = slot.querySelector('input'), lista = slot.querySelector('.lst'), [ok, canc] = slot.querySelectorAll('.ag-bt button');
+      const sa = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      const desenhar = () => {
+        const t = sa(busca.value);
+        const fil = ps.filter(x => !t || [x.nome, x.cargo, x.setor, x.subsetor].some(v => sa(v).includes(t)));
+        let setor = null, html = '';
+        fil.slice(0, 80).forEach(x => {
+          if (x.setor !== setor) { setor = x.setor; html += `<div class="gr">${esc(setor || 'Sem setor')}</div>`; }
+          const motivo = !x.email ? 'sem e-mail no Organograma' : (!x.tem_login ? 'sem login no PQI' : '');
+          html += `<button type="button" class="ps ${escolhido === x.email && x.email ? 'sel' : ''}" data-e="${esc(x.email)}" ${motivo ? 'disabled' : ''}>
+            <span><b>${esc(x.nome)}</b> <small>· ${esc(x.cargo)}${x.subsetor ? ' · ' + esc(x.subsetor) : ''}</small></span><small>${motivo || (x.nivel ? 'nível ' + esc(x.nivel) : '')}</small></button>`;
+        });
+        lista.innerHTML = html || '<div class="ag-vz" style="padding:8px">Ninguém encontrado.</div>';
+        lista.querySelectorAll('.ps:not(:disabled)').forEach(el => el.addEventListener('click', () => { escolhido = el.dataset.e; ok.disabled = false; desenhar(); }));
+      };
+      busca.addEventListener('input', desenhar); desenhar(); busca.focus();
+      canc.addEventListener('click', () => { slot.innerHTML = ''; });
+      ok.addEventListener('click', async () => {
+        ok.disabled = true;
+        try {
+          const r = await api(`/pendencias/${encodeURIComponent(b.dataset.at)}/atribuir`, 'POST', { email: escolhido, nota: slot.querySelector('.ag-nota').value });
+          toast(`Atribuída a ${(r.atribuida || {}).nome || 'responsável'}`); rPen();
+        } catch (e) { toast(e.message); ok.disabled = false; }
+      });
     }));
     cc().querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', async () => {
       if (!confirm('Descartar esta pendência? Ela sai da lista (fica registrada como descartada).')) return;
       try { await api(`/pendencias/${encodeURIComponent(b.dataset.d)}/descartar`, 'POST'); toast('Pendência descartada'); rPen(); } catch (e) { toast(e.message); }
+    }));
+  }
+
+  async function rMin() {
+    carregando();
+    let lst; try { lst = (await api('/comigo')).pendencias || []; } catch (e) { return erroCfg(e); }
+    if (ME) { ME.comigo = lst.length; contador(); }
+    if (!lst.length) { cc().innerHTML = '<div class="ag-cx"><div class="ag-vz">Nenhuma pergunta esperando você 🎉</div></div>'; return; }
+    cc().innerHTML = `<div class="ag-dica" style="margin-bottom:10px">Estas perguntas foram atribuídas a você porque você conhece o processo. Escreva a resposta como explicaria para alguém novo — quem alimenta o agente revisa e publica.</div>` +
+      lst.map(p => {
+        const at = p.atribuida || {}, pr = p.proposta || {}, base = (pr.status === 'devolvida' ? pr : null) || p.artigo || {};
+        return `<div class="ag-cx" style="margin-bottom:12px" data-id="${esc(p.id)}">
+          <h5>“${esc(p.pergunta)}”</h5>
+          <div class="ag-dica">Perguntado por ${esc((p.de || {}).nome || '')} em ${esc(dataBR(p.em))} · enviado a você por ${esc((at.por || {}).nome || '')}${at.nota ? ' — “' + esc(at.nota) + '”' : ''}${p.obs ? '<br>O que faltou na resposta atual: “' + esc(p.obs) + '”' : ''}</div>
+          ${pr.status === 'devolvida' ? `<div class="ag-dev">↩ Devolvida por ${esc((pr.devolvida_por || {}).nome || '')}: ${esc(pr.motivo_devolucao || '')}</div>` : ''}
+          ${p.artigo && pr.status !== 'devolvida' ? '<div class="ag-dica" style="margin-top:6px">Já existe um artigo sobre isso — ajuste o texto abaixo.</div>' : ''}
+          <label>Título — como as pessoas perguntariam</label><input class="ag-f mT" maxlength="160" value="${esc(base.titulo || p.pergunta)}">
+          <label>Passo a passo — um passo por linha</label><textarea class="ag-f mP" placeholder="Abra…&#10;Clique em…&#10;Confira…">${esc((base.passos || []).join('\n'))}</textarea>
+          <label>Palavras que as pessoas usam (opcional)</label><input class="ag-f mK" value="${esc(base.palavras || '')}">
+          <div class="ag-bt"><button type="button" class="ag-b1 mE">Enviar para aprovação</button></div><div class="ag-erro"></div></div>`;
+      }).join('');
+    cc().querySelectorAll('.mE').forEach(b => b.addEventListener('click', async () => {
+      const box = b.closest('[data-id]'), q = sel => box.querySelector(sel);
+      b.disabled = true; q('.ag-erro').textContent = '';
+      try {
+        await api(`/pendencias/${encodeURIComponent(box.dataset.id)}/proposta`, 'POST', {
+          titulo: q('.mT').value, passos: q('.mP').value.split('\n').map(x => x.trim()).filter(Boolean), palavras: q('.mK').value });
+        toast('Resposta enviada — obrigado! 🙌'); rMin();
+      } catch (e) { q('.ag-erro').textContent = e.message; b.disabled = false; }
     }));
   }
 
@@ -431,7 +563,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
       clearInterval(TIMER); ME = null;
       if (!BTN) return;
       fechar(); POP.classList.remove('modo-cfg', 'largo'); POP.querySelector('#agEng').classList.remove('on');
-      POP.querySelector('#agEng').hidden = true; BTN.style.display = 'none';
+      POP.querySelector('#agEng').hidden = true; POP.querySelector('#agMin').hidden = true; POP.classList.remove('so-comigo');
+      PESSOAS = null; BTN.style.display = 'none';
       POP.querySelector('#agChat').innerHTML = ''; ARTS = []; SEL = null; PEND_ATUAL = null;
     },
   };
