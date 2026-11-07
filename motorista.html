@@ -76,7 +76,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .cheguei{display:grid;gap:6px;background:#ECFEFF;border:1px dashed #0E7490;border-radius:12px;padding:10px 12px;color:#155E75}
 @media (prefers-color-scheme: dark){.cheguei{background:#0F2A31;color:#A5F3FC}}
 .msg-ch img{display:block;max-width:100%;border-radius:8px;margin-top:4px}
-.ch-acoes{display:grid;grid-template-columns:auto 1fr;gap:8px}
+/* [v6.1] rodapé do chat fixo: Voltar, câmera e Enviar sempre à vista */
+.ch-rodape{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:4;padding:10px;gap:8px;box-shadow:0 -6px 18px rgba(0,0,0,.08)}
+.ch-rodape textarea{padding:10px;font-size:16px}
+.ch-acoes{display:grid;grid-template-columns:auto auto 1fr;gap:8px}
+.ch-acoes button,.ch-cam{padding:10px 14px;border-radius:12px;font-size:16px}
+.ch-cam{display:grid;place-items:center;border:1px solid var(--rule);background:var(--sheet);cursor:pointer;font-size:20px;padding:6px 14px}
 @media (prefers-reduced-motion: reduce){.bolinha,.chat-novo,.ped.chat-novo,.chat-novo .pill{animation:none}}
 .p-cot{background:#5B21B6;color:#fff;font-size:13px;letter-spacing:.04em}
 .cotacao{background:#5B21B6;color:#fff;border-radius:12px;padding:12px 14px;display:grid;gap:2px}
@@ -537,12 +542,14 @@ function desenharChat() {
     <div class="aviso" id="chErro" ${S.chatErro ? "" : "hidden"}>${esc(S.chatErro)}</div>
     ${!a ? `<div class="card"><h3>Qual é o motivo?</h3><p class="cap">A frota já vê o cliente, o pedido e as peças. Escolha o motivo para começar.</p>
         ${(d.motivos || []).map(m => `<button type="button" class="big" data-mot="${esc(m)}">${esc(m)}</button>`).join("")}</div>`
-      : `<div class="card" id="chLista" data-sig="${a.msgs.length}|${a.msgs.length ? a.msgs[a.msgs.length - 1].em : ""}" style="gap:8px;max-height:52vh;overflow:auto">${msgs}</div>
-        <div class="card"><textarea id="chTxt" rows="2" placeholder="Escreva para a frota" maxlength="500">${esc(rascunho)}</textarea>
-          <div class="ch-acoes"><label class="big" style="display:grid;place-items:center;width:auto;padding:0 18px;border:1px solid var(--rule);border-radius:14px;cursor:pointer;font-size:22px" title="Tirar foto e enviar" aria-label="Tirar foto e enviar">📷<input id="chFoto" type="file" accept="image/*" capture="environment" hidden></label>
-          <button type="button" class="pri big" id="chEnv">Enviar</button></div><p class="cap">📷 manda foto com data, hora, local, cliente, motorista e carga. Voltar não encerra a conversa. Quem encerra é a frota.</p></div>`}`;
+      : `<div class="card" id="chLista" data-sig="${a.msgs.length}|${a.msgs.length ? a.msgs[a.msgs.length - 1].em : ""}" style="gap:8px;max-height:46vh;overflow:auto">${msgs}</div>
+        <div class="card ch-rodape"><textarea id="chTxt" rows="2" placeholder="Escreva para a frota" maxlength="500">${esc(rascunho)}</textarea>
+          <div class="ch-acoes"><button type="button" id="chVolta2" title="Voltar não encerra a conversa">‹ Voltar</button>
+            <label class="ch-cam" title="Tirar foto e enviar" aria-label="Tirar foto e enviar">📷<input id="chFoto" type="file" accept="image/*" capture="environment" hidden></label>
+            <button type="button" class="pri" id="chEnv">Enviar</button></div></div>`}`;
   const lista = $("#chLista"); if (lista) lista.scrollTop = lista.scrollHeight;
-  $("#chVolta").onclick = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); chatTimer = null; render(); window.scrollTo(0, 0); };
+  const voltar = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); chatTimer = null; render(); window.scrollTo(0, 0); };
+  $("#chVolta").onclick = voltar; const v2 = $("#chVolta2"); if (v2) v2.onclick = voltar;
   document.querySelectorAll("[data-mot]").forEach(b => b.onclick = () => enviarChat({ motivo: b.dataset.mot }));
   const t = $("#chTxt"); if (t) { t.oninput = () => { S.chatRascunho = t.value; }; }
   const env = $("#chEnv"); if (env) env.onclick = () => { const v = ($("#chTxt").value || "").trim(); if (v) enviarChat({ texto: v }); };
