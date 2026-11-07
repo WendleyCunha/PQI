@@ -3308,7 +3308,9 @@ def agente_js():
 
 # [v6.0] AGENTE IA — base de conhecimento no topo do Painel (agente.py + pqi-agente.js)
 import agente as agt
-agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil)
+agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
+          setores=_todos_setores,   # pendência atribuída a uma pessoa do Organograma (pelo e-mail)
+          usuarios=lambda: {x.get("email"): {"nome": x.get("nome"), "ativo": x.get("ativo", True)} for x in db.usuarios_listar()})
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld
