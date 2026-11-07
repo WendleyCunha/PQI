@@ -1951,6 +1951,7 @@ function feedAoVivo(d) {
   d.cargas.forEach(g => {
     if (g.saida) ev.push({ em: g.saida.em, t: `🚚 Carga ${g.numero} (${g.placa}) saiu · ${g.motorista}` });
     if (g.chegada) ev.push({ em: g.chegada.em, t: `🏁 Carga ${g.numero} chegou no CD · ${g.cont.pecas_esperadas} peça(s) para conferir` });
+    g.pedidos.forEach(p => { if (p.chegou) ev.push({ em: p.chegou.em, t: `📍 ${g.numero} · ${p.nome}: chegou${p.chegou.conferido ? "" : " (⚠️ " + (p.chegou.dist_m != null ? p.chegou.dist_m + " m do endereço" : "sem coordenada") + ")"}` }); });
     g.pedidos.forEach(p => { if (p.desfecho) ev.push({ em: p.em, t: `${p.desfecho === "entregue" ? "✅" : p.desfecho === "parcial" ? "½" : "↩️"} ${g.numero} · ${p.nome}: ${(DESF[p.desfecho] || [p.desfecho])[0]}${p.motivo ? " — " + p.motivo : ""}${p.palavra_ok === false ? " · liberado sem palavra" : ""}` });
       if ((p.liberacao || {}).pedido_em) ev.push({ em: p.liberacao.pedido_em, t: `⚠️ ${g.numero} · ${p.nome}: pediu liberação sem palavra` }); });
   });
@@ -1964,7 +1965,7 @@ function detalheAoVivo(g, pode) {
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
     <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
       ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
-        <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : '<span class="pill p-cinza">Sem registro</span>'}
+        <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : p.chegou ? pillChegou(p.chegou) : '<span class="pill p-cinza">Sem registro</span>'}
           ${p.motivo ? `<span class="sub">${esc(p.motivo)}${p.linhas.length ? " · voltou: " + p.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ") : ""}</span>` : ""}${p.obs ? `<span class="sub">${esc(p.obs)}</span>` : ""}
           ${p.foto ? `<button type="button" class="peq" data-foto="${esc(p.foto)}">📷 foto</button>` : ""}${p.corrigidos ? `<span class="sub">corrigido ${p.corrigidos}×</span>` : ""}</td>
         <td>${p.em ? `${hora(p.em)}<span class="sub">${esc(p.por)}</span>` : "—"}</td>
@@ -2063,10 +2064,11 @@ const relogio = (seg, min) => seg == null ? "" : `<span class="cont-reg ${corTem
 function fmtCont(seg) { const n = Math.abs(Math.round(seg)), t = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; return seg >= 0 ? `⏱ ${t}` : `⏱ esgotado há ${t}`; }
 setInterval(() => document.querySelectorAll("[data-ate]").forEach(el => { const seg = (+el.dataset.ate - Date.now()) / 1000;
   const cor = corTempo(seg, +el.dataset.total || 900); el.textContent = fmtCont(seg); el.classList.toggle("estourou", cor === "estourou"); el.classList.toggle("quase", cor === "quase"); }), 1000);
+const pillChegou = k => k ? `<span class="pill ${k.conferido ? "p-aco" : "p-warn"}" title="${k.dist_m != null ? k.dist_m + " m do endereço" : "endereço sem coordenada"}${k.auto ? " · pelo GPS" : " · botão Cheguei"}">📍 Chegou ${hora(k.em)}${k.conferido ? "" : " ⚠️"}</span>` : "";   // [v6.1]
 const msgsChat = a => (a.msgs || []).map(m => m.de === "sistema" ? (/ abriu o chat: /.test(m.txt)
     ? `<div class="chat-abriu">${esc(m.txt.split(" abriu o chat: ")[0])} abriu o chat · ${horaBR(m.em)}<b>${esc(m.txt.split(" abriu o chat: ")[1])}</b></div>`
     : `<div class="chat-s">${esc(m.txt)} · ${horaBR(m.em)}</div>`)
-  : `<div class="chat-m ${m.de === "frota" ? "fr" : ""}"><small>${m.de === "frota" ? "Frota · " : "🚚 "}${esc(m.nome)} · ${horaBR(m.em)}</small>${esc(m.txt)}</div>`).join("");
+  : `<div class="chat-m ${m.de === "frota" ? "fr" : ""}"><small>${m.de === "frota" ? "Frota · " : "🚚 "}${esc(m.nome)} · ${horaBR(m.em)}</small>${m.foto ? `<a href="${fotoUrl(m.foto)}" target="_blank" rel="noopener"><img src="${fotoUrl(m.foto)}" alt="foto do motorista" loading="lazy" style="display:block;max-width:240px;width:100%;border-radius:8px;margin:4px 0"></a>${m.txt && m.txt !== "📷 Foto" ? esc(m.txt) : ""}` : esc(m.txt)}</div>`).join("");   // [v6.1] foto do chat (com marca d'água)
 let CLI_TIMER = null;
 async function abrirCliente(num, pv) {
   let d;
@@ -2082,7 +2084,7 @@ async function abrirCliente(num, pv) {
       <div class="box" style="margin:0"><b>Palavra-chave</b><p style="margin:6px 0">${d.palavra ? `<span class="palavra">${esc(d.palavra)}</span>` : "—"}</p>
         <span class="sub">${ev.palavra_ok === true ? "conferida pelo motorista" : ev.palavra_ok === false ? "liberado pelo PCL" : ev.tentativas ? ev.tentativas + " erro(s)" : ""}</span></div>
       <div class="box" style="margin:0"><b>Carga ${esc(d.carga)}</b><p style="margin:4px 0">🚚 ${esc(d.placa)} · ${esc(d.motorista || "—")}<br>${esc(d.transportadora || "")}</p>
-        <span>${ev.desfecho ? `<span class="pill ${DESF[ev.desfecho][1]}">${DESF[ev.desfecho][0]}</span> ${esc(hora(ev.em))} · ${esc(ev.por)}${ev.motivo ? " · " + esc(ev.motivo) : ""}` : '<span class="pill p-cinza">Sem registro</span>'}</span>
+        <span>${ev.desfecho ? `<span class="pill ${DESF[ev.desfecho][1]}">${DESF[ev.desfecho][0]}</span> ${esc(hora(ev.em))} · ${esc(ev.por)}${ev.motivo ? " · " + esc(ev.motivo) : ""}` : ev.chegou ? pillChegou(ev.chegou) : '<span class="pill p-cinza">Sem registro</span>'}</span>
         ${ev.foto ? ` <button type="button" class="peq" data-foto="${esc(ev.foto)}">📷 foto</button>` : ""}</div></div>
     <div class="box"><b>Peças a entregar</b>${(d.itens || []).map(i => `<div class="q-it"><div class="d">${esc(i.desc)}<small>${i.sku ? "SKU " + esc(i.sku) : "sem SKU"}</small></div><span class="c">${i.qtd}</span></div>`).join("") || "<p class='cap'>—</p>"}
       ${(d.retirar || []).length ? `<b>${d.troca ? "A retirar no cliente (troca)" : "Montagem / verificação no cliente"}</b>${d.retirar.map(i => `<div class="q-it cinza"><div class="d">${esc(i.desc)}</div><span class="c">${i.qtd}</span></div>`).join("")}` : ""}

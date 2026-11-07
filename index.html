@@ -124,11 +124,40 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 }
 .home-view.hidden { display: none; }
 
-.topo-home{text-align:center;margin-bottom:36px;}
-.topo-home h1{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:600;letter-spacing:-0.01em;}
-.topo-home p{color:var(--ink-muted);font-size:13.5px;margin-top:6px;}
+/* [v6.1] Boas-vindas lado a lado (saudação + busca | resumo e atalhos) */
+.boas-vindas{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;margin-bottom:28px}
+@media (max-width:860px){.boas-vindas{grid-template-columns:1fr}}
+.bv-ola,.bv-lado{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:20px;
+  background:linear-gradient(160deg,var(--panel),var(--panel-2))}
+.bv-ola{padding:26px 28px}
+.bv-ola::before{content:"";position:absolute;inset:-40% -10% auto auto;width:360px;height:360px;pointer-events:none;opacity:.55;
+  background:radial-gradient(closest-side,rgba(139,92,246,.20),transparent 70%),radial-gradient(closest-side at 70% 60%,rgba(34,211,238,.14),transparent 70%),
+             radial-gradient(closest-side at 30% 70%,rgba(232,179,61,.20),transparent 70%);filter:blur(6px);animation:bvAur 16s ease-in-out infinite alternate}
+@keyframes bvAur{to{transform:translate(-8%,10%) rotate(10deg)}}
+.bv-chip{position:relative;display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--ink-muted);
+  border:1px solid var(--line);border-radius:20px;padding:4px 11px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
+.bv-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--verde);box-shadow:0 0 8px var(--verde)}
+.bv-ola h1{position:relative;font-family:'Space Grotesk',sans-serif;font-size:clamp(26px,3.2vw,36px);font-weight:700;letter-spacing:-.02em;line-height:1.08;margin-top:14px}
+.bv-ola h1 b{background:linear-gradient(135deg,var(--gold-soft),var(--gold) 55%,#c98d1d);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bv-ola p{position:relative;color:var(--ink-muted);font-size:13px;margin-top:8px;max-width:520px}
+.bv-lado{padding:18px;display:flex;flex-direction:column;gap:10px}
+.bv-lado h4{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em}
+.bv-kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bv-kpi{border:1px solid var(--line);border-radius:14px;padding:12px;background:color-mix(in srgb,var(--panel) 60%,transparent)}
+.bv-kpi b{display:block;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700}
+.bv-kpi span{font-size:11.5px;color:var(--ink-muted)}
+.bv-atalho{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;color:var(--ink);font:600 13px 'Inter',sans-serif;
+  border:1px solid transparent;border-radius:14px;padding:11px 13px;transition:transform .25s cubic-bezier(.2,.9,.25,1.15),box-shadow .25s;
+  background:linear-gradient(var(--panel-2),var(--panel-2)) padding-box,linear-gradient(120deg,rgba(232,179,61,.8),rgba(139,92,246,.8),rgba(34,211,238,.7)) border-box}
+.bv-atalho:hover{transform:translateY(-1px);box-shadow:0 8px 22px -10px rgba(139,92,246,.7)}
+.bv-atalho small{display:block;font-weight:400;color:var(--ink-muted);font-size:11.5px}
+.bv-atalho .orb{width:22px;height:22px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e8b33d 42%,#fb7185 78%);box-shadow:0 0 12px rgba(232,179,61,.8)}
+.secao-sis{display:flex;align-items:center;gap:12px;margin:4px 2px 12px}
+.secao-sis h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600}
+.secao-sis span{font-size:11.5px;color:var(--ink-faint)}
+.secao-sis::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 
-.busca-wrap{max-width:400px;margin:24px auto 0;position:relative;}
+.busca-wrap{max-width:440px;margin:18px 0 0;position:relative;}
 .busca-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--ink-faint);}
 #busca{
   width:100%;background:var(--panel);border:1px solid var(--line);border-radius:24px;
@@ -139,21 +168,20 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 #busca::placeholder{color:var(--ink-faint);}
 
 .grid{
-  display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:16px;
-  margin-top:32px;
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(215px, 1fr));gap:12px;
 }
 .card{
   background:linear-gradient(180deg, var(--panel), var(--panel-2));
-  border:1px solid var(--line);border-radius:16px;padding:20px;
+  border:1px solid var(--line);border-radius:14px;padding:14px 15px;
   cursor:pointer;text-align:left;position:relative;overflow:hidden;
   transition:border-color .15s, transform .15s;
-  display:flex;flex-direction:column;gap:10px;
+  display:flex;flex-direction:column;gap:7px;
 }
 .card::after{content:"";position:absolute;top:-40%;right:-20%;width:120px;height:120px;
   background:radial-gradient(circle,rgba(232,179,61,0.12),transparent 70%);pointer-events:none;}
 .card:hover{border-color:var(--line-strong);transform:translateY(-2px);}
 .card .topo-card{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-.card .icone{font-size:24px;line-height:1;}
+.card .icone{font-size:20px;line-height:1;}
 .card .tag{
   font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
   padding:3px 8px;border-radius:20px;white-space:nowrap;
@@ -161,14 +189,23 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 .tag.servidor{background:rgba(139,108,255,0.14);color:var(--violet);}
 .tag.arquivo{background:rgba(61,220,151,0.12);color:var(--verde);}
 .tag.nuvem{background:rgba(79,195,247,0.14);color:var(--azul);}
-.card h3{font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;color:var(--ink);}
-.card p{font-size:12px;color:var(--ink-muted);line-height:1.4;flex:1;}
+.card h3{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:var(--ink);}
+.card p{font-size:11.5px;color:var(--ink-muted);line-height:1.4;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .card .ir{
   display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--gold-soft);
   margin-top:2px;
 }
 .card .ir svg{width:12px;height:12px;transition:transform .15s;}
 .card:hover .ir svg{transform:translateX(3px);}
+
+/* [v6.1] Barra de rolagem discreta (quase imperceptível; aparece um pouco mais ao passar o mouse) */
+*{scrollbar-width:thin;scrollbar-color:transparent transparent}
+*:hover{scrollbar-color:color-mix(in srgb,var(--ink-faint) 35%,transparent) transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:transparent;border-radius:10px}
+*:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink-faint) 35%,transparent)}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
 
 .vazio{text-align:center;color:var(--ink-faint);font-size:13px;padding:50px 0;grid-column:1/-1;}
 
@@ -459,14 +496,26 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)
 
   <!-- TELA INICIAL (GRID DE CARDS) -->
   <div class="home-view" id="homeView">
-    <div class="topo-home">
-      <h1>Selecione um Sistema</h1>
-      <p>O menu permanece fixo ao redor. O sistema escolhido rodará integrado na janela central.</p>
-      <div class="busca-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" id="busca" placeholder="Buscar sistema...">
+    <section class="boas-vindas">
+      <div class="bv-ola">
+        <span class="bv-chip" id="bvData">Hoje</span>
+        <h1 id="bvOla">Olá</h1>
+        <p>Escolha um sistema para abrir aqui mesmo, em abas. Ficou com dúvida em algum processo? Pergunte ao Agente.</p>
+        <div class="busca-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="busca" placeholder="Buscar sistema...">
+        </div>
       </div>
-    </div>
+      <aside class="bv-lado">
+        <h4>Seu painel</h4>
+        <div class="bv-kpis">
+          <div class="bv-kpi"><b id="bvSistemas">—</b><span>sistemas liberados</span></div>
+          <div class="bv-kpi"><b id="bvAbas">0</b><span>abas abertas</span></div>
+        </div>
+        <button type="button" class="bv-atalho" id="bvAgente"><span class="orb"></span><span>Perguntar ao Agente<small>passo a passo oficial dos processos</small></span></button>
+      </aside>
+    </section>
+    <div class="secao-sis"><h2>Sistemas</h2><span id="bvConta"></span></div>
     <div class="grid" id="grid"></div>
   </div>
 
@@ -501,6 +550,8 @@ function iconeSetaCard(){
 
 function renderGrid(lista){
   const grid = document.getElementById('grid');
+  const conta = document.getElementById('bvConta'); if (conta) conta.textContent = lista.length ? lista.length + (lista.length === 1 ? ' sistema' : ' sistemas') : '';
+  const kpi = document.getElementById('bvSistemas'); if (kpi && typeof SISTEMAS !== 'undefined') kpi.textContent = SISTEMAS.length;
   if (!lista.length){
     grid.innerHTML = '<div class="vazio">Nenhum sistema encontrado com esse termo.</div>';
     return;
@@ -550,7 +601,20 @@ function atualizarContextoUsuario() {
   // Nome do usuário logado (pode ser integrado ao sistema de logs futuramente)
   const nomeUsuario = USUARIO ? (USUARIO.nome || USUARIO.email).split(" ")[0] : "";
   document.getElementById('lblGreeting').textContent = nomeUsuario ? `${saudacao}, ${nomeUsuario}` : saudacao;
+
+  // [v6.1] Boas-vindas da tela inicial
+  const ola = document.getElementById('bvOla');
+  if (ola) ola.innerHTML = nomeUsuario ? `${saudacao},<br><b>${nomeUsuario.replace(/[<>&"]/g, '')}</b>` : saudacao;
+  const dt = document.getElementById('bvData');
+  if (dt) { const t = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }); dt.textContent = t.charAt(0).toUpperCase() + t.slice(1); }
+  const abas = document.getElementById('bvAbas');
+  if (abas) abas.textContent = document.querySelectorAll('#tabsBar .tab-pill').length;
 }
+
+// [v6.1] Atalho da tela inicial para o Agente do topo
+document.getElementById('bvAgente').addEventListener('click', () => {
+  const b = document.querySelector('.ag-btn'); if (b) b.click();
+});
 
 // Atualiza a cada 10 segundos
 setInterval(atualizarContextoUsuario, 10000);
@@ -656,6 +720,7 @@ function abrirEmNovaAba() {
 function renderizarAbas() {
   const barra = document.getElementById('tabsBar');
   barra.classList.toggle('show', abasAbertas.size > 0);
+  const kAbas = document.getElementById('bvAbas'); if (kAbas) kAbas.textContent = abasAbertas.size;   // [v6.1]
   barra.innerHTML = '';
   abasAbertas.forEach((entrada, chave) => {
     const pill = document.createElement('div');

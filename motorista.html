@@ -64,6 +64,20 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
 .p-pend{background:var(--rule-2);color:var(--ink-2)} .p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)}
 .p-warn{background:var(--amber-soft);color:var(--amber)} .p-aco{background:var(--steel-soft);color:var(--steel)}
+/* [v6.1] CHEGOU no cliente + aviso de resposta da frota (balão piscando e bolinha vermelha) */
+.p-cheg{background:#0E7490;color:#fff}
+.p-cheg.longe{background:var(--amber-soft);color:var(--amber)}
+@keyframes pisca{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.82)}}
+@keyframes balao{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
+.bolinha{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:#DC2626;border:2px solid var(--sheet);animation:pisca 1s ease-in-out infinite}
+.chat-novo{position:relative;animation:balao 1.2s ease-out infinite;border-color:#DC2626!important}
+.chat-novo .pill{animation:pisca 1s ease-in-out infinite}
+.ped.chat-novo{position:relative;animation:balao 1.2s ease-out infinite;border-color:#DC2626}
+.cheguei{display:grid;gap:6px;background:#ECFEFF;border:1px dashed #0E7490;border-radius:12px;padding:10px 12px;color:#155E75}
+@media (prefers-color-scheme: dark){.cheguei{background:#0F2A31;color:#A5F3FC}}
+.msg-ch img{display:block;max-width:100%;border-radius:8px;margin-top:4px}
+.ch-acoes{display:grid;grid-template-columns:auto 1fr;gap:8px}
+@media (prefers-reduced-motion: reduce){.bolinha,.chat-novo,.ped.chat-novo,.chat-novo .pill{animation:none}}
 .p-cot{background:#5B21B6;color:#fff;font-size:13px;letter-spacing:.04em}
 .cotacao{background:#5B21B6;color:#fff;border-radius:12px;padding:12px 14px;display:grid;gap:2px}
 .cotacao b{font-size:24px;letter-spacing:.06em} .cotacao span{font-size:14px;opacity:.95}
@@ -252,7 +266,9 @@ function atualizarCarga(c) {
 const pillCot = p => p.cotacao ? `<span class="pill p-cot">COTAÇÃO${p.cotacao.uf && p.cotacao.uf !== "SP" ? " · " + esc(p.cotacao.uf) : ""}</span>` : "";
 const pillPed = p => p.enviando ? '<span class="pill p-warn">Enviando…</span>' : p.validar_palavra === "pendente" ? '<span class="pill p-aco">Frota validando</span>' : p.desfecho === "entregue" ? '<span class="pill p-ok">Entregue</span>' :
   p.desfecho === "retorno" ? '<span class="pill p-bad">Retorno</span>' : p.desfecho === "parcial" ? '<span class="pill p-warn">Parcial</span>' :
-  p.liberacao === "pendente" ? '<span class="pill p-aco">Aguardando PCL</span>' : '<span class="pill p-pend">Pendente</span>';
+  p.liberacao === "pendente" ? '<span class="pill p-aco">Aguardando PCL</span>' :
+  p.chegou ? `<span class="pill p-cheg${p.chegou.conferido ? "" : " longe"}">📍 Chegou ${hora(p.chegou.em)}</span>` : '<span class="pill p-pend">Pendente</span>';
+const novoChat = p => ((p.chat || {}).nao_lidas || 0) > 0;   // [v6.1] a frota respondeu e o motorista ainda não leu
 
 function telaCarga() {
   const cs = (S.dados && S.dados.cargas) || [];
@@ -280,7 +296,7 @@ function telaCarga() {
       ${!c.saida && !c.chegada ? `<button type="button" class="warnb big" id="btSaida">🚚 Iniciar rota</button><p class="cap">Liga o GPS e avisa o PCL que a carga saiu.</p>` : ""}
       ${c.chegada ? `<p class="cap">Chegada avisada às ${hora(c.chegada.em)}. O Retorno confere as peças no CD.</p>` : ""}
     </div>
-    ${(() => { const bt = p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}${p.cotacao ? " cot" : ""}" data-p="${esc(p.pv)}"><span class="c">${pillCot(p)}<b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`;
+    ${(() => { const bt = p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}${p.cotacao ? " cot" : ""}${novoChat(p) ? " chat-novo" : ""}" data-p="${esc(p.pv)}">${novoChat(p) ? '<i class="bolinha" aria-label="A frota respondeu"></i>' : ""}<span class="c">${pillCot(p)}<b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`;
       const pend = c.pedidos.filter(p => !p.desfecho), feitos = c.pedidos.filter(p => p.desfecho);   // [v5.7] pendentes em cima
       return (pend.length ? `<h3 class="grupo">Pendentes (${pend.length})</h3>${pend.map(bt).join("")}` : "")
         + (feitos.length ? `<h3 class="grupo">Já registrados (${feitos.length})</h3>${feitos.map(bt).join("")}` : ""); })()}
@@ -330,13 +346,13 @@ function telaPedido() {
       <div class="row"><button type="button" id="pCanc">Voltar</button><button type="button" class="${parc ? "warnb" : "bad"}" id="pConf">Confirmar ${parc ? "parcial" : "retorno"}</button></div>
       <p class="cap">A peça volta para o CD e ganha etiqueta na conferência, mesmo se estiver perfeita.</p></div>`;
   } else {
-    acao = `${c.palavra_ligada ? blocoPalavra(c, p, bloqueio) : ""}<p class="msg erro">${esc(S.erro)}</p>
+    acao = `${blocoChegou(c, p)}${c.palavra_ligada ? blocoPalavra(c, p, bloqueio) : ""}<p class="msg erro">${esc(S.erro)}</p>
       <button type="button" class="ok big" id="btEnt" ${bloqueio || (c.palavra_ligada && p.liberacao === "pendente") ? "disabled" : ""}>✓ Entregue</button>
       <div class="row"><button type="button" class="bad" id="btRet">↩ Retorno</button><button type="button" class="warnb" id="btPar">½ Parcial</button></div>`;
   }
   const nl = (p.chat || {}).nao_lidas || 0;
   $("#app").innerHTML = `<div class="row"><button type="button" class="ghost" id="btVolta">‹ Voltar</button>
-      <button type="button" class="${(p.chat || {}).aberto ? "warnb" : ""}" id="btChat">💬 Chat com a frota${nl ? ` <span class="pill p-bad">${nl}</span>` : (p.chat || {}).aberto ? " (aberto)" : ""}</button></div>
+      <button type="button" class="${(p.chat || {}).aberto ? "warnb" : ""}${nl ? " chat-novo" : ""}" id="btChat">💬 Chat com a frota${nl ? ` <span class="pill p-bad">${nl}</span><i class="bolinha" aria-label="A frota respondeu"></i>` : (p.chat || {}).aberto ? " (aberto)" : ""}</button></div>
     ${p.cotacao ? `<div class="cotacao"><b>📦 COTAÇÃO</b><span>${esc(p.cotacao.motivo)}.</span><span>Entregue no endereço abaixo, em SP — a mercadoria segue para outro estado.</span></div>` : ""}
     <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Pedido <span class="mono">${esc(p.pv)}</span>${p.nf ? ` · NF ${esc(p.nf)}` : ""}</span>${pillPed(p)}</div>
       <h2 style="font-size:22px">${esc(p.nome)}</h2>
@@ -348,6 +364,36 @@ function telaPedido() {
     </div>${S.cacheEm || !S.online ? `<div class="aviso">Sem sinal: o registro fica guardado no celular e vai sozinho quando a conexão voltar. A palavra é conferida no envio — se não bater, a frota valida.</div>` : ""}${acao}`;
   ligarPedido(c, p);
 }
+// [v6.1] CHEGOU: automático quando o GPS entra no raio do endereço; o botão serve para quando o endereço não tem coordenada
+function blocoChegou(c, p) {
+  if (!c.saida || p.desfecho) return "";
+  if (p.chegou) { const k = p.chegou;
+    return `<div class="cheguei"><b>📍 Chegou às ${hora(k.em)}</b><span class="cap" style="color:inherit">${k.conferido ? `No endereço (${k.dist_m} m)${k.auto ? " · pelo GPS" : ""}` : k.dist_m != null ? `⚠️ ${k.dist_m} m do endereço — a frota vai ver` : "Endereço sem coordenada — registrado pelo seu GPS"}</span></div>`; }
+  const d = p.destino && S.gps.ult ? distM(S.gps.ult, p.destino) : null;
+  return `<div class="cheguei"><span>${d != null ? `Você está a <b>${d < 1000 ? d + " m" : (d / 1000).toFixed(1).replace(".", ",") + " km"}</b> do endereço. Ao chegar, o status muda sozinho para CHEGOU.` : p.destino ? "Ao chegar, o status muda sozinho para CHEGOU." : "Este endereço ainda não tem coordenada. Ao chegar, toque em Cheguei."}</span>
+    <button type="button" id="btCheguei" style="border-color:#0E7490;color:#0E7490">📍 Cheguei no cliente</button></div>`;
+}
+const distM = (a, b) => { const r = 6371000, rad = x => x * Math.PI / 180, df = rad(b.lat - a.lat), dl = rad(b.lng - a.lng);
+  const h = Math.sin(df / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dl / 2) ** 2; return Math.round(2 * r * Math.asin(Math.sqrt(h))); };
+const CHEG_TENTOU = {};
+async function marcarChegou(c, p, auto) {
+  const g = S.gps.ult;
+  if (!g) { if (!auto) { S.erro = "Sem a sua localização. Ligue o GPS do celular."; render(); } return; }
+  CHEG_TENTOU[c.numero + "|" + p.pv] = Date.now();
+  try { atualizarCarga((await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chegou`, { lat: g.lat, lng: g.lng, prec: g.prec, auto: !!auto })).carga);
+    if (navigator.vibrate) navigator.vibrate(120); if (podeAtualizar() || !auto) render(); }
+  catch (e) { if (!auto && !e.tratado) { S.erro = e.offline ? "Sem sinal. Tente de novo em instantes." : e.message; render(); } }
+}
+function conferirChegada() {   // roda a cada posição do GPS: pedido pendente dentro do raio → CHEGOU
+  const c = cargaAtual(), g = S.gps.ult; if (!c || !g || !c.saida || c.chegada) return;
+  const raio = c.raio_chegada_m || 250;
+  for (const p of c.pedidos) {
+    if (p.desfecho || p.chegou || !p.destino) continue;
+    if (Date.now() - (CHEG_TENTOU[c.numero + "|" + p.pv] || 0) < 60000) continue;
+    if (distM(g, p.destino) <= raio + Math.min(g.prec || 0, 150)) { marcarChegou(c, p, true); break; }
+  }
+}
+
 function blocoPalavra(c, p, bloqueio) {
   if (p.liberacao === "liberada") return `<div class="word"><b>Liberado pelo PCL</b><span class="cap" style="color:var(--ink)">Pode registrar sem a palavra.</span></div>`;
   return `<div class="word"><b>Palavra da entrega</b><span class="cap" style="color:var(--ink)">Peça ao cliente a palavra que ele recebeu. Sem ela o registro não sai.</span>
@@ -360,6 +406,7 @@ function blocoPalavra(c, p, bloqueio) {
 function ligarPedido(c, p) {
   $("#btVolta").onclick = () => { S.ped = null; render(); };
   $("#btChat").onclick = () => { S.chat = true; S.chatDados = null; render(); window.scrollTo(0, 0); };
+  const bc = $("#btCheguei"); if (bc) bc.onclick = () => marcarChegou(c, p, false);
   const pal = $("#pPal"); if (pal) pal.oninput = () => { S.palavra = pal.value; };
   const lib = $("#btLib"); if (lib) lib.onclick = async () => {
     try { atualizarCarga(await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/liberacao`, { motivo: "Cliente não tem a palavra" })); render(); }
@@ -373,18 +420,41 @@ function ligarPedido(c, p) {
   document.querySelectorAll("[data-q]").forEach(i => i.oninput = () => { S.linhas[i.dataset.q] = Math.max(0, Math.min(+i.max, Math.floor(+i.value || 0))); });
   document.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const i = b.dataset.m; S.linhas[i] = Math.max(0, (S.linhas[i] || 0) - 1); render(); });
   document.querySelectorAll("[data-pl]").forEach(b => b.onclick = () => { const i = b.dataset.pl, it = p.itens.find(x => String(x.i) === i); S.linhas[i] = Math.min(it.qtd, (S.linhas[i] || 0) + 1); render(); });
-  const f = $("#pFoto"); if (f) f.onchange = () => { const arq = f.files && f.files[0]; if (arq) comprimir(arq).then(d => { S.foto = d; S.obs = ($("#pObs") || {}).value || S.obs; render(); }).catch(() => { S.erro = "Não consegui ler a foto. Tire de novo."; render(); }); };
+  const f = $("#pFoto"); if (f) f.onchange = () => { const arq = f.files && f.files[0]; if (arq) comprimir(arq, marca(c, p)).then(d => { S.foto = d; S.obs = ($("#pObs") || {}).value || S.obs; render(); }).catch(() => { S.erro = "Não consegui ler a foto. Tire de novo."; render(); }); };
   const cf = $("#pConf"); if (cf) cf.onclick = () => registrar(c, p, S.modo);
   const df = $("#btDesf"); if (df) df.onclick = async () => {
     try { atualizarCarga(await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/desfazer`, {})); S.modo = ""; render(); }
     catch (e) { if (!e.tratado) { S.erro = e.message; render(); } } };
 }
-function comprimir(arq) {
+// [v6.1] marca d'água: dia, horário, latitude/longitude, cliente, motorista e carga — gravada NA foto (não dá para tirar depois)
+function marca(c, p) {
+  const g = S.gps.ult, agora = new Date();
+  const dt = agora.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) + " " + agora.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const mot = ((S.me || {}).motorista || {}).nome || "";
+  return [`${dt}`,
+    g ? `Lat ${g.lat.toFixed(6)}  Lng ${g.lng.toFixed(6)}${g.prec ? `  ±${Math.round(g.prec)} m` : ""}${g.t && Date.now() - g.t > 120000 ? "  (GPS de " + new Date(g.t).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) + ")" : ""}` : "Sem GPS no momento da foto",
+    `Cliente: ${p.nome || ""} · PV ${p.pv}`,
+    `Motorista: ${mot}${(S.me || {}).placa ? " · " + S.me.placa : ""}`,
+    `Carga: ${c.numero}`];
+}
+function carimbar(ctx, w, h, linhas) {
+  const fs = Math.max(15, Math.round(w / 34)), lh = Math.round(fs * 1.3), pad = Math.round(fs * .6);
+  ctx.font = `600 ${fs}px "IBM Plex Sans", Arial, sans-serif`;
+  const larg = Math.min(w - 2 * pad, Math.max(...linhas.map(l => ctx.measureText(l).width)) + 2 * pad);
+  const alt = linhas.length * lh + pad * 1.4;
+  ctx.fillStyle = "rgba(0,0,0,.58)"; ctx.fillRect(pad / 2, h - alt - pad / 2, larg, alt);
+  ctx.fillStyle = "#E8B04A"; ctx.fillRect(pad / 2, h - alt - pad / 2, Math.max(3, fs / 4), alt);
+  ctx.fillStyle = "#fff"; ctx.textBaseline = "top"; ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 2;
+  linhas.forEach((l, i) => ctx.fillText(l, pad * 1.3, h - alt - pad / 2 + pad * .7 + i * lh, larg - pad * 1.6));
+  ctx.shadowBlur = 0;
+}
+function comprimir(arq, linhas) {
   return new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(arq);
     img.onload = () => { const max = 1000, k = Math.min(1, max / Math.max(img.width, img.height));
       const cv = document.createElement("canvas"); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+      const ctx = cv.getContext("2d"); ctx.drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+      if (linhas && linhas.length) carimbar(ctx, cv.width, cv.height, linhas);
       let q = .7, d = cv.toDataURL("image/jpeg", q); while (d.length > 420000 && q > .3) { q -= .1; d = cv.toDataURL("image/jpeg", q); } res(d); };
     img.onerror = rej; img.src = url;
   });
@@ -435,7 +505,7 @@ async function carregarChat(redesenhar) {
 }
 function htmlMsgs(a) {
   return a.msgs.map(m => m.de === "sistema" ? `<div class="cap" style="text-align:center">${esc(m.txt)} · ${hora(m.em)}</div>` :
-    `<div class="msg-ch ${m.de === "motorista" ? "eu" : ""}"><small>${esc(m.de === "motorista" ? "Você" : "Frota · " + m.nome)} · ${hora(m.em)}</small>${esc(m.txt)}</div>`).join("");
+    `<div class="msg-ch ${m.de === "motorista" ? "eu" : ""}"><small>${esc(m.de === "motorista" ? "Você" : "Frota · " + m.nome)} · ${hora(m.em)}</small>${m.foto ? `<a href="/api/motorista/foto/${esc(m.foto)}" target="_blank" rel="noopener"><img src="/api/motorista/foto/${esc(m.foto)}" alt="foto enviada no chat" loading="lazy"></a>${m.txt && m.txt !== "📷 Foto" ? esc(m.txt) : ""}` : esc(m.txt)}</div>`).join("");
 }
 function atualizarMsgs() {
   const a = (S.chatDados || {}).atual, l = $("#chLista"); if (!a || !l) return;
@@ -469,18 +539,23 @@ function desenharChat() {
         ${(d.motivos || []).map(m => `<button type="button" class="big" data-mot="${esc(m)}">${esc(m)}</button>`).join("")}</div>`
       : `<div class="card" id="chLista" data-sig="${a.msgs.length}|${a.msgs.length ? a.msgs[a.msgs.length - 1].em : ""}" style="gap:8px;max-height:52vh;overflow:auto">${msgs}</div>
         <div class="card"><textarea id="chTxt" rows="2" placeholder="Escreva para a frota" maxlength="500">${esc(rascunho)}</textarea>
-          <button type="button" class="pri big" id="chEnv">Enviar</button><p class="cap">Voltar não encerra a conversa. Quem encerra é a frota.</p></div>`}`;
+          <div class="ch-acoes"><label class="big" style="display:grid;place-items:center;width:auto;padding:0 18px;border:1px solid var(--rule);border-radius:14px;cursor:pointer;font-size:22px" title="Tirar foto e enviar" aria-label="Tirar foto e enviar">📷<input id="chFoto" type="file" accept="image/*" capture="environment" hidden></label>
+          <button type="button" class="pri big" id="chEnv">Enviar</button></div><p class="cap">📷 manda foto com data, hora, local, cliente, motorista e carga. Voltar não encerra a conversa. Quem encerra é a frota.</p></div>`}`;
   const lista = $("#chLista"); if (lista) lista.scrollTop = lista.scrollHeight;
   $("#chVolta").onclick = () => { S.chatRascunho = ($("#chTxt") || {}).value || ""; S.chat = false; clearInterval(chatTimer); chatTimer = null; render(); window.scrollTo(0, 0); };
   document.querySelectorAll("[data-mot]").forEach(b => b.onclick = () => enviarChat({ motivo: b.dataset.mot }));
   const t = $("#chTxt"); if (t) { t.oninput = () => { S.chatRascunho = t.value; }; }
   const env = $("#chEnv"); if (env) env.onclick = () => { const v = ($("#chTxt").value || "").trim(); if (v) enviarChat({ texto: v }); };
+  const cf = $("#chFoto"); if (cf) cf.onchange = () => { const arq = cf.files && cf.files[0]; if (!arq) return;
+    S.chatErro = "Enviando a foto…"; atualizarMsgs();
+    comprimir(arq, marca(c, p)).then(d => enviarChat({ texto: ($("#chTxt").value || "").trim(), foto: d }))
+      .catch(() => { S.chatErro = "Não consegui ler a foto. Tire de novo."; atualizarMsgs(); }); cf.value = ""; };
 }
 async function enviarChat(corpo) {
   const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped); if (!p) return;
   try { const r = await api(`/cargas/${c.numero}/pedido/${encodeURIComponent(p.pv)}/chat`, corpo);
     const abriu = !(S.chatDados && S.chatDados.atual);
-    S.chatDados = { ...(S.chatDados || {}), ...r }; S.chatErro = ""; if (corpo.texto) { S.chatRascunho = ""; const t = $("#chTxt"); if (t) t.value = ""; }
+    S.chatDados = { ...(S.chatDados || {}), ...r }; S.chatErro = ""; if (corpo.texto || corpo.foto) { S.chatRascunho = ""; const t = $("#chTxt"); if (t) t.value = ""; }
     p.chat = { ...(p.chat || {}), aberto: true, nao_lidas: 0 };
     if (abriu) desenharChat(); else { atualizarMsgs(); const l = $("#chLista"); if (l) l.scrollTop = l.scrollHeight; const t = $("#chTxt"); if (t) t.focus(); } }
   catch (e) { if (!e.tratado) S.chatErro = e.offline ? "Sem sinal: a mensagem não foi. Tente de novo." : e.message; atualizarMsgs(); if (!$("#chTela")) desenharChat(); }
@@ -494,6 +569,7 @@ function ligarGps() {
     const ant = S.gps.ult; S.gps.ult = p; S.gps.estado = "ativo"; barraStatus();
     const moveu = !ant || Math.hypot(p.lat - ant.lat, p.lng - ant.lng) > 0.0004;
     if (Date.now() - S.gps.enviado > (moveu ? 30000 : 90000)) { S.gps.enviado = Date.now(); api("/gps", { lat: p.lat, lng: p.lng, prec: p.prec }).catch(() => {}); }
+    conferirChegada();   // [v6.1] pendente → CHEGOU ao entrar no raio do endereço
   }, err => { S.gps.estado = err.code === 1 ? "negado" : "erro"; barraStatus(); }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
 }
 function pararGps() { if (S.gps.watch != null) navigator.geolocation.clearWatch(S.gps.watch); S.gps.watch = null; S.gps.estado = "parado"; barraStatus(); }
@@ -510,9 +586,12 @@ function marcarFila() {   // pedidos com registro guardado no celular aparecem c
     if (p && !p.desfecho) { p.enviando = true; p.desfecho = it.corpo.desfecho; }
   }
 }
+const naoLidas = () => ((S.dados && S.dados.cargas) || []).reduce((t, c) => t + c.pedidos.reduce((u, p) => u + ((p.chat || {}).nao_lidas || 0), 0), 0);
 async function carregar() {
   try {
+    const antes = naoLidas();
     S.dados = await api("/cargas");
+    if (naoLidas() > antes && navigator.vibrate) navigator.vibrate([180, 90, 180]);   // [v6.1] a frota respondeu
     S.cacheEm = null;
     marcarFila(); guardarCache();
     manterTela();
