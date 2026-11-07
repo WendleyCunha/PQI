@@ -739,13 +739,26 @@ function aplicarSessao(dados) {
   esqLimpar();
   if (USUARIO.trocar_senha) abrirTrocaSenha(true);
   iniciarSino();   // [v4.2]
+  iniciarAgente(); // [v6.0] Agente IA no topo
   // [v5.4] app instalado e a pessoa só tem um sistema (ex.: o chapa da montagem): abre direto nele
   if (APP_INSTALADO && SISTEMAS.length === 1 && !USUARIO.trocar_senha) abrirSistema(SISTEMAS[0]);
+}
+
+// [v6.0] Agente IA: o script só abre com login (rota protegida), então é carregado depois de entrar
+function iniciarAgente() {
+  if (window.PQIAgente) { window.PQIAgente.iniciar(); return; }
+  if (document.getElementById('scriptAgente')) return;
+  const s = document.createElement('script');
+  s.id = 'scriptAgente'; s.src = '/pqi-agente.js';
+  s.onload = () => { if (window.PQIAgente && USUARIO) window.PQIAgente.iniciar(); };
+  s.onerror = () => s.remove();   // sem o agente, o Painel continua funcionando normalmente
+  document.head.appendChild(s);
 }
 
 function mostrarLogin(aviso) {
   fecharTodasAbas();
   pararSino();
+  if (window.PQIAgente) window.PQIAgente.parar();   // [v6.0]
   USUARIO = null; SISTEMAS = [];
   $id('grid').innerHTML = '';
   $id('subLogin').textContent = aviso || 'Entre com o seu e-mail e senha.';

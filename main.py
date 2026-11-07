@@ -147,6 +147,9 @@ ROTAS_SO_ADMIN_PREFIXO = ("/api/admin/",)
 ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 _CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
+# [v6.0] Agente IA do topo: qualquer pessoa logada pergunta; quem alimenta é conferido na rota (agente.py)
+ROTAS_QUALQUER_LOGADO |= {"/pqi-agente.js"}
+ROTAS_QUALQUER_LOGADO_PREFIXO = ("/api/agente/",)
 
 _cache_usuarios: dict = {}
 _CACHE_SEG = 300   # [v4.18] 5 min (era 30 s): toda mudança feita por aqui já limpa o cache na hora; economiza leituras do Firestore
@@ -342,7 +345,7 @@ async def porteiro(request: Request, call_next):
         return _negar(eh_api, 401, "Sua sessão expirou ou você ainda não entrou. Faça login de novo.", caminho)
     request.state.usuario = usuario
 
-    if caminho in ROTAS_QUALQUER_LOGADO:
+    if caminho in ROTAS_QUALQUER_LOGADO or caminho.startswith(ROTAS_QUALQUER_LOGADO_PREFIXO):
         return await call_next(request)
     if caminho in ROTAS_SO_ADMIN or caminho.startswith(ROTAS_SO_ADMIN_PREFIXO):
         if usuario.get("papel") != "admin":
@@ -3297,6 +3300,15 @@ for _rota, _arq, _tipo in (("/pqi-sw.js", "pqi-sw.js", "application/javascript")
 def acesso_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-acesso.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
+
+@app.get("/pqi-agente.js", include_in_schema=False)
+def agente_js():
+    return FileResponse(os.path.join(BASE_DIR, "pqi-agente.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
+# [v6.0] AGENTE IA — base de conhecimento no topo do Painel (agente.py + pqi-agente.js)
+import agente as agt
+agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil)
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld
