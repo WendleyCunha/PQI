@@ -349,6 +349,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
   async function rArt(pre) {
     if (!pre) { carregando(); try { ARTS = (await api('/artigos')).artigos || []; } catch (e) { return erroCfg(e); } }
     const a = pre || ARTS.find(x => x.id === SEL) || null;
+    // [v6.1] artigo que vem do Mapa Digital: é a própria IT — edita-se no Mapa (IT, fluxograma e agente são uma coisa só)
+    const doMapa = a && a.id && ((a.origem || {}).tipo === 'mapa' || String(a.id).startsWith('mapa-'));
     const lista = ARTS.length ? ARTS.map(x => `<div class="ag-art ${x.id === SEL ? 'sel' : ''}" data-id="${esc(x.id)}">
         <div class="t">${esc(x.titulo)}</div>
         <div class="m">${x.setor ? `<span class="ag-tg">${esc(x.setor)}</span>` : ''}${x.ativo === false ? '<span class="ag-tg off">Desativado</span>' : ''}v${esc(x.versao)} · ${esc(diaBR(x.atualizado_em))} · ${esc((x.atualizado_por || {}).nome || '')}${x.usos ? ' · ' + esc(x.usos) + ' usos' : ''}</div></div>`).join('')
@@ -360,7 +362,11 @@ textarea.ag-f{min-height:130px;resize:vertical}
     const deP = PEND_ATUAL ? `<div class="ag-dica" style="margin-bottom:6px">📥 ${prop ? `Revisando a resposta de <b>${esc((prop.por || {}).nome || '')}</b> para` : 'Respondendo a pendência:'} “${esc(PEND_ATUAL.pergunta)}”${PEND_ATUAL.obs ? ' — ' + esc(PEND_ATUAL.obs) : ''}${prop ? '<br>Ajuste se precisar e salve para publicar.' : ''}</div>` : '';
     cc().innerHTML = `<div class="ag-g2">
       <div class="ag-cx"><h5>Artigos (${ARTS.length})</h5><button type="button" class="ag-b1" id="agNovo" style="margin-bottom:8px">+ Novo artigo</button>${lista}</div>
-      <div class="ag-cx"><h5>${a && a.id ? 'Editar artigo' : 'Novo artigo'}</h5>${deP}
+      ${doMapa ? `<div class="ag-cx"><h5>🔗 ${esc(a.titulo)}</h5>${deP}
+        <div class="ag-dica" style="margin-bottom:8px"><b>Este artigo é a IT do Mapa Digital</b> (${esc((a.origem || {}).codigo || '')}). Ele é montado sozinho a partir dos passos, das regras e do fluxograma — e muda junto a cada alteração no Mapa. Para corrigir, edite a IT: o fluxograma e o agente acompanham.</div>
+        <div class="ag-bt"><button type="button" class="ag-b1" id="fMapa">✎ Editar no Mapa (IT + fluxograma)</button><button type="button" class="ag-b2" id="fTestar">Testar na conversa</button></div>
+        <label>O que o agente responde hoje</label><ol class="ag-dica" style="padding-left:20px">${(a.passos || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol></div>` :
+      `<div class="ag-cx"><h5>${a && a.id ? 'Editar artigo' : 'Novo artigo'}</h5>${deP}
         <label>Título — como as pessoas perguntariam</label><input class="ag-f" id="fT" maxlength="160" value="${esc(a ? a.titulo || '' : '')}" placeholder="Ex.: Como importar a carteira do dia">
         <label>Setor</label><input class="ag-f" id="fS" maxlength="60" value="${esc(a ? a.setor || '' : '')}" placeholder="CX, Compras, Logística, Qualidade…">
         <label>Passo a passo — um passo por linha</label><textarea class="ag-f" id="fP" placeholder="Abra…&#10;Clique em…&#10;Confira…">${esc(a && a.passos ? a.passos.join('\n') : '')}</textarea>
@@ -371,11 +377,16 @@ textarea.ag-f{min-height:130px;resize:vertical}
         <div class="ag-bt"><button type="button" class="ag-b1" id="fSalvar">${a && a.id ? 'Salvar nova versão' : 'Salvar artigo'}</button>
           ${a && a.id ? '<button type="button" class="ag-b2" id="fTestar">Testar na conversa</button>' : ''}
           ${PEND_ATUAL ? '<button type="button" class="ag-b2" id="fCancP">Cancelar</button>' : ''}</div>
-        <div class="ag-erro" id="fErro"></div>${versoes}</div></div>`;
+        <div class="ag-erro" id="fErro"></div>${versoes}</div>`}</div>`;
     cc().querySelectorAll('.ag-art').forEach(el => el.addEventListener('click', () => { SEL = el.dataset.id; PEND_ATUAL = null; rArt(ARTS.find(x => x.id === SEL)); }));
     cc().querySelector('#agNovo').addEventListener('click', () => { SEL = null; PEND_ATUAL = null; rArt({}); });
     const cancP = cc().querySelector('#fCancP'); if (cancP) cancP.addEventListener('click', () => { PEND_ATUAL = null; irAba('pen'); rPen(); });
     const testar = cc().querySelector('#fTestar'); if (testar) testar.addEventListener('click', () => { modoChat(); perguntar(a.titulo); });
+    const noMapa = cc().querySelector('#fMapa'); if (noMapa) noMapa.addEventListener('click', () => {
+      const ok = typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO((a.origem || {}).processo_id || String(a.id).replace(/^mapa-/, ''), 'tobe');
+      if (ok) fechar(); else toast('Abra o Mapa Digital pelo Painel para editar este processo.');
+    });
+    if (doMapa) return;
     cc().querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', async () => {
       if (!confirm(`Voltar o artigo ao conteúdo da versão ${b.dataset.v}? O conteúdo atual fica guardado como versão anterior.`)) return;
       try { await api(`/artigos/${encodeURIComponent(a.id)}/restaurar`, 'POST', { versao: Number(b.dataset.v) }); toast('Versão restaurada'); rArt(); } catch (e) { toast(e.message); }

@@ -21,6 +21,12 @@ Variáveis de ambiente (todas opcionais):
   AGENTE_PERFIS_ALIMENTAM   nomes de perfil, separados por vírgula (padrão: "Gerente")
 
 Coleções no Firestore: agente_artigos · agente_pendencias · agente_perguntas · agente_historico
+
+[v6.1] FONTE ÚNICA = MAPA DIGITAL
+  Cada processo do Mapa vira um artigo do agente (id "mapa-<processo>"), montado SÓ do que está
+  no Mapa: a IT vigente (passos + quem + onde + regra), as regras gerais e o fluxograma (lido
+  símbolo a símbolo, na ordem das setas). Toda gravação no Mapa refaz o artigo na hora — o agente
+  nunca tem uma versão diferente do Mapa. Esses artigos NÃO são editados no agente (só no Mapa).
 """
 import json
 import os
@@ -52,11 +58,11 @@ _CACHE_SEG = 60
 
 
 def ligar(app, usuario_atual: Callable, nome_perfil: Callable,
-          setores: Optional[Callable] = None, usuarios: Optional[Callable] = None) -> None:
+          setores: Optional[Callable] = None, usuarios: Optional[Callable] = None, processos: Optional[Callable] = None) -> None:
     """setores(): setores do Organograma ([{id, dados:{nome, pessoas:[{nome,cargo,email,vaga…}]}}]);
     usuarios(): {email: {nome, ativo}} de quem tem login no PQI."""
     H.update(usuario_atual=usuario_atual, nome_perfil=nome_perfil,
-             setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}))
+             setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}), processos=processos or (lambda: []))
     app.include_router(router)
 
 
@@ -301,6 +307,165 @@ def _com_fase(p: dict) -> dict:
     return {**p, "fase": fase(p)}
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# [v6.1] Artigos que vêm do MAPA DIGITAL (fonte única)
+# ══════════════════════════════════════════════════════════════════════════
+PREFIXO_MAPA = "mapa-"
+_SIMB_NOME = {"inicio": "Início", "fim": "Fim", "decisao": "Decisão", "subprocesso": "Subprocesso", "espera": "Espera",
+              "entrada": "Entrada de dados", "documento": "Documento", "sistema": "Sistema", "manual": "Operação manual"}
+_PALAVRAS_FRACAS = set("para pelo pela pelos pelas como com sem que quando onde este esta isso essa esse uma umas uns dos das nos nas "
+                       "ser sao tem mais menos todo toda todos todas cada sobre entre depois antes ainda pode deve".split())
+
+
+def _txt(v) -> str:
+    return re.sub(r"\s+", " ", str(v or "")).strip()
+
+
+def fluxo_em_texto(F: dict, limite: int = 1800) -> List[str]:
+    """O fluxograma lido em ordem: cada símbolo com a raia (quem faz) e para onde vai cada seta."""
+    nos = {n.get("id"): n for n in (F or {}).get("nos") or [] if isinstance(n, dict)}
+    raias = {r.get("id"): _txt(r.get("nome")) for r in (F or {}).get("raias") or [] if isinstance(r, dict)}
+    saidas: dict = {}
+    entra = set()
+    for l in (F or {}).get("ligacoes") or []:
+        if l.get("de") in nos and l.get("para") in nos:
+            saidas.setdefault(l["de"], []).append(l)
+            entra.add(l["para"])
+    nome = lambda n: _txt(n.get("texto")) or _SIMB_NOME.get(n.get("tipo"), "Etapa")
+    ordem, vistos = [], set()
+    inicios = [n for n in nos.values() if n.get("tipo") == "inicio"] + [n for n in nos.values() if n["id"] not in entra and n.get("tipo") != "inicio"]
+    fila = sorted(inicios, key=lambda n: n.get("x", 0)) + sorted(nos.values(), key=lambda n: n.get("x", 0))
+    def visitar(n):
+        pilha = [n]
+        while pilha:
+            a = pilha.pop(0)
+            if a["id"] in vistos:
+                continue
+            vistos.add(a["id"]); ordem.append(a)
+            pilha[0:0] = [nos[l["para"]] for l in sorted(saidas.get(a["id"], []), key=lambda l: nos[l["para"]].get("x", 0)) if l["para"] not in vistos]
+    for n in fila:
+        visitar(n)
+    linhas, tam = [], 0
+    for n in ordem:
+        if n.get("tipo") in ("nota", "conector"):
+            continue
+        quem = raias.get(n.get("raia"), "")
+        segue = [(_txt(l.get("rotulo")) + ": " if _txt(l.get("rotulo")) else "") + nome(nos[l["para"]]) for l in saidas.get(n["id"], [])]
+        t = (f"[{quem}] " if quem else "") + (nome(n) + "?" if n.get("tipo") == "decisao" and not nome(n).endswith("?") else nome(n))
+        if segue:
+            t += " → " + " | ".join(segue)
+        if tam + len(t) > limite:
+            linhas.append("…"); break
+        linhas.append(t); tam += len(t)
+    return linhas
+
+
+def it_vigente(d: dict):
+    """Qual IT o processo segue: a nova IT (TO BE) se tem passos; senão a IT atual; senão o como é feito hoje."""
+    tb = d.get("tobe") or {}
+    if any(_txt(x.get("descricao")) for x in tb.get("passos") or []):
+        aprov = _txt((d.get("validacao_tobe") or {}).get("parecer")).lower().startswith("aprov")
+        return ("tobe", tb.get("passos") or [], _txt(tb.get("codigo")) or _txt((d.get("it") or {}).get("codigo")), _txt(tb.get("versao")),
+                "aprovada" if aprov else "em validação", tb.get("regras") or "", tb.get("fluxo") or "", "tobe")
+    it = d.get("it") or {}
+    if any(_txt(x.get("descricao")) for x in d.get("passos_it") or []):
+        return ("it", d.get("passos_it") or [], _txt(it.get("codigo")), _txt(it.get("versao")), "oficial", "", it.get("obs") or "", "asis")
+    return ("real", d.get("passos_real") or [], "", "", "como é feito hoje (sem IT)", "", "", "asis")
+
+
+def artigo_do_processo(reg: dict) -> Optional[dict]:
+    """Artigo do agente montado só com o que está no Mapa. None = processo sem conteúdo."""
+    d = (reg or {}).get("dados") or {}
+    if not isinstance(d, dict) or d.get("_tipo") or not _txt(d.get("nome")):
+        return None
+    qual, passos, cod_it, ver, situacao, regras, excecoes, ver_fluxo = it_vigente(d)
+    passos = [x for x in passos if isinstance(x, dict) and _txt(x.get("descricao"))]
+    if not passos:
+        return None
+    cab = (f"Fonte oficial: Mapa Digital · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
+           + (f"rev. {ver} " if ver else "") + f"({situacao}). Este passo a passo é atualizado sozinho a cada alteração no Mapa.")
+    out = [cab]
+    for i, x in enumerate(passos, 1):
+        extra = " · ".join(t for t in (("Quem faz: " + _txt(x.get("quem"))) if _txt(x.get("quem")) else "",
+                                        ("Onde: " + _txt(x.get("sistema"))) if _txt(x.get("sistema")) else "",
+                                        ("Regra: " + _txt(x.get("regra"))) if _txt(x.get("regra")) else "") if t)
+        out.append(f"{i}. {_txt(x.get('descricao'))}" + (f" ({extra})" if extra else ""))
+    regras_l = [_txt(r) for r in str(regras).splitlines() if _txt(r)]
+    if regras_l:
+        out.append("Regras gerais: " + " ".join(regras_l))
+    if _txt(excecoes):
+        out.append("Exceções: " + _txt(excecoes))
+    F = ((d.get("fluxo") or {}).get(ver_fluxo) or {})
+    fl = fluxo_em_texto(F)
+    if fl:
+        out.append("Fluxograma (" + ("como será" if ver_fluxo == "tobe" else "como é hoje") + "): " + " ⇢ ".join(fl))
+    texto_todo = " ".join([_txt(d.get("nome")), _txt(d.get("objetivo")), _txt((d.get("tobe") or {}).get("objetivo"))] + out)
+    freq: dict = {}
+    for w in palavras(texto_todo):
+        if len(w) >= 4 and w not in _PALAVRAS_FRACAS:
+            freq[w] = freq.get(w, 0) + 1
+    chave = " ".join(sorted(freq, key=lambda w: -freq[w])[:40])
+    titulo = _txt(d.get("nome")) + (f" — {cod_it}" if cod_it else "") + f" ({_txt(d.get('codigo'))})"
+    return {"titulo": titulo[:160], "setor": _txt(d.get("area")), "passos": out,
+            "palavras": " ".join(filter(None, [_txt(d.get("nome")), _txt(d.get("codigo")), cod_it, _txt(d.get("macroprocesso")), chave])),
+            "ativo": True}
+
+
+def sincronizar_processo(reg: dict, quem: str = "Mapa Digital") -> Optional[dict]:
+    """Refaz o artigo do processo. Chamado a cada gravação no Mapa (nunca derruba a gravação)."""
+    pid = (reg or {}).get("id")
+    if not pid:
+        return None
+    aid = PREFIXO_MAPA + pid
+    novo = artigo_do_processo(reg)
+    art = P["ler"](COL_ART, aid)
+    if not novo:
+        if art and art.get("ativo"):
+            art.update(ativo=False, atualizado_em=agora())
+            P["gravar"](COL_ART, aid, art); esquecer_cache()
+        return art
+    por = {"nome": quem, "email": ""}
+    origem = {"tipo": "mapa", "processo_id": pid, "codigo": _txt(((reg.get("dados") or {}).get("codigo"))), "versao_mapa": reg.get("versao")}
+    if not art:
+        art = {"id": aid, **novo, "versao": 1, "usos": 0, "criado_em": agora(), "criado_por": por,
+               "atualizado_em": agora(), "atualizado_por": por, "versoes": [], "origem": origem}
+    elif _conteudo(art) != novo:
+        anterior = {**_conteudo(art), "versao": art.get("versao", 1), "em": art.get("atualizado_em"), "por": art.get("atualizado_por")}
+        art.update(novo, versao=int(art.get("versao", 1)) + 1, atualizado_em=agora(), atualizado_por=por, origem=origem,
+                   versoes=([anterior] + list(art.get("versoes") or []))[:MAX_VERSOES])
+    else:
+        art["origem"] = origem
+    P["gravar"](COL_ART, aid, art)
+    esquecer_cache()
+    return art
+
+
+def remover_processo(pid: str) -> None:
+    art = P["ler"](COL_ART, PREFIXO_MAPA + pid)
+    if art and art.get("ativo"):
+        art.update(ativo=False, atualizado_em=agora())
+        P["gravar"](COL_ART, art["id"], art); esquecer_cache()
+
+
+def _bloquear_se_mapa(art: dict) -> None:
+    if (art.get("origem") or {}).get("tipo") == "mapa" or str(art.get("id", "")).startswith(PREFIXO_MAPA):
+        raise HTTPException(status_code=409, detail=f"Este artigo vem do Mapa Digital ({(art.get('origem') or {}).get('codigo') or 'processo'}). "
+                                                    "Altere no Mapa — o agente atualiza sozinho.")
+
+
+@router.post("/sincronizar-mapa")
+def agente_sincronizar_mapa(request: Request):
+    """Refaz todos os artigos do Mapa (usado uma vez ao ligar a v6.1, ou para conferir)."""
+    _exigir_alimentar(request)
+    lst = H.get("processos", lambda: [])() or []
+    feitos = [a for a in (sincronizar_processo(r) for r in lst) if a]
+    vivos = {r.get("id") for r in lst}
+    for a in P["listar"](COL_ART):
+        if str(a.get("id", "")).startswith(PREFIXO_MAPA) and a["id"][len(PREFIXO_MAPA):] not in vivos:
+            remover_processo(a["id"][len(PREFIXO_MAPA):])
+    return {"artigos": [{"id": a["id"], "titulo": a.get("titulo"), "ativo": a.get("ativo"), "versao": a.get("versao")} for a in feitos]}
+
+
 @router.get("/me")
 def agente_me(request: Request):
     u = _usuario(request)
@@ -442,6 +607,7 @@ def agente_artigo_editar(aid: str, payload: Artigo, request: Request):
     art = P["ler"](COL_ART, aid)
     if not art:
         raise HTTPException(status_code=404, detail="Artigo não encontrado.")
+    _bloquear_se_mapa(art)
     novo = payload.model_dump(exclude={"pendencia_id", "motivo"})
     if novo == _conteudo(art):
         return art
@@ -462,6 +628,7 @@ def agente_artigo_restaurar(aid: str, payload: Restaurar, request: Request):
     art = P["ler"](COL_ART, aid)
     if not art:
         raise HTTPException(status_code=404, detail="Artigo não encontrado.")
+    _bloquear_se_mapa(art)
     alvo = next((v for v in (art.get("versoes") or []) if int(v.get("versao", 0)) == payload.versao), None)
     if not alvo:
         raise HTTPException(status_code=404, detail="Essa versão não está mais guardada.")

@@ -3096,6 +3096,17 @@ def cartas_colab_excluir(colab_id: str, request: Request):
     return {"sucesso": True}
 
 
+# [v6.1] FONTE ÚNICA: toda gravação no Mapa refaz o artigo do agente (agente.py) — nunca derruba a gravação
+def _agente_do_mapa(registro, excluido_id: str = "", quem: str = "Mapa Digital"):
+    try:
+        if excluido_id:
+            agt.remover_processo(excluido_id)
+        elif registro:
+            agt.sincronizar_processo(registro, quem)
+    except Exception as e:   # noqa: BLE001
+        print(f"[agente] não sincronizou o processo do Mapa: {e}")
+
+
 @app.get("/api/mapa/processos")
 def mapa_listar():
     return db.mapa_listar()
@@ -3106,7 +3117,9 @@ def mapa_criar(payload: ProcessoEntrada, request: Request):
     if not isinstance(payload.dados, dict):
         raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
     _checar_tamanho(payload.dados)
-    return db.mapa_criar(payload.dados, _nome_de(request), _email(request))
+    reg = db.mapa_criar(payload.dados, _nome_de(request), _email(request))
+    _agente_do_mapa(reg, quem=f"Mapa Digital · {_nome_de(request)}")
+    return reg
 
 
 @app.put("/api/mapa/processos/{processo_id}")
@@ -3120,6 +3133,7 @@ def mapa_salvar(processo_id: str, payload: ProcessoEntrada, request: Request):
         raise HTTPException(status_code=404, detail="Processo não encontrado (pode ter sido excluído).")
     if resultado == "conflito":
         return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
+    _agente_do_mapa(registro, quem=f"Mapa Digital · {_nome_de(request)}")
     return registro
 
 
@@ -3171,6 +3185,7 @@ def _resumo_diario_da_atividade(diario: list, atividade) -> dict:
 def mapa_excluir(processo_id: str, request: Request):
     if not db.mapa_excluir(processo_id, _nome_de(request)):
         raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    _agente_do_mapa(None, excluido_id=processo_id)
     return {"sucesso": True}
 
 
@@ -3310,7 +3325,8 @@ def agente_js():
 import agente as agt
 agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           setores=_todos_setores,   # pendência atribuída a uma pessoa do Organograma (pelo e-mail)
-          usuarios=lambda: {x.get("email"): {"nome": x.get("nome"), "ativo": x.get("ativo", True)} for x in db.usuarios_listar()})
+          usuarios=lambda: {x.get("email"): {"nome": x.get("nome"), "ativo": x.get("ativo", True)} for x in db.usuarios_listar()},
+          processos=db.mapa_listar)   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

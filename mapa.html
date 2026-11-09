@@ -261,6 +261,7 @@ table.matriz td.zero{color:var(--rule)}
 .fx-area svg{display:block;user-select:none;touch-action:none;cursor:grab}
 .fx-area.panning,.fx-area.panning *{cursor:grabbing!important}
 .fx-no{cursor:move}
+.banner.amarra{border-left:4px solid #C98A0B} .banner.amarra.ok{border-left-color:#2F7D4F;background:color-mix(in srgb,#2F7D4F 7%,var(--sheet,#fff))}
 .fx-multi{fill:rgba(43,99,176,.08);stroke:#2B63B0;stroke-width:1.6;stroke-dasharray:5 4;pointer-events:none}
 .fx-area.selecionando,.fx-area.selecionando svg{cursor:crosshair}
 .fx-area.movendo,.fx-area.movendo *{cursor:grabbing!important}
@@ -425,9 +426,140 @@ function sessaoExpirada(){
 }
 function procPorId(id){ return PROCS.find(p=>p.id===id); }
 
+
+// ═══ [v6.1] IT ⇄ FLUXOGRAMA ⇄ AGENTE: UMA COISA SÓ ═══════════════════════════════════════
+// Cada passo (Como é feito hoje / TO BE) é amarrado aos símbolos do fluxograma da mesma versão
+// (símbolo.passo = id do passo). A cada gravação, amarrar() compara com o último estado amarrado
+// (dados.amarracao[ver].espelho) e propaga para o outro lado o que mudou:
+//   passo novo → símbolo novo (na raia de "Quem faz", na ordem)      símbolo novo → passo novo
+//   passo apagado → símbolo(s) apagado(s), setas religadas            símbolo apagado → passo apagado
+//   "Quem faz" mudou → símbolo muda de raia (cria a raia)             símbolo mudou de raia → "Quem faz"
+//   "Nome no fluxograma" mudou → texto do símbolo                     texto do símbolo → "Nome no fluxograma"
+//   ordem dos passos mudou → símbolos trocam de posição               símbolo arrastado na horizontal → ordem dos passos
+//   raia renomeada → "Quem faz" de todos os passos dela
+// O servidor refaz o artigo do Agente a cada gravação (agente.py) — IT, fluxograma e agente nunca divergem.
+const AMARRA_AUTO = new Set(["processo","subprocesso","manual","documento","entrada","sistema","espera"]);  // viram passo sozinhos
+const AMARRA_NUNCA = new Set(["inicio","fim","nota","conector"]);                                          // nunca são passo
+const nomeCurto = t => { t=tx(t); if(t.length<=60) return t; const c=t.slice(0,60); return c.slice(0,Math.max(c.lastIndexOf(" "),40))+"…"; };
+const rotuloDe = x => tx(x.rotulo) || nomeCurto(x.descricao);
+const normQ = t => tx(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+function listaDaVersao(d,ver){ if(ver==="tobe"){ d.tobe=d.tobe||{}; if(!Array.isArray(d.tobe.passos)) d.tobe.passos=[]; return d.tobe.passos; }
+  if(!Array.isArray(d.passos_real)) d.passos_real=[]; return d.passos_real; }
+function amarracaoAtiva(d,ver){ return !!(d.amarracao&&d.amarracao[ver]&&d.amarracao[ver].ativo); }
+function novoPassoVazio(ver,texto,quem){ const b={id:uid(),descricao:texto,rotulo:texto,quem,sistema:""};
+  return ver==="tobe"?{...b,regra:"",mudanca:"Novo"}:{...b,dado:"",tempo_min:"",vezes_mes:"",it_ref:"",aderencia:"",diferenca:"",obs:"",autor:(window.EU&&EU.nome)||"",criado_em:new Date().toISOString()}; }
+function amarrar(d){ ["asis","tobe"].forEach(ver=>{ try{ amarrarVer(d,ver); }catch(e){ console.warn("amarrar",ver,e); } }); }
+function amarrarVer(d,ver){
+  d.fluxo=d.fluxo||{}; const F=d.fluxo[ver]=d.fluxo[ver]||{}; ["raias","nos","ligacoes"].forEach(k=>{ if(!Array.isArray(F[k])) F[k]=[]; });
+  const L=listaDaVersao(d,ver);
+  d.amarracao=d.amarracao||{};
+  if(!d.amarracao[ver]){ if(!L.some(x=>tx(x.descricao))&&!F.nos.length) d.amarracao[ver]={ativo:true,espelho:null}; else return; }   // processo novo já nasce amarrado
+  const A=d.amarracao[ver]; if(!A.ativo) return;
+  L.forEach(x=>{ if(!x.id) x.id=uid(); });
+  const E=A.espelho||{passos:{},nos:{},ordem:[]}, temE=!!A.espelho;
+  const raiaPorId=id=>F.raias.find(r=>r.id===id), raiaNome=n=>tx((raiaPorId(n.raia)||{}).nome);
+  const garantirRaiaNome=nome=>{ nome=tx(nome)||"Executante"; let r=F.raias.find(r=>normQ(r.nome)===normQ(nome)); if(!r){ r={id:uid(),nome}; F.raias.push(r); } return r; };
+  const RY={inicio:52,fim:52,processo:42,decisao:25,entrada:44,sistema:37,subprocesso:42,espera:45,documento:40,manual:45};
+  const removerNo=id=>{ const ent=F.ligacoes.filter(l=>l.para===id), sai=F.ligacoes.filter(l=>l.de===id);
+    ent.forEach(a=>sai.forEach(b=>{ if(a.de!==b.para&&!F.ligacoes.some(l=>l.de===a.de&&l.para===b.para)) F.ligacoes.push({id:uid(),de:a.de,para:b.para,rotulo:a.rotulo||"",via:null}); }));
+    F.ligacoes=F.ligacoes.filter(l=>l.de!==id&&l.para!==id); F.nos=F.nos.filter(n=>n.id!==id); };
+  const nosDo=pid=>F.nos.filter(n=>n.passo===pid);
+  const principal=pid=>{ const ns=nosDo(pid); return ns.filter(n=>n.tipo!=="decisao").sort((a,b)=>a.x-b.x)[0]||ns.sort((a,b)=>a.x-b.x)[0]||null; };
+  // 1) passo apagado na IT → símbolos dele saem (setas religadas)
+  const idsL=new Set(L.map(x=>x.id));
+  Object.keys(E.passos).forEach(pid=>{ if(!idsL.has(pid)) nosDo(pid).forEach(n=>removerNo(n.id)); });
+  F.nos.forEach(n=>{ if(n.passo&&!idsL.has(n.passo)) delete n.passo; });
+  // 2) símbolo apagado no fluxograma → passo sai (se era o último símbolo dele)
+  const idsN=new Set(F.nos.map(n=>n.id));
+  Object.entries(E.nos).forEach(([nid,info])=>{ if(!idsN.has(nid)&&info.passo&&idsL.has(info.passo)&&!nosDo(info.passo).length){ const i=L.findIndex(x=>x.id===info.passo); if(i>=0) L.splice(i,1); } });
+  // 3) símbolo novo (sem passo) → passo novo na posição do símbolo
+  F.nos.filter(n=>!n.passo&&AMARRA_AUTO.has(n.tipo)&&!E.nos[n.id]&&tx(n.texto)).sort((a,b)=>a.x-b.x).forEach(n=>{
+    const antes=L.filter(x=>{ const pr=principal(x.id); return pr&&pr.x<=n.x; }).length;
+    const novo=novoPassoVazio(ver,tx(n.texto),raiaNome(n)); L.splice(antes,0,novo); n.passo=novo.id; });
+  // 4) passo novo (sem símbolo) → símbolo novo na raia de "Quem faz", logo depois do passo anterior
+  L.forEach((x,i)=>{ if(principal(x.id)||!tx(x.descricao)&&!tx(x.rotulo)) return;
+    const ant=L.slice(0,i).map(y=>principal(y.id)).filter(Boolean).pop()||null, prox=L.slice(i+1).map(y=>principal(y.id)).find(Boolean)||null;
+    const inicio=F.nos.find(n=>n.tipo==="inicio"), base=ant||(prox?null:inicio);
+    const nx=base?base.x+(SIMB[base.tipo]||SIMB.processo).w+60:(prox?prox.x:RAIA_W+40);
+    F.nos.forEach(n=>{ if(n.x>=nx||(prox&&n===prox)) n.x+=220; });
+    F.ligacoes.forEach(l=>{ if(l.via&&l.via.x>=nx) l.via={x:l.via.x+220,y:l.via.y}; });
+    const r=garantirRaiaNome(x.quem), n={id:uid(),tipo:"processo",texto:rotuloDe(x),raia:r.id,x:nx,ry:RY.processo,passo:x.id};
+    F.nos.push(n);
+    const de=ant||inicio;
+    const direta=de&&prox&&F.ligacoes.find(l=>l.de===de.id&&l.para===prox.id);
+    if(direta){ F.ligacoes.push({id:uid(),de:n.id,para:prox.id,rotulo:""}); direta.para=n.id; direta.via=null; }
+    else { if(de) F.ligacoes.push({id:uid(),de:de.id,para:n.id,rotulo:""}); if(prox) F.ligacoes.push({id:uid(),de:n.id,para:prox.id,rotulo:""}); }
+  });
+  // 5) quem faz ⇄ raia · nome ⇄ texto do símbolo
+  L.forEach(x=>{ const pr=principal(x.id); if(!pr) return; const ep=E.passos[x.id], en=E.nos[pr.id];
+    const mover=nome=>{ const r=garantirRaiaNome(nome); nosDo(x.id).forEach(n=>{ if(n.tipo!=="decisao"||nosDo(x.id).length===1) n.raia=r.id; }); };
+    // quem faz ⇄ raia (o que mudou desde a última amarração ganha; na 1ª amarração vale a IT)
+    const mudouQuem=!!ep&&normQ(ep.quem)!==normQ(x.quem), mudouRaia=!!en&&normQ(en.raia)!==normQ(raiaNome(pr));
+    if(mudouQuem&&tx(x.quem)) mover(x.quem);
+    else if(mudouRaia) x.quem=raiaNome(pr);
+    else if(normQ(x.quem)!==normQ(raiaNome(pr))){ if(!ep&&tx(x.quem)) mover(x.quem); else x.quem=raiaNome(pr); }
+    // nome no fluxograma ⇄ texto do símbolo (na 1ª amarração vale o texto do símbolo)
+    const rot=rotuloDe(x), mudouRot=!!ep&&tx(ep.rotulo)!==rot, mudouTexto=!!en&&tx(en.texto)!==tx(pr.texto);
+    if(mudouRot) pr.texto=rot;
+    else if(mudouTexto) x.rotulo=tx(pr.texto);
+    else if(tx(pr.texto)!==rot){ if(!en&&tx(pr.texto)) x.rotulo=tx(pr.texto); else pr.texto=rot; }
+  });
+  // 6) ordem: IT reordenada → símbolos trocam de lugar · símbolo arrastado na horizontal → IT reordena
+  const comNo=L.filter(x=>principal(x.id)).map(x=>x.id);
+  const ordemEsp=(E.ordem||[]).filter(id=>comNo.includes(id));
+  const mesmo=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+  const porX=[...comNo].sort((a,b)=>principal(a).x-principal(b).x||comNo.indexOf(a)-comNo.indexOf(b));
+  if(temE&&!mesmo(comNo,ordemEsp)&&mesmo(porX,ordemEsp)){   // a IT mudou de ordem → as posições acompanham
+    const xs=comNo.map(id=>principal(id).x).sort((a,b)=>a-b);
+    comNo.forEach((id,i)=>{ const pr=principal(id), dx=xs[i]-pr.x; if(dx) nosDo(id).forEach(n=>n.x+=dx); });
+  } else if(!mesmo(porX,comNo)){   // o fluxograma mudou de ordem → a IT acompanha
+    const pos=new Map(porX.map((id,i)=>[id,i])); const sem=L.filter(x=>!pos.has(x.id));
+    const ord=L.filter(x=>pos.has(x.id)).sort((a,b)=>pos.get(a.id)-pos.get(b.id));
+    const novo=[]; let k=0; L.forEach(x=>{ novo.push(pos.has(x.id)?ord[k++]:x); }); L.splice(0,L.length,...novo);
+  }
+  // 7) novo espelho
+  A.espelho={passos:Object.fromEntries(L.map(x=>[x.id,{quem:tx(x.quem),rotulo:rotuloDe(x)}])),
+    nos:Object.fromEntries(F.nos.filter(n=>n.passo).map(n=>[n.id,{passo:n.passo,raia:raiaNome(n),texto:tx(n.texto)}])),
+    ordem:L.filter(x=>principal(x.id)).map(x=>x.id)};
+}
+// faixa "uma coisa só" mostrada na IT, no Como é feito hoje e no Fluxograma
+function faixaAmarracao(d,ver,onde){
+  const nomeVer=ver==="tobe"?"TO BE (nova IT)":"AS IS (como é feito hoje)";
+  if(amarracaoAtiva(d,ver)){ const c=conferirAmarracao(d,ver);
+    return `<p class="banner amarra ok">🔗 <b>IT, fluxograma e Agente amarrados</b> — ${esc(nomeVer)}. Mudou um, muda o outro: passo novo vira símbolo, símbolo novo vira passo, "Quem faz" = raia, "Nome no fluxograma" = texto do símbolo, a ordem segue a posição. O Agente do PQI é refeito a cada gravação.${c.ok?"":` <b>⚠️ ${c.semNo.length+c.semPasso.length+c.raiaErrada.length} ajuste(s) pendente(s) — grave qualquer alteração para amarrar.</b>`}</p>`; }
+  return `<p class="banner amarra">⛓️ <b>${esc(nomeVer)}: IT e fluxograma ainda soltos</b> — um pode dizer uma coisa e o outro outra. <button type="button" class="peq" data-amarrar="${ver}">🔗 Amarrar agora</button></p>`;
+}
+function ligarFaixaAmarracao(c,p,d,sv){
+  c.querySelectorAll("[data-amarrar]").forEach(b=>b.onclick=()=>{ const ver=b.dataset.amarrar;
+    if(!confirm("Amarrar a IT e o fluxograma desta versão?\n\n• Cada símbolo é ligado ao passo mais parecido.\n• Passo sem símbolo ganha um símbolo; símbolo sem passo vira passo.\n• Daqui em diante, mudar um muda o outro, e o Agente acompanha.\n\nCtrl+Z desfaz.")) return;
+    const r=vincularAutomatico(d,ver); sv(); render(); PQI_ESTAVEL.aviso(`🔗 Amarrado: ${r.ligados} símbolo(s) ligados aos passos; o que faltava foi criado.`); });
+}
+
+// liga a amarração num processo que já tem IT e fluxograma: casa cada símbolo com o passo mais parecido
+function vincularAutomatico(d,ver){
+  const L=listaDaVersao(d,ver), F=((d.fluxo=d.fluxo||{})[ver]=d.fluxo[ver]||{raias:[],nos:[],ligacoes:[]});
+  const pal=t=>new Set(normQ(t).split(/[^a-z0-9]+/).filter(w=>w.length>=4));
+  const sim=(a,b)=>{ const A=pal(a),B=pal(b); let c=0; A.forEach(w=>{ if(B.has(w)) c++; }); return c/Math.max(1,Math.min(A.size,B.size)); };
+  const livres=F.nos.filter(n=>!n.passo&&AMARRA_AUTO.has(n.tipo));   // decisões ficam só no desenho (ou ligadas à mão no painel do símbolo)
+  const pares=[]; L.forEach(x=>livres.forEach(n=>{ const raia=tx((F.raias.find(r=>r.id===n.raia)||{}).nome);
+    const p=Math.max(sim(n.texto,x.rotulo||""),sim(n.texto,x.descricao))+(normQ(raia)===normQ(x.quem)?.25:0); if(p>=.34) pares.push([p,x.id,n]); }));
+  pares.sort((a,b)=>b[0]-a[0]); const usadoP=new Set(), usadoN=new Set();
+  pares.forEach(([p,pid,n])=>{ if(usadoP.has(pid)||usadoN.has(n.id)) return; n.passo=pid; usadoP.add(pid); usadoN.add(n.id); });
+  d.amarracao=d.amarracao||{}; d.amarracao[ver]={ativo:true,espelho:null}; amarrarVer(d,ver);
+  return {ligados:usadoP.size, passos:L.length};
+}
+// conferência que a tela mostra (deve dar sempre zero com a amarração ligada)
+function conferirAmarracao(d,ver){
+  const L=listaDaVersao(d,ver), F=(d.fluxo||{})[ver]||{nos:[],raias:[]};
+  const semNo=L.filter(x=>(tx(x.descricao)||tx(x.rotulo))&&!F.nos.some(n=>n.passo===x.id));
+  const semPasso=F.nos.filter(n=>AMARRA_AUTO.has(n.tipo)&&!n.passo);
+  const raiaErrada=L.filter(x=>{ const n=F.nos.find(n=>n.passo===x.id&&n.tipo!=="decisao"); return n&&normQ((F.raias.find(r=>r.id===n.raia)||{}).nome)!==normQ(x.quem); });
+  return {semNo,semPasso,raiaErrada,ok:!semNo.length&&!semPasso.length&&!raiaErrada.length};
+}
+
 // [v5.11] Ctrl+Z / Ctrl+Y: cada alteração guarda o estado anterior do processo (pqi-acesso.js)
 const HIST = window.PQI_ESTAVEL && PQI_ESTAVEL.historico ? PQI_ESTAVEL.historico({ lista:()=>CFG?PROCS.concat([CFG]):PROCS, salvar:p=>salvarSemHist(p), redesenhar:()=>render() }) : null;
-function salvar(p){ if(HIST) HIST.registrar(p); salvarSemHist(p); }
+function salvar(p){ if(p&&p.dados&&p.dados.codigo&&!p.dados._tipo) amarrar(p.dados); if(HIST) HIST.registrar(p); salvarSemHist(p); }
 function salvarSemHist(p){
   setStatus("salvando");
   clearTimeout(pend[p.id]);
@@ -908,7 +1040,8 @@ function abaReal(c,p,d,sv){
     <div class="kpis"><div class="kpi"><span>Horas/mês consumidas</span><b id="rHoras">${horas(R.horasMes)}</b><small>tempo (min) × vezes por mês</small></div>
       <div class="kpi"><span>Passos sem correspondência na IT</span><b>${R.semIT.length}</b><small>➕ feitos sem IT</small></div>
       <div class="kpi"><span>Pendentes de classificação</span><b>${R.pendente.length}</b><small>ligados, mas sem Conforme/Divergente</small></div></div>
-    <div id="rDiag"></div><div id="rTbl"></div><div id="rColar"></div>`;
+    ${faixaAmarracao(d,"asis","real")}<div id="rDiag"></div><div id="rTbl"></div><div id="rColar"></div>`;
+  ligarFaixaAmarracao(c,p,d,sv);
   blocoDoDiario($("#rDiag",c),d,sv);
   const opIT=()=>d.passos_it.map((x,i)=>[x.id,`${i+1}. ${tx(x.descricao).slice(0,70)}${tx(x.descricao).length>70?"…":""}`]).filter(x=>x[1].length>3);
   const atualizaHoras=()=>{ const h=$("#rHoras"); if(h) h.textContent=horas(confronto(d).horasMes); };
@@ -916,7 +1049,7 @@ function abaReal(c,p,d,sv){
     aoSalvar:()=>{ sv(); atualizaHoras(); }, aoEstrutura:render,
     aoMudar:(row,col)=>{ if(col.campo==="it_ref"){ if(!row.it_ref){ row.aderencia=""; } sv(); render(); } else if(col.campo==="aderencia") render(); },
     novaLinha:()=>({id:uid(),descricao:"",quem:"",sistema:"",dado:"",tempo_min:"",vezes_mes:"",it_ref:"",aderencia:"",diferenca:"",obs:""}),
-    colunas:[{campo:"descricao",label:"Como é feito hoje",tipo:"textarea",largura:280},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
+    colunas:[{campo:"descricao",label:"Como é feito hoje",tipo:"textarea",largura:280},{campo:"rotulo",label:"🔗 Nome no fluxograma",largura:150},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
       {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:110},{campo:"dado",label:"Dado gerado",largura:120},
       {campo:"tempo_min",label:"Tempo (min)",tipo:"number"},{campo:"vezes_mes",label:"Vezes/mês",tipo:"number"},
       {campo:"it_ref",label:"Corresponde ao passo da IT",tipo:"select",opcoes:opIT,vazio:"— nenhum (feito sem IT) —",largura:220},
@@ -1263,12 +1396,12 @@ function abaToBe(c,p,d,sv){
     <div class="grade"><label class="f">Código da nova IT<input id="tbCod" value="${esc(tb.codigo||d.it.codigo||"")}" ${travado?"disabled":""}></label>
       <label class="f">Versão / revisão<input id="tbVer" value="${esc(tb.versao)}" ${travado?"disabled":""}></label></div>
     <label class="f" style="margin-top:12px">Objetivo e escopo<textarea id="tbObj" rows="2" ${travado?"disabled":""}>${esc(tb.objetivo)}</textarea></label>
-    <h3>Passos da nova IT</h3><div id="tbIni"></div><div id="tbPassos"></div>
+    <h3>Passos da nova IT</h3>${faixaAmarracao(d,"tobe","it")}<div id="tbIni"></div><div id="tbPassos"></div>
     <label class="f" style="margin-top:14px">Regras gerais (o que passa a valer)<textarea id="tbReg" rows="5" ${travado?"disabled":""} placeholder="Ex.: Toda troca precisa de protocolo no SAC antes do reenvio.">${esc(tb.regras)}</textarea></label>
     <label class="f" style="margin-top:12px">Fluxo / exceções / observações<textarea id="tbFlu" rows="4" ${travado?"disabled":""}>${esc(tb.fluxo)}</textarea></label>
     <div class="acoes"><button type="button" id="tbPdf">${ICO.imprimir} Imprimir nova IT (PDF)</button></div>`;
   if(!travado){ [["tbCod","codigo"],["tbVer","versao"],["tbObj","objetivo"],["tbReg","regras"],["tbFlu","fluxo"]].forEach(([id,k])=>ligar(c,id,tb,k,sv)); }
-  $("#tbPdf",c).onclick=()=>imprimir(`Nova IT — ${tb.codigo||d.codigo}`,novaITHTML(p));
+  $("#tbPdf",c).onclick=()=>imprimir(`Nova IT — ${tb.codigo||d.codigo}`,novaITHTML(p)); ligarFaixaAmarracao(c,p,d,sv);
   const ac=$("#tbAc",c);
   if(!travado){
     const b1=el("button"); b1.type="button"; b1.textContent="Trazer gaps do diagnóstico"; ac.appendChild(b1);
@@ -1299,7 +1432,7 @@ function abaToBe(c,p,d,sv){
   }
   $("#tbPassos",c).appendChild(tabela({chave:"tbp",linhas:tb.passos,numerar:true,ordenavel:true,aoSalvar:sv,aoEstrutura:render,leitura:travado,rotuloAdd:"+ Adicionar passo",
     novaLinha:()=>({id:uid(),descricao:"",quem:"",sistema:"",regra:"",mudanca:"Novo"}),
-    colunas:[{campo:"descricao",label:"Passo (como passa a ser feito)",tipo:"textarea",largura:320},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
+    colunas:[{campo:"descricao",label:"Passo (como passa a ser feito)",tipo:"textarea",largura:320},{campo:"rotulo",label:"🔗 Nome no fluxograma",largura:150},{campo:"quem",label:"Quem faz",lista:"dl-quem",largura:120},
       {campo:"sistema",label:"Sistema",lista:"dl-sistemas",largura:110},{campo:"regra",label:"Regra / controle",tipo:"textarea",largura:200},
       {campo:"mudanca",label:"Em relação a hoje",tipo:"select",opcoes:MUDANCA,semVazio:true}]}));
 }
@@ -1319,7 +1452,10 @@ function abaValidToBe(c,p,d,sv){
   const v=d.validacao_tobe, tb=d.tobe;
   const abertas=tb.pendencias.filter(x=>!["Definida","Descartada"].includes(x.status)).length;
   const semPassos=!tb.passos.some(x=>tx(x.descricao));
-  const bloqueio = abertas ? `Ainda há ${abertas} pendência(s) do TO BE sem decisão (Aberta / Em discussão).` : semPassos ? "A nova IT ainda não tem passos." : "";
+  const conf=amarracaoAtiva(d,"tobe")?conferirAmarracao(d,"tobe"):null;   // [v6.1] IT, fluxograma e Agente precisam estar amarrados
+  const bloqueio = abertas ? `Ainda há ${abertas} pendência(s) do TO BE sem decisão (Aberta / Em discussão).` : semPassos ? "A nova IT ainda não tem passos."
+    : !conf ? "A nova IT e o fluxograma TO BE ainda não estão amarrados (abra o TO BE ou o Fluxograma e clique em “Amarrar agora”)."
+    : !conf.ok ? "A nova IT e o fluxograma TO BE têm diferenças — grave qualquer alteração para amarrar." : "";
   const aprovado=String(v.parecer||"").startsWith("Aprovado");
   c.innerHTML=`<p class="cap">Com tudo definido, a nova Instrução de Trabalho é aprovada e <b>passa a ser regra</b>. Depois de aprovada, ela fica travada para edição.</p>
     ${bloqueio&&!aprovado?`<p class="banner">⚠️ ${esc(bloqueio)} Resolva no <b>Desenho TO BE</b> antes de aprovar.</p>`:""}
@@ -1600,6 +1736,7 @@ function abaFluxo(c,p,d,sv){
   const F=d.fluxo[FX.ver], temPassos=(FX.ver==="asis"?d.passos_real:d.tobe.passos).some(x=>tx(x.descricao));
   const setor=BASE&&BASE.setores.find(s=>nrm(s.nome)===nrm(d.area));
   c.innerHTML=`<p class="cap">Fluxograma em raias (swimlane): cada <b>raia</b> é quem executa — pessoa, função ou subsetor. Assim fica visível quem faz cada passo e onde o trabalho passa de mão em mão. Desenhe o <b>AS IS</b> (como é hoje) e o <b>TO BE</b> (como será).</p>
+    ${faixaAmarracao(d,FX.ver,"fluxo")}
     <div class="fx-barra">
       <span class="fx-seg" role="tablist"><button type="button" data-ver="asis" class="${FX.ver==="asis"?"ativo":""}">AS IS · como é hoje</button><button type="button" data-ver="tobe" class="${FX.ver==="tobe"?"ativo":""}">TO BE · como será</button></span>
       <span class="fx-seg"><button type="button" id="fxMenos" title="Diminuir">−</button><span id="fxZ">${Math.round(FX.zoom*100)}%</span><button type="button" id="fxMais" title="Aumentar">+</button></span>
@@ -1615,6 +1752,7 @@ function abaFluxo(c,p,d,sv){
     </div>
     <p class="cap" style="margin-top:8px">Arraste os símbolos · puxe pelos pontos <b>●</b> da borda para ligar · clique numa ligação e arraste o ponto do meio para desviar (ou as pontas para religar) · duplo clique edita o texto · <code>Delete</code> exclui o selecionado · segure e arraste o <b>fundo</b> para mover a tela · <b>dois cliques no fundo</b> e arraste para selecionar vários símbolos — depois segure um deles e mova o grupo · <code>Ctrl+Z</code> desfaz · <code>Ctrl+Y</code> refaz · <code>Ctrl+C</code> / <code>Ctrl+V</code> copia e cola o símbolo.</p>`;
   const svg=$("#fxSvg",c), area=$("#fxArea",c), props=$("#fxProps",c);
+  ligarFaixaAmarracao(c,p,d,sv);
   if(!svg){ ligarInicioFluxo(c,d,sv,setor);
     c.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ FX.ver=b.dataset.ver; FX.sel={}; FX.multi=new Set(); FX.modoArea=false; render(); });
     c.querySelectorAll(".fx-simb").forEach(b=>b.onclick=()=>{ const S=SIMB[b.dataset.simb], r={id:uid(),nome:"Executante"}, n={id:uid(),tipo:b.dataset.simb,texto:["inicio","fim"].includes(b.dataset.simb)?S.nome:"",raia:r.id,x:RAIA_W+40,ry:Math.round((RAIA_MIN-S.h)/2)};
@@ -1781,12 +1919,14 @@ function abaFluxo(c,p,d,sv){
         <label class="f">Tipo<select id="pTipo">${Object.entries(SIMB).map(([k,v])=>`<option value="${k}"${k===n.tipo?" selected":""}>${esc(v.nome)}</option>`).join("")}</select></label>
         <label class="f">Texto<textarea id="pTxt" rows="4">${esc(n.texto)}</textarea></label>
         <label class="f">Raia (quem executa)<select id="pRaia">${F.raias.map(r=>`<option value="${r.id}"${r.id===n.raia?" selected":""}>${esc(r.nome)}</option>`).join("")}</select></label>
+        ${AMARRA_NUNCA.has(n.tipo)?"":`<label class="f">🔗 Passo da IT<select id="pPasso"><option value="">${AMARRA_AUTO.has(n.tipo)?"— vira um passo novo —":"— só no fluxograma —"}</option>${listaDaVersao(d,FX.ver).map((x,i)=>`<option value="${x.id}"${x.id===n.passo?" selected":""}>${i+1}. ${esc(nomeCurto(x.rotulo||x.descricao))}</option>`).join("")}</select></label>`}
         <div class="acoes"><button type="button" class="peq" id="pDup">Duplicar</button><button type="button" class="peq warn" id="pDel">Excluir</button></div>
         <p class="cap">Para ligar: puxe um dos pontos ● da borda até outro símbolo.</p>`;
       $("#pTipo",props).onchange=e=>{ n.tipo=e.target.value; salvarFx(); redesenhar(); };
       $("#pTxt",props).oninput=e=>{ n.texto=e.target.value; salvarFx(); }; $("#pTxt",props).onchange=()=>redesenhar();
       $("#pRaia",props).onchange=e=>{ n.raia=e.target.value; salvarFx(); redesenhar(); };
-      $("#pDup",props).onclick=()=>{ const m={...n,id:uid(),x:n.x+(SIMB[n.tipo]||SIMB.processo).w+40}; F.nos.push(m); FX.sel={tipo:"no",id:m.id}; salvarFx(); redesenhar(); };
+      const pp=$("#pPasso",props); if(pp) pp.onchange=e=>{ if(e.target.value) n.passo=e.target.value; else delete n.passo; salvarFx(); redesenhar(); };
+      $("#pDup",props).onclick=()=>{ const m={...n,id:uid(),x:n.x+(SIMB[n.tipo]||SIMB.processo).w+40}; delete m.passo; F.nos.push(m); FX.sel={tipo:"no",id:m.id}; salvarFx(); redesenhar(); };
       $("#pDel",props).onclick=excluirSel; return; }
     if(S.tipo==="lig"){ const l=F.ligacoes.find(x=>x.id===S.id); if(!l){ FX.sel={}; return desenharProps(); }
       const nm=id=>{ const n=F.nos.find(x=>x.id===id); return n?(tx(n.texto)||SIMB[n.tipo].nome):"?"; };
@@ -1879,6 +2019,8 @@ const TITULOS_GERAL = {arquitetura:["Visão macro e arquitetura — áreas e pro
 let vista="lista", atual=null, secProc="linha", secGeral="painel";
 const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
 try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav2")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual||null; secProc=s.secProc||"linha"; secGeral=s.secGeral||"painel"; } }catch(_){}
+window.addEventListener("message",e=>{ if(e.origin!==location.origin||!e.data||e.data.pqi!=="mapa-abrir") return;   // [v6.1] o Agente abre a IT aqui
+  if(PROCS.some(x=>x.id===e.data.id)) ir("processo",e.data.id,e.data.sec||"tobe"); });
 function guardarNav(){ try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
 function ir(v, id, sec){
   vista=v; if(id!==undefined&&id!==null) atual=id;
