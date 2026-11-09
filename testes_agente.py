@@ -30,6 +30,20 @@ SETORES = [{"id": "cx", "dados": {"nome": "CX", "pessoas": [
 CONTAS = {"maria.paula@ks": {"nome": "Maria Paula", "ativo": True}}
 USUARIO: dict = {}
 PROCESSOS: list = []
+
+
+def salvar_proc(pid, dados, versao, usuario):
+    for i, r in enumerate(PROCESSOS):
+        if r["id"] == pid:
+            PROCESSOS[i] = {**r, "dados": dados, "versao": r["versao"] + 1}
+            return "ok", PROCESSOS[i]
+    return "nao_existe", None
+
+
+def criar_proc(dados, usuario, email=None):
+    reg = {"id": f"P{len(PROCESSOS) + 10}", "versao": 1, "dados": dados}
+    PROCESSOS.append(reg)
+    return reg
 FALHAS = []
 
 
@@ -59,7 +73,7 @@ def montar():
     app = FastAPI()
     A.ligar(app, usuario_atual=lambda request: dict(USUARIO),
             nome_perfil=lambda u: "Administrador" if u.get("papel") == "admin" else u.get("_perfil_nome"),
-            processos=lambda: list(PROCESSOS),
+            processos=lambda: list(PROCESSOS), criar_processo=criar_proc, salvar_processo=salvar_proc,
             setores=lambda: SETORES, usuarios=lambda: CONTAS)
     return TestClient(app)
 
@@ -282,12 +296,73 @@ def teste_fonte_unica_mapa():
     ok(A.P["ler"](A.COL_ART, "mapa-P1")["ativo"] is False, "processo excluído do Mapa: o agente deixa de usar")
 
 
+def teste_falta_virar_it():
+    print("[v6.2] Falta virar IT: o que o agente sabe ou foi perguntado e não tem IT no Mapa")
+    ligar_memoria()
+    PROCESSOS.clear()
+    t = montar()
+    como("ger@ks", "Gerente")
+    man = t.post("/api/agente/artigos", json={"titulo": "Como pedir vistoria de produtos", "setor": "Qualidade",
+                                              "passos": ["Abra o chamado de vistoria", "Anexe as fotos da peça"], "palavras": "vistoria peça foto"}).json()
+    como("ana@ks")
+    t.post("/api/agente/perguntar", json={"pergunta": "como faço reembolso de frete?"})
+    t.post("/api/agente/perguntar", json={"pergunta": "Como faço o reembolso do frete"})
+    t.post("/api/agente/perguntar", json={"pergunta": "como ajustar saldo negativo no protheus"})
+    como("ana@ks")
+    ok(t.get("/api/agente/falta-it").status_code == 403, "só quem tem a ⚙️ vê a aba")
+    como("ger@ks", "Gerente")
+    f = t.get("/api/agente/falta-it").json()
+    ok([a["titulo"] for a in f["artigos"]] == ["Como pedir vistoria de produtos"], "artigo manual aparece como 'falta virar IT'")
+    reemb = [g for g in f["perguntas"] if "reembolso" in g["pergunta"].lower()]
+    ok(len(f["perguntas"]) == 2 and reemb and reemb[0]["vezes"] == 2, "perguntas sem resposta agrupadas por assunto, com quantas vezes")
+    ok(f["perguntas"][0]["vezes"] == 2, "a mais perguntada vem primeiro")
+    ok(t.get("/api/agente/me").json()["falta_it"] == 3, "contador da aba no /me")
+
+    print("[v6.2] virou IT no Mapa → a pendência fecha sozinha")
+    reg = {"id": "PX", "versao": 1, "dados": {"codigo": "PROC-001", "nome": "Carteira de Pedidos", "area": "CX",
+           "tobe": {"codigo": "IT CARTEIRA", "passos": [{"id": "a", "descricao": "Ajustar o saldo negativo no Protheus pela tela de Documento de Saída", "quem": "CX"}]}}}
+    PROCESSOS.append(reg)
+    A.sincronizar_processo(reg)
+    f = t.get("/api/agente/falta-it").json()
+    ok(not any("saldo" in g["pergunta"] for g in f["perguntas"]), "pergunta que a IT agora responde saiu da lista")
+    pen = [p for p in A.P["listar"](A.COL_PEN) if "saldo" in p["pergunta"]][0]
+    ok(pen["status"] == "resolvida" and "IT do Mapa" in pen["nota"], "pendência fechada com a nota 'respondida pela IT do Mapa'")
+
+    print("[v6.2] levar para o Mapa")
+    r = t.post("/api/agente/falta-it/criar-processo", json={"nome": "Vistoria de produtos", "area": "Qualidade", "artigo_id": man["id"]}).json()
+    novo = PROCESSOS[-1]["dados"]
+    ok(r["processo"]["codigo"] == "PROC-002" and len(novo["tobe"]["passos"]) == 2, "artigo vira processo novo no Mapa com os passos na nova IT")
+    ok(novo["amarracao"]["tobe"]["ativo"] and novo["amarracao"]["asis"]["ativo"], "processo já nasce com IT e fluxograma amarrados")
+    ok(A.P["ler"](A.COL_ART, man["id"])["ativo"] is False, "o artigo manual sai de cena: o agente responde pela IT")
+    como("ana@ks")
+    resp = t.post("/api/agente/perguntar", json={"pergunta": "como pedir vistoria de produtos"}).json()
+    ok(resp["fonte"]["id"].startswith("mapa-") and "PROC-002" in resp["fonte"]["titulo"], "a resposta agora vem da IT do Mapa")
+    como("ger@ks", "Gerente")
+    g = [g for g in t.get("/api/agente/falta-it").json()["perguntas"] if "reembolso" in g["pergunta"].lower()][0]
+    t.post("/api/agente/falta-it/criar-processo", json={"nome": "Reembolso de frete", "area": "CX", "pendencias": g["ids"]})
+    f = t.get("/api/agente/falta-it").json()
+    ok(f["perguntas"][0]["processo"]["codigo"] == "PROC-003" and not f["artigos"], "pergunta virou processo: fica na lista como 'falta escrever a IT'")
+
+    print("[v6.2] ligar a um processo que já existe (sem duplicar)")
+    PROCESSOS.append({"id": "PV", "versao": 3, "dados": {"codigo": "PROC-009", "nome": "Vistoria de Peças", "area": "Logística", "tobe": {"passos": []}}})
+    man2 = t.post("/api/agente/artigos", json={"titulo": "Como registrar a vistoria da peça", "passos": ["Abra a Vistoria", "Fotografe a etiqueta"],
+                                               "palavras": "vistoria etiqueta"}).json()
+    f = t.get("/api/agente/falta-it").json()
+    ok(any(x["codigo"] == "PROC-009" and not x["tem_it"] for x in f["processos"]), "a aba lista os processos do Mapa (e quem ainda não tem IT)")
+    r = t.post("/api/agente/falta-it/criar-processo", json={"artigo_id": man2["id"], "processo_id": "PV"}).json()
+    pv = [x for x in PROCESSOS if x["id"] == "PV"][0]
+    ok(r["processo"]["codigo"] == "PROC-009" and r["passos"] == 2 and len(pv["dados"]["tobe"]["passos"]) == 2, "IT vazia: os passos do artigo viram a IT do processo existente")
+    ok(pv["dados"]["amarracao"]["tobe"]["ativo"] and len(PROCESSOS) == 4, "não cria processo duplicado; IT já amarrada")
+    ok(A.P["ler"](A.COL_ART, man2["id"])["ativo"] is False, "o artigo manual sai de cena")
+
+
 if __name__ == "__main__":
     teste_permissoes()
     teste_perguntas()
     teste_ia_simulada()
     teste_atribuir()
     teste_fonte_unica_mapa()
+    teste_falta_virar_it()
     print()
     print("TUDO CERTO ✔" if not FALHAS else f"{len(FALHAS)} FALHA(S): " + "; ".join(FALHAS))
     sys.exit(1 if FALHAS else 0)

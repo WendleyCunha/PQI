@@ -3326,7 +3326,9 @@ import agente as agt
 agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           setores=_todos_setores,   # pendência atribuída a uma pessoa do Organograma (pelo e-mail)
           usuarios=lambda: {x.get("email"): {"nome": x.get("nome"), "ativo": x.get("ativo", True)} for x in db.usuarios_listar()},
-          processos=db.mapa_listar)   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
+          processos=db.mapa_listar,   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
+          criar_processo=db.mapa_criar,   # [v6.2] "Falta virar IT" → leva o assunto para o Mapa
+          salvar_processo=db.mapa_salvar)
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

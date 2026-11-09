@@ -196,6 +196,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
           <button type="button" class="on ag-tali" data-a="art">📄 Artigos</button>
           <button type="button" class="ag-tali" data-a="pen">📥 Pendências <span class="c" id="agPc" hidden>0</span></button>
           <button type="button" data-a="min">✍️ Comigo <span class="c" id="agMc" hidden>0</span></button>
+          <button type="button" class="ag-tali" data-a="fit" title="O que o agente sabe ou foi perguntado e ainda não tem IT no Mapa">🧩 Falta virar IT <span class="c" id="agFc" hidden>0</span></button>
           <button type="button" class="ag-tali" data-a="his">🕘 Histórico</button>
           <button type="button" class="ag-tali" data-a="pai">📊 Painel</button>
         </div>
@@ -240,6 +241,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
     BTN.title = min ? `Agente — ${min} pergunta(s) esperando a sua resposta` : 'Agente — tire dúvidas sobre os processos';
     const pc = POP.querySelector('#agPc'); pc.textContent = pend; pc.hidden = !pend;
     const mc = POP.querySelector('#agMc'); mc.textContent = min; mc.hidden = !min;
+    const fit = ME && ME.pode_alimentar ? (ME.falta_it || 0) : 0, fc = POP.querySelector('#agFc'); fc.textContent = fit; fc.hidden = !fit;
     POP.querySelector('#agMn').textContent = min; POP.querySelector('#agMin').hidden = !min;
   }
 
@@ -344,7 +346,64 @@ textarea.ag-f{min-height:130px;resize:vertical}
   function carregando() { cc().innerHTML = '<div class="ag-vz"><span class="ag-dig"><span></span><span></span><span></span></span></div>'; }
   function erroCfg(e) { cc().innerHTML = `<div class="ag-vz">⚠️ ${esc(e.message)}</div>`; }
   function irAba(a) { ABA = a; POP.querySelectorAll('#agAbas button').forEach(x => x.classList.toggle('on', x.dataset.a === a)); }
-  function render() { ({ art: rArt, pen: rPen, his: rHis, pai: rPai, min: rMin })[ABA](); }
+  function render() { ({ art: rArt, pen: rPen, his: rHis, pai: rPai, min: rMin, fit: rFit })[ABA](); }
+
+  /* ───────── [v6.2] 🧩 Falta virar IT (só quem tem a ⚙️) ───────── */
+  async function rFit() {
+    carregando();
+    let f; try { f = await api('/falta-it'); } catch (e) { return erroCfg(e); }
+    const perg = f.perguntas || [], arts = f.artigos || [];
+    if (ME) { ME.falta_it = perg.length + arts.length; if (f.fechadas_agora) ME.pendencias = Math.max(0, (ME.pendencias || 0) - f.fechadas_agora); contador(); }
+    const noMapa = pr => `<div class="ag-dica" style="margin:6px 0">🗺️ Já está no Mapa como <b>${esc(pr.codigo)} · ${esc(pr.nome)}</b> — falta escrever a IT (TO BE). Quando a IT responder, sai daqui sozinho.</div>
+      <div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-ir="${esc(pr.id)}">✎ Escrever a IT no Mapa</button></div>`;
+    const nomeDe = q => String(q || '').replace(/\?+\s*$/, '').replace(/^\s*(como\s+(eu\s+|que\s+)?|o que\s+|onde\s+)/i, '').trim().replace(/^./, c => c.toUpperCase()).slice(0, 120);
+    cc().innerHTML = `<div class="ag-cx"><h5>🧩 Falta virar IT</h5>
+      <div class="ag-dica" style="margin-bottom:10px">O que o agente sabe — ou o que perguntaram — e ainda <b>não tem IT no Mapa</b>. Leve para o Mapa: lá a IT, o fluxograma e o agente são uma coisa só. Quando a IT passa a responder, o item sai daqui e a pendência fecha sozinha.</div>
+      ${f.fechadas_agora ? `<div class="ag-dica" style="margin-bottom:10px">✅ ${esc(f.fechadas_agora)} pendência(s) fechada(s) agora: a IT do Mapa já responde.</div>` : ''}
+      <h5 style="margin-top:6px">❓ Perguntas sem IT (${perg.length})</h5>
+      ${perg.length ? perg.map((g, i) => `<div class="ag-pd" data-g="${i}"><div class="q">${esc(g.pergunta)}${g.vezes > 1 ? `<span class="ag-fs s">${esc(g.vezes)}× perguntada</span>` : ''}</div>
+          <div class="m">${esc((g.de || []).join(', '))} · última em ${esc(dataBR(g.ultima))}</div>
+          ${g.processo ? noMapa(g.processo) : `<div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-cp="p${i}">➕ Criar processo no Mapa</button></div>`}
+          <div class="ag-slot"></div></div>`).join('') : '<div class="ag-vz">Nenhuma pergunta sem IT 🎉</div>'}
+      <h5 style="margin-top:14px">📄 Artigos do agente sem IT (${arts.length})</h5>
+      ${arts.length ? arts.map((a, i) => `<div class="ag-pd" data-a="${i}"><div class="q">${esc(a.titulo)}</div>
+          <div class="m">${a.setor ? esc(a.setor) + ' · ' : ''}${esc(a.passos)} passo(s) · ${esc(a.usos)} uso(s) · atualizado em ${esc(dataBR(a.atualizado_em))}</div>
+          ${a.processo ? noMapa(a.processo) : `<div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-cp="a${i}">➕ Levar para o Mapa (vira a IT)</button><button type="button" class="ag-b2" data-des="${i}">Desativar</button></div>`}
+          <div class="ag-slot"></div></div>`).join('') : '<div class="ag-vz">Todo artigo do agente já é IT do Mapa 🎉</div>'}</div>`;
+    const abrirMapa = id => { if (typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO(id, 'tobe')) fechar(); else toast('Abra o Mapa Digital pelo Painel.'); };
+    cc().querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', () => abrirMapa(b.dataset.ir)));
+    cc().querySelectorAll('[data-cp]').forEach(b => b.addEventListener('click', () => {
+      const ehArt = b.dataset.cp[0] === 'a', item = ehArt ? arts[+b.dataset.cp.slice(1)] : perg[+b.dataset.cp.slice(1)];
+      const slot = b.closest('.ag-pd').querySelector('.ag-slot');
+      const procs = f.processos || [];
+      slot.innerHTML = `<label>Levar para</label><select class="ag-f" id="cpP"><option value="">➕ Processo novo no Mapa</option>${procs.map(x => `<option value="${esc(x.id)}">${esc(x.codigo)} · ${esc(x.nome)}${x.area ? ' (' + esc(x.area) + ')' : ''}${x.tem_it ? '' : ' — sem IT ainda'}</option>`).join('')}</select>
+        <div id="cpNovo"><label>Nome do processo no Mapa</label><input class="ag-f" id="cpN" maxlength="120" value="${esc(ehArt ? item.titulo : nomeDe(item.pergunta))}">
+        <label>Área</label><input class="ag-f" id="cpA" maxlength="60" value="${esc(ehArt ? item.setor || '' : '')}" placeholder="CX, Compras, Logística…"></div>
+        <div class="ag-dica">${ehArt ? `Os ${esc(item.passos)} passo(s) do artigo viram a nova IT (TO BE), já amarrada ao fluxograma. O artigo sai de cena: o agente passa a responder pela IT.` : 'O processo nasce no Mapa com a IT e o fluxograma amarrados. Escreva os passos no TO BE: quando a IT responder, a pendência fecha sozinha.'}</div>
+        <div class="ag-bt"><button type="button" class="ag-b1" id="cpOk">Criar no Mapa e abrir</button><button type="button" class="ag-b2" id="cpX">Cancelar</button></div><div class="ag-erro" id="cpE"></div>`;
+      slot.querySelector('#cpX').addEventListener('click', () => { slot.innerHTML = ''; });
+      const sel = slot.querySelector('#cpP'), nv = slot.querySelector('#cpNovo');
+      const parecido = procs.find(x => { const a = String(x.nome || '').toLowerCase(), b = String(ehArt ? item.titulo : item.pergunta).toLowerCase();
+        return a.split(/\W+/).filter(w => w.length >= 5).some(w => b.includes(w.slice(0, 6))); });
+      if (parecido) sel.value = parecido.id;   // já existe um processo parecido: sugere ligar a ele em vez de duplicar
+      const trocar = () => { nv.hidden = !!sel.value; slot.querySelector('#cpOk').textContent = sel.value ? 'Ligar e abrir no Mapa' : 'Criar no Mapa e abrir'; };
+      sel.addEventListener('change', trocar); trocar();
+      slot.querySelector('#cpOk').addEventListener('click', async ev => {
+        ev.target.disabled = true;
+        try {
+          const r = await api('/falta-it/criar-processo', 'POST', { nome: slot.querySelector('#cpN').value, area: slot.querySelector('#cpA').value,
+            artigo_id: ehArt ? item.id : null, pendencias: ehArt ? [] : item.ids, processo_id: sel.value || null });
+          toast(sel.value ? `✓ Ligado a ${r.processo.codigo}` + (r.passos ? ` · ${r.passos} passo(s) viraram a IT` : '') : `✓ ${r.processo.codigo} criado no Mapa`); await carregarMe(); abrirMapa(r.processo.id);
+        } catch (e) { slot.querySelector('#cpE').textContent = e.message; ev.target.disabled = false; }
+      });
+    }));
+    cc().querySelectorAll('[data-des]').forEach(b => b.addEventListener('click', async () => {
+      const a = arts[+b.dataset.des]; if (!confirm(`Desativar o artigo “${a.titulo}”? O agente deixa de usar (dá para reativar em Artigos).`)) return;
+      try { const full = (ARTS.length ? ARTS : ((await api('/artigos')).artigos || [])).find(x => x.id === a.id);
+        await api('/artigos/' + encodeURIComponent(a.id), 'PUT', { titulo: full.titulo, setor: full.setor || '', passos: full.passos, palavras: full.palavras || '', ativo: false, motivo: 'desativado em Falta virar IT' });
+        toast('Artigo desativado'); await carregarMe(); rFit(); } catch (e) { toast(e.message); }
+    }));
+  }
 
   async function rArt(pre) {
     if (!pre) { carregando(); try { ARTS = (await api('/artigos')).artigos || []; } catch (e) { return erroCfg(e); } }

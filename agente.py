@@ -27,6 +27,12 @@ Coleções no Firestore: agente_artigos · agente_pendencias · agente_perguntas
   no Mapa: a IT vigente (passos + quem + onde + regra), as regras gerais e o fluxograma (lido
   símbolo a símbolo, na ordem das setas). Toda gravação no Mapa refaz o artigo na hora — o agente
   nunca tem uma versão diferente do Mapa. Esses artigos NÃO são editados no agente (só no Mapa).
+
+[v6.2] FALTA VIRAR IT (aba só de quem tem a ⚙️)
+  Lista o que o agente sabe (ou foi perguntado) e ainda não tem IT no Mapa: artigos manuais e
+  perguntas sem resposta. "Criar processo no Mapa" leva o assunto para o Mapa (o artigo vira a nova
+  IT já amarrada). Quando a IT do Mapa passa a responder, a pendência fecha sozinha e o artigo
+  manual sai de cena — uma coisa só.
 """
 import json
 import os
@@ -58,11 +64,13 @@ _CACHE_SEG = 60
 
 
 def ligar(app, usuario_atual: Callable, nome_perfil: Callable,
-          setores: Optional[Callable] = None, usuarios: Optional[Callable] = None, processos: Optional[Callable] = None) -> None:
+          setores: Optional[Callable] = None, usuarios: Optional[Callable] = None, processos: Optional[Callable] = None,
+          criar_processo: Optional[Callable] = None, salvar_processo: Optional[Callable] = None) -> None:
     """setores(): setores do Organograma ([{id, dados:{nome, pessoas:[{nome,cargo,email,vaga…}]}}]);
     usuarios(): {email: {nome, ativo}} de quem tem login no PQI."""
     H.update(usuario_atual=usuario_atual, nome_perfil=nome_perfil,
-             setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}), processos=processos or (lambda: []))
+             setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}), processos=processos or (lambda: []),
+             criar_processo=criar_processo, salvar_processo=salvar_processo)
     app.include_router(router)
 
 
@@ -435,9 +443,201 @@ def sincronizar_processo(reg: dict, quem: str = "Mapa Digital") -> Optional[dict
                    versoes=([anterior] + list(art.get("versoes") or []))[:MAX_VERSOES])
     else:
         art["origem"] = origem
+        P["gravar"](COL_ART, aid, art)
+        return art
     P["gravar"](COL_ART, aid, art)
     esquecer_cache()
+    _aposentar_manual(reg, art)
+    fechar_pendencias_respondidas_pela_it()
     return art
+
+
+def _aposentar_manual(reg: dict, art_mapa: dict) -> None:
+    """O artigo manual que virou este processo sai de cena: quem responde agora é a IT do Mapa."""
+    oa = (((reg or {}).get("dados") or {}).get("origem_agente") or {}).get("artigo_id")
+    ligados = [a["id"] for a in P["listar"](COL_ART) if a.get("virou_processo") == (reg or {}).get("id") and a.get("ativo", True)]
+    for x in ligados:
+        if x != oa:
+            _aposentar_um(x, art_mapa)
+    if not oa or oa == art_mapa.get("id"):
+        return
+    _aposentar_um(oa, art_mapa)
+
+
+def _aposentar_um(oa: str, art_mapa: dict) -> None:
+    man = P["ler"](COL_ART, oa)
+    if man and man.get("ativo", True) and not str(oa).startswith(PREFIXO_MAPA):
+        man.update(ativo=False, atualizado_em=agora(), substituido_por=art_mapa.get("id"))
+        P["gravar"](COL_ART, oa, man)
+        P["gravar"](COL_HIS, novo_id(), {"em": agora(), "por": {"nome": "Mapa Digital", "email": ""}, "acao": "desativou", "artigo_id": oa,
+                                         "titulo": man.get("titulo"), "versao": man.get("versao", 1),
+                                         "detalhe": f"virou IT no Mapa ({(art_mapa.get('origem') or {}).get('codigo')}) — o agente responde por ela"})
+        esquecer_cache()
+
+
+def _it_que_responde(pergunta: str) -> Optional[dict]:
+    achados = buscar(pergunta, 1)
+    return achados[0] if achados and str(achados[0].get("id", "")).startswith(PREFIXO_MAPA) else None
+
+
+def fechar_pendencias_respondidas_pela_it() -> int:
+    """Pergunta que estava sem resposta e que agora a IT do Mapa responde: a pendência fecha sozinha.
+    (👎 numa resposta continua nas Pendências: é ajuste na IT, não falta de IT.)"""
+    n = 0
+    for p in _abertas():
+        if p.get("motivo") != "sem_resposta":
+            continue
+        a = _it_que_responde(p.get("pergunta", ""))
+        if a:
+            p.update(status="resolvida", resolvida_em=agora(), resolvida_por={"nome": "Mapa Digital", "email": ""}, artigo_id=a["id"],
+                     nota=f"respondida pela IT do Mapa ({(a.get('origem') or {}).get('codigo') or a.get('titulo')})")
+            P["gravar"](COL_PEN, p["id"], p)
+            n += 1
+    return n
+
+
+def _chave_assunto(t: str) -> str:
+    return " ".join(sorted(w for w in set(palavras(t)) if len(w) >= 4 and w not in _PALAVRAS_FRACAS)) or sem_acento(t).strip().lower()
+
+
+def falta_virar_it() -> dict:
+    """O que o agente sabe ou foi perguntado e ainda não tem IT no Mapa."""
+    procs = {r.get("id"): r for r in (H.get("processos", lambda: [])() or [])}
+    artigos_man = [a for a in artigos() if a.get("ativo", True) and not str(a.get("id", "")).startswith(PREFIXO_MAPA)]
+    grupos: dict = {}
+    for p in _abertas():
+        if p.get("motivo") != "sem_resposta":
+            continue
+        g = grupos.setdefault(_chave_assunto(p.get("pergunta", "")), {"pergunta": p.get("pergunta"), "vezes": 0, "ultima": "", "ids": [],
+                                                                          "processo": None, "de": []})
+        g["vezes"] += 1; g["ids"].append(p["id"])
+        if (p.get("em") or "") >= g["ultima"]:
+            g["ultima"] = p.get("em") or ""; g["pergunta"] = p.get("pergunta")
+        nome = (p.get("de") or {}).get("nome")
+        if nome and nome not in g["de"]:
+            g["de"].append(nome)
+        pid = p.get("processo_id")
+        if pid and pid in procs:
+            d = procs[pid].get("dados") or {}
+            g["processo"] = {"id": pid, "codigo": d.get("codigo"), "nome": d.get("nome")}
+    def ja_no_mapa(a):
+        pid = a.get("virou_processo")
+        if pid and pid in procs:
+            d = procs[pid].get("dados") or {}
+            return {"id": pid, "codigo": d.get("codigo"), "nome": d.get("nome")}
+        return None
+    lista_procs = sorted(({"id": i, "codigo": (r.get("dados") or {}).get("codigo"), "nome": (r.get("dados") or {}).get("nome"),
+                           "area": (r.get("dados") or {}).get("area"),
+                           "tem_it": any(_txt(x.get("descricao")) for x in ((r.get("dados") or {}).get("tobe") or {}).get("passos") or [])}
+                          for i, r in procs.items() if (r.get("dados") or {}).get("codigo")), key=lambda x: str(x["codigo"]))
+    return {"processos": lista_procs,
+            "artigos": [{"id": a["id"], "titulo": a.get("titulo"), "setor": a.get("setor"), "passos": len(a.get("passos") or []),
+                         "usos": a.get("usos") or 0, "atualizado_em": a.get("atualizado_em"), "processo": ja_no_mapa(a)} for a in artigos_man],
+            "perguntas": sorted(sorted(grupos.values(), key=lambda g: g["ultima"], reverse=True), key=lambda g: -g["vezes"])}
+
+
+def _ligar_a_processo(payload: "CriarProcesso", u: dict) -> dict:
+    procs = {r.get("id"): r for r in (H.get("processos", lambda: [])() or [])}
+    reg = procs.get(payload.processo_id)
+    if not reg:
+        raise HTTPException(status_code=404, detail="Processo não encontrado no Mapa.")
+    d = reg.get("dados") or {}
+    art = P["ler"](COL_ART, payload.artigo_id) if payload.artigo_id else None
+    tb = d.setdefault("tobe", {})
+    vazia = not any(_txt(x.get("descricao")) for x in tb.get("passos") or [])
+    levou = 0
+    if art and vazia and H.get("salvar_processo"):   # IT vazia: os passos do artigo viram a IT (já amarrada)
+        tb["passos"] = [{"id": novo_id(), "descricao": _txt(t), "rotulo": "", "quem": "", "sistema": "", "regra": "", "mudanca": "Novo"}
+                        for t in (art.get("passos") or []) if _txt(t)]
+        levou = len(tb["passos"])
+        am = d.setdefault("amarracao", {})
+        if not (am.get("tobe") or {}).get("ativo") and not ((d.get("fluxo") or {}).get("tobe") or {}).get("nos"):
+            am["tobe"] = {"ativo": True, "espelho": None}
+        d["origem_agente"] = {"artigo_id": art["id"], "pendencias": payload.pendencias, "por": _quem(u), "em": agora()}
+        res, novo = H["salvar_processo"](reg["id"], d, None, u.get("nome") or u.get("email") or "")
+        if res == "ok" and novo:
+            reg = novo
+    if art:
+        art["virou_processo"] = reg["id"]
+        P["gravar"](COL_ART, art["id"], art)
+    for pen_id in payload.pendencias:
+        pen = P["ler"](COL_PEN, pen_id)
+        if pen and pen.get("status") == "aberta":
+            pen["processo_id"] = reg["id"]
+            P["gravar"](COL_PEN, pen_id, pen)
+    _historico(u, "ligou ao Mapa", {"id": (art or {}).get("id") or "", "titulo": d.get("nome"), "versao": 1},
+               f"{d.get('codigo')} · " + (f"{levou} passo(s) do artigo viraram a IT" if levou else "assunto ligado ao processo"))
+    sincronizar_processo(reg, "Mapa Digital")
+    esquecer_cache()
+    return {"processo": {"id": reg["id"], "codigo": d.get("codigo"), "nome": d.get("nome")}, "passos": levou}
+
+
+def total_falta_it() -> int:
+    try:
+        f = falta_virar_it()
+        return len(f["artigos"]) + len(f["perguntas"])
+    except Exception:   # noqa: BLE001
+        return 0
+
+
+class CriarProcesso(BaseModel):
+    nome: str = ""
+    area: Optional[str] = ""
+    artigo_id: Optional[str] = None
+    pendencias: List[str] = []
+    processo_id: Optional[str] = None   # ligar a um processo que já existe no Mapa (em vez de criar outro)
+
+    @field_validator("nome")
+    @classmethod
+    def _n(cls, v):
+        return (v or "").strip()[:120]
+
+
+@router.get("/falta-it")
+def agente_falta_it(request: Request):
+    _exigir_alimentar(request)
+    fechou = fechar_pendencias_respondidas_pela_it()
+    return {**falta_virar_it(), "fechadas_agora": fechou}
+
+
+@router.post("/falta-it/criar-processo")
+def agente_criar_processo(payload: CriarProcesso, request: Request):
+    """Leva o assunto para o Mapa: processo novo, com a IT (TO BE) já amarrada ao fluxograma."""
+    u = _exigir_alimentar(request)
+    if payload.processo_id:
+        return _ligar_a_processo(payload, u)
+    if not payload.nome:
+        raise HTTPException(status_code=400, detail="Dê um nome ao processo.")
+    if not H.get("criar_processo"):
+        raise HTTPException(status_code=501, detail="Criar processo pelo agente não está ligado neste servidor.")
+    procs = H.get("processos", lambda: [])() or []
+    n = max([int(m.group(1)) for r in procs for m in [re.search(r"(\d+)$", str((r.get("dados") or {}).get("codigo") or ""))] if m] + [0])
+    codigo = f"PROC-{n + 1:03d}"
+    art = P["ler"](COL_ART, payload.artigo_id) if payload.artigo_id else None
+    if art and str(art.get("id", "")).startswith(PREFIXO_MAPA):
+        raise HTTPException(status_code=400, detail="Este artigo já é a IT de um processo do Mapa.")
+    passos = [{"id": novo_id(), "descricao": _txt(t), "rotulo": "", "quem": "", "sistema": "", "regra": "", "mudanca": "Novo"}
+              for t in ((art or {}).get("passos") or []) if _txt(t)]
+    dados = {"codigo": codigo, "nome": payload.nome, "area": _txt(payload.area) or _txt((art or {}).get("setor")),
+             "criticidade": "Média", "status": "Em levantamento",
+             "tobe": {"codigo": "", "versao": "", "objetivo": "", "regras": "", "fluxo": "", "passos": passos, "pendencias": []},
+             "amarracao": {"tobe": {"ativo": True, "espelho": None}, "asis": {"ativo": True, "espelho": None}},
+             "origem_agente": {"artigo_id": (art or {}).get("id"), "pendencias": payload.pendencias, "por": _quem(u), "em": agora()}}
+    reg = H["criar_processo"](dados, u.get("nome") or u.get("email") or "", u.get("email"))
+    pid = reg.get("id")
+    if art:
+        art["virou_processo"] = pid
+        P["gravar"](COL_ART, art["id"], art)
+    for pen_id in payload.pendencias:
+        pen = P["ler"](COL_PEN, pen_id)
+        if pen and pen.get("status") == "aberta":
+            pen["processo_id"] = pid
+            P["gravar"](COL_PEN, pen_id, pen)
+    _historico(u, "levou para o Mapa", {"id": (art or {}).get("id") or "", "titulo": payload.nome, "versao": 1},
+               f"{codigo} criado no Mapa Digital" + (" com os passos do artigo" if passos else ""))
+    sincronizar_processo(reg, "Mapa Digital")
+    esquecer_cache()
+    return {"processo": {"id": pid, "codigo": codigo, "nome": payload.nome}, "passos": len(passos)}
 
 
 def remover_processo(pid: str) -> None:
@@ -471,6 +671,7 @@ def agente_me(request: Request):
     u = _usuario(request)
     pode = pode_alimentar(u)
     return {"pode_alimentar": pode, "pendencias": len(_abertas()) if pode else 0, "comigo": len(_comigo(u)),
+            "falta_it": total_falta_it() if pode else 0,
             "ia": provedor() or "base", "nome": (u.get("nome") or u.get("email") or "").split(" ")[0],
             "sugestoes": [a.get("titulo") for a in sorted((a for a in artigos() if a.get("ativo", True)),
                                                            key=lambda a: -(a.get("usos") or 0))[:4]]}
