@@ -210,9 +210,14 @@ INSTRUCOES = (
 )
 
 
+ULTIMO_ERRO_IA: dict = {}   # o último motivo de a IA não ter respondido (aparece no teste da ⚙️, sem a chave)
+
+
 def _http_json(url: str, corpo: dict, cab: dict, timeout: int = 40) -> dict:
+    # User-Agent próprio: a Groq (Cloudflare) recusa chamadas que se identificam como "Python-urllib"
     req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"), method="POST",
-                                 headers={"Content-Type": "application/json", **cab})
+                                 headers={"Content-Type": "application/json", "Accept": "application/json",
+                                          "User-Agent": "PQI-Agente/1.0 (+https://pqi-c2tu.onrender.com)", **cab})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
 
@@ -249,7 +254,17 @@ def perguntar_ia(pergunta: str, achados: list) -> Optional[str]:
                         "messages": [{"role": "user", "content": usuario}]},
                        {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01"})
         return "".join(b.get("text", "") for b in r.get("content", []) if b.get("type") == "text").strip() or None
-    except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
+    except urllib.error.HTTPError as e:
+        try:
+            corpo_erro = e.read().decode("utf-8", "replace")[:400]
+        except Exception:   # noqa: BLE001
+            corpo_erro = ""
+        ULTIMO_ERRO_IA.clear(); ULTIMO_ERRO_IA.update(em=agora(), provedor=prov, status=e.code, detalhe=corpo_erro)
+        print(f"[agente] IA ({prov}) recusou: HTTP {e.code} {corpo_erro}")
+        return None
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError) as e:
+        ULTIMO_ERRO_IA.clear(); ULTIMO_ERRO_IA.update(em=agora(), provedor=prov, status=None, detalhe=f"{type(e).__name__}: {e}"[:400])
+        print(f"[agente] IA ({prov}) falhou: {type(e).__name__}: {e}")
         return None
 
 
@@ -671,6 +686,18 @@ def agente_sincronizar_mapa(request: Request):
         if str(a.get("id", "")).startswith(PREFIXO_MAPA) and a["id"][len(PREFIXO_MAPA):] not in vivos:
             remover_processo(a["id"][len(PREFIXO_MAPA):])
     return {"artigos": [{"id": a["id"], "titulo": a.get("titulo"), "ativo": a.get("ativo"), "versao": a.get("versao")} for a in feitos]}
+
+
+@router.post("/ia-teste")
+def agente_ia_teste(request: Request):
+    """Diagnóstico da IA (só quem tem a ⚙️): chama a IA com uma pergunta de teste e mostra o motivo se falhar."""
+    _exigir_alimentar(request)
+    prov = provedor()
+    if not prov:
+        return {"ok": False, "provedor": "", "motivo": "IA desligada: falta AGENTE_IA (groq/anthropic) e a chave no Render."}
+    t = perguntar_ia("Responda só: OK", [{"titulo": "Teste", "passos": ["Responda OK."]}])
+    return {"ok": bool(t), "provedor": prov, "modelo": os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b") if prov == "groq" else os.environ.get("ANTHROPIC_MODEL", ""),
+            "resposta": (t or "")[:200], "erro": None if t else dict(ULTIMO_ERRO_IA)}
 
 
 @router.get("/me")
