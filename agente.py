@@ -532,6 +532,7 @@ def falta_virar_it() -> dict:
                           for i, r in procs.items() if (r.get("dados") or {}).get("codigo")), key=lambda x: str(x["codigo"]))
     return {"processos": lista_procs,
             "artigos": [{"id": a["id"], "titulo": a.get("titulo"), "setor": a.get("setor"), "passos": len(a.get("passos") or []),
+                         "resposta": list(a.get("passos") or []),   # o que o agente responde hoje — conferir antes de importar
                          "usos": a.get("usos") or 0, "atualizado_em": a.get("atualizado_em"), "processo": ja_no_mapa(a)} for a in artigos_man],
             "perguntas": sorted(sorted(grupos.values(), key=lambda g: g["ultima"], reverse=True), key=lambda g: -g["vezes"])}
 
@@ -546,10 +547,11 @@ def _ligar_a_processo(payload: "CriarProcesso", u: dict) -> dict:
     tb = d.setdefault("tobe", {})
     vazia = not any(_txt(x.get("descricao")) for x in tb.get("passos") or [])
     levou = 0
-    if art and vazia and H.get("salvar_processo"):   # IT vazia: os passos do artigo viram a IT (já amarrada)
-        tb["passos"] = [{"id": novo_id(), "descricao": _txt(t), "rotulo": "", "quem": "", "sistema": "", "regra": "", "mudanca": "Novo"}
-                        for t in (art.get("passos") or []) if _txt(t)]
-        levou = len(tb["passos"])
+    if art and H.get("salvar_processo"):   # os passos do artigo viram a IT (vazia) ou entram no fim dela — já amarrados
+        novos = [{"id": novo_id(), "descricao": _txt(t), "rotulo": "", "quem": "", "sistema": "", "regra": "", "mudanca": "Novo"}
+                 for t in (art.get("passos") or []) if _txt(t)]
+        tb["passos"] = novos if vazia else list(tb.get("passos") or []) + novos
+        levou = len(novos)
         am = d.setdefault("amarracao", {})
         if not (am.get("tobe") or {}).get("ativo") and not ((d.get("fluxo") or {}).get("tobe") or {}).get("nos"):
             am["tobe"] = {"ativo": True, "espelho": None}
@@ -566,10 +568,11 @@ def _ligar_a_processo(payload: "CriarProcesso", u: dict) -> dict:
             pen["processo_id"] = reg["id"]
             P["gravar"](COL_PEN, pen_id, pen)
     _historico(u, "ligou ao Mapa", {"id": (art or {}).get("id") or "", "titulo": d.get("nome"), "versao": 1},
-               f"{d.get('codigo')} · " + (f"{levou} passo(s) do artigo viraram a IT" if levou else "assunto ligado ao processo"))
+               f"{d.get('codigo')} · " + ((f"{levou} passo(s) do artigo viraram a IT" if vazia else f"{levou} passo(s) do artigo acrescentados no fim da IT")
+                                         if levou else "assunto ligado ao processo"))
     sincronizar_processo(reg, "Mapa Digital")
     esquecer_cache()
-    return {"processo": {"id": reg["id"], "codigo": d.get("codigo"), "nome": d.get("nome")}, "passos": levou}
+    return {"processo": {"id": reg["id"], "codigo": d.get("codigo"), "nome": d.get("nome")}, "passos": levou, "acrescentou": levou > 0 and not vazia}
 
 
 def total_falta_it() -> int:
