@@ -57,6 +57,7 @@ COL_ART = "agente_artigos"
 COL_PEN = "agente_pendencias"
 COL_PERG = "agente_perguntas"
 COL_HIS = "agente_historico"
+COL_EX = "agente_exemplos"      # [v6.4] respostas aprovadas (👍) — referência para perguntas parecidas
 
 MAX_VERSOES = 20          # versões anteriores guardadas dentro de cada artigo (para "voltar versão")
 MIN_PONTOS = 3            # pontuação mínima para considerar que um artigo responde a pergunta
@@ -210,13 +211,18 @@ def fonte(a: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 # IA externa (opcional)
 # ══════════════════════════════════════════════════════════════════════════
-INSTRUCOES = (
-    "Você é o Agente do PQI, o assistente interno da King Star Colchões. Responda em português do Brasil, "
-    "de forma curta e prática, em passos numerados quando for um procedimento. Traga só o ponto-chave do que foi "
-    "perguntado e, se ajudar, os passos ou regras diretamente relacionados (sem copiar o artigo inteiro). Use SOMENTE os artigos abaixo — "
-    "eles são a fonte oficial. Não invente telas, botões, prazos nem regras que não estejam neles. "
-    "Se os artigos não respondem a pergunta, responda exatamente: NAO_SEI. "
-    "Na última linha, escreva FONTE: seguido do número do artigo que você usou (ex.: FONTE: 2)."
+INSTRUCOES = (   # [v6.4] mais humano: um colega experiente, com as próprias palavras
+    "Você é o Agente do PQI, um colega experiente da King Star Colchões que ajuda as pessoas no dia a dia. "
+    "Converse em português do Brasil de um jeito natural e humano, com as SUAS palavras — não copie o texto dos artigos. "
+    "Vá direto ao ponto do que foi perguntado e explique o porquê quando isso ajudar a pessoa a fazer certo. "
+    "Use passos numerados só quando for um procedimento com várias etapas; para dúvidas simples, responda em uma ou duas frases. "
+    "Você pode juntar informações de artigos diferentes e tirar conclusões lógicas a partir deles, como um colega que conhece bem o processo. "
+    "Mas NUNCA invente nome de tela, botão, campo, menu, opção, prazo, valor ou regra que não esteja escrito nos artigos: "
+    "se o artigo não diz o nome exato, descreva o que fazer sem inventar um nome. "
+    "As CORREÇÕES escritas num artigo valem mais que o resto do texto dele. "
+    "Se houver CONVERSA ANTERIOR, continue o mesmo assunto. EXEMPLOS APROVADOS são respostas que a equipe validou: use como referência de conteúdo e de jeito de responder. "
+    "Se os artigos não permitem responder, responda exatamente: NAO_SEI. "
+    "Na última linha, escreva FONTE: seguido do número do artigo que você mais usou (ex.: FONTE: 2)."
 )
 
 
@@ -241,18 +247,23 @@ def provedor() -> str:
     return ""
 
 
-def perguntar_ia(pergunta: str, achados: list) -> Optional[str]:
+def perguntar_ia(pergunta: str, achados: list, historico: Optional[list] = None, exemplos: Optional[list] = None) -> Optional[str]:
     """Texto da IA, "NAO_SEI", ou None se a IA está desligada/falhou (aí vale a resposta da base)."""
     prov = provedor()
     if not prov:
         return None
     base = "\n\n".join(f"ARTIGO {i + 1}: {a.get('titulo')}\n" + "\n".join(f"- {p}" for p in (a.get("passos") or []))
                        for i, a in enumerate(achados))
-    usuario = f"ARTIGOS:\n{base}\n\nPERGUNTA: {pergunta}"
+    usuario = f"ARTIGOS:\n{base}\n\n"
+    if exemplos:
+        usuario += "EXEMPLOS APROVADOS:\n" + "\n\n".join(f"Pergunta: {e.get('pergunta')}\nResposta aprovada: {e.get('texto')}" for e in exemplos) + "\n\n"
+    if historico:
+        usuario += "CONVERSA ANTERIOR:\n" + "\n".join(f"Pessoa: {h.get('p')}\nAgente: {h.get('r')}" for h in historico) + "\n\n"
+    usuario += f"PERGUNTA: {pergunta}"
     try:
         if prov == "groq":
             modelo = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
-            corpo = {"model": modelo, "temperature": 0.1, "max_tokens": 700,
+            corpo = {"model": modelo, "temperature": 0.4, "max_tokens": 700,
                      "messages": [{"role": "system", "content": INSTRUCOES}, {"role": "user", "content": usuario}]}
             if "gpt-oss" in modelo:   # modelo que "pensa" antes: raciocínio curto e espaço para a resposta não sair vazia
                 corpo.update(max_tokens=2500, reasoning_effort="low", include_reasoning=False)
@@ -295,6 +306,16 @@ def _separar_fonte(texto: str, achados: list):
 class Pergunta(BaseModel):
     pergunta: str
     tela: Optional[str] = None     # sistema aberto no momento (só para o painel)
+    historico: List[dict] = []     # [v6.4] últimas trocas da conversa: [{"p": pergunta, "r": resposta}]
+
+    @field_validator("historico")
+    @classmethod
+    def _h(cls, v):
+        out = []
+        for h in (v or [])[-3:]:
+            if isinstance(h, dict) and str(h.get("p") or "").strip():
+                out.append({"p": str(h.get("p"))[:300], "r": str(h.get("r") or "")[:800]})
+        return out
 
     @field_validator("pergunta")
     @classmethod
@@ -422,6 +443,10 @@ def artigo_do_processo(reg: dict) -> Optional[dict]:
     cab = (f"Fonte oficial: Mapa Digital · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
            + (f"rev. {ver} " if ver else "") + f"({situacao}). Este passo a passo é atualizado sozinho a cada alteração no Mapa.")
     out = [cab]
+    corr = [c for c in (d.get("ajustes_agente") or []) if isinstance(c, dict) and _txt(c.get("para"))]
+    if corr:
+        out.append("CORREÇÕES (valem mais que o resto do texto): " + " ".join(
+            f"Onde se dizia “{_txt(c.get('de'))}”, o correto é: {_txt(c.get('para'))}." for c in corr))
     for i, x in enumerate(passos, 1):
         extra = " · ".join(t for t in (("Quem faz: " + _txt(x.get("quem"))) if _txt(x.get("quem")) else "",
                                         ("Onde: " + _txt(x.get("sistema"))) if _txt(x.get("sistema")) else "",
@@ -672,6 +697,11 @@ def agente_criar_processo(payload: CriarProcesso, request: Request):
     return {"processo": {"id": pid, "codigo": codigo, "nome": payload.nome}, "passos": len(passos)}
 
 
+def ultimo_artigo_txt(aid: str) -> str:
+    a = P["ler"](COL_ART, aid) or {}
+    return " ".join(a.get("passos") or [])
+
+
 def remover_processo(pid: str) -> None:
     art = P["ler"](COL_ART, PREFIXO_MAPA + pid)
     if art and art.get("ativo"):
@@ -698,6 +728,103 @@ def agente_sincronizar_mapa(request: Request):
     return {"artigos": [{"id": a["id"], "titulo": a.get("titulo"), "ativo": a.get("ativo"), "versao": a.get("versao")} for a in feitos]}
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# [v6.4] ✏️ AJUSTAR DE → PARA (quem tem a ⚙️)
+#   O texto errado está na fonte (IT do Mapa / artigo)? troca lá mesmo — IT, fluxograma e agente atualizam juntos.
+#   Não está (a IA tirou de outro jeito)? vira CORREÇÃO oficial da fonte: aparece no Mapa e a IA obedece.
+# ══════════════════════════════════════════════════════════════════════════
+class Ajuste(BaseModel):
+    artigo_id: str
+    de: str
+    para: str
+    pergunta_id: Optional[str] = None
+
+    @field_validator("de", "para")
+    @classmethod
+    def _dp(cls, v):
+        v = re.sub(r"\s+", " ", (v or "")).strip()
+        if not v:
+            raise ValueError("Preencha o DE (o que está errado) e o PARA (o correto).")
+        return v[:1200]
+
+
+def _trocar(texto: str, de: str, para: str):
+    """Troca a 1ª ocorrência de `de` em `texto` (sem ligar para maiúsculas e espaços). → (novo_texto, trocou?)"""
+    padrao = r"\s+".join(re.escape(w) for w in de.split())
+    novo, n = re.subn(padrao, lambda _m: para, str(texto or ""), count=1, flags=re.IGNORECASE)
+    return novo, bool(n)
+
+
+def _ajustar_processo(art: dict, de: str, para: str, u: dict) -> dict:
+    pid = (art.get("origem") or {}).get("processo_id") or str(art["id"])[len(PREFIXO_MAPA):]
+    reg = next((r for r in (H.get("processos", lambda: [])() or []) if r.get("id") == pid), None)
+    if not reg or not H.get("salvar_processo"):
+        raise HTTPException(status_code=404, detail="Processo do Mapa não encontrado para ajustar.")
+    d = json.loads(json.dumps(reg.get("dados") or {}))
+    qual, passos, cod_it, *_ = it_vigente(d)
+    onde = None
+    for i, x in enumerate(passos):
+        for campo in ("descricao", "regra"):
+            novo, ok_ = _trocar(x.get(campo), de, para)
+            if ok_:
+                x[campo] = novo; onde = f"passo {i + 1} da IT" + (" (regra do passo)" if campo == "regra" else ""); break
+        if onde:
+            break
+    if not onde:
+        alvo = d.setdefault("tobe", {}) if qual == "tobe" else d.setdefault("it", {})
+        for campo, nome in (("regras", "regras gerais"), ("fluxo" if qual == "tobe" else "obs", "exceções")):
+            novo, ok_ = _trocar(alvo.get(campo), de, para)
+            if ok_:
+                alvo[campo] = novo; onde = nome + " da IT"; break
+    modo = "texto"
+    if not onde:   # a IA não copiou o texto da IT: fica como correção oficial do processo
+        d.setdefault("ajustes_agente", []).append({"id": novo_id(), "de": de, "para": para, "por": _quem(u), "em": agora()})
+        onde, modo = "correções da IT", "correcao"
+    res, novo_reg = H["salvar_processo"](pid, d, None, f"Agente · {u.get('nome') or u.get('email')}")
+    if res != "ok":
+        raise HTTPException(status_code=409, detail="Não consegui gravar no Mapa agora. Tente de novo.")
+    sincronizar_processo(novo_reg or {**reg, "dados": d}, f"Agente · {u.get('nome') or u.get('email')}")
+    return {"modo": modo, "onde": f"{onde} · {(d.get('codigo') or '')}".strip(" ·")}
+
+
+def _ajustar_artigo(art: dict, de: str, para: str, u: dict) -> dict:
+    passos = list(art.get("passos") or [])
+    onde, modo = None, "texto"
+    for i, t in enumerate(passos):
+        novo, ok_ = _trocar(t, de, para)
+        if ok_:
+            passos[i] = novo; onde = f"passo {i + 1} do artigo"; break
+    if not onde:
+        passos.append(f"Correção: onde se dizia “{de}”, o correto é: {para}")
+        onde, modo = "correção no fim do artigo", "correcao"
+    anterior = {**_conteudo(art), "versao": art.get("versao", 1), "em": art.get("atualizado_em"), "por": art.get("atualizado_por")}
+    art.update(passos=passos, versao=int(art.get("versao", 1)) + 1, atualizado_em=agora(), atualizado_por=_quem(u),
+               versoes=([anterior] + list(art.get("versoes") or []))[:MAX_VERSOES])
+    P["gravar"](COL_ART, art["id"], art)
+    esquecer_cache()
+    return {"modo": modo, "onde": onde}
+
+
+@router.post("/ajustar")
+def agente_ajustar(payload: Ajuste, request: Request):
+    u = _exigir_alimentar(request)
+    if payload.de.lower() == payload.para.lower():
+        raise HTTPException(status_code=400, detail="O DE e o PARA estão iguais.")
+    art = P["ler"](COL_ART, payload.artigo_id)
+    if not art:
+        raise HTTPException(status_code=404, detail="Artigo não encontrado.")
+    eh_mapa = (art.get("origem") or {}).get("tipo") == "mapa" or str(art.get("id", "")).startswith(PREFIXO_MAPA)
+    r = _ajustar_processo(art, payload.de, payload.para, u) if eh_mapa else _ajustar_artigo(art, payload.de, payload.para, u)
+    _historico(u, "ajustou", {"id": art["id"], "titulo": art.get("titulo"), "versao": art.get("versao", 1)},
+               f"DE “{payload.de[:120]}” → PARA “{payload.para[:120]}” ({r['onde']})")
+    if payload.pergunta_id:
+        for p in _abertas():
+            if p.get("pergunta_id") == payload.pergunta_id:
+                p.update(status="resolvida", resolvida_em=agora(), resolvida_por=_quem(u), nota=f"ajustado: {r['onde']}")
+                P["gravar"](COL_PEN, p["id"], p)
+    return r
+
+
 @router.post("/ia-teste")
 def agente_ia_teste(request: Request):
     """Diagnóstico da IA (só quem tem a ⚙️): chama a IA com uma pergunta de teste e mostra o motivo se falhar."""
@@ -721,14 +848,31 @@ def agente_me(request: Request):
                                                            key=lambda a: -(a.get("usos") or 0))[:4]]}
 
 
+def exemplos_para(pergunta: str, achados: list, limite: int = 2) -> list:
+    """[v6.4] Respostas aprovadas (👍) de perguntas parecidas, dos mesmos artigos e da MESMA versão deles.
+    Se o artigo (a IT) mudou depois, o exemplo deixa de valer sozinho."""
+    vers = {a.get("id"): a.get("versao", 1) for a in achados}
+    alvo = set(palavras(pergunta))
+    cands = []
+    for e in P["listar"](COL_EX):
+        if e.get("artigo_id") in vers and e.get("artigo_versao") == vers[e.get("artigo_id")]:
+            comuns = len(alvo & set(palavras(e.get("pergunta", ""))))
+            if comuns:
+                cands.append((comuns, e))
+    cands.sort(key=lambda x: -x[0])
+    return [e for _, e in cands[:limite]]
+
+
 @router.post("/perguntar")
 def agente_perguntar(payload: Pergunta, request: Request):
     u = _usuario(request)
     achados = buscar(payload.pergunta)
+    if not achados and payload.historico:   # [v6.4] continuação ("e se o cliente não atender?"): busca com o assunto da conversa
+        achados = buscar(payload.historico[-1]["p"] + " " + payload.pergunta)
     pid = novo_id()
     resp: dict = {"pergunta_id": pid}
     if achados:
-        texto = perguntar_ia(payload.pergunta, achados)
+        texto = perguntar_ia(payload.pergunta, achados, payload.historico, exemplos_para(payload.pergunta, achados) if provedor() else None)
         if texto and texto.strip().upper().startswith("NAO_SEI"):
             achados = []
         elif texto:
@@ -742,6 +886,8 @@ def agente_perguntar(payload: Pergunta, request: Request):
         _nova_pendencia(u, payload.pergunta, "sem_resposta", pergunta_id=pid)
     P["gravar"](COL_PERG, pid, {"pergunta": payload.pergunta, "em": agora(), "de": _quem(u), "tela": payload.tela,
                                 "resultado": resp["tipo"], "artigo_id": (resp.get("fonte") or {}).get("id"),
+                                "artigo_versao": (resp.get("fonte") or {}).get("versao"),
+                                "texto": (resp.get("texto") or "")[:2000] if resp.get("modo") == "ia" else "",
                                 "modo": resp.get("modo"), "util": None})
     if resp.get("fonte"):   # contador de uso (ordena as sugestões)
         art = next((a for a in artigos() if a.get("id") == resp["fonte"]["id"]), None)
@@ -762,6 +908,10 @@ def agente_retorno(payload: Retorno, request: Request):
     perg["util"] = payload.util
     perg["obs"] = (payload.obs or "")[:500]
     P["gravar"](COL_PERG, payload.pergunta_id, perg)
+    if payload.util and perg.get("modo") == "ia" and perg.get("texto") and perg.get("artigo_id"):   # [v6.4] 👍 vira exemplo aprovado
+        P["gravar"](COL_EX, payload.pergunta_id, {"id": payload.pergunta_id, "pergunta": perg.get("pergunta"), "texto": perg.get("texto"),
+                                                  "artigo_id": perg.get("artigo_id"), "artigo_versao": perg.get("artigo_versao"),
+                                                  "por": _quem(u), "em": agora()})
     if not payload.util:
         _nova_pendencia(u, perg.get("pergunta", ""), "nao_resolveu", payload.obs or "", perg.get("artigo_id"), payload.pergunta_id)
     return {"ok": True}
