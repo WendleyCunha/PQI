@@ -355,6 +355,18 @@ def teste_falta_virar_it():
     ok(pv["dados"]["amarracao"]["tobe"]["ativo"] and len(PROCESSOS) == 4, "não cria processo duplicado; IT já amarrada")
     ok(A.P["ler"](A.COL_ART, man2["id"])["ativo"] is False, "o artigo manual sai de cena")
 
+    print("[v6.2] ver a resposta do agente e importar no fim de uma IT que já existe")
+    man3 = t.post("/api/agente/artigos", json={"titulo": "Como conferir a etiqueta da vistoria", "passos": ["Leia a etiqueta", "Confira o lote"],
+                                               "palavras": "etiqueta lote vistoria conferir"}).json()
+    f = t.get("/api/agente/falta-it").json()
+    a3 = [a for a in f["artigos"] if a["id"] == man3["id"]][0]
+    ok(a3["resposta"] == ["Leia a etiqueta", "Confira o lote"], "a aba mostra a resposta do agente para conferir antes de importar")
+    r = t.post("/api/agente/falta-it/criar-processo", json={"artigo_id": man3["id"], "processo_id": "PV"}).json()
+    pv = [x for x in PROCESSOS if x["id"] == "PV"][0]
+    descr = [x["descricao"] for x in pv["dados"]["tobe"]["passos"]]
+    ok(r["acrescentou"] and descr == ["Abra a Vistoria", "Fotografe a etiqueta", "Leia a etiqueta", "Confira o lote"], "IT já existia: os passos entram no fim, sem apagar nada")
+    ok(A.P["ler"](A.COL_ART, man3["id"])["ativo"] is False, "importado: o artigo sai de cena")
+
 
 if __name__ == "__main__":
     teste_permissoes()

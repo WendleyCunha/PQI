@@ -368,7 +368,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
       <h5 style="margin-top:14px">📄 Artigos do agente sem IT (${arts.length})</h5>
       ${arts.length ? arts.map((a, i) => `<div class="ag-pd" data-a="${i}"><div class="q">${esc(a.titulo)}</div>
           <div class="m">${a.setor ? esc(a.setor) + ' · ' : ''}${esc(a.passos)} passo(s) · ${esc(a.usos)} uso(s) · atualizado em ${esc(dataBR(a.atualizado_em))}</div>
-          ${a.processo ? noMapa(a.processo) : `<div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-cp="a${i}">➕ Levar para o Mapa (vira a IT)</button><button type="button" class="ag-b2" data-des="${i}">Desativar</button></div>`}
+          <details class="ag-resp"><summary>👁 Ver a resposta do agente</summary><ol class="ag-dica" style="padding-left:20px;margin:6px 0">${(a.resposta || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol></details>
+          ${a.processo ? noMapa(a.processo) : `<div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-cp="a${i}">📥 Importar para a IT</button><button type="button" class="ag-b2" data-des="${i}">Desativar</button></div>`}
           <div class="ag-slot"></div></div>`).join('') : '<div class="ag-vz">Todo artigo do agente já é IT do Mapa 🎉</div>'}</div>`;
     const abrirMapa = id => { if (typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO(id, 'tobe')) fechar(); else toast('Abra o Mapa Digital pelo Painel.'); };
     cc().querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', () => abrirMapa(b.dataset.ir)));
@@ -379,21 +380,27 @@ textarea.ag-f{min-height:130px;resize:vertical}
       slot.innerHTML = `<label>Levar para</label><select class="ag-f" id="cpP"><option value="">➕ Processo novo no Mapa</option>${procs.map(x => `<option value="${esc(x.id)}">${esc(x.codigo)} · ${esc(x.nome)}${x.area ? ' (' + esc(x.area) + ')' : ''}${x.tem_it ? '' : ' — sem IT ainda'}</option>`).join('')}</select>
         <div id="cpNovo"><label>Nome do processo no Mapa</label><input class="ag-f" id="cpN" maxlength="120" value="${esc(ehArt ? item.titulo : nomeDe(item.pergunta))}">
         <label>Área</label><input class="ag-f" id="cpA" maxlength="60" value="${esc(ehArt ? item.setor || '' : '')}" placeholder="CX, Compras, Logística…"></div>
-        <div class="ag-dica">${ehArt ? `Os ${esc(item.passos)} passo(s) do artigo viram a nova IT (TO BE), já amarrada ao fluxograma. O artigo sai de cena: o agente passa a responder pela IT.` : 'O processo nasce no Mapa com a IT e o fluxograma amarrados. Escreva os passos no TO BE: quando a IT responder, a pendência fecha sozinha.'}</div>
+        ${ehArt ? `<label>Resposta do agente que será importada</label><ol class="ag-dica" style="padding-left:20px;margin:4px 0">${(item.resposta || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol>` : ''}
+        <div class="ag-dica" id="cpDica"></div>
         <div class="ag-bt"><button type="button" class="ag-b1" id="cpOk">Criar no Mapa e abrir</button><button type="button" class="ag-b2" id="cpX">Cancelar</button></div><div class="ag-erro" id="cpE"></div>`;
       slot.querySelector('#cpX').addEventListener('click', () => { slot.innerHTML = ''; });
       const sel = slot.querySelector('#cpP'), nv = slot.querySelector('#cpNovo');
       const parecido = procs.find(x => { const a = String(x.nome || '').toLowerCase(), b = String(ehArt ? item.titulo : item.pergunta).toLowerCase();
         return a.split(/\W+/).filter(w => w.length >= 5).some(w => b.includes(w.slice(0, 6))); });
       if (parecido) sel.value = parecido.id;   // já existe um processo parecido: sugere ligar a ele em vez de duplicar
-      const trocar = () => { nv.hidden = !!sel.value; slot.querySelector('#cpOk').textContent = sel.value ? 'Ligar e abrir no Mapa' : 'Criar no Mapa e abrir'; };
+      const trocar = () => { nv.hidden = !!sel.value; const pr = procs.find(x => x.id === sel.value);
+        slot.querySelector('#cpOk').textContent = !sel.value ? 'Importar para a IT e abrir' : (ehArt ? 'Importar para a IT e abrir' : 'Ligar e abrir no Mapa');
+        slot.querySelector('#cpDica').textContent = !ehArt ? 'O processo nasce no Mapa com a IT e o fluxograma amarrados. Escreva os passos no TO BE: quando a IT responder, a pendência fecha sozinha.'
+          : !sel.value ? `Cria o processo no Mapa e os ${item.passos} passo(s) acima viram a nova IT (TO BE), já salva e amarrada ao fluxograma. O artigo sai de cena: o agente passa a responder pela IT.`
+          : pr && pr.tem_it ? `${pr.codigo} já tem IT: os ${item.passos} passo(s) acima entram NO FIM dela, já amarrados ao fluxograma. Depois é só revisar quem faz e a ordem no Mapa.`
+          : `Os ${item.passos} passo(s) acima viram a IT do ${pr ? pr.codigo : 'processo'}, já salva e amarrada ao fluxograma. O artigo sai de cena.`; };
       sel.addEventListener('change', trocar); trocar();
       slot.querySelector('#cpOk').addEventListener('click', async ev => {
         ev.target.disabled = true;
         try {
           const r = await api('/falta-it/criar-processo', 'POST', { nome: slot.querySelector('#cpN').value, area: slot.querySelector('#cpA').value,
             artigo_id: ehArt ? item.id : null, pendencias: ehArt ? [] : item.ids, processo_id: sel.value || null });
-          toast(sel.value ? `✓ Ligado a ${r.processo.codigo}` + (r.passos ? ` · ${r.passos} passo(s) viraram a IT` : '') : `✓ ${r.processo.codigo} criado no Mapa`); await carregarMe(); abrirMapa(r.processo.id);
+          toast(r.passos ? `✓ ${r.passos} passo(s) importados para a IT do ${r.processo.codigo}${r.acrescentou ? ' (no fim)' : ''}` : sel.value ? `✓ Ligado a ${r.processo.codigo}` : `✓ ${r.processo.codigo} criado no Mapa`); await carregarMe(); abrirMapa(r.processo.id);
         } catch (e) { slot.querySelector('#cpE').textContent = e.message; ev.target.disabled = false; }
       });
     }));
