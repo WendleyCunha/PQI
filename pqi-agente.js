@@ -278,6 +278,8 @@ textarea.ag-f{min-height:130px;resize:vertical}
     return linhas.map(esc).join('<br>');
   }
 
+  // [v6.4] a conversa é lembrada: as últimas trocas vão junto, para o agente continuar o assunto
+  const CONV = [];
   async function perguntar(q) {
     q = String(q || '').trim(); if (!q || ocupado) return;
     ocupado = true; POP.querySelector('#agEnv').disabled = true;
@@ -286,14 +288,16 @@ textarea.ag-f{min-height:130px;resize:vertical}
     const d = bolha('ag-ia', '<span class="ag-dig"><span></span><span></span><span></span></span>');
     try {
       const tela = (document.getElementById('badgeName') || {}).textContent || '';
-      const r = await api('/perguntar', 'POST', { pergunta: q, tela });
+      const r = await api('/perguntar', 'POST', { pergunta: q, tela, historico: CONV.slice(-3) });
       if (r.tipo === 'resposta') {
         const corpo = r.passos ? '<ol>' + r.passos.map(p => '<li>' + esc(p) + '</li>').join('') + '</ol>' : textoIA(r.texto);
         const f = r.fonte || {};
-        d.innerHTML = `<h4>${esc(r.titulo)}</h4>${corpo}
+        d.innerHTML = `${r.modo === 'ia' ? '' : `<h4>${esc(r.titulo)}</h4>`}<div class="ag-corpo">${corpo}</div>
           <div class="ag-src">📄 Fonte: <b>${esc(f.titulo)}</b> · v${esc(f.versao)} · ${esc(diaBR(f.atualizado_em))}${f.por ? ' · ' + esc(f.por) : ''}</div>
-          <div class="ag-fb"><button type="button" data-u="1">👍 Resolveu</button><button type="button" data-u="0">👎 Não resolveu</button></div>`;
+          <div class="ag-fb"><button type="button" data-u="1">👍 Resolveu</button><button type="button" data-u="0">👎 Não resolveu</button>${ME && ME.pode_alimentar ? '<button type="button" data-aj="1" title="Corrigir um trecho: a IT/artigo é ajustado e as próximas respostas já saem certas">✏️ Ajustar</button>' : ''}</div>`;
+        CONV.push({ p: q, r: r.texto || (r.passos || []).slice(0, 4).join(' ') }); if (CONV.length > 3) CONV.shift();
         ligarRetorno(d, r.pergunta_id);
+        ligarAjuste(d, r, q);
       } else {
         d.innerHTML = '🤔 <b>Ainda não tenho isso na base do PQI.</b><br>Não vou inventar: sua pergunta foi para quem cuida dos processos e, quando for documentada, eu passo a responder. Enquanto isso, procure seu gestor.';
         if (ME && ME.pode_alimentar) { ME.pendencias = (ME.pendencias || 0) + 1; contador(); }
@@ -305,10 +309,35 @@ textarea.ag-f{min-height:130px;resize:vertical}
     }
   }
 
+  // [v6.4] ✏️ AJUSTAR DE → PARA (quem tem a ⚙️): corrige a fonte (IT do Mapa / artigo) e a próxima resposta já sai certa
+  function ligarAjuste(d, r, q) {
+    const b = d.querySelector('[data-aj]'); if (!b) return;
+    let selecionado = '';
+    d.addEventListener('mouseup', () => { const t = String(window.getSelection() || '').trim(); if (t && d.contains(window.getSelection().anchorNode)) selecionado = t; });
+    b.addEventListener('click', () => {
+      const box = document.createElement('div'); box.className = 'ag-cx ag-aj';
+      box.innerHTML = `<label>DE — o que está errado</label><textarea class="ag-f" rows="2" id="ajDe" placeholder="Cole ou selecione na resposta o trecho errado">${esc(selecionado)}</textarea>
+        <label>PARA — o correto</label><textarea class="ag-f" rows="3" id="ajPara" placeholder="Escreva como deve ser"></textarea>
+        <div class="ag-dica">Se o trecho está na IT, a troca é feita lá mesmo (IT, fluxograma e agente juntos). Se não está, vira uma <b>correção oficial</b> da IT — aparece no Mapa e o agente passa a obedecer.</div>
+        <div class="ag-bt"><button type="button" class="ag-b1" id="ajOk">Ajustar</button><button type="button" class="ag-b2" id="ajX">Cancelar</button></div><div class="ag-erro" id="ajE"></div>`;
+      d.appendChild(box); box.querySelector(selecionado ? '#ajPara' : '#ajDe').focus(); chat().scrollTop = chat().scrollHeight;
+      box.querySelector('#ajX').addEventListener('click', () => box.remove());
+      box.querySelector('#ajOk').addEventListener('click', async ev => {
+        ev.target.disabled = true;
+        try {
+          const res = await api('/ajustar', 'POST', { artigo_id: (r.fonte || {}).id, de: box.querySelector('#ajDe').value, para: box.querySelector('#ajPara').value, pergunta_id: r.pergunta_id });
+          box.innerHTML = `<div class="ag-src ag-ok">✓ Ajustado (${esc(res.onde)}). As próximas respostas já saem certas.</div><div class="ag-bt"><button type="button" class="ag-b2" id="ajDeNovo">🔄 Perguntar de novo</button></div>`;
+          box.querySelector('#ajDeNovo').addEventListener('click', () => { CONV.length = 0; perguntar(q); });
+        } catch (e) { box.querySelector('#ajE').textContent = e.message; ev.target.disabled = false; }
+      });
+    });
+  }
+
   function ligarRetorno(d, pid) {
     const fb = d.querySelector('.ag-fb');
     fb.querySelector('[data-u="1"]').addEventListener('click', async () => {
-      fb.outerHTML = '<div class="ag-src ag-ok">Obrigado pelo retorno ✓</div>';
+      fb.querySelectorAll('[data-u]').forEach(x => x.remove());
+      fb.insertAdjacentHTML('afterbegin', '<span class="ag-src ag-ok">Obrigado pelo retorno ✓</span>');
       try { await api('/retorno', 'POST', { pergunta_id: pid, util: true }); } catch (_) {}
     });
     fb.querySelector('[data-u="0"]').addEventListener('click', () => {

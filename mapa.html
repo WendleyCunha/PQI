@@ -1399,9 +1399,14 @@ function abaToBe(c,p,d,sv){
     <h3>Passos da nova IT</h3>${faixaAmarracao(d,"tobe","it")}<div id="tbIni"></div><div id="tbPassos"></div>
     <label class="f" style="margin-top:14px">Regras gerais (o que passa a valer)<textarea id="tbReg" rows="5" ${travado?"disabled":""} placeholder="Ex.: Toda troca precisa de protocolo no SAC antes do reenvio.">${esc(tb.regras)}</textarea></label>
     <label class="f" style="margin-top:12px">Fluxo / exceções / observações<textarea id="tbFlu" rows="4" ${travado?"disabled":""}>${esc(tb.fluxo)}</textarea></label>
+    ${(d.ajustes_agente||[]).length?`<h3>✏️ Correções vindas do Agente</h3>
+      <p class="cap">Ajustes feitos no Agente do PQI ("DE → PARA") que não estavam escritos nos passos. Eles <b>valem mais que o resto da IT</b> nas respostas do Agente. Quando incorporar a correção ao passo certo, remova daqui.</p>
+      <div id="tbAj">${(d.ajustes_agente||[]).map((c,i)=>`<p class="banner" style="display:flex;gap:10px;align-items:flex-start"><span style="flex:1">DE: <s>${esc(c.de)}</s><br>PARA: <b>${esc(c.para)}</b><br><small>${esc((c.por||{}).nome||"")} · ${esc(dataBR(c.em||""))}</small></span>${travado?"":`<button type="button" class="peq" data-rmaj="${i}">Remover</button>`}</p>`).join("")}</div>`:""}
     <div class="acoes"><button type="button" id="tbPdf">${ICO.imprimir} Imprimir nova IT (PDF)</button></div>`;
   if(!travado){ [["tbCod","codigo"],["tbVer","versao"],["tbObj","objetivo"],["tbReg","regras"],["tbFlu","fluxo"]].forEach(([id,k])=>ligar(c,id,tb,k,sv)); }
   $("#tbPdf",c).onclick=()=>imprimir(`Nova IT — ${tb.codigo||d.codigo}`,novaITHTML(p)); ligarFaixaAmarracao(c,p,d,sv);
+  c.querySelectorAll("[data-rmaj]").forEach(b=>b.onclick=()=>{ if(!confirm("Remover esta correção? O Agente deixa de usá-la (incorpore ao passo antes, se ainda valer).")) return;
+    d.ajustes_agente.splice(+b.dataset.rmaj,1); sv(); render(); });
   const ac=$("#tbAc",c);
   if(!travado){
     const b1=el("button"); b1.type="button"; b1.textContent="Trazer gaps do diagnóstico"; ac.appendChild(b1);

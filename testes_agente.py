@@ -382,6 +382,59 @@ def teste_busca_por_radical():
     ok(r["tipo"] == "nao_sei", "pergunta sem relação continua 'não sei'")
 
 
+def teste_humano_memoria_exemplos_ajustar():
+    print("[v6.4] Conversa lembrada, exemplos aprovados (👍) e IA mais humana")
+    ligar_memoria()
+    PROCESSOS.clear()
+    t = montar()
+    reg = {"id": "PC", "versao": 1, "dados": {"codigo": "PROC-001", "nome": "Carteira de Pedidos", "area": "CX",
+           "tobe": {"codigo": "IT CARTEIRA", "regras": "1. Item com saldo negativo trava o pedido inteiro.",
+                    "passos": [{"id": "s8", "descricao": "Na tela de Agenda, colocar o pedido em carteira com a data que o cliente quer receber.", "quem": "CX"},
+                               {"id": "s9", "descricao": "Compras cobra o fornecedor e passa o prazo correto.", "quem": "Compras"}]}}}
+    PROCESSOS.append(reg)
+    A.sincronizar_processo(reg)
+    como("ana@ks")
+    r = t.post("/api/agente/perguntar", json={"pergunta": "e se o cliente não atender?",
+                                              "historico": [{"p": "como coloco um pedido em carteira na agenda", "r": "Na tela de Agenda..."}]}).json()
+    ok(r["tipo"] == "resposta" and r["fonte"]["id"] == "mapa-PC", "pergunta de continuação usa o assunto da conversa para achar a IT")
+    enviado = {}
+    A.provedor = lambda: "groq"
+    os.environ["GROQ_API_KEY"] = "gsk_teste"
+    def falsa(url, corpo, cab, timeout=40):
+        enviado["user"] = corpo["messages"][1]["content"]; enviado["system"] = corpo["messages"][0]["content"]; enviado["temp"] = corpo["temperature"]
+        return {"choices": [{"message": {"content": "Você abre a Agenda e coloca o pedido em carteira.\nFONTE: 1"}}]}
+    A._http_json = falsa
+    r1 = t.post("/api/agente/perguntar", json={"pergunta": "como coloco o pedido em carteira na agenda?"}).json()
+    ok(r1["modo"] == "ia" and "próprias palavras".upper() in enviado["system"].upper() or "SUAS palavras" in enviado["system"], "instrução: colega humano, com as próprias palavras")
+    ok("NUNCA invente nome de tela, botão, campo" in enviado["system"] and enviado["temp"] == 0.4, "pode concluir, mas não inventa tela/botão/campo")
+    t.post("/api/agente/retorno", json={"pergunta_id": r1["pergunta_id"], "util": True})
+    ok(len(A.P["listar"](A.COL_EX)) == 1, "👍 numa resposta da IA vira exemplo aprovado")
+    t.post("/api/agente/perguntar", json={"pergunta": "como colocar pedido em carteira pela agenda",
+                                          "historico": [{"p": "oi", "r": "Olá!"}]})
+    ok("EXEMPLOS APROVADOS" in enviado["user"] and "Você abre a Agenda" in enviado["user"], "pergunta parecida leva o exemplo aprovado para a IA")
+    ok("CONVERSA ANTERIOR" in enviado["user"], "a conversa anterior vai junto para a IA")
+
+    print("[v6.4] ✏️ Ajustar DE → PARA")
+    ok(t.post("/api/agente/ajustar", json={"artigo_id": "mapa-PC", "de": "x", "para": "y"}).status_code == 403, "só quem tem a ⚙️ ajusta")
+    como("ger@ks", "Gerente")
+    r = t.post("/api/agente/ajustar", json={"artigo_id": "mapa-PC", "de": "colocar o pedido em carteira com a data que o cliente quer receber",
+                                            "para": "selecione o pedido, escreva nas observações internas a data prevista (ou CARTEIRA), marque NÃO no agendamento e salve",
+                                            "pergunta_id": r1["pergunta_id"]}).json()
+    d = [x for x in PROCESSOS if x["id"] == "PC"][0]["dados"]
+    ok(r["modo"] == "texto" and "passo 1" in r["onde"] and "observações internas" in d["tobe"]["passos"][0]["descricao"], "trecho está na IT: troca feita no próprio passo do Mapa")
+    ok(A.ultimo_artigo_txt("mapa-PC").count("observações internas") >= 1 and A.P["ler"](A.COL_EX, r1["pergunta_id"]) is not None, "o agente já responde com o texto novo")
+    ok(not A.exemplos_para("como coloco o pedido em carteira na agenda", [A.P["ler"](A.COL_ART, "mapa-PC")]), "exemplo antigo deixa de valer quando a IT muda")
+    r = t.post("/api/agente/ajustar", json={"artigo_id": "mapa-PC", "de": "escolha a opção Colocar em Carteira",
+                                            "para": "não existe essa opção: siga as observações internas e o agendamento NÃO"}).json()
+    d = [x for x in PROCESSOS if x["id"] == "PC"][0]["dados"]
+    ok(r["modo"] == "correcao" and d["ajustes_agente"][0]["de"] == "escolha a opção Colocar em Carteira", "invenção da IA (não está na IT) vira correção oficial no Mapa")
+    ok("CORREÇÕES (valem mais" in A.ultimo_artigo_txt("mapa-PC"), "a correção entra no topo do que o agente lê")
+    man = t.post("/api/agente/artigos", json={"titulo": "Como pedir vistoria", "passos": ["Abra o chamado X"], "palavras": "vistoria"}).json()
+    r = t.post("/api/agente/ajustar", json={"artigo_id": man["id"], "de": "chamado X", "para": "chamado de Vistoria no Concierge"}).json()
+    art = A.P["ler"](A.COL_ART, man["id"])
+    ok(r["modo"] == "texto" and art["passos"] == ["Abra o chamado de Vistoria no Concierge"] and art["versao"] == 2, "artigo manual: troca no passo, com versão nova")
+
+
 if __name__ == "__main__":
     teste_permissoes()
     teste_perguntas()
@@ -390,6 +443,7 @@ if __name__ == "__main__":
     teste_fonte_unica_mapa()
     teste_falta_virar_it()
     teste_busca_por_radical()
+    teste_humano_memoria_exemplos_ajustar()
     print()
     print("TUDO CERTO ✔" if not FALHAS else f"{len(FALHAS)} FALHA(S): " + "; ".join(FALHAS))
     sys.exit(1 if FALHAS else 0)
