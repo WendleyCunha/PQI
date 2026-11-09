@@ -82,6 +82,63 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 .chat-m small{display:block;font-size:11px;color:var(--ink-3)}
 .chat-s{font-size:12px;color:var(--ink-3);text-align:center}
 .chat-abriu{text-align:center;font-size:12px;color:var(--ink-3)} .chat-abriu b{display:block;font-size:24px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+/* [v6.5] CONVERSAS estilo WhatsApp (RouterKing) — motoristas à esquerda, a conversa à direita */
+:root{--wa-bg:#EFEAE2;--wa-eu:#D9FDD3;--wa-ele:#FFFFFF;--wa-verde:#25D366;--wa-verde-esc:#128C7E;--wa-outro:#EEE8FC;--wa-outro-b:#6D4FCF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--wa-bg:#0B141A;--wa-eu:#005C4B;--wa-ele:#202C33;--wa-verde-esc:#25D366;--wa-outro:#2A2440;--wa-outro-b:#B9A2F5}}
+:root[data-theme="dark"]{--wa-bg:#0B141A;--wa-eu:#005C4B;--wa-ele:#202C33;--wa-verde-esc:#25D366;--wa-outro:#2A2440;--wa-outro-b:#B9A2F5}
+.wa{display:grid;grid-template-columns:minmax(270px,370px) minmax(0,1fr);height:calc(100vh - 230px);min-height:500px;border:1px solid var(--rule);border-radius:16px;overflow:hidden;background:var(--sheet);box-shadow:0 2px 10px rgba(16,24,40,.07)}
+.wa-lado{display:flex;flex-direction:column;border-right:1px solid var(--rule);min-height:0;min-width:0}
+.wa-busca{padding:10px;border-bottom:1px solid var(--rule-2);display:grid;gap:8px}
+.wa-busca input{border-radius:999px;padding:9px 15px;background:var(--paper);border-color:transparent}
+.wa-chips{display:flex;gap:6px;flex-wrap:wrap}
+.wa-chip{border:1px solid var(--rule);background:var(--sheet);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--ink-2)}
+.wa-chip.on{background:var(--ok-soft);color:var(--ok);border-color:var(--ok);font-weight:600}
+.wa-lista{overflow:auto;flex:1;min-height:0}
+.wa-it{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:11px;align-items:center;padding:10px 12px;border:0;border-bottom:1px solid var(--rule-2);border-left:4px solid transparent;cursor:pointer;width:100%;text-align:left;background:none;font:inherit;color:inherit;border-radius:0}
+.wa-it:hover{background:var(--paper)} .wa-it.sel{background:var(--steel-soft)}
+.wa-it.outro{background:var(--wa-outro);border-left-color:var(--wa-outro-b)} .wa-it.outro.sel{box-shadow:inset 0 0 0 2px var(--wa-outro-b)}
+.wa-it.meu{border-left-color:var(--wa-verde)}
+.wa-av{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;font-size:15px;position:relative;letter-spacing:.02em}
+.wa-av i{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;background:var(--wa-verde);border:2px solid var(--sheet)}
+.wa-n{min-width:0;display:block} .wa-n b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
+.wa-n span{display:block;font-size:12.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-n .prev{color:var(--ink-2)} .wa-it.nl .prev{color:var(--ink);font-weight:600}
+.wa-dir{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:11.5px;color:var(--ink-3)}
+.wa-it.nl .wa-dir>span:first-child{color:var(--wa-verde-esc);font-weight:700}
+.wa-dir .cont-reg{font-size:11px;padding:1px 6px;border-radius:6px}
+.wa-badge{background:var(--wa-verde);color:#fff;border-radius:999px;font-size:11px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 6px}
+.wa-trat{display:inline-block!important;margin-top:3px;font-size:11px!important;font-weight:700;color:var(--wa-outro-b)!important;background:var(--wa-outro);border-radius:999px;padding:1px 8px}
+.wa-trat.eu{color:var(--ok)!important;background:var(--ok-soft)}
+.wa-host{display:flex;flex-direction:column;min-height:0;min-width:0}
+.wa-conv{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--wa-bg)}
+.wa-top{display:flex;gap:10px;align-items:center;padding:9px 14px;background:var(--sheet);border-bottom:1px solid var(--rule)}
+.wa-top .wa-n b{font-size:15.5px}
+.wa-acoes{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.wa-faixa{padding:7px 14px;font-size:13px;font-weight:600;background:var(--wa-outro);color:var(--wa-outro-b);border-bottom:1px solid var(--rule)}
+.wa-faixa.eu{background:var(--ok-soft);color:var(--ok)}
+.wa-msgs{flex:1;overflow:auto;padding:14px 5%;display:flex;flex-direction:column;gap:2px;min-height:0;background-image:radial-gradient(rgba(120,120,120,.09) 1px,transparent 1.2px);background-size:18px 18px}
+.wa-b{max-width:min(78%,540px);padding:6px 9px 5px;border-radius:10px;background:var(--wa-ele);box-shadow:0 1px .5px rgba(11,20,26,.13);align-self:flex-start;white-space:pre-wrap;word-break:break-word;font-size:14.2px;line-height:1.4;margin-top:1px;color:var(--ink)}
+.wa-b.eu{align-self:flex-end;background:var(--wa-eu)}
+.wa-b.primeiro{margin-top:9px;border-top-left-radius:3px} .wa-b.eu.primeiro{border-top-left-radius:10px;border-top-right-radius:3px}
+.wa-b .q{display:block;font-size:12.5px;font-weight:700;margin-bottom:1px}
+.wa-b .h{float:right;margin:7px 0 -3px 12px;font-size:11px;color:var(--ink-3)}
+.wa-b img{display:block;max-width:260px;width:100%;border-radius:8px;margin:2px 0 4px}
+.wa-sis{align-self:center;background:var(--sheet);color:var(--ink-2);font-size:12px;border-radius:8px;padding:5px 12px;margin:10px 0 4px;box-shadow:0 1px .5px rgba(11,20,26,.1);text-align:center;max-width:90%}
+.wa-sis b{display:block;font-size:17px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink)}
+.wa-comp{display:flex;gap:8px;align-items:flex-end;padding:9px 12px;background:var(--sheet);border-top:1px solid var(--rule)}
+.wa-comp textarea{min-height:44px;max-height:140px;border-radius:22px;padding:11px 16px;resize:none;background:var(--paper);line-height:1.35}
+.wa-env{flex:none;width:44px;height:44px;border-radius:50%;border:0;background:var(--wa-verde-esc);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center;padding:0}
+.wa-env:hover{filter:brightness(1.08)} .wa-env:disabled{opacity:.5;cursor:default}
+.wa-chamar{padding:12px 14px;background:var(--sheet);border-top:1px solid var(--rule);display:grid;gap:8px}
+.wa-chamar .wa-comp{padding:0;border:0}
+.wa-vazio{margin:auto;text-align:center;color:var(--ink-3);padding:30px;max-width:420px}
+.wa-vazio b{display:block;font-size:18px;color:var(--ink-2);margin-bottom:6px}
+.wa-volta{display:none!important}
+.wa-dlg{height:min(62vh,560px);border:1px solid var(--rule);border-radius:14px;overflow:hidden;margin:14px 0}
+@media (max-width:820px){.wa{grid-template-columns:minmax(0,1fr);height:calc(100vh - 170px)} .wa.aberta .wa-lado{display:none} .wa:not(.aberta) .wa-host{display:none} .wa-volta{display:inline-flex!important}}
+/* [v6.5] ordenar tabela A→Z / Z→A clicando no título da coluna */
+th.ord{cursor:pointer;user-select:none;white-space:nowrap} th.ord:hover{color:var(--ink)}
+th.ord::after{content:" ↕";opacity:.35;font-size:11px} th.ord.asc::after{content:" ▲";opacity:.9} th.ord.desc::after{content:" ▼";opacity:.9}
 .motivo-gde{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--ink)}
 .cont-reg{display:inline-block;font:700 16px/1.2 "IBM Plex Mono",monospace;background:var(--ok-soft,#E1F2E7);color:var(--ok,#2F7D4F);border-radius:8px;padding:4px 10px}
 .cont-reg.quase{background:#FFE6CC;color:#C2410C} .cont-reg.estourou{background:var(--bad-soft,#FBE3E3);color:var(--bad)}
@@ -781,15 +838,18 @@ const ICO = {
   retorno: SV + '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg>',
   gap: SV + '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/></svg>',
   aovivo: SV + '<circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/></svg>',
+  conversas: SV + '<path d="M21 11.5a8.4 8.4 0 01-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1121 11.5z"/><path d="M8 10h8M8 14h5"/></svg>',
+  transportadora: SV + '<path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>',
   historico: SV + '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5M12 7v5l3 3"/></svg>',
   motoristas: SV + '<rect x="1" y="6" width="14" height="10" rx="1"/><path d="M15 9h4l3 4v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
   cadastros: SV + '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>',
 };
-const SECOES = RK ? [["aovivo", "Ao vivo"], ["historico", "Histórico de entregas"], ["motoristas", "Motoristas e app"]]
+const SECOES = RK ? [["aovivo", "Ao vivo"], ["conversas", "Conversas"], ["transportadora", "Transportadora"], ["historico", "Histórico de entregas"], ["motoristas", "Motoristas e app"]]
   : ["grp:Operação", ["pcl", "PCL"], ["montagem", "Montagem do palete"], ["conferencia", "Conferência na doca"], ["retorno", "Retorno"],
      "grp:Administrativo", ["painel", "Painel"], ["gap", "GAP"], ["cadastros", "Cadastros"]];
 const MIN_ABA = { montagem: 2, conferencia: 2, retorno: 2, cadastros: 3, motoristas: 3 };
-function nivelAba(id) { if (ABAS_N && id in ABAS_N) return Number(ABAS_N[id]) || 0; const n = NIVEL_SIS; return n < (MIN_ABA[id] || 1) ? 0 : (n >= 3 ? 4 : n); }
+const ABA_DE = RK ? { conversas: "aovivo", transportadora: "aovivo" } : {};   // [v6.5] Conversas e Transportadora seguem o acesso do Ao vivo
+function nivelAba(id) { if (ABA_DE[id]) return nivelAba(ABA_DE[id]); if (ABAS_N && id in ABAS_N) return Number(ABAS_N[id]) || 0; const n = NIVEL_SIS; return n < (MIN_ABA[id] || 1) ? 0 : (n >= 3 ? 4 : n); }
 const pode = (aba, n) => nivelAba(aba) >= n;
 let secao = (() => { try { return sessionStorage.getItem("qld_secao") || ""; } catch (_) { return ""; } })();
 let ABERTA = null, VOLTA = null;   // carga aberta na aba atual · para onde volta o "detalhe"
@@ -813,7 +873,7 @@ function menu() {
   $("#menu").querySelectorAll("[data-s]").forEach(b => b.onclick = () => ir(b.dataset.s));
   $("#menu").hidden = vis.filter(x => !grp(x)).length <= 1;   // [v5.3] quem tem uma etapa só (ex.: o chapa da montagem) não precisa do menu
 }
-function ir(s, carga, volta) { if (typeof pararAoVivo === "function" && s !== "aovivo") pararAoVivo(); secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
+function ir(s, carga, volta) { if (typeof pararAoVivo === "function" && s !== "aovivo") pararAoVivo(); if (typeof pararConversas === "function" && s !== "conversas") pararConversas(); secao = s; ABERTA = carga || null; VOLTA = volta || null; ULT = null; try { sessionStorage.setItem("qld_secao", s); } catch (_) {} pararCamera(); render(); window.scrollTo(0, 0); }
 async function render() {
   if (!RK) { try { await carregarLista(); } catch (_) {} }
   menu();
@@ -828,6 +888,8 @@ async function render() {
     else if (secao === "gap") await rGap(c);
     else if (secao === "cadastros") await rCadastros(c);
     else if (secao === "aovivo") await rAoVivo(c);
+    else if (secao === "conversas") await rConversas(c);
+    else if (secao === "transportadora") await rTransportadora(c);
     else if (secao === "historico") await rHistorico(c);
     else if (secao === "motoristas") await rMotoristas(c);
   } catch (e) { c.innerHTML = `<div class="conflito">${esc(e.message)}</div>`; }
@@ -1896,8 +1958,8 @@ function desenharAoVivo(c, d, silencioso) {
           <span>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.motorista)}<span class="sub">digitou “${esc(p.validar_palavra.digitada || "—")}” · palavra certa <span class="palavra">${esc(p.palavra || "—")}</span> · registrado sem sinal às ${esc(String(p.validar_palavra.offline_em || "").slice(11, 16))}</span></span>
           <span>${pode ? `<button type="button" class="primary peq" data-vpal="${esc(g.numero)}|${esc(p.pv)}|aceitar">✓ Validar entrega</button> <button type="button" class="peq warn" data-vpal="${esc(g.numero)}|${esc(p.pv)}|reabrir">Reabrir</button>` : ""}</span></div>`).join("")}</div>` : ""; })()}
     ${chats.length ? `<div class="box" style="border-color:var(--amber)"><b>💬 Chat com motorista (${chats.length} aberto(s))</b>${chats.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-        <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg, p.chat.prazo_min)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span></span>
-        <button type="button" class="primary peq" data-chat="${esc(g.numero)}|${esc(p.pv)}">Abrir chat</button></div>`).join("")}</div>` : ""}
+        <span><span class="motivo-gde">${esc(p.chat.motivo)}</span> ${relogio(p.chat.restante_seg, p.chat.prazo_min)} ${p.chat.nao_lidas ? `<span class="pill p-bad">${p.chat.nao_lidas} nova(s)</span>` : ""}<br><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">última mensagem ${esc(hora(p.chat.ult_em))}</span>${tagTrata(p.chat, d.eu)}</span>
+        <button type="button" class="primary peq" data-chat="${esc(g.numero)}|${esc(p.pv)}">Abrir conversa</button></div>`).join("")}</div>` : ""}
     ${libs.length ? `<div class="box" style="border-color:var(--bad)"><b>Motorista esperando liberação</b>${libs.map(({ g, p }) => `<div class="q-pend-l" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule-2)">
         <span><b>${esc(p.nome)}</b> · ${PVB(p.pv)} · carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista)}<span class="sub">${esc(p.liberacao.motivo || "")} · pediu às ${esc(hora(p.liberacao.pedido_em))} · ${p.tentativas} tentativa(s) erradas · palavra certa: <b>${esc(p.palavra || "—")}</b></span></span>
         ${pode ? `<span style="display:flex;gap:6px"><button type="button" class="primary peq" data-lib="${esc(g.numero)}|${esc(p.pv)}|liberar">Liberar sem palavra</button><button type="button" class="peq warn" data-lib="${esc(g.numero)}|${esc(p.pv)}|negar">Negar</button></span>` : ""}</div>`).join("")}</div>` : ""}
@@ -1905,10 +1967,10 @@ function desenharAoVivo(c, d, silencioso) {
       <p class="cap" style="margin:6px 10px">Caminhão = última posição do app (só com o app aberto). Pontos: onde cada registro foi feito.</p></div>
       <div class="box" style="margin:0;max-height:400px;overflow:auto"><b>Últimos registros</b>${feedAoVivo(d)}</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0"><input type="search" id="avBusca" value="${esc(AV.busca)}" placeholder="🔎 Buscar carga, PV, cliente, código, NF, placa, motorista, palavra…" style="flex:1 1 320px;min-width:0">${seg2([["todas", "Todas"], ["rua", "Na rua"], ["aguardando", "Aguardando saída"], ["chegou", "No CD"], ["baixa", "Sem baixa no ERP"], ["receber", "Peças a receber"]], AV.filtro, "data-avf")}</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Carga</th><th>Placa · motorista</th><th>Situação</th><th class="num">Pedidos</th><th class="num">Entregues</th><th class="num">Retorno</th><th class="num">Pendentes</th><th class="num">Sem baixa ERP</th><th class="num">Peças CD</th><th>GPS</th></tr></thead><tbody>
+    <div class="tbl-wrap"><table data-ord="av"><thead><tr><th>Carga</th><th>Placa · motorista</th><th>Situação</th><th class="num">Pedidos</th><th class="num">Entregues</th><th class="num">Retorno</th><th class="num">Pendentes</th><th class="num">Sem baixa ERP</th><th class="num">Peças CD</th><th>GPS</th></tr></thead><tbody>
       ${lista.map(g => `<tr class="clic" data-avc="${esc(g.numero)}" style="cursor:pointer${g.numero === AV.sel ? ";background:var(--amber-soft)" : ""}"><td><b>${esc(g.numero)}</b><span class="sub">Mapa ${dataBR(g.data_iso)}</span></td>
         <td>${esc(g.placa)}<span class="sub">${esc(g.motorista || "—")}${g.palavra_ligada ? ' · <b style="color:var(--amber)">palavra</b>' : ""}</span></td>
-        <td><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span><span class="sub">${g.saida ? "saiu " + hora(g.saida.em) : ""}${g.chegada ? " · chegou " + hora(g.chegada.em) : ""}</span></td>
+        <td data-ov="${esc((FASE[g.fase] || [g.fase])[0])}"><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span><span class="sub">${g.saida ? "saiu " + hora(g.saida.em) : ""}${g.chegada ? " · chegou " + hora(g.chegada.em) : ""}</span></td>
         <td class="num">${g.cont.total}</td><td class="num">${g.cont.entregue}</td><td class="num">${g.cont.retorno + g.cont.parcial}</td><td class="num">${g.cont.pendente}</td>
         <td class="num">${g.cont.sem_baixa_erp ? `<b style="color:var(--bad)">${g.cont.sem_baixa_erp}</b>` : "0"}</td>
         <td class="num">${g.cont.pecas_recebidas}/${g.cont.pecas_esperadas}</td><td>${g.pos ? `${g.pos.ha_seg != null ? haQuanto(g.pos.ha_seg) : "último ponto " + hora(g.pos.em)}` : "—"}</td></tr>`).join("") ||
@@ -1936,13 +1998,15 @@ function desenharAoVivo(c, d, silencioso) {
     try { await put(`${API_RUA}/cargas/${encodeURIComponent(n)}/validar-palavra/${encodeURIComponent(pv)}`, { acao }); toast(acao === "aceitar" ? "Entrega validada." : "Reaberto: o motorista registra de novo."); rAoVivo($("#root")); }
     catch (e) { toast(e.message, true); } });
   c.querySelectorAll("[data-cli]").forEach(tr => tr.onclick = ev => { if (ev.target.closest("button")) return; const [n, pv] = tr.dataset.cli.split("|"); abrirCliente(n, pv); });
-  c.querySelectorAll("[data-chat]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.chat.split("|"); abrirCliente(n, pv); });
+  c.querySelectorAll("[data-chat]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.chat.split("|"); abrirConversa(n, pv); });
   c.querySelectorAll("[data-tplaca]").forEach(b => b.onclick = () => { const [num, pl] = b.dataset.tplaca.split("|"); trocarPlaca(num, pl, () => rAoVivo($("#root"))); });
   c.querySelectorAll("[data-reab]").forEach(b => b.onclick = async () => {
     const [num, pv] = b.dataset.reab.split("|");
     const nota = prompt("Por que reabrir o registro do motorista? Ele vai poder registrar de novo."); if (!nota) return;
     try { await post(`${API_RUA}/cargas/${num}/pedido/${encodeURIComponent(pv)}/reabrir`, { nota }); rAoVivo($("#root")); } catch (e) { toast(e.message, true); } });
   c.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => abrirDlg(`<h3>Foto do retorno</h3><img src="${fotoUrl(b.dataset.foto)}" alt="foto da peça" style="max-width:100%;border-radius:8px"><div class="acts"><button type="button" id="fF">Fechar</button></div>`, (el, f) => { $("#fF", el).onclick = f; }));
+  ordenaveis(c);
+  contarChats(d);
   mapaAoVivo(d);
 }
 const hora = iso => iso ? String(iso).slice(11, 16) : "";
@@ -1963,7 +2027,7 @@ function detalheAoVivo(g, pode) {
   return `<div class="box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b class="cond" style="font-size:19px">Carga ${esc(g.numero)} · ${esc(g.placa)} · ${esc(g.motorista || "—")}</b>
       <span><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span> ${pillStatus(g.status)} ${pode && g.fase !== "chegou" ? `<button type="button" class="peq" data-tplaca="${esc(g.numero)}|${esc(g.placa)}">🚚 Trocar placa</button>` : ""} ${RK ? "" : `<button type="button" class="peq" onclick="abrirDetalhe('${esc(g.numero)}')">Abrir a carga</button>`}</span></div>
     <p class="cap">A baixa da entrega no Protheus pode ser feita assim que o motorista registra. A peça que volta só entra no estoque pelo <b>Retorno</b>, no CD (etiqueta e triagem).</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
+    <div class="tbl-wrap"><table data-ord="avp"><thead><tr><th>Seq</th><th>Pedido · cliente</th><th>Desfecho</th><th>Hora · quem</th><th>Palavra</th><th>Baixa no ERP</th><th>Peças no CD</th><th></th></tr></thead><tbody>
       ${g.pedidos.map(p => `<tr class="clic" data-cli="${esc(g.numero)}|${esc(p.pv)}" title="Ver o cliente completo e o chat"${AV.busca && semAcento([p.pv, p.nome, p.cliente, p.nf, p.bairro, p.palavra].join(" ")).includes(semAcento(AV.busca).trim()) ? ' style="background:var(--amber-soft)"' : ""}><td>${esc(p.seq)}</td><td>${PCOT(p.cotacao)} <b>${esc(p.nome)}</b> ${p.chat && p.chat.aberto ? `<span class="pill ${p.chat.nao_lidas ? "p-bad" : "p-warn"}">💬 ${esc(p.chat.motivo)}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas + " nova(s)" : ""}</span>` : ""}<span class="sub">${PVB(p.pv)} · ${esc(p.bairro)}${p.troca ? " · troca" : ""} · <u>ver tudo</u></span></td>
         <td>${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]}</span>` : (p.liberacao || {}).status === "pendente" ? '<span class="pill p-aco">Esperando liberação</span>' : p.chegou ? pillChegou(p.chegou) : '<span class="pill p-cinza">Sem registro</span>'}
           ${p.motivo ? `<span class="sub">${esc(p.motivo)}${p.linhas.length ? " · voltou: " + p.linhas.map(l => `${l.qtd}× ${esc(l.desc)}`).join(", ") : ""}</span>` : ""}${p.obs ? `<span class="sub">${esc(p.obs)}</span>` : ""}
@@ -1987,7 +2051,7 @@ async function rHistorico(c) {
   const DS = { entregue: ["Entregue", "p-ok"], retorno: ["Retorno", "p-bad"], parcial: ["Parcial", "p-warn"] };
   c.innerHTML = sec("Histórico de entregas", "Todos os clientes do período: o que o motorista registrou, as conversas com a frota e o PDF do caso (comprovação).", "",
     fh + `<p class="cap">${int(d.total)} cliente(s) no período${d.total > d.itens.length ? ` (mostrando ${d.itens.length})` : ""}.</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Cliente · pedido</th><th>Carga · motorista</th><th>Desfecho</th><th>Chat</th><th></th></tr></thead><tbody>${
+    <div class="tbl-wrap"><table data-ord="hist"><thead><tr><th>Data</th><th>Cliente · pedido</th><th>Carga · motorista</th><th>Desfecho</th><th>Chat</th><th></th></tr></thead><tbody>${
       d.itens.map(x => `<tr><td>${dataBR(x.data_iso)}<span class="sub">${x.em ? hora(x.em) : ""}</span></td>
         <td>${PCOT(x.cotacao)} <b>${esc(x.nome)}</b><span class="sub">${PVB(x.pv)} · NF ${esc(x.nf || "—")} · cód. ${esc(x.cliente || "—")} · ${esc(x.bairro || "")}</span></td>
         <td>${esc(x.carga)}<span class="sub">${esc(x.placa || "")} · ${esc(x.motorista || "—")}</span></td>
@@ -2000,6 +2064,7 @@ async function rHistorico(c) {
   const hb = $("#hB", c); let t = null; if (hb) hb.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIST.busca = hb.value; await rHistorico(c); const n = $("#hB", c); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 400); };
   c.querySelectorAll("[data-hv]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.hv.split("|"); abrirCliente(n, pv); });
   c.querySelectorAll("[data-hp]").forEach(b => b.onclick = () => { const [n, pv] = b.dataset.hp.split("|"); dossie(n, pv); });
+  ordenaveis(c);
 }
 // PDF do caso: o navegador gera (Salvar como PDF) — sem serviço pago. Leva um código de identificação e a hora da emissão.
 async function dossie(num, pv) {
@@ -2007,7 +2072,7 @@ async function dossie(num, pv) {
   if (!w) return toast("O navegador bloqueou a janela do PDF. Libere pop-ups para o PQI.", true);
   w.document.write("<p style='font:14px Arial;padding:20px'>Montando o PDF…</p>");
   let d;
-  try { d = await api(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}`); } catch (e) { w.close(); return toast(e.message, true); }
+  try { d = await api(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}?presenca=0`); } catch (e) { w.close(); return toast(e.message, true); }
   const ev = d.evento || {}, agoraTxt = new Date().toLocaleString("pt-BR"), codigo = `DE-${num}-${String(pv).replace(/\W/g, "")}-${Date.now().toString(36).toUpperCase()}`;
   const DSx = { entregue: "ENTREGUE", retorno: "RETORNO (nada entregue)", parcial: "ENTREGA PARCIAL" };
   const linha = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : "";
@@ -2090,37 +2155,13 @@ async function abrirCliente(num, pv) {
       ${(d.retirar || []).length ? `<b>${d.troca ? "A retirar no cliente (troca)" : "Montagem / verificação no cliente"}</b>${d.retirar.map(i => `<div class="q-it cinza"><div class="d">${esc(i.desc)}</div><span class="c">${i.qtd}</span></div>`).join("")}` : ""}
       ${pr ? `<p class="cap">Protocolo da troca: ${esc(pr.numero)} · ${esc(pr.tipo || "")} · ${esc(pr.motivo || "")}</p>` : ""}
       ${(d.obs || []).length ? `<p class="cap"><b>Observações do Mapa:</b><br>${d.obs.map(esc).join("<br>")}</p>` : ""}${d.despesas ? `<p class="cap">${esc(d.despesas)}</p>` : ""}</div>
-    <div class="box"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><b>💬 Chat com o motorista</b><span id="cliSt"></span></div>
-      <div id="cliChat"></div></div>
+    <div class="wa-host wa-dlg" id="cliWA"></div>
     <div class="acts"><button type="button" id="cliPdf">📄 PDF do caso</button><button type="button" id="cliF">Fechar</button></div>`, (el, fechar) => {
-    const pinta = dd => {
-      const a = dd.chat.atual, ant = (dd.chat.atendimentos || []).filter(x => !a || x.id !== a.id);
-      $("#cliSt", el).innerHTML = a ? `<span class="motivo-gde">${esc(a.motivo)}</span> ${relogio(a.restante_seg, a.prazo_min)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
-      const txt = ($("#cliTxt", el) || {}).value || "";
-      $("#cliChat", el).innerHTML = (a ? `<div class="chat-l" id="cliL">${msgsChat(a)}</div>
-          ${dd.pode_tratar ? `<div style="display:flex;gap:8px;margin-top:8px"><input id="cliTxt" maxlength="500" placeholder="Responder o motorista" value="${esc(txt)}" style="flex:1"><button type="button" class="primary" id="cliEnv">Enviar</button></div>
-          <div style="margin-top:6px"><button type="button" class="peq warn" id="cliEnc">Encerrar atendimento</button></div>` : ""}`
-        : `<p class="cap">O motorista abre o chat pelo app (botão “Chat com a frota” no cliente) e escolhe o motivo.</p>`)
-        + (ant.length ? `<details style="margin-top:8px"><summary class="cap" style="cursor:pointer">Atendimentos anteriores (${ant.length})</summary>${ant.map(x => `<div class="box"><b>${esc(x.motivo)}</b> · ${horaBR(x.aberto_em)} → ${horaBR(x.fechado_em)} · ${esc(x.fechado_por || "")}<div class="chat-l" style="margin-top:6px">${msgsChat(x)}</div></div>`).join("")}</details>` : "");
-      const l = $("#cliL", el); if (l) l.scrollTop = l.scrollHeight;
-      const env = $("#cliEnv", el), inp = $("#cliTxt", el);
-      const manda = async () => { const v = inp.value.trim(); if (!v) return; try { const r = await post(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}/chat`, { texto: v }); inp.value = ""; pinta({ ...dd, chat: r }); } catch (e) { toast(e.message, true); } };
-      if (env) env.onclick = manda;
-      if (inp) inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); manda(); } };
-      const enc = $("#cliEnc", el); if (enc) enc.onclick = async () => { const n = await pedirTextoInline(el); if (n == null) return;
-        try { const r = await post(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}/chat/encerrar`, { texto: n }); pinta({ ...dd, chat: r }); toast("Atendimento encerrado."); } catch (e) { toast(e.message, true); } };
-    };
-    pinta(d);
     el.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => window.open(fotoUrl(b.dataset.foto), "_blank"));
-    clearInterval(CLI_TIMER);
-    CLI_TIMER = setInterval(async () => {
-      if (!$("#dlg").open || !$("#cliChat")) { clearInterval(CLI_TIMER); return; }
-      if (document.activeElement && document.activeElement.id === "cliTxt" && document.activeElement.value) return;   // não apaga o que está sendo digitado
-      try { const n = await api(`${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}`); pinta(n); } catch (_) {}
-    }, 5000);
+    const cv = conversaWA($("#cliWA", el), num, pv, { dlg: true });   // [v6.5] a mesma conversa estilo WhatsApp da aba Conversas
     $("#cliPdf", el).onclick = () => dossie(num, pv);
-    $("#cliF", el).onclick = () => { clearInterval(CLI_TIMER); fechar(); if (secao === "aovivo") rAoVivo($("#root")); };
-    $("#dlg").onclose = () => clearInterval(CLI_TIMER);
+    $("#cliF", el).onclick = () => { cv.parar(); fechar(); if (secao === "aovivo") rAoVivo($("#root")); };
+    $("#dlg").onclose = () => cv.parar();
   });
 }
 function pedirTextoInline(el) {   // nota opcional para encerrar, sem trocar o diálogo
@@ -2151,6 +2192,228 @@ async function mapaAoVivo(d) {
   setTimeout(() => AV.mapa && AV.mapa.invalidateSize(), 50);
 }
 
+// ═══ [v6.5] ORDENAR TABELAS — clique no título da coluna: A→Z, de novo Z→A (carga, placa, situação…) ═══
+// Vale para toda tabela com data-ord="id". A ordem escolhida fica guardada e volta depois da atualização automática.
+const ORD = (() => { try { return JSON.parse(sessionStorage.getItem("rk_ord") || "{}"); } catch (_) { return {}; } })();
+const valCel = td => { if (!td) return ""; if (td.dataset.ov != null) return td.dataset.ov;
+  const i = td.querySelector("input:not([type=checkbox]),select"); if (i) return i.value; const k = td.querySelector("input[type=checkbox]"); if (k) return k.checked ? "1" : "0";
+  return td.textContent.trim(); };
+function cmpVal(a, b) {
+  if (a === b) return 0; if (a === "" || a === "—") return 1; if (b === "" || b === "—") return -1;
+  const na = /^-?[\d.,]+$/.test(a) ? +a.replace(/\./g, "").replace(",", ".") : NaN, nb = /^-?[\d.,]+$/.test(b) ? +b.replace(/\./g, "").replace(",", ".") : NaN;
+  if (!isNaN(na) && !isNaN(nb)) return na - nb;
+  return a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" });
+}
+function aplicarOrdem(t) {
+  const o = ORD[t.dataset.ord], ths = t.tHead ? [...t.tHead.rows[0].cells] : [];
+  ths.forEach((th, i) => { th.classList.toggle("asc", !!o && o.i === i && o.dir > 0); th.classList.toggle("desc", !!o && o.i === i && o.dir < 0); });
+  if (!o || !t.tBodies[0]) return;
+  const tb = t.tBodies[0], rows = [...tb.rows].filter(r => !(r.cells.length === 1 && r.cells[0].colSpan > 1));
+  rows.sort((a, b) => { const x = valCel(a.cells[o.i]), y = valCel(b.cells[o.i]);
+    if (x === "" || x === "—" || y === "" || y === "—") return cmpVal(x, y);   // vazio sempre no fim
+    return cmpVal(x, y) * o.dir; }).forEach(r => tb.appendChild(r));
+}
+function ordenaveis(root) {
+  (root || document).querySelectorAll("table[data-ord]").forEach(t => {
+    if (!t.tHead) return;
+    [...t.tHead.rows[0].cells].forEach((th, i) => {
+      if (!th.textContent.trim() || th.dataset.semord != null) return;
+      th.classList.add("ord"); th.title = "Ordenar: clique para A→Z, de novo para Z→A";
+      th.onclick = () => { const o = ORD[t.dataset.ord]; ORD[t.dataset.ord] = o && o.i === i ? { i, dir: -o.dir } : { i, dir: 1 };
+        try { sessionStorage.setItem("rk_ord", JSON.stringify(ORD)); } catch (_) {} aplicarOrdem(t); };
+    });
+    aplicarOrdem(t);
+  });
+}
+
+// ═══ [v6.5] CONVERSAS estilo WhatsApp — motoristas à esquerda, a conversa à direita ═══
+// Mais de uma pessoa da frota pode abrir a mesma conversa. Quem já está nela (ou quem assumiu o caso) aparece em destaque,
+// com cor diferente na lista: "X já está tratando este caso".
+const CORES_AV = ["#128C7E", "#2B63B0", "#6B46A8", "#C2410C", "#B83232", "#2F7D4F", "#0E7490", "#9D174D"];
+const iniciais = n => String(n || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase() || "?";
+const corAv = n => CORES_AV[[...String(n || "")].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % CORES_AV.length];
+const avatar = (n, on, px) => `<span class="wa-av" style="background:${corAv(n)}${px ? `;width:${px}px;height:${px}px;font-size:${Math.round(px * .36)}px` : ""}" aria-hidden="true">${esc(iniciais(n))}${on ? "<i></i>" : ""}</span>`;
+function quemTrata(ch, eu) {   // outros = quem MAIS está com a conversa aberta agora · resp = quem assumiu o caso
+  const em = ((eu || {}).email || "").toLowerCase(), as = (ch || {}).assumido;
+  return { outros: ((ch || {}).presenca || []).filter(x => x.email !== em).map(x => x.por), resp: as ? as.por : "", euResp: !!(as && as.email === em) };
+}
+function tagTrata(ch, eu) {
+  const t = quemTrata(ch, eu);
+  if (t.outros.length) return `<span class="wa-trat">👤 ${esc(t.outros.join(", "))} ${t.outros.length > 1 ? "já estão" : "já está"} na conversa</span>`;
+  if ((ch || {}).aberto && t.resp) return t.euResp ? '<span class="wa-trat eu">✔ você está tratando</span>' : `<span class="wa-trat">👤 ${esc(t.resp)} já está tratando</span>`;
+  return "";
+}
+function contarChats(d) {   // bolinha no menu: mensagens novas dos motoristas
+  const n = int((d.kpi || {}).chats_nao_lidos);
+  if (CONT.conversas !== n) { CONT.conversas = n; menu(); }
+}
+function msgsWA(ats, eu) {
+  let ant = "";
+  return (ats || []).flatMap(a => a.msgs || []).map(m => {
+    if (m.de === "sistema") { ant = ""; const p = / abriu o chat: /.test(m.txt) ? m.txt.split(" abriu o chat: ") : null;
+      return p ? `<div class="wa-sis">${esc(p[0])} abriu o chat · ${horaBR(m.em)}<b>${esc(p[1])}</b></div>` : `<div class="wa-sis">${esc(m.txt)} · ${horaBR(m.em)}</div>`; }
+    const quem = m.de === "frota" ? "f:" + m.nome : "m:" + m.nome, prim = quem !== ant; ant = quem;
+    const nome = m.de === "frota" ? (eu && m.nome === eu.por ? "" : m.nome) : "🚚 " + m.nome;
+    const corpo = m.foto ? `<a href="${fotoUrl(m.foto)}" target="_blank" rel="noopener"><img src="${fotoUrl(m.foto)}" alt="foto do motorista" loading="lazy"></a>${m.txt && m.txt !== "📷 Foto" ? esc(m.txt) : ""}` : esc(m.txt);
+    return `<div class="wa-b${m.de === "frota" ? " eu" : ""}${prim ? " primeiro" : ""}">${prim && nome ? `<span class="q" style="color:${corAv(m.nome)}">${esc(nome)}</span>` : ""}${corpo}<span class="h">${hora(m.em)}</span></div>`;
+  }).join("");
+}
+// A conversa de UM cliente (a tela da direita e a janela do cliente). Atualiza a cada 4 s sem apagar o que está sendo escrito.
+function conversaWA(el, num, pv, op = {}) {
+  const url = `${API_RUA}/cargas/${encodeURIComponent(num)}/pedido/${encodeURIComponent(pv)}`;
+  let d = null, vivo = true, ocupado = false;
+  el.innerHTML = '<div class="wa-conv"><div class="wa-vazio">Abrindo a conversa…</div></div>';
+  const parar = () => { if (!vivo) return; vivo = false; clearInterval(timer); post(url + "/presenca", { sair: true }).catch(() => {}); };
+  const autoAltura = t => { t.style.height = "auto"; t.style.height = Math.min(140, t.scrollHeight + 2) + "px"; };
+  const desenhar = () => {
+    const a = d.chat.atual, primeiro = (d.motorista || "o motorista").split(" ")[0];
+    const rasc = ($("#waTxt", el) || {}).value || "";
+    el.dataset.estado = a ? a.id : "-";
+    el.innerHTML = `<div class="wa-conv">
+      <div class="wa-top">${op.voltar ? '<button type="button" class="peq wa-volta" id="waV" title="Voltar para a lista">←</button>' : ""}${avatar(d.motorista, !!(d.saida && !d.chegada))}
+        <div class="wa-n"><b>${esc(d.motorista || "Motorista")}</b><span>${esc(d.nome)} · PV ${esc(d.pv)} · carga ${esc(d.carga)} · ${esc(d.placa || "")}</span></div>
+        <div class="wa-acoes"><span id="waSt"></span>${op.dlg ? "" : '<button type="button" class="peq" id="waCli" title="Endereço, peças, palavra e PDF do caso">Cliente</button>'}${a && d.pode_tratar ? '<button type="button" class="peq warn" id="waEnc">Encerrar</button>' : ""}</div></div>
+      <div id="waFx"></div>
+      <div class="wa-msgs" id="waL" aria-live="polite"></div>
+      ${a ? (d.pode_tratar ? `<div class="wa-comp"><textarea id="waTxt" rows="1" maxlength="500" placeholder="Mensagem para ${esc(primeiro)}"></textarea><button type="button" class="wa-env" id="waEnv" title="Enviar (Enter)" aria-label="Enviar">➤</button></div>`
+          : '<div class="wa-chamar cap">Você só visualiza esta conversa.</div>')
+        : d.pode_tratar && d.na_rua ? `<div class="wa-chamar"><b>💬 Chamar ${esc(primeiro)} sobre este cliente</b>
+            <label class="f">Motivo<select id="waMot"><option>${esc(d.motivo_frota)}</option>${(d.motivos || []).map(m => `<option>${esc(m)}</option>`).join("")}</select></label>
+            <div class="wa-comp"><textarea id="waTxt" rows="1" maxlength="500" placeholder="Escreva a mensagem para o motorista"></textarea><button type="button" class="wa-env" id="waIni" title="Chamar o motorista" aria-label="Chamar o motorista">➤</button></div>
+            <span class="cap">O app do motorista acende o aviso na hora e a contagem do atendimento começa.</span></div>`
+        : `<div class="wa-chamar cap">${d.na_rua ? "Sem conversa aberta." : "A carga não está na rua: o motorista não vê este cliente no app."}</div>`}</div>`;
+    const t = $("#waTxt", el);
+    if (t) { t.value = rasc; autoAltura(t); t.oninput = () => autoAltura(t);
+      t.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ($("#waEnv", el) || $("#waIni", el)).click(); } }; }
+    const enviar = async corpo => { if (ocupado) return; const v = (t.value || "").trim(); if (!v) { t.focus(); return; }
+      ocupado = true; const b = $("#waEnv", el) || $("#waIni", el); b.disabled = true;
+      try { await post(url + "/chat", { texto: v, ...corpo }); t.value = ""; await carregar(true); op.aoEnviar && op.aoEnviar(); const n = $("#waTxt", el); if (n) n.focus(); }
+      catch (e) { toast(e.message, true); } finally { ocupado = false; const bb = $("#waEnv", el) || $("#waIni", el); if (bb) bb.disabled = false; } };
+    const env = $("#waEnv", el); if (env) env.onclick = () => enviar({});
+    const ini = $("#waIni", el); if (ini) ini.onclick = () => enviar({ iniciar: true, motivo: $("#waMot", el).value });
+    const enc = $("#waEnc", el); if (enc) enc.onclick = async () => { const n = prompt("Encerrar o atendimento. Observação (opcional):", ""); if (n == null) return;
+      try { await post(url + "/chat/encerrar", { texto: n.trim() }); toast("Atendimento encerrado."); await carregar(true); op.aoEnviar && op.aoEnviar(); } catch (e) { toast(e.message, true); } };
+    const cl = $("#waCli", el); if (cl) cl.onclick = () => abrirCliente(num, pv);
+    const vv = $("#waV", el); if (vv) vv.onclick = () => op.voltar();
+  };
+  const atualizar = forcar => {
+    const a = d.chat.atual, ats = d.chat.atendimentos || [];
+    if (forcar || !$("#waL", el) || el.dataset.estado !== (a ? a.id : "-")) desenhar();
+    const t = quemTrata({ presenca: d.presenca, assumido: a ? a.assumido : null }, d.eu);
+    $("#waFx", el).innerHTML = t.outros.length ? `<div class="wa-faixa">👤 ${esc(t.outros.join(", "))} ${t.outros.length > 1 ? "já estão" : "já está"} nesta conversa${t.resp && !t.euResp ? ` · ${esc(t.resp)} está tratando este caso` : ""}</div>`
+      : a && t.resp && !t.euResp ? `<div class="wa-faixa">👤 ${esc(t.resp)} já está tratando este caso</div>`
+      : a && t.euResp ? '<div class="wa-faixa eu">✔ Você está tratando este caso</div>' : "";
+    $("#waSt", el).innerHTML = a ? `<span class="pill p-warn">${esc(a.motivo)}</span> ${relogio(a.restante_seg, a.prazo_min)}` : '<span class="pill p-cinza">Sem chat aberto</span>';
+    const L = $("#waL", el), ult = ats.length ? ats[ats.length - 1] : null;
+    const sig = ats.length + "|" + (ult ? (ult.msgs || []).length + (ult.fechado_em || "") : "");
+    if (L.dataset.sig !== sig) { const fim = forcar || !L.dataset.sig || L.scrollTop + L.clientHeight >= L.scrollHeight - 60;
+      L.innerHTML = msgsWA(ats, d.eu) || `<div class="wa-vazio"><b>Nenhuma conversa ainda</b>${d.pode_tratar && d.na_rua ? "Escreva abaixo para chamar o motorista." : ""}</div>`;
+      L.dataset.sig = sig; if (fim) L.scrollTop = L.scrollHeight; }
+  };
+  const carregar = async forcar => {
+    try { const n = await api(url); if (!vivo) return; d = n; atualizar(forcar); op.aoCarregar && op.aoCarregar(d); }
+    catch (e) { if (!d) el.innerHTML = `<div class="wa-conv"><div class="wa-vazio"><b>Não abriu</b>${esc(e.message)}</div></div>`; }
+  };
+  const timer = setInterval(() => { if (!el.isConnected) return parar(); if (document.visibilityState === "visible" && !ocupado) carregar(false); }, 4000);
+  carregar(true);
+  return { parar, recarregar: () => carregar(true) };
+}
+const CONV = { sel: null, filtro: "abertas", busca: "", timer: null, ch: null, d: null };
+function pararConversas() { clearInterval(CONV.timer); CONV.timer = null; if (CONV.ch) { CONV.ch.parar(); CONV.ch = null; } }
+function abrirConversa(num, pv) { CONV.sel = `${num}|${pv}`; if (secao === "conversas") selConversa(num, pv); else ir("conversas"); }
+async function rConversas(c) {
+  pararConversas();
+  const d = await api(`${API_RUA}/ao-vivo?data=${AV.data}`); CONV.d = d;
+  c.innerHTML = sec("Conversas com os motoristas", "Motoristas à esquerda, a conversa à direita. Mais de uma pessoa pode entrar na mesma conversa: quem já está tratando aparece em destaque (cor lilás).",
+    `<input type="date" id="cvData" value="${d.data}" style="width:auto;padding:5px 8px">`,
+    `<div class="wa${CONV.sel ? " aberta" : ""}" id="wa"><div class="wa-lado"><div class="wa-busca"><input type="search" id="cvB" value="${esc(CONV.busca)}" placeholder="🔎 Motorista, cliente, PV, placa, carga" aria-label="Buscar conversa">
+      <div class="wa-chips">${[["abertas", "Abertas"], ["todas", "Com conversa"], ["clientes", "Todos os clientes"]].map(([k, t]) => `<button type="button" class="wa-chip${CONV.filtro === k ? " on" : ""}" data-cvf="${k}">${t}</button>`).join("")}</div></div>
+      <div class="wa-lista" id="cvL"></div></div><div class="wa-host" id="cvC"></div></div>`);
+  $("#cvData", c).onchange = e => { AV.data = e.target.value || HOJE; rConversas(c); };
+  const b = $("#cvB", c); let tb = null; b.oninput = () => { clearTimeout(tb); tb = setTimeout(() => { CONV.busca = b.value; listaConversas(); }, 150); };
+  c.querySelectorAll("[data-cvf]").forEach(x => x.onclick = () => { CONV.filtro = x.dataset.cvf; c.querySelectorAll("[data-cvf]").forEach(y => y.classList.toggle("on", y === x)); listaConversas(); });
+  listaConversas();
+  if (CONV.sel) { const [n, pv] = CONV.sel.split("|"); selConversa(n, pv); }
+  else $("#cvC", c).innerHTML = '<div class="wa-conv"><div class="wa-vazio"><b>💬 Conversas com os motoristas</b>Escolha uma conversa à esquerda. Em “Todos os clientes” você chama o motorista sobre qualquer cliente da carga.</div></div>';
+  CONV.timer = setInterval(async () => {
+    if (secao !== "conversas" || document.visibilityState !== "visible") return;
+    try { CONV.d = await api(`${API_RUA}/ao-vivo?data=${AV.data}`); listaConversas(); } catch (_) {}
+  }, 8000);
+}
+function listaConversas() {
+  const L = $("#cvL"), d = CONV.d; if (!L || !d) return;
+  const termo = semAcento(CONV.busca).trim();
+  let it = []; d.cargas.forEach(g => g.pedidos.forEach(p => it.push({ g, p, ch: p.chat || {} })));
+  it = it.filter(({ ch }) => CONV.filtro === "clientes" || ch.aberto || (CONV.filtro === "todas" && ch.atendimentos > 0))
+    .filter(({ g, p }) => !termo || semAcento([g.motorista, g.placa, g.numero, g.transportadora, p.nome, p.pv, p.cliente, p.nf, p.bairro].join(" ")).includes(termo));
+  it.sort((a, b) => (!!b.ch.aberto - !!a.ch.aberto) || ((b.ch.nao_lidas || 0) - (a.ch.nao_lidas || 0)) || String(b.ch.ult_em || "").localeCompare(String(a.ch.ult_em || ""))
+    || String(a.g.motorista || "").localeCompare(String(b.g.motorista || ""), "pt-BR") || cmpVal(String(a.p.seq), String(b.p.seq)));
+  const top = L.scrollTop;
+  L.innerHTML = it.map(({ g, p, ch }) => { const k = `${g.numero}|${p.pv}`, t = quemTrata(ch, d.eu);
+    const outro = t.outros.length > 0 || (ch.aberto && t.resp && !t.euResp), meu = ch.aberto && t.euResp && !t.outros.length;
+    const prev = ch.ult_txt != null && (ch.aberto || ch.atendimentos) ? `${ch.ult_de === "frota" ? (ch.ult_nome === d.eu.por ? "Você: " : esc(String(ch.ult_nome || "Frota").split(" ")[0]) + ": ") : ""}${esc(ch.ult_txt)}`
+      : ch.atendimentos ? "Conversa encerrada" : '<i>Sem conversa · toque para chamar</i>';
+    return `<button type="button" class="wa-it${k === CONV.sel ? " sel" : ""}${ch.nao_lidas ? " nl" : ""}${outro ? " outro" : ""}${meu ? " meu" : ""}" data-cv="${esc(k)}">
+      ${avatar(g.motorista, g.fase === "rua")}<span class="wa-n"><b>${esc(g.motorista || "Sem motorista")}</b><span>${esc(p.nome)} · PV ${esc(p.pv)} · ${esc(g.placa || "")}</span>
+        <span class="prev">${ch.aberto ? `<b style="display:inline;font-size:12px">${esc(ch.motivo)}</b> · ` : !ch.aberto && ch.atendimentos ? "✓ " : ""}${prev}</span>${tagTrata(ch, d.eu)}</span>
+      <span class="wa-dir"><span>${esc(hora(ch.ult_em))}</span>${ch.nao_lidas ? `<span class="wa-badge" aria-label="${ch.nao_lidas} nova(s)">${ch.nao_lidas}</span>` : ""}${ch.aberto ? relogio(ch.restante_seg, ch.prazo_min) : ""}</span></button>`; }).join("")
+    || `<div class="wa-vazio">${CONV.filtro === "abertas" ? "<b>Nenhuma conversa aberta</b>Veja “Com conversa” ou chame um motorista em “Todos os clientes”." : "Nada encontrado."}</div>`;
+  L.scrollTop = top;
+  L.querySelectorAll("[data-cv]").forEach(x => x.onclick = () => { const [n, pv] = x.dataset.cv.split("|"); selConversa(n, pv); });
+  contarChats(d);
+}
+function selConversa(num, pv) {
+  CONV.sel = `${num}|${pv}`;
+  const w = $("#wa"); if (!w) return; w.classList.add("aberta");
+  document.querySelectorAll("[data-cv]").forEach(x => x.classList.toggle("sel", x.dataset.cv === CONV.sel));
+  if (CONV.ch) CONV.ch.parar();
+  CONV.ch = conversaWA($("#cvC"), num, pv, { voltar: () => { if (CONV.ch) CONV.ch.parar(); CONV.ch = null; CONV.sel = null; w.classList.remove("aberta"); listaConversas(); },
+    aoEnviar: async () => { try { CONV.d = await api(`${API_RUA}/ao-vivo?data=${AV.data}`); listaConversas(); } catch (_) {} } });
+}
+
+// ═══ [v6.5] TRANSPORTADORA — placas, motoristas e cargas de cada transportadora; editar a placa e chamar o motorista ═══
+const TR = { busca: "" };
+async function rTransportadora(c) {
+  const d = await api(`${API_RUA}/ao-vivo?data=${AV.data}`), pd = d.pode_tratar;
+  const termo = semAcento(TR.busca).trim();
+  const grupos = {};
+  d.cargas.filter(g => !termo || semAcento([g.transportadora, g.placa, g.motorista, g.numero].join(" ")).includes(termo))
+    .forEach(g => { const k = String(g.transportadora || "").trim() || "Sem transportadora"; (grupos[k] = grupos[k] || []).push(g); });
+  const nomes = Object.keys(grupos).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const naRua = g => ["validada", "em_retorno"].includes(g.status) && g.fase !== "chegou";
+  const chatsCarga = g => g.pedidos.filter(p => (p.chat || {}).aberto).map(p => { const t = quemTrata(p.chat, d.eu), outro = t.outros.length || (t.resp && !t.euResp);
+    return `<button type="button" class="pill ${outro ? "p-roxo" : p.chat.nao_lidas ? "p-bad" : t.euResp ? "p-ok" : "p-warn"}" style="border:0;cursor:pointer;margin:1px" data-cv="${esc(g.numero)}|${esc(p.pv)}" title="${esc(p.nome)}${t.outros.length ? " · " + esc(t.outros.join(", ")) + " na conversa" : t.resp ? " · " + esc(t.resp) + " tratando" : ""}">💬 ${esc(String(p.nome || "").split(" ")[0])}${p.chat.nao_lidas ? " · " + p.chat.nao_lidas : ""}${outro ? " · 👤 " + esc((t.outros[0] || t.resp).split(" ")[0]) : ""}</button>`; }).join("");
+  c.innerHTML = sec("Transportadoras", "Cada transportadora com as placas, os motoristas e as cargas do dia. Edite a placa da carga e chame o motorista para conversar.",
+    `<input type="date" id="trData" value="${d.data}" style="width:auto;padding:5px 8px">`,
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 4px"><input type="search" id="trB" value="${esc(TR.busca)}" placeholder="🔎 Transportadora, placa, motorista, carga" style="flex:1 1 320px;min-width:0"></div>
+    ${nomes.map(nm => { const gs = grupos[nm], pl = new Set(gs.map(g => g.placa).filter(Boolean)), mt = new Set(gs.map(g => g.motorista).filter(Boolean));
+      const tot = gs.reduce((a, g) => a + g.cont.total, 0), ent = gs.reduce((a, g) => a + g.cont.entregue, 0), ab = gs.reduce((a, g) => a + g.cont.chats_abertos, 0);
+      return `<div class="box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b class="cond" style="font-size:19px">🏢 ${esc(nm)}</b>
+        <span class="cap">${gs.length} carga(s) · ${pl.size} placa(s) · ${mt.size} motorista(s) · ${ent}/${tot} entregue(s)${ab ? ` · <b>💬 ${ab} conversa(s) aberta(s)</b>` : ""}</span></div>
+        <div class="tbl-wrap"><table data-ord="tr"><thead><tr><th>Carga</th><th>Placa</th><th>Motorista</th><th>Situação</th><th class="num">Entregues</th><th class="num">Pendentes</th><th>Conversas</th><th></th></tr></thead><tbody>
+        ${gs.map(g => `<tr><td><b>${esc(g.numero)}</b><span class="sub">Mapa ${dataBR(g.data_iso)}</span></td>
+          <td data-ov="${esc(g.placa || "")}"><b class="mono">${esc(g.placa || "—")}</b> ${pd && g.status !== "baixada" && g.fase !== "chegou" ? `<button type="button" class="peq" data-trp="${esc(g.numero)}|${esc(g.placa || "")}" title="Editar a placa desta carga (a placa nova assume as entregas pendentes)" aria-label="Editar a placa">✏️</button>` : ""}</td>
+          <td data-ov="${esc(g.motorista || "")}"><span style="display:inline-flex;gap:8px;align-items:center">${avatar(g.motorista, g.fase === "rua", 30)}${esc(g.motorista || "—")}</span></td>
+          <td data-ov="${esc((FASE[g.fase] || [g.fase])[0])}"><span class="pill ${(FASE[g.fase] || ["", "p-cinza"])[1]}">${(FASE[g.fase] || [g.fase])[0]}</span></td>
+          <td class="num">${g.cont.entregue}/${g.cont.total}</td><td class="num">${g.cont.pendente}</td>
+          <td>${chatsCarga(g) || '<span class="muted">—</span>'}</td>
+          <td style="white-space:nowrap">${pd && naRua(g) ? `<button type="button" class="primary peq" data-chm="${esc(g.numero)}">💬 Chamar motorista</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`; }).join("")
+      || '<p class="cap">Nenhuma carga nesta data.</p>'}`);
+  $("#trData", c).onchange = e => { AV.data = e.target.value || HOJE; rTransportadora(c); };
+  const b = $("#trB", c); let tb = null; b.oninput = () => { clearTimeout(tb); tb = setTimeout(async () => { TR.busca = b.value; await rTransportadora(c); const n = $("#trB", c); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 300); };
+  c.querySelectorAll("[data-trp]").forEach(x => x.onclick = () => { const [n, pl] = x.dataset.trp.split("|"); trocarPlaca(n, pl, () => rTransportadora($("#root"))); });
+  c.querySelectorAll("[data-cv]").forEach(x => x.onclick = () => { const [n, pv] = x.dataset.cv.split("|"); abrirConversa(n, pv); });
+  c.querySelectorAll("[data-chm]").forEach(x => x.onclick = async () => {
+    const g = d.cargas.find(y => y.numero === x.dataset.chm); if (!g) return;
+    const ps = [...g.pedidos].sort((a, b) => (!!(b.chat || {}).aberto - !!(a.chat || {}).aberto) || (!b.desfecho - !a.desfecho) || cmpVal(String(a.seq), String(b.seq)));
+    const pv = await escolher(`Chamar ${g.motorista || "o motorista"} · carga ${g.numero}`, "A conversa é sempre sobre um cliente da carga. Sobre qual cliente?",
+      ps.map(p => ({ t: `${p.seq} · ${p.nome}`, s: `PV ${p.pv} · ${p.bairro || ""}${p.desfecho ? " · " + (DESF[p.desfecho] || [p.desfecho])[0] : " · pendente"}${(p.chat || {}).aberto ? " · 💬 conversa aberta" : ""}`, v: p.pv })));
+    if (pv) abrirConversa(g.numero, pv);
+  });
+  ordenaveis(c);
+  contarChats(d);
+}
+
 // ═══ MOTORISTAS E APP [v5.2] — quem dirige cada placa, palavra por motorista, senha da placa ═══
 async function rMotoristas(c) {
   const d = await api(`${API_RUA}/motoristas`);
@@ -2165,7 +2428,7 @@ async function rMotoristas(c) {
     <h3>Motoristas</h3>
     <p class="cap">Ligue a <b>palavra da entrega</b> por motorista, para implantar aos poucos. Com ela ligada, o app só registra <b>Entregue</b> com a palavra que o cliente recebeu.
       Errou ${int(d.cfg.tentativas)} vezes → trava e o motorista pede liberação (aba Ao vivo).</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Motorista</th><th>Placas (separe por vírgula)</th><th>Palavra da entrega</th><th>Ativo</th><th></th></tr></thead><tbody>
+    <div class="tbl-wrap"><table data-ord="mot"><thead><tr><th>Motorista</th><th>Placas (separe por vírgula)</th><th>Palavra da entrega</th><th>Ativo</th><th></th></tr></thead><tbody>
       ${d.motoristas.map(m => `<tr data-mid="${esc(m.id)}"><td><input value="${esc(m.nome)}" data-k="nome" ${ed ? "" : "disabled"} style="min-width:200px"><span class="sub">${esc(m.por || "")} · ${dataBR(m.em)}</span></td>
         <td><input value="${esc((m.placas || []).join(", "))}" data-k="placas" class="mono" ${ed ? "" : "disabled"} style="min-width:150px"></td>
         <td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-k="palavra" ${m.palavra ? "checked" : ""} ${ed ? "" : "disabled"} style="width:20px;height:20px"> ${m.palavra ? "<b>Ligada</b>" : "Desligada"}</label></td>
@@ -2175,7 +2438,7 @@ async function rMotoristas(c) {
     ${ed ? `<div class="q-form" style="align-items:end"><label class="f">Novo motorista<input id="nmNome" placeholder="Nome completo"></label><label class="f">Placas<input id="nmPl" class="mono" placeholder="ABC1D23, XYZ9K87"></label>
       <label class="f" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="nmPal" style="width:20px;height:20px"> Palavra ligada</label><button type="button" class="primary" id="nmOk">Cadastrar</button></div>` : ""}
     <h3>Placas no app</h3>
-    <div class="tbl-wrap"><table><thead><tr><th>Placa</th><th>Motorista no cadastro</th><th>Senha</th><th>Último acesso</th><th></th></tr></thead><tbody>
+    <div class="tbl-wrap"><table data-ord="placas"><thead><tr><th>Placa</th><th>Motorista no cadastro</th><th>Senha</th><th>Último acesso</th><th></th></tr></thead><tbody>
       ${d.placas.map(p => `<tr><td class="mono"><b>${esc(p.placa)}</b></td><td>${esc(p.cadastro || "—")}</td>
         <td><span class="pill ${ACESSO[p.acesso][1]}">${ACESSO[p.acesso][0]}</span>${p.bloqueada ? ' <span class="pill p-bad">Bloqueada por tentativas</span>' : ""}</td>
         <td>${p.ultimo_acesso ? horaBR(p.ultimo_acesso) : "—"}</td>
@@ -2227,6 +2490,7 @@ async function rMotoristas(c) {
   const cm = $("#cfgMotS", c); if (cm) cm.onclick = async () => { const lst = $("#cfgMot", c).value.split("\n").map(x => x.trim()).filter(Boolean);
     try { const r = await put(`${API_RUA}/cfg`, { motivos_chat: lst }); $("#cfgMot", c).value = r.motivos_chat.join("\n"); toast("Motivos do chat gravados."); } catch (e) { toast(e.message, true); } };
   const ct = $("#cfgT", c); if (ct) ct.onchange = async () => { try { await put(`${API_RUA}/cfg`, { tentativas: +ct.value }); toast("Salvo."); } catch (e) { toast(e.message, true); } };
+  ordenaveis(c);
 }
 
 // ═══ PAINEL ═══

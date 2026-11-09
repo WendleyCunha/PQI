@@ -1011,7 +1011,9 @@ def rota_ao_vivo(request: Request, data: str = ""):
                 cs.append(c)
         lista = [_carga_viva(c, com_palavra) for c in sorted(cs, key=lambda x: (x.get("data_iso") or "", x.get("numero") or ""))]
     soma = lambda k: sum(x["cont"][k] for x in lista)
+    q = qld.quem(request)
     return {"data": dia, "servidor": agora(), "pode_tratar": rk_nivel(request, "aovivo") >= 2,
+            "eu": {"por": q["por"], "email": str(q.get("email") or "").lower()}, "motivos": motivos_chat(), "motivo_frota": FROTA_MOTIVO,
             "kpi": {"na_rua": sum(1 for x in lista if x["fase"] == "rua"), "aguardando_saida": sum(1 for x in lista if x["fase"] == "aguardando"),
                     "chegaram": sum(1 for x in lista if x["fase"] == "chegou"), "entregues": soma("entregue"), "retornos": soma("retorno") + soma("parcial"),
                     "pendentes": soma("pendente"), "sem_baixa_erp": soma("sem_baixa_erp"), "liberacoes": soma("liberacoes"),
@@ -1035,10 +1037,14 @@ def _chats(c: dict, p: dict) -> dict:
     return r.setdefault("chats", {}).setdefault(chave_pv(p.get("pv")), {"atual": None, "atendimentos": []})
 
 
+FROTA_MOTIVO = "Contato da frota"   # [v6.5] quando o atendente chama o motorista sem um motivo da lista
+
+
 def motivo_do_chat(c: dict, p: dict) -> str:
-    """O motivo escolhido no chat deste cliente (o atual ou o último) — vale para o Retorno/Parcial sem perguntar de novo."""
+    """O motivo escolhido no chat deste cliente (o atual ou o último) — vale para o Retorno/Parcial sem perguntar de novo.
+    [v6.5] Conversa que a FROTA abriu sem motivo da lista ("Contato da frota") não vira motivo de retorno."""
     ch = ((c.get("rua") or {}).get("chats") or {}).get(chave_pv(p.get("pv"))) or {}
-    ats = ch.get("atendimentos") or []
+    ats = [a for a in ch.get("atendimentos") or [] if a.get("motivo") != FROTA_MOTIVO]
     return str(ats[-1].get("motivo") or "") if ats else ""
 
 
@@ -1061,16 +1067,68 @@ def _a_pub(a: Optional[dict]) -> Optional[dict]:
     return {**a, "restante_seg": _restante(a)} if a else None
 
 
+# [v6.5] PRESENÇA — quem da frota está com a conversa aberta AGORA (memória; a tela renova a cada poucos segundos).
+#   Mais de uma pessoa pode abrir a mesma conversa; as outras veem "X já está tratando este caso".
+PRESENCA: dict = {}          # "carga|pv" → {email: {"por": nome, "t": time}}
+PRESENCA_SEG = 25            # sem renovar por 25 s = saiu da conversa
+
+
+def _pres_chave(numero, pv) -> str:
+    return f"{numero}|{chave_pv(pv)}"
+
+
+def presenca_marcar(numero, pv, q: dict, sair: bool = False) -> None:
+    k = _pres_chave(numero, pv)
+    em = str(q.get("email") or q.get("por") or "").lower()
+    if not em:
+        return
+    if sair:
+        (PRESENCA.get(k) or {}).pop(em, None)
+    else:
+        PRESENCA.setdefault(k, {})[em] = {"por": q.get("por") or em, "t": time.time()}
+
+
+def presentes(numero, pv) -> list:
+    k = _pres_chave(numero, pv)
+    lim = time.time() - PRESENCA_SEG
+    d = PRESENCA.get(k) or {}
+    for em in [e for e, v in d.items() if v["t"] < lim]:
+        d.pop(em, None)
+    return [{"email": e, "por": v["por"]} for e, v in sorted(d.items(), key=lambda x: x[1]["t"])]
+
+
+def _assumir(a: dict, q: dict) -> None:
+    """[v6.5] A 1ª pessoa da frota que responde (ou que chama o motorista) fica como responsável pelo caso."""
+    if a is not None and not a.get("assumido"):
+        a["assumido"] = {"por": q.get("por"), "email": str(q.get("email") or "").lower(), "em": agora()}
+
+
+def _ult(a: dict) -> dict:
+    m = next((x for x in reversed(a.get("msgs") or []) if x.get("de") != "sistema"), None) or ((a.get("msgs") or [None])[-1]) or {}
+    return {"ult_txt": ("📷 Foto" if m.get("foto") and (m.get("txt") or "") in ("", "📷 Foto") else str(m.get("txt") or ""))[:120],
+            "ult_de": m.get("de") or "", "ult_nome": m.get("nome") or ""}
+
+
 def _chat_resumo(c: dict, p: dict, lado: str) -> dict:
     ch = ((c.get("rua") or {}).get("chats") or {}).get(chave_pv(p.get("pv"))) or {"atual": None, "atendimentos": []}
     a = _chat_atual(ch)
+    extra = {}
+    if lado == "frota":   # [v6.5] prévia da última mensagem, responsável e quem está na conversa agora (tela estilo WhatsApp)
+        extra = {"presenca": presentes(c.get("numero"), p.get("pv"))}
     if not a:
-        return {"aberto": False, "motivo": "", "nao_lidas": 0, "ult_em": "", "atendimentos": len(ch.get("atendimentos") or [])}
+        ats = ch.get("atendimentos") or []
+        if lado == "frota" and ats:
+            u = ats[-1]
+            extra.update(_ult(u), ult_em=(u["msgs"][-1]["em"] if u.get("msgs") else u.get("aberto_em")), ult_motivo=u.get("motivo"),
+                         fechado_em=u.get("fechado_em"), fechado_por=u.get("fechado_por"), assumido=u.get("assumido"))
+        return {"aberto": False, "motivo": "", "nao_lidas": 0, "ult_em": "", "atendimentos": len(ats), **extra}
     outro = "motorista" if lado == "frota" else "frota"
     lidas = int(a.get(f"lido_{lado}") or 0)
+    if lado == "frota":
+        extra.update(_ult(a), assumido=a.get("assumido"), aberto_por=a.get("aberto_por") or "motorista")
     return {"aberto": True, "motivo": a.get("motivo"), "ult_em": (a["msgs"][-1]["em"] if a["msgs"] else a.get("aberto_em")),
             "restante_seg": _restante(a), "prazo_min": a.get("prazo_min"),
-            "nao_lidas": sum(1 for m in a["msgs"][lidas:] if m.get("de") == outro), "atendimentos": len(ch["atendimentos"])}
+            "nao_lidas": sum(1 for m in a["msgs"][lidas:] if m.get("de") == outro), "atendimentos": len(ch["atendimentos"]), **extra}
 
 
 def _chat_pub(ch: dict, lado: str) -> dict:
@@ -1114,6 +1172,7 @@ def rota_foto_app(fid: str, request: Request):
 
 class ChatIn(BaseModel):
     motivo: Optional[str] = ""
+    iniciar: Optional[bool] = False   # [v6.5] a frota chama o motorista (abre o atendimento pelo PQI)
     texto: Optional[str] = ""
     foto: Optional[str] = ""   # [v6.1] foto da câmera (com marca d'água), data URL
 
@@ -1180,7 +1239,7 @@ def _dados_cliente(c: dict, p: dict) -> dict:
 
 
 @painel_api.get("/cargas/{numero}/pedido/{pv}")
-def rota_cliente(numero: str, pv: str, request: Request):
+def rota_cliente(numero: str, pv: str, request: Request, presenca: int = 1):
     """Ao vivo: o cliente completo + o chat com o motorista (abrir marca as mensagens como lidas pela frota)."""
     rk_exigir(request, ["aovivo"], 1, "Ver o cliente")
     with TRAVA:
@@ -1189,10 +1248,27 @@ def rota_cliente(numero: str, pv: str, request: Request):
         ch = _chats(c, p)
         a = _chat_atual(ch)
         mudou = bool(a and a.get("lido_frota") != len(a["msgs"]))
-        out = {**_dados_cliente(c, p), "chat": _chat_pub(ch, "frota"), "pode_tratar": rk_nivel(request, "aovivo") >= 2}
+        q = qld.quem(request)
+        if presenca:   # o PDF do caso lê sem "entrar" na conversa
+            presenca_marcar(c["numero"], p.get("pv"), q)   # [v6.5] quem abriu a conversa aparece para os outros atendentes
+        out = {**_dados_cliente(c, p), "chat": _chat_pub(ch, "frota"), "pode_tratar": rk_nivel(request, "aovivo") >= 2,
+               "motivos": motivos_chat(), "motivo_frota": FROTA_MOTIVO, "na_rua": c.get("status") in STATUS_RUA,
+               "presenca": presentes(c["numero"], p.get("pv")), "eu": {"por": q["por"], "email": str(q.get("email") or "").lower()}}
         if mudou:
             qld.gravar(c)
         return out
+
+
+class PresencaIn(BaseModel):
+    sair: Optional[bool] = False
+
+
+@painel_api.post("/cargas/{numero}/pedido/{pv}/presenca")
+def rota_presenca(numero: str, pv: str, payload: PresencaIn, request: Request):
+    """[v6.5] A tela da conversa avisa que entrou/continua (a cada poucos segundos) ou que saiu."""
+    rk_exigir(request, ["aovivo"], 1, "Ver o cliente")
+    presenca_marcar(numero, pv, qld.quem(request), bool(payload.sair))
+    return {"presenca": presentes(numero, pv)}
 
 
 @painel_api.post("/cargas/{numero}/pedido/{pv}/chat")
@@ -1204,10 +1280,28 @@ def rota_chat_frota(numero: str, pv: str, payload: ChatIn, request: Request):
         raise HTTPException(400, "Mensagem vazia.")
     with TRAVA:
         c = qld.carga(numero)
-        ch = _chats(c, _ped_da_carga(c, pv))
+        p = _ped_da_carga(c, pv)
+        ch = _chats(c, p)
         a = _chat_atual(ch)
-        if not a:
+        if not a and not payload.iniciar:
             raise HTTPException(409, "O motorista não tem chat aberto para este cliente.")
+        if not a:   # [v6.5] a frota chama o motorista, dentro do cliente
+            if c.get("status") not in STATUS_RUA:
+                raise HTTPException(409, "Esta carga não está com o motorista (o app só mostra cargas validadas na rua).")
+            motivo = str(payload.motivo or "").strip() or FROTA_MOTIVO
+            if motivo != FROTA_MOTIVO and motivo not in motivos_chat():
+                raise HTTPException(400, "Motivo inválido.")
+            r = rua(c)
+            a = {"id": uuid.uuid4().hex[:8], "motivo": motivo, "aberto_em": agora(), "mid": (r.get("saida") or {}).get("mid"),
+                 "nome": (r.get("saida") or {}).get("nome") or c.get("motorista") or "", "placa": c.get("placa"), "aberto_por": "frota",
+                 "msgs": [], "lido_frota": 0, "lido_motorista": 0, "fechado_em": None, "fechado_por": None,
+                 "prazo_min": chat_minutos(), "prazo_ts": time.time() + chat_minutos() * 60}
+            _msg(a, "sistema", "", f"{q['por']} (frota) abriu o chat: {motivo}")
+            ch["atendimentos"].append(a)
+            ch["atual"] = a["id"]
+            qld.hist(c, q, "frota chamou o motorista no chat", f"PV {p.get('pv')} · {p.get('nome')} · {motivo}")
+        _assumir(a, q)
+        presenca_marcar(c["numero"], p.get("pv"), q)
         _msg(a, "frota", q["por"], txt)
         a["lido_frota"] = len(a["msgs"])
         qld.gravar(c)
