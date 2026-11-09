@@ -632,6 +632,16 @@ let urlSistemaAtual = null;    // alimenta o botão "Nova aba"
 
 function chaveDoSistema(sistema){ return sistema.nome; }
 
+// [v6.1] o Agente abre a IT de um processo no Mapa Digital (IT, fluxograma e agente são uma coisa só)
+window.PQI_ABRIR_PROCESSO = function (procId, sec) {
+  try { sessionStorage.setItem('mapa_nav2', JSON.stringify({ vista: 'processo', atual: procId, secProc: sec || 'tobe', secGeral: 'painel' })); } catch (_) {}
+  const s = SISTEMAS.find(x => /\/mapa(\?|#|$)/.test(x.url || ''));
+  if (!s) return false;
+  const aberta = abasAbertas.get(chaveDoSistema(s));
+  if (aberta) { try { aberta.iframeEl.contentWindow.postMessage({ pqi: 'mapa-abrir', id: procId, sec: sec || 'tobe' }, location.origin); } catch (_) {} }
+  abrirSistema(s); return true;
+};
+
 function abrirSistema(sistema) {
   const chave = chaveDoSistema(sistema);
   if (!abasAbertas.has(chave)) {

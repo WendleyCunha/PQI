@@ -29,6 +29,7 @@ SETORES = [{"id": "cx", "dados": {"nome": "CX", "pessoas": [
            {"id": "niv", "dados": {"_tipo": "niveis"}}]
 CONTAS = {"maria.paula@ks": {"nome": "Maria Paula", "ativo": True}}
 USUARIO: dict = {}
+PROCESSOS: list = []
 FALHAS = []
 
 
@@ -58,6 +59,7 @@ def montar():
     app = FastAPI()
     A.ligar(app, usuario_atual=lambda request: dict(USUARIO),
             nome_perfil=lambda u: "Administrador" if u.get("papel") == "admin" else u.get("_perfil_nome"),
+            processos=lambda: list(PROCESSOS),
             setores=lambda: SETORES, usuarios=lambda: CONTAS)
     return TestClient(app)
 
@@ -225,11 +227,67 @@ def teste_atribuir():
     ok(r["tipo"] == "resposta" and r["fonte"]["id"] == art["id"] and len(r["passos"]) == 3, "depois de publicada, o agente responde")
 
 
+def proc_carteira(passos, regras="1. Item com saldo negativo trava o pedido inteiro.", parecer=""):
+    return {"id": "P1", "versao": 5, "dados": {"codigo": "PROC-001", "nome": "Carteira de Pedidos", "area": "CX", "macroprocesso": "Back Office",
+            "passos_real": [{"id": "r1", "descricao": "Extrair as planilhas", "quem": "Gilberto"}], "passos_it": [],
+            "validacao_tobe": {"parecer": parecer},
+            "tobe": {"codigo": "IT CARTEIRA", "versao": "01", "regras": regras, "fluxo": "Sem sucesso volta no próximo dia útil.",
+                     "passos": [{"id": f"s{i}", "descricao": d, "quem": q, "sistema": "Protheus", "regra": ""} for i, (d, q) in enumerate(passos, 1)]},
+            "fluxo": {"tobe": {"raias": [{"id": "ra", "nome": "CX · Back Office"}, {"id": "rb", "nome": "Compras"}],
+                               "nos": [{"id": "n0", "tipo": "inicio", "texto": "Início", "raia": "ra", "x": 190},
+                                       {"id": "n1", "tipo": "processo", "texto": "Ajustar saldo negativo", "raia": "ra", "x": 400, "passo": "s1"},
+                                       {"id": "n2", "tipo": "decisao", "texto": "Fornecedor atrasou?", "raia": "rb", "x": 600},
+                                       {"id": "n3", "tipo": "processo", "texto": "Cobrar fornecedor", "raia": "rb", "x": 800, "passo": "s2"}],
+                               "ligacoes": [{"de": "n0", "para": "n1"}, {"de": "n1", "para": "n2"}, {"de": "n2", "para": "n3", "rotulo": "sim"}]}}}}
+
+
+def teste_fonte_unica_mapa():
+    print("[v6.1] Mapa Digital é a fonte única do agente (IT + regras + fluxograma)")
+    ligar_memoria()
+    t = montar()
+    PROCESSOS[:] = [proc_carteira([("Ajustar o saldo negativo pela tela de Documento de Saída", "CX · Back Office"),
+                                   ("Cobrar o fornecedor e passar o prazo correto", "Compras")])]
+    A.sincronizar_processo(PROCESSOS[0])
+    art = A.P["ler"](A.COL_ART, "mapa-P1")
+    ok(art and art["ativo"] and art["origem"]["codigo"] == "PROC-001", "gravar no Mapa cria o artigo do processo")
+    txt = " ".join(art["passos"])
+    ok("IT CARTEIRA" in art["titulo"] and "em validação" in art["passos"][0], "título com a IT; cabeçalho diz a fonte e a situação")
+    ok("1. Ajustar o saldo negativo" in txt and "Quem faz: CX · Back Office" in txt and "Onde: Protheus" in txt, "passos da IT com quem faz e onde")
+    ok("Regras gerais:" in txt and "saldo negativo trava" in txt, "regras gerais entram na resposta")
+    ok("Fluxograma (como será)" in txt and "Fornecedor atrasou?" in txt and "sim: Cobrar fornecedor" in txt, "fluxograma lido na ordem das setas, com os rótulos")
+    como("ana@ks")
+    r = t.post("/api/agente/perguntar", json={"pergunta": "como ajustar saldo negativo na carteira"}).json()
+    ok(r["tipo"] == "resposta" and r["fonte"]["id"] == "mapa-P1", "o agente responde pela IT do Mapa")
+
+    print("[v6.1] mudou no Mapa → o agente muda junto")
+    PROCESSOS[0] = proc_carteira([("Ajustar o saldo negativo pela tela de Documento de Saída", "CX · Back Office"),
+                                  ("Cobrar o fornecedor e passar o prazo correto", "Compras"),
+                                  ("Jogar em carteira na tela de Agenda os pedidos antigos", "CX")], parecer="Aprovado — passa a ser regra")
+    A.sincronizar_processo(PROCESSOS[0])
+    art2 = A.P["ler"](A.COL_ART, "mapa-P1")
+    ok(art2["versao"] == 2 and "Agenda" in " ".join(art2["passos"]) and "aprovada" in art2["passos"][0], "nova versão do artigo com o passo novo e a IT aprovada")
+    ok(art2["versoes"][0]["versao"] == 1, "a versão anterior fica guardada")
+    A.sincronizar_processo(PROCESSOS[0])
+    ok(A.P["ler"](A.COL_ART, "mapa-P1")["versao"] == 2, "gravar sem mudar nada não cria versão")
+
+    print("[v6.1] o artigo do Mapa não é editado no agente")
+    como("ger@ks", "Gerente")
+    r = t.put("/api/agente/artigos/mapa-P1", json={"titulo": "outra coisa", "passos": ["texto solto"]})
+    ok(r.status_code == 409 and "Mapa" in r.json()["detail"], "editar no agente é bloqueado: manda editar no Mapa")
+    ok(t.post("/api/agente/artigos/mapa-P1/restaurar", json={"versao": 1}).status_code == 409, "voltar versão também só pelo Mapa")
+    r = t.post("/api/agente/sincronizar-mapa").json()
+    ok(len(r["artigos"]) == 1 and r["artigos"][0]["id"] == "mapa-P1", "ressincronizar tudo pelo Mapa")
+    PROCESSOS.clear()
+    t.post("/api/agente/sincronizar-mapa")
+    ok(A.P["ler"](A.COL_ART, "mapa-P1")["ativo"] is False, "processo excluído do Mapa: o agente deixa de usar")
+
+
 if __name__ == "__main__":
     teste_permissoes()
     teste_perguntas()
     teste_ia_simulada()
     teste_atribuir()
+    teste_fonte_unica_mapa()
     print()
     print("TUDO CERTO ✔" if not FALHAS else f"{len(FALHAS)} FALHA(S): " + "; ".join(FALHAS))
     sys.exit(1 if FALHAS else 0)
