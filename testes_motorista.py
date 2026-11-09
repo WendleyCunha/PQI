@@ -544,6 +544,58 @@ def teste_chegou_e_fotos():
     ok(M.raio_chegada() == M.RAIO_CHEGADA_M, "raio padrão de 250 m")
 
 
+def teste_chat_frota():
+    """[v6.5] A frota chama o motorista dentro do cliente; presença de quem está na conversa e responsável pelo caso."""
+    print("Frota chama o motorista · presença · responsável")
+    ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064601", "ABC1D23", [("739812", "Ana Rocha", 1), ("739835", "Carlos Dias", 2)])
+    app = montar()
+    mot, pq = TestClient(app), TestClient(app)
+    entrar(mot, "ABC1D23", "João Ferreira")
+    USUARIO.update(email="ana@ks", nome="Ana PCL", abas={"aovivo": 2})
+    rk = "/api/routerking/cargas/064601/pedido/739835"
+    ok(pq.post(rk + "/chat", json={"texto": "oi"}).status_code == 409, "sem 'iniciar' continua sem escrever em cliente sem chat")
+    ok(pq.post(rk + "/chat", json={"texto": "oi", "iniciar": True, "motivo": "Inventado"}).status_code == 400, "motivo fora da lista recusado")
+    st = Q.CARGAS["064601"]["status"]
+    Q.CARGAS["064601"]["status"] = "baixada"
+    ok(pq.post(rk + "/chat", json={"texto": "oi", "iniciar": True}).status_code == 409, "carga que não está na rua: não chama (o app não mostraria)")
+    Q.CARGAS["064601"]["status"] = st
+    r = pq.post(rk + "/chat", json={"texto": "João, o cliente pediu para entregar depois das 14h", "iniciar": True})
+    ok(r.status_code == 200 and r.json()["atual"]["aberto_por"] == "frota" and r.json()["atual"]["motivo"] == M.FROTA_MOTIVO, "frota chama o motorista (Contato da frota)")
+    ok(r.json()["atual"]["assumido"]["por"] == "Ana PCL", "quem chamou fica como responsável pelo caso")
+    ps = {p["pv"]: p for p in mot.get("/api/motorista/cargas").json()["cargas"][0]["pedidos"]}
+    ok(ps["739835"]["chat"]["aberto"] and ps["739835"]["chat"]["nao_lidas"] == 1, "o app do motorista acende o aviso da mensagem da frota")
+    r = mot.get("/api/motorista/cargas/064601/pedido/739835/chat").json()
+    ok(r["atual"]["msgs"][-1]["de"] == "frota", "motorista abre e lê a mensagem da frota (sem escolher motivo)")
+    mot.post("/api/motorista/cargas/064601/pedido/739835/chat", json={"texto": "Ok, combinado"})
+    ok(M.motivo_do_chat(Q.CARGAS["064601"], Q.CARGAS["064601"]["pedidos"][1]) == "", "'Contato da frota' não vira motivo de retorno")
+
+    print("Presença (mais de uma pessoa na conversa)")
+    ok(pq.get(rk).json()["presenca"][0]["por"] == "Ana PCL", "Ana abriu o cliente: aparece como presente")
+    USUARIO.update(email="bia@ks", nome="Bia Frota")
+    d = pq.get(rk).json()
+    ok([x["por"] for x in d["presenca"]] == ["Ana PCL", "Bia Frota"] and d["eu"]["email"] == "bia@ks", "Bia entra junto e vê que a Ana já está na conversa")
+    av = pq.get("/api/routerking/ao-vivo").json()
+    ch = next(p for p in av["cargas"][0]["pedidos"] if p["pv"] == "739835")["chat"]
+    ok(ch["assumido"]["por"] == "Ana PCL" and ch["ult_txt"] == "Ok, combinado" and ch["ult_de"] == "motorista", "lista mostra responsável e prévia da última mensagem")
+    ok(len(ch["presenca"]) == 2 and av["eu"]["email"] == "bia@ks", "Ao vivo mostra quem está na conversa e quem sou eu")
+    pq.post(rk + "/chat", json={"texto": "Bia aqui, acompanhando"})
+    ok(pq.get(rk).json()["chat"]["atual"]["assumido"]["por"] == "Ana PCL", "responder depois não troca o responsável")
+    ok(len(pq.post(rk + "/presenca", json={"sair": True}).json()["presenca"]) == 1, "Bia fecha a conversa: some da presença")
+    k = M._pres_chave("064601", "739835")
+    M.PRESENCA[k]["ana@ks"]["t"] -= M.PRESENCA_SEG + 1
+    ok(M.presentes("064601", "739835") == [], "sem renovar por 25 s sai sozinho")
+    USUARIO.update(abas={"aovivo": 1})
+    ok(pq.post(rk + "/chat", json={"texto": "x", "iniciar": True}).status_code == 403, "só Visualizar no Ao vivo não chama o motorista")
+    pq.post(rk + "/chat/encerrar", json={})
+    USUARIO.update(abas={"aovivo": 2})
+    pq.post(rk + "/chat/encerrar", json={})
+    ch = next(p for p in pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"] if p["pv"] == "739835")["chat"]
+    ok(not ch["aberto"] and ch["ult_motivo"] == M.FROTA_MOTIVO and ch["fechado_por"] == "Bia Frota", "encerrada continua na lista com o último motivo e quem encerrou")
+    USUARIO.update(email="pcl@ks", nome="Ana PCL", abas={})
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
@@ -564,6 +616,7 @@ if __name__ == "__main__":
     teste_fluxo()
     teste_placas()
     teste_chat()
+    teste_chat_frota()
     teste_excluir_motorista()
     teste_sem_sinal_e_cotacao()
     teste_chegou_e_fotos()
