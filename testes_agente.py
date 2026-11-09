@@ -368,6 +368,20 @@ def teste_falta_virar_it():
     ok(A.P["ler"](A.COL_ART, man3["id"])["ativo"] is False, "importado: o artigo sai de cena")
 
 
+def teste_busca_por_radical():
+    print("[v6.3.2] Variações da mesma palavra (libero × liberação) acham a IT")
+    ligar_memoria()
+    t = montar()
+    como("ger@ks", "Gerente")
+    t.post("/api/agente/artigos", json={"titulo": "Carteira de Pedidos — IT CARTEIRA (PROC-001)", "palavras": "carteira pedidos",
+                                        "passos": ["Tratar os pedidos que NÃO LIBERARAM: a liberação é automática; conferir o empenho no Documento de Saída"]})
+    como("ana@ks")
+    r = t.post("/api/agente/perguntar", json={"pergunta": "como libero um pedido"}).json()
+    ok(r["tipo"] == "resposta" and "CARTEIRA" in r["fonte"]["titulo"], "'como libero um pedido' acha a IT (libero × liberação/liberaram)")
+    r = t.post("/api/agente/perguntar", json={"pergunta": "qual a cor do uniforme da empresa"}).json()
+    ok(r["tipo"] == "nao_sei", "pergunta sem relação continua 'não sei'")
+
+
 if __name__ == "__main__":
     teste_permissoes()
     teste_perguntas()
@@ -375,6 +389,7 @@ if __name__ == "__main__":
     teste_atribuir()
     teste_fonte_unica_mapa()
     teste_falta_virar_it()
+    teste_busca_por_radical()
     print()
     print("TUDO CERTO ✔" if not FALHAS else f"{len(FALHAS)} FALHA(S): " + "; ".join(FALHAS))
     sys.exit(1 if FALHAS else 0)

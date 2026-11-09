@@ -171,25 +171,35 @@ def artigos() -> list:
     return _cache["artigos"]
 
 
+def _radical(w: str) -> str:
+    """Radical simples: "libero", "liberar", "liberação", "liberaram" → "liber" (plural, verbo, substantivo)."""
+    return w[:5] if len(w) >= 5 else w
+
+
 def pontuar(pergunta: str, art: dict) -> int:
-    """Quantas palavras da pergunta aparecem no artigo (título e palavras-chave valem mais)."""
+    """Quantas palavras da pergunta aparecem no artigo (título e palavras-chave valem mais).
+    [v6.3.2] Variações da mesma palavra contam em todo o texto (título, palavras-chave E passos)."""
     alvo_forte = set(palavras(art.get("titulo", "") + " " + art.get("palavras", "")))
     alvo_fraco = set(palavras(" ".join(art.get("passos") or [])))
+    rad_forte = {_radical(x) for x in alvo_forte if len(x) >= 5}
+    rad_fraco = {_radical(x) for x in alvo_fraco if len(x) >= 5}
     pts = 0
     for w in set(palavras(pergunta)):
-        if w in alvo_forte:
+        if w in alvo_forte or (len(w) >= 5 and _radical(w) in rad_forte):
             pts += 2
-        elif w in alvo_fraco:
-            pts += 1
-        elif len(w) >= 5 and any(x.startswith(w[:5]) for x in alvo_forte):   # plural/variação: "rasgada" × "rasgado"
+        elif w in alvo_fraco or (len(w) >= 5 and _radical(w) in rad_fraco):
             pts += 1
     return pts
+
+
+MIN_PONTOS_IA = 2   # com IA ligada a busca pode ser menos exigente: se não tiver a ver, a IA responde "não sei"
 
 
 def buscar(pergunta: str, limite: int = 3) -> list:
     ativos = [a for a in artigos() if a.get("ativo", True)]
     notas = sorted(((pontuar(pergunta, a), a) for a in ativos), key=lambda x: -x[0])
-    return [a for n, a in notas if n >= MIN_PONTOS][:limite]
+    minimo = MIN_PONTOS_IA if provedor() else MIN_PONTOS
+    return [a for n, a in notas if n >= minimo][:limite]
 
 
 def fonte(a: dict) -> dict:
