@@ -25,7 +25,7 @@ MODULOS = [
     },
     {
         "id": "carteira",
-        "nome": "Carteira de Encomendas",
+        "nome": "Carteira de Pedidos",
         "descricao": "Carteira do dia (BI Pedidos em Aberto + PV Abertos): prazos, bloqueados, itens e pendências por setor (Compras, CX, Logística…).",
         "url": "/carteira", "icone": "📦", "tipo": "nuvem",
         "paginas": ["/carteira"],
