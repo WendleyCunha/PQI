@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Carteira de Encomendas — King Star</title>
+<title>Carteira de Pedidos — King Star</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -365,8 +365,25 @@ table.pop-it{font-size:13px} table.pop-it tr.bl td{background:var(--bad-soft)}
 .rs-opcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}
 .rs-opc{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--rule);border-radius:10px;padding:8px 10px;cursor:pointer;background:var(--paper)}
 .rs-opc input{margin-top:3px;accent-color:var(--steel)} .rs-opc small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+.rs-opc>input{flex:none;width:auto} .rs-opc>span{flex:1;min-width:0;display:block;text-align:left} .rs-opc>span>b{display:inline}
 .rs-opc.sel{border-color:var(--steel);box-shadow:inset 0 0 0 1px var(--steel);background:var(--steel-soft)}
 .rs-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.rs-areas.rs-lado{grid-template-columns:repeat(2,minmax(0,1fr))} @media (max-width:700px){.rs-areas.rs-lado{grid-template-columns:1fr}}
+/* [v4.32] pendência de cada setor em destaque, com a cor do setor (Compras azul · CX roxo) */
+.pend-set{display:inline-block;background:var(--sc);color:#fff;font-weight:700;font-size:11.5px;letter-spacing:.02em;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.pend-set.falhou{background:var(--bad);box-shadow:inset 4px 0 0 var(--sc)}
+td.col-set{background:color-mix(in srgb,var(--sc,transparent) 7%,transparent);border-left:3px solid color-mix(in srgb,var(--sc,var(--rule)) 45%,transparent);max-width:260px}
+td.col-set .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.th-set{border-bottom:3px solid var(--sc);padding-bottom:1px}
+.pop-pend{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+.rs-troca{display:inline-flex;gap:4px;margin-left:8px} .rs-troca .peq{border-left:4px solid var(--sc)}
+.info-i{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;border:1.5px solid var(--ink-3);color:var(--ink-3);font:700 11px/1 Georgia,serif;font-style:italic;cursor:help;margin-left:6px;vertical-align:1px;flex:none}
+.info-i:hover,.info-i:focus{border-color:var(--steel);color:var(--steel);outline:none}
+.dica-tip{position:fixed;z-index:3000;background:#1B2436;color:#fff;font-size:12.5px;line-height:1.45;padding:8px 11px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);pointer-events:none}
+.evo-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin-top:8px}
+.evo-setor{border:1px solid var(--rule);border-top:5px solid var(--sc);border-radius:10px;padding:10px 12px;min-width:0}
+.evo-cab{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline} .evo-cab span{font-size:12.5px;color:var(--ink-3)}
+.evo-det summary{cursor:pointer;font-size:12.5px;color:var(--ink-3);margin-top:6px}
 .rs-area{background:var(--sheet);border:1px solid var(--rule);border-top:4px solid var(--ac);border-radius:10px;padding:10px 12px;font-size:13.5px;min-width:0}
 .rs-area.foco{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 40%,transparent)} .rs-cab{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px} .rs-cab .sub{flex-basis:100%}
 .rs-ult{line-height:1.5}
@@ -415,7 +432,7 @@ table.rt-tab td,table.rt-tab th{font-variant-numeric:tabular-nums}table.rt-tab t
     <nav class="side-rg" id="menu" aria-label="Seções da carteira"></nav>
     <div class="conteudo-item"><div id="lembreteAreas" class="lembrete" hidden aria-live="polite"></div><main id="root"><p class="cap">Carregando a carteira…</p></main></div>
   </div>
-  <footer class="doc-foot">Carteira de Encomendas · BI “Pedidos em Aberto” + “PV Abertos”, unidos por loja + pedido · cada classificação deixa a pendência com um setor.</footer>
+  <footer class="doc-foot">Carteira de Pedidos · BI “Pedidos em Aberto” + “PV Abertos”, unidos por loja + pedido · cada classificação deixa a pendência com um setor.</footer>
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <dialog id="dlg"><div id="dlgCorpo"></div></dialog>
@@ -920,41 +937,29 @@ function renderPainelBase(c){
       <button type="button" class="kpi k-azul" data-k="b_cart" title="Qtd Bloq = 1, mas a entrega está a mais de ${cfg().dias_carteira} dias (ou sem data): ainda não é bloqueado. Entra no fluxo quando faltar ${cfg().dias_carteira} dias."><span>📁 Em CARTEIRA</span><b>${int(B.cart.length)}</b><small>Qtd Bloq 1 · entrega acima de ${cfg().dias_carteira} dias ou sem data · ${moeda(soma(B.cart))}<br>entra no fluxo quando faltar ${cfg().dias_carteira} dias</small></button>
       <button type="button" class="kpi k-roxo" data-k="lib_sem"><span>📅 Liberados SEM AGENDAMENTO</span><b>${int(B.libSem.length)}</b><small>${moeda(soma(B.libSem))}<br>${int(B.libSem.filter(p=>prazo(p).cls==="atrasado").length)} com entrega em até ${cfg().dias_alerta} dias</small></button></div>
     ${B.atrSemTri?`<div class="alerta" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">🔎 <span><b>${int(B.atrSemTri)}</b> bloqueado(s) atrasado(s) ainda <b>sem nenhuma tabulação</b> na esteira.</span><button type="button" class="primary peq" id="pnTriar" style="margin-left:auto">Ver quais são →</button></div>`:""}
-    <h3>Pendências por setor</h3><div class="setores" id="pnSet"></div>
-    <h3>Administração</h3>
-    <div class="kpis">
-      <button type="button" class="kpi k-azul" data-k="triagem"><span>🔎 Sem ação</span><b>${int(PT.semTab)}</b><small>pedido(s) da esteira sem nenhuma tabulação · ${int(B.atrSemTri)} atrasado(s) · ${int(semTabDe(FLX.filter(foraLinhaPed)).length)} fora de linha</small></button>
-      <button type="button" class="kpi k-bad" data-k="falhou" title="Passou a data combinada (ou o prazo) e o pedido continua BLOQUEADO na planilha — volta para o setor que tabulou"><span>✕ Alinhamentos não cumpridos</span><b style="color:${falhas.length?"var(--bad)":"inherit"}">${int(falhas.length)}</b><small>ainda BLOQUEADO depois do prazo${rankFal.length?` · mais: ${esc(rankFal[0][0])} (${int(rankFal[0][1])})`:""}</small></button>
-      <button type="button" class="kpi k-ok" data-k="resolvidos"><span>✅ Resolvidos pela esteira</span><b>${int(resolv.length)}</b><small>saíram do bloqueio depois de uma tabulação · ${int(resolv.filter(x=>x.p).length)} ainda na carteira (liberados)</small></button>
-      <button type="button" class="kpi k-roxo" data-k="novo"><span>🆕 Entraram nesta foto</span><b>${int((m.novos||[]).length)}</b><small>${int((m.sairam||[]).length)} saíram</small></button></div>
-    <div class="box" id="pnBoxFal" style="border-left:6px solid var(--bad)"><div class="sectionhead"><b>✕ Alinhamentos não cumpridos — passou a data combinada e o pedido continua BLOQUEADO</b>${falhas.length?'<button type="button" class="peq" id="pnFalXls">⬇️ Excel</button>':""}</div>
+    <div class="setores" id="pnSet"></div>
+    <div class="box" id="pnBoxFal" style="border-left:6px solid var(--bad)"${PNL.verFal?"":" hidden"}><div class="sectionhead"><b>✕ Alinhamentos não cumpridos — passou a data combinada e o pedido continua BLOQUEADO</b>${falhas.length?'<button type="button" class="peq" id="pnFalXls">⬇️ Excel</button>':""}</div>
       <p class="cap" style="margin:2px 0 8px">${int(falhas.length)} pendência(s) · voltaram para o setor · as mais recentes primeiro · clique para abrir o pedido.</p>
       ${falhas.length?`<div class="grid2" style="grid-template-columns:minmax(300px,.8fr) minmax(0,2fr)"><div><b style="font-size:13px">Por quem tabulou</b><div style="margin-top:6px">${barras(rankFal.map(([k,v])=>({rot:k,v,cor:"#B83232"})),falhas.length)}</div></div><div id="pnFal"></div></div>`
         :'<p class="cap">Nenhum alinhamento não cumprido. 👌 Quando passar a data combinada (ou o prazo) e o pedido continuar bloqueado na planilha, ele aparece aqui e volta para o setor que tabulou.</p>'}</div>
-    <div class="box" id="pnBoxRes"><b>✅ Resolvidos pela esteira — saíram do bloqueio depois de uma tabulação</b><p class="cap" style="margin:2px 0 8px">${int(resolv.length)} pedido(s) · conferido pela planilha · os mais recentes primeiro.</p><div id="pnRes"></div></div>
+    <div id="pnMeio"></div>
     <div class="grid2">
       <div class="box" style="margin:0"><b>Evolução da carteira</b><p class="cap" style="margin:2px 0 8px">Uma linha por importação (últimas 30).</p><div class="graf" id="pnGraf"></div></div>
       <div class="box" style="margin:0"><b>Itens mais bloqueados</b><p class="cap" style="margin:2px 0 8px">Unidades bloqueadas por produto — clique para ver os pedidos.</p><div id="pnTop"></div></div>
       <div class="box" style="margin:0"><b>Bloqueados por loja</b><p class="cap" style="margin:2px 0 8px">Pedidos bloqueados, por loja de origem.</p><div id="pnLoja"></div></div>
       <div class="box" style="margin:0"><b>Por tipo de pedido</b><p class="cap" style="margin:2px 0 8px">Pedidos na carteira.</p><div id="pnTipo"></div></div></div>`;
   c.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const k=b.dataset.k;
-    if(k==="triagem") return;
-    if(k==="falhou"){ const bx=$("#pnBoxFal",c); if(bx) bx.scrollIntoView({behavior:"smooth",block:"start"}); return; }
-    if(k==="resolvidos"){ const bx=$("#pnBoxRes",c); if(bx) bx.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+    if(k==="falhou"){ PNL.verFal=!PNL.verFal; const bx=$("#pnBoxFal",c); if(bx){ bx.hidden=!PNL.verFal; if(PNL.verFal) bx.scrollIntoView({behavior:"smooth",block:"start"}); } b.classList.toggle("ativo",PNL.verFal); return; }
     irCarteira(k==="b_atr"?{bloq:"sim",prazo:"atrasado"}:k==="b_alerta"?{bloq:"sim",prazo:"alerta"}:k==="b_proj"?{bloq:"sim",prazo:"projecao"}:k==="b_tot"?{bloq:"sim"}:k==="b_cart"?{bloq:"carteira"}:k==="lib_sem"?{bloq:"nao",sit:"SEM AGENDAMENTO"}:{novo:true}); });
   const pf=$("#pnFal",c);
   if(pf){ pf.innerHTML=`<div class="tbl-wrap" style="max-height:340px"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Setor</th><th>Tabulação</th><th>Por</th><th>Quando</th><th>Situação</th></tr></thead><tbody>${
       falhas.map(x=>`<tr class="clic" data-fk="${esc(x.p.k)}" data-fa="${x.a}"><td><b>${esc(x.p.p)}</b><span class="sub">loja ${esc(x.p.l)}</span></td><td>${esc(x.p.n||"—")}</td><td>${pillArea(x.a,nomeSetor(x.a))}</td><td>${x.r?`${x.r.classe?`<span class="pill p-aco">${esc(x.r.classe)}</span> `:""}${esc(x.r.rot)}`:"—"}</td>
         <td><b style="color:var(--bad)">${esc((x.r&&x.r.por)||"—")}</b></td><td>${x.r?dataHoraBR(x.r.em):"—"}</td><td><span class="sub" style="white-space:normal">${esc(x.e.txt)}</span></td></tr>`).join("")}</tbody></table></div>`;
     pf.querySelectorAll("[data-fk]").forEach(tr=>tr.onclick=()=>{ const a=tr.dataset.fa; abrirPopup(tr.dataset.fk,a,true,falhas.filter(x=>x.a===a).map(x=>x.p.k)); }); const tf=$("table",pf); if(tf) turbinarTabela(tf,"pn_fal",true); }
-  $("#pnRes",c).innerHTML=resolv.length?`<div class="tbl-wrap" style="max-height:340px"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Como saiu</th><th>Última tabulação</th><th>Setor</th><th>Por</th><th>Quando</th></tr></thead><tbody>${
-      resolv.slice(0,400).map(x=>`<tr><td><b>${esc(x.d.pedido||x.k.split("-")[1])}</b><span class="sub">loja ${esc(x.d.loja||x.k.split("-")[0])}</span></td><td>${esc(x.d.cliente||"—")}</td><td><span class="pill ${x.p?"p-ok":"p-cinza"}">${esc(x.como)}</span></td>
-        <td>${x.ult.classe?`<span class="pill p-aco">${esc(x.ult.classe)}</span> `:""}${esc(x.ult.rot)}</td><td>${pillArea(x.ult.area,nomeSetor(x.ult.area))}</td><td>${esc(x.ult.por||"—")}</td><td>${dataHoraBR(x.ult.em)}</td></tr>`).join("")}</tbody></table></div>`
-    :'<p class="cap">Ainda nenhum. Quando um pedido tabulado sair do bloqueio na planilha, ele aparece aqui.</p>';
-  { const t=$("#pnRes table",c); if(t) turbinarTabela(t,"pn_res",true); }
   { const bx=$("#pnFalXls",c); if(bx) bx.onclick=()=>exportarXlsx("alinhamentos_nao_cumpridos",[{nome:"Não cumpridos",cols:[["Pedido",x=>x.p.p],["Loja",x=>x.p.l],["Cliente",x=>x.p.n],["Código",x=>x.p.c],["Entrega",x=>x.p.en?dataBR(x.p.en):""],["Setor",x=>nomeSetor(x.a)],["Classificação",x=>(x.r&&x.r.classe)||""],["Tabulação",x=>(x.r&&x.r.rot)||""],["Combinado até",x=>{ const v=x.r&&(regras(x.r).tipo==="data"?dataReg(x.r):somaUteis(diaBR(x.r.em),regras(x.r).sla)); return v?dataBR(v):""; }],["Tabulado por",x=>(x.r&&x.r.por)||""],["Tabulado em",x=>x.r?dataHoraBR(x.r.em):""],["Situação",x=>x.e.txt]],linhas:falhas}]); }
-  const ps=$("#pnSet",c); ps.innerHTML=cardsSetores(null,"");
+  const ps=$("#pnSet",c); ps.innerHTML=cardsSetores(null,"","📌 Na esteira — total")+`<button type="button" class="setor-card${PNL.verFal?" ativo":""}" style="--sc:var(--bad)" data-k="falhou" title="Passou a data combinada (ou o prazo) e o pedido continua BLOQUEADO na planilha — volta para o setor que tabulou"><h4>✕ Alinhamentos não cumpridos</h4><b style="color:${falhas.length?"var(--bad)":"inherit"}">${int(falhas.length)}</b><small>ainda BLOQUEADO depois do prazo${rankFal.length?` · mais: ${esc(rankFal[0][0])} (${int(rankFal[0][1])})`:""}</small></button>`;
   ps.querySelectorAll("[data-pset]").forEach(b=>b.onclick=()=>{ const a=b.dataset.pset; if(!a) return; estArea(a).esc="pendentes"; AREA_V[a]="pedidos"; ir(a); });
+  ps.querySelectorAll('[data-k="falhou"]').forEach(b=>b.onclick=()=>{ PNL.verFal=!PNL.verFal; const bx=$("#pnBoxFal",c); if(bx){ bx.hidden=!PNL.verFal; if(PNL.verFal) bx.scrollIntoView({behavior:"smooth",block:"start"}); } b.classList.toggle("ativo",PNL.verFal); });
   const ult=DIAS.slice(-30).filter(d=>d.resumo);
   $("#pnGraf",c).innerHTML=ult.length<2?'<p class="cap">O gráfico aparece a partir da segunda importação.</p>':graficoLinhas([
     {nome:"Pedidos",cor:"#2E4A7A",v:ult.map(d=>d.resumo.pedidos)},{nome:"Bloqueados",cor:"#C98A0B",v:ult.map(d=>d.resumo.bloqueados)},{nome:"Atrasados",cor:"#B83232",v:ult.map(d=>d.resumo.atrasados)}],ult.map(d=>dataBR(d.data).slice(0,5)));
@@ -985,6 +990,7 @@ function celTratAntiga(p){ const t=tratDe(p.k); if(!t) return '<span class="mute
   return `<span class="trat" style="--sc:${s.cor}"><b>${esc(d.classe||d.motivo)}</b><small>${esc(setoresDe(t).map(x=>setorPor(x).nome).join(" + "))} · há ${diasComSetor(t)} d${est?' · <span style="color:var(--bad);font-weight:600">fora do prazo</span>':""}</small></span>${extra}`; }
 function linhasOrdenadas(lst){
   const k=estC.ord, d=estC.dir, v=p=>k==="entrega"?(p.en||"9999"):k==="valor"?p.v:k==="emissao"?(p.em||""):k==="cliente"?nrm(p.n):k==="trat"?(aberta(tratDe(p.k))?diasComSetor(tratDe(p.k)):-1):k==="qtd"?qtdTotal(p)
+    :k.startsWith("s_")?(noFluxo(p)?ORD_ST[estadoArea(p,k.slice(2)).st]:9)
     :k==="loja"?nrm(`${p.l} ${p.ln}`):k==="status"?nrm(statusReal(p)+" "+situacao(p)):k==="tipo"?nrm(p.tp):(numPedido(p)||p.k);   // [v4.18] todas as colunas
   return lst.slice().sort((a,b)=>{ const x=v(a), y=v(b); return (x<y?-1:x>y?1:0)*d; });
 }
@@ -1000,23 +1006,23 @@ function renderCarteira(c){
       <button type="button" class="primary peq" id="ctClassif">Tabular ${estC.sel.size}</button><button type="button" class="peq" id="ctLimparSel">Limpar seleção</button><span class="msg" id="ltMsg"></span></div>`:"";
     if(estC.sel.size&&NIVEL>=2){ $("#ctClassif").onclick=()=>classificarLote(lst.filter(p=>estC.sel.has(p.k)),desenhar); $("#ctLimparSel").onclick=()=>{ estC.sel.clear(); desenhar(); }; }
     const th=(k,r,cls)=>`<th class="ord ${cls||""}" data-o="${k}" title="Clique para ordenar A–Z / Z–A">${r}${estC.ord===k?(estC.dir>0?" ▲":" ▼"):' <span class="muted">↕</span>'}</th>`, vis=lst.slice(0,estC.limite);
-    const somaV=lst.reduce((a,p)=>a+(p.v||0),0), somaQ=lst.reduce((a,p)=>a+qtdTotal(p),0);
+    const somaV=lst.reduce((a,p)=>a+(p.v||0),0), somaQ=lst.reduce((a,p)=>a+qtdTotal(p),0), AR=areasT(), nCol=(NIVEL>=2?1:0)+8+AR.length;
     $("#ctT").innerHTML=`<p class="cap" style="margin:0 0 6px"><b>${int(lst.length)}</b> pedido(s) · ${int(somaQ)} unidade(s) · ${moeda(somaV)}${lst.length>vis.length?` · mostrando ${int(vis.length)}`:""}</p>
       <div class="tbl-wrap"><table><thead><tr>${NIVEL>=2?`<th><input type="checkbox" id="ctTodos" title="Selecionar os ${vis.length} visíveis" ${vis.length&&vis.every(p=>estC.sel.has(p.k))?"checked":""}></th>`:""}
-        ${th("k","Pedido")}${th("cliente","Cliente")}${th("loja","Loja")}${th("entrega","Entrega / prazo")}${th("status","Status")}${th("tipo","Tipo")}${th("qtd","Itens","num")}${th("valor","Valor","num")}${th("trat","Esteira (setores)")}</tr></thead><tbody>${
+        ${th("k","Pedido")}${th("cliente","Cliente")}${th("loja","Loja")}${th("entrega","Entrega / prazo")}${th("status","Status")}${th("tipo","Tipo")}${th("qtd","Itens","num")}${th("valor","Valor","num")}${AR.map(([a,nm])=>th("s_"+a,`<span class="th-set" style="--sc:${corArea(a)}">${esc(nm)}</span>`,"col-set")).join("")}</tr></thead><tbody>${
       vis.map(p=>{ const pz=prazo(p), b=bloqueado(p), nb=p.it.filter(i=>nrm(i[IT.st])==="bloqueado").length;
         return `<tr class="clic${estC.sel.has(p.k)?" sel":""}${pendenteIndevido(tratDe(p.k))?" indev":""}" data-k="${esc(p.k)}">${NIVEL>=2?`<td><input type="checkbox" data-sel="${esc(p.k)}" ${estC.sel.has(p.k)?"checked":""} aria-label="Selecionar ${esc(p.p)}"></td>`:""}
           <td><b>${esc(p.p)}</b>${nv.has(p.k)?'<span class="novo">NOVO</span>':""}<span class="sub">${esc(p.em?dataBR(p.em):"")}</span></td>
           <td>${esc(p.n||"—")}<span class="sub">${esc(p.c)}${p.ci?" · "+esc(p.ci):""}</span></td><td>${esc(p.l)}<span class="sub">${esc(p.ln)}</span></td>
           <td>${p.en&&pz.cls!=="semdata"?dataBR(p.en):"—"}<span class="sub"><span class="pill ${pz.pill}">${pz.rot}</span></span></td>
           <td>${b?'<span class="pill p-warn">⛔ Bloqueado</span>':emCarteira(p)?'<span class="pill p-azul" title="Qtd Bloq 1 com entrega acima de 30 dias">📁 Carteira</span>':esc(p.st||"—")}<span class="sub">${corrigidoPelaQtdBloq(p)?`<span title="Status na planilha: ${esc(p.st)} — a Qtd Bloq = 1 manda">Qtd Bloq 1 · J: ${esc(p.st)}</span>`:esc(situacao(p))}</span></td><td>${esc(p.tp)}<span class="sub">${p.ag&&p.ag!=="NAO"?"agenda: "+esc(p.ag):""}</span></td>
-          <td class="num">${p.it.length||p.ipv} it · ${int(qtdTotal(p))} un${nb?`<span class="sub" style="color:var(--amber)">${nb} bloq.</span>`:""}</td><td class="num">${moeda(p.v)}</td><td>${celTrat(p)}</td></tr>
-          ${estC.aberto===p.k?`<tr class="exp"><td colspan="10"><div data-pp="${esc(p.k)}"></div></td></tr>`:""}`; }).join("")||`<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Nenhum pedido com esses filtros.</td></tr>`}</tbody></table></div>
+          <td class="num">${p.it.length||p.ipv} it · ${int(qtdTotal(p))} un${nb?`<span class="sub" style="color:var(--amber)">${nb} bloq.</span>`:""}</td><td class="num">${moeda(p.v)}</td>${celsSetores(p,AR)}</tr>`; }).join("")||`<tr><td colspan="${nCol}" class="muted" style="text-align:center;padding:24px">Nenhum pedido com esses filtros.</td></tr>`}</tbody></table></div>
       ${lst.length>vis.length?`<div class="mais"><button type="button" id="ctMais">Mostrar mais ${int(Math.min(300,lst.length-vis.length))}</button></div>`:""}`;
     turbinarTabela($("#ctT table"),"carteira",false);
     $("#ctT").querySelectorAll("th[data-o]").forEach(h=>h.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const k=h.dataset.o; if(estC.ord===k) estC.dir*=-1; else { estC.ord=k; estC.dir=k==="valor"||k==="trat"||k==="qtd"?-1:1; } desenhar(); });
-    $("#ctT").querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("input")) return; estC.aberto=estC.aberto===tr.dataset.k?"":tr.dataset.k; desenhar(); });
-    const pp=$("#ctT [data-pp]"); if(pp){ const p=FOTO.pedidos.find(x=>x.k===pp.dataset.pp); montarPainelPedido(pp,p,"normal",()=>{ desenhar(); atualizarMenu(); }); }
+    // [v4.32] clique na linha = abre SÓ esse pedido no popup largo (igual às abas Compras e CX), no setor de quem está usando
+    $("#ctT").querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("input")||Date.now()-_fimRedim<300) return; const p=FOTO.pedidos.find(x=>x.k===tr.dataset.k); if(!p) return;
+      abrirPopup(p.k,setorParaAbrir(p),true,lst.filter(noFluxo).map(x=>x.k)); });
     $("#ctT").querySelectorAll("[data-sel]").forEach(cb=>cb.onchange=()=>{ cb.checked?estC.sel.add(cb.dataset.sel):estC.sel.delete(cb.dataset.sel); desenhar(); });
     const td=$("#ctTodos"); if(td) td.onchange=()=>{ vis.forEach(p=>td.checked?estC.sel.add(p.k):estC.sel.delete(p.k)); desenhar(); };
     const mm=$("#ctMais"); if(mm) mm.onclick=()=>{ estC.limite+=300; desenhar(); };
@@ -2609,8 +2615,14 @@ function migrarEsteira1(d){
 }
 function motivosSetor(a){ return ((cfg().motivos)||[]).filter(m=>m.setor===a&&m.ativo!==false&&tx(m.motivo)); }
 function setoresEsteira(){ return (cfg().setores||[]).filter(s=>motivosSetor(s.id).length); }
-function areasT(){ return setoresEsteira().map(s=>[s.id,`${ICO_SETOR[s.id]||"📌"} ${s.nome}`]); }
+function areasT(){ return ordemSetores(setoresEsteira()).map(s=>[s.id,`${ICO_SETOR[s.id]||"📌"} ${s.nome}`]); }
 function nomeSetor(a){ return setorPor(a).nome; }
+// [v4.32] Compras sempre à esquerda, CX à direita, os outros depois
+function ordemSetores(l){ const o=x=>{ const id=x&&x.id!==undefined?x.id:x; return id==="compras"?0:id==="cx"?1:2; }; return l.slice().sort((a,b)=>o(a)-o(b)); }
+// [v4.32] CADA UM TABULA NO SEU SETOR: quem é do Compras (departamento) só vê os motivos do Compras; o restante é CX.
+//   Admin pode tabular em qualquer setor (escolhe no popup).
+function setoresTabula(){ const ids=ordemSetores(setoresEsteira().map(s=>s.id)); if(ADMIN) return ids;
+  const meus=ids.filter(minhaArea); if(meus.length) return meus; return ids.includes("cx")?["cx"]:[]; }
 function art(a){ return /(a|ção|ão|ade|agem)$/i.test(tx(nomeSetor(a)))?"a":"o"; }   // "a Logística", "o Compras"
 function letraDe(m){ const i=motivosSetor(m.setor).findIndex(x=>x.id===m.id); return String.fromCharCode(65+Math.max(0,i)); }
 function rotMot(m){ return `${letraDe(m)} · ${m.motivo}`; }
@@ -2618,6 +2630,7 @@ function motivoRes(id){ return ((cfg().motivos)||[]).find(m=>m.id===id)||null; }
 function regras(r){ const m=motivoRes(r&&r.cod)||{}; return {tipo:r.tipo||m.tipo||"dias",sla:Number(r.sla??m.sla??0)||0,vencer:r.vencer||m.vencer||"falhou",envia:(m.id?m.envia:r.envia)||[],fl:r.fl??m.fl??false,acao:r.acao||m.acao||""}; }
 function dataReg(r){ return (r&&(r.data||r.limite||r.prevista))||""; }
 function rotCurto(r){ return String((r&&r.rot)||"").replace(/^[A-Z] · /,""); }
+function infoI(t){ return tx(t)?`<i class="info-i" tabindex="0" role="img" aria-label="${esc(t)}" data-dica="${esc(t)}">i</i>`:""; }
 function dicaMot(m){ if(tx(m.dica)) return m.dica;
   const v=m.vencer==="repetir"?`volta para nova tentativa depois de ${m.sla||1} dia(s) útil(eis)`:m.vencer==="falhou"?(m.tipo==="data"?"se a planilha depois da data ainda mostrar BLOQUEADO, volta como alinhamento não cumprido":`se a planilha depois de ${m.sla||0} dia(s) útil(eis) ainda mostrar BLOQUEADO, volta como FALHOU`):"encerra a etapa do setor";
   return `${m.classe?m.classe+" — ":""}${v}${(m.envia||[]).length?` · encaminha para ${(m.envia||[]).map(nomeSetor).join(" e ")}`:""}.`; }
@@ -2711,6 +2724,7 @@ async function salvarResolver(p,a,m,x){
 const POP={k:"",area:"",cod:"",trava:null,fila:[]};
 async function abrirPopup(k,area,resolver,fila){
   if(POP.k&&POP.k!==k) fecharPopup(true);
+  else if(POP.k===k&&POP.area&&POP.area!==area) soltarArea(POP.k,POP.area);   // [v4.32] trocou de setor no mesmo pedido
   Object.assign(POP,{k,area:area||"",cod:"",trava:null,fila:fila||POP.fila||[]});
   const atual=!!FOTO_ATUAL&&FOTO===FOTO_ATUAL.foto;
   if(area&&atual&&podeGravar(area)){ await carregarReservas(); const t=travaArea(k,area);
@@ -2739,7 +2753,7 @@ function desenharPopup(){
   const extra=()=>{ if(!m) return ""; let h="";
     if(m.tipo==="data") h+=`<label class="f">${esc(m.rotulo_data||"Data")} *<input type="date" data-r="data" min="${hojeISO()}"></label>`;
     if(m.acao==="fornecedor") h+=`<label class="f">Fornecedor<input data-r="fornecedor" placeholder="Nome do fornecedor"></label>`;
-    if(m.tipo!=="data"&&m.vencer==="falhou") h+=`<p class="cap" style="grid-column:1/-1;margin:0">A planilha confere depois de <b>${dataBR(somaUteis(hojeISO(),Number(m.sla)||0))}</b>${Number(m.sla)?` (${m.sla} dia(s) útil(eis))`:""}: se ainda estiver BLOQUEADO, volta como FALHOU.</p>`;
+    if(m.tipo!=="data"&&m.vencer==="falhou") h+=`<p class="cap" style="grid-column:1/-1;margin:0">Planilha confere em <b>${dataBR(somaUteis(hojeISO(),Number(m.sla)||0))}</b>${infoI(`A planilha confere depois de ${dataBR(somaUteis(hojeISO(),Number(m.sla)||0))}${Number(m.sla)?` (${m.sla} dia(s) útil(eis))`:""}: se ainda estiver BLOQUEADO, volta como FALHOU.`)}</p>`;
     if(m.alt) h+=`<label class="f">Item que sai<select data-r="alt_item">${bl.map(i=>`<option value="${esc(i[IT.prod])}"${foraDeLinha(i)?" selected":""}>${esc(i[IT.prod])} · ${esc(i[IT.desc])}</option>`).join("")}</select></label>
       <label class="f">Código do alternativo *<input data-r="alt_prod" placeholder="Código"></label><label class="f">Descrição do alternativo<input data-r="alt_desc" placeholder="Descrição"></label>
       <label class="chk" style="grid-column:1/-1"><input type="checkbox" data-r="retirou"> Confirmo que <b>retirei o item da venda</b> *</label>`;
@@ -2750,10 +2764,12 @@ function desenharPopup(){
         <label class="f" style="grid-column:1/-1">Armazém / de onde vem a peça<input data-r="armazem" value="${esc(sol?textoSolucao(sol):"")}" placeholder="Ex.: CD 2"></label>`; }
     if(m.fl&&!m.alt&&alts.length) h+=`<label class="f" style="grid-column:1/-1">Alternativo aceito<select data-r="alt_id"><option value="">— outro / não está na lista —</option>${alts.map(x=>`<option value="${esc(x.id)}">${esc(x.prod)} · ${esc(x.desc)} (no lugar de ${esc(x.item)})</option>`).join("")}</select></label>`;
     return h; };
-  const fila=POP.fila||[], pos=fila.indexOf(p.k);
-  const formRes=pode?`<div class="rs-form" style="--ac:${corArea(a)}"><div class="rs-tit"><h3>✔ Resolver — ${esc(nomeSetor(a))}</h3>${fila.length>1?`<span class="muted">esteira: ${pos+1} de ${fila.length}</span><button type="button" class="peq" data-pular>Pular →</button>`:""}</div>
+  const fila=POP.fila||[], pos=fila.indexOf(p.k), tsl=setoresTabula();
+  const trocaSetor=tsl.length>1?`<span class="rs-troca">${tsl.map(x=>`<button type="button" class="peq${x===a?" primary":""}" data-trset="${x}" style="--sc:${corArea(x)}">${esc(ICO_SETOR[x]||"📌")} ${esc(nomeSetor(x))}</button>`).join("")}</span>`:"";
+  const pendTopo=noFluxo(p)?areasT().map(([ar])=>{ const e=estadoArea(p,ar,d); return precisaDe(e)?`<span class="pend-set${e.st==="falhou"?" falhou":""}" style="--sc:${corArea(ar)}" title="${esc(e.txt)}">${e.st==="falhou"?"✕ NÃO CUMPRIDO":"⏳ PENDÊNCIA"} ${esc(nomeSetor(ar).toUpperCase())}</span>`:""; }).join(" "):"";
+  const formRes=pode?`<div class="rs-form" style="--ac:${corArea(a)}"><div class="rs-tit"><h3>✔ Resolver — ${esc(nomeSetor(a))}</h3>${trocaSetor}${fila.length>1?`<span class="muted">esteira: ${pos+1} de ${fila.length}</span><button type="button" class="peq" data-pular>Pular →</button>`:""}</div>
       ${sol?`<div class="alerta" style="margin:0 0 8px">💡 <b>Soluções</b> encontrou peça para liberar este pedido: ${esc(textoSolucao(sol))}. <button type="button" class="peq" data-usasol>Usar → ${esc((ms.find(x=>x.acao==="transferencia")||{}).motivo||"Transferência")}</button></div>`:""}
-      <div class="rs-opcs" role="radiogroup">${ms.filter(x=>!(x.acao==="alterado"&&!foraLinhaPed(p)&&!alts.length)&&!(x.so_transf&&!transfPendente(p,d))).map(x=>`<label class="rs-opc${POP.cod===x.id?" sel":""}"><input type="radio" name="rsop" value="${esc(x.id)}"${POP.cod===x.id?" checked":""}><span><b>${esc(rotMot(x))}</b><small>${esc(dicaMot(x))}</small></span></label>`).join("")}</div>
+      <div class="rs-opcs" role="radiogroup">${ms.filter(x=>!(x.acao==="alterado"&&!foraLinhaPed(p)&&!alts.length)&&!(x.so_transf&&!transfPendente(p,d))).map(x=>`<label class="rs-opc${POP.cod===x.id?" sel":""}"><input type="radio" name="rsop" value="${esc(x.id)}"${POP.cod===x.id?" checked":""}><span><b>${esc(rotMot(x))}</b>${infoI(dicaMot(x))}</span></label>`).join("")}</div>
       ${m?`<div class="pg-form" style="border-color:${corArea(a)}">${extra()}<label class="f" style="grid-column:1/-1">Observação${m.obs?" *":""}<textarea data-r="obs" rows="2" placeholder="O que foi feito / combinado"></textarea></label>
         <div class="pg-bts"><button type="button" class="primary" data-rsalvar>${fila.length>1?"Salvar e ir para o próximo →":"Salvar tabulação"}</button>${fila.length>1?'<button type="button" data-rsalvar="fim">Salvar e fechar</button>':""}<span class="msg" data-msg></span></div></div>`:""}</div>`
     :a&&POP.trava?`<div class="trava">🔒 Não é possível tratar ${art(a)==="a"?"na":"no"} ${esc(nomeSetor(a))}: <b>${esc(POP.trava.por||POP.trava.email)}</b> já está tratando este pedido${POP.trava.em?` desde ${dataHoraCurta(POP.trava.em)}`:""}. Assim que ele(a) sair, libera para você.${fila.length>1?' <button type="button" class="peq" data-pular>Próximo da esteira →</button>':""}</div>`
@@ -2761,9 +2777,9 @@ function desenharPopup(){
     :a&&!atual?'<p class="aviso">Você está vendo uma carteira do histórico — o Resolver só funciona na carteira atual.</p>':"";
   o.innerHTML=`<div class="pop-caixa"><div class="pop-cab"><button type="button" class="pop-x" data-popx aria-label="Fechar (Esc)">✕</button>
       <div class="pop-tit"><b>Pedido ${esc(p.p)}</b> <span class="muted">loja ${esc(p.l)} ${esc(p.ln||"")}</span> · <b>${esc(p.n||"—")}</b> <span class="cod-cli">cód. ${esc(p.c||"—")}</span>
-      · entrega <b>${p.en?dataBR(p.en):"—"}</b> <span class="pill ${pz.pill}">${esc(pz.rot)}</span> ${p.fora?"":`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`} ${foraLinhaPed(p)?'<span class="pill p-roxo">9999 · fora de linha</span>':""} <span class="est-v">${moeda(p.v)}</span></div></div>
+      · entrega <b>${p.en?dataBR(p.en):"—"}</b> <span class="pill ${pz.pill}">${esc(pz.rot)}</span> ${p.fora?"":`<span class="pill" style="background:color-mix(in srgb,${corSituacao(situacao(p))} 14%,transparent);color:${corSituacao(situacao(p))}">${esc(situacao(p))}</span>`} ${foraLinhaPed(p)?'<span class="pill p-roxo">9999 · fora de linha</span>':""} <span class="est-v">${moeda(p.v)}</span>${pendTopo?`<div class="pop-pend">${pendTopo}</div>`:""}</div></div>
     <div class="pop-corpo">
-      <div class="pop-esq">${formRes}<div class="rs-areas">${cards}</div><div data-popinter></div></div>
+      <div class="pop-esq">${formRes}<div class="rs-areas rs-lado">${cards}</div><div data-popinter></div></div>
       <div class="pop-dir">${boxTransfPedido(p)}
         <div class="box"><b>Dados do pedido</b><dl class="pop-dl">
           <dt>Emissão</dt><dd>${p.em?dataBR(p.em):"—"}</dd><dt>Tipo</dt><dd>${esc(p.tp||"—")}</dd><dt>Status</dt><dd>${esc(p.sp||p.st||"—")}</dd><dt>Agenda</dt><dd>${esc(p.ag||"—")}</dd>
@@ -2775,6 +2791,7 @@ function desenharPopup(){
   o.onclick=e=>{ if(e.target===o) fecharPopup(); };
   o.querySelector("[data-popx]").onclick=()=>fecharPopup();
   o.querySelectorAll("[data-pular]").forEach(b=>b.onclick=()=>seguirEsteira());
+  o.querySelectorAll("[data-trset]").forEach(b=>b.onclick=()=>{ if(b.dataset.trset===POP.area) return; abrirPopup(POP.k,b.dataset.trset,true,POP.fila); });
   o.querySelectorAll("[data-trfcanc]").forEach(b=>b.onclick=async()=>{ if(!confirm("Cancelar a solicitação de transferência? O pedido doador fica livre.")) return; b.disabled=true; try{ await cancelarTransf(b.dataset.trfcanc); desenharPopup(); toast("Solicitação de transferência cancelada."); }catch(e){ alert(e.message); b.disabled=false; } });
   o.querySelectorAll('input[name="rsop"]').forEach(r=>r.onchange=()=>{ POP.cod=r.value; desenharPopup(); const f=o.querySelector(".rs-form .pg-form input:not([type=checkbox]),.rs-form .pg-form select,.rs-form .pg-form textarea"); if(f) f.focus(); });
   const us=o.querySelector("[data-usasol]"); if(us) us.onclick=()=>{ POP.cod=(ms.find(x=>x.acao==="transferencia")||{}).id||""; desenharPopup(); };
@@ -2964,10 +2981,10 @@ function renderIndicadoresArea(c,a){
 
 // ─── PENDÊNCIAS POR SETOR (visão de todos os setores) ───
 const PFS={setor:"",busca:""};
-function cardsSetores(onSet,ativo){
+function cardsSetores(onSet,ativo,rotTot){
   const pt=pendenciasTriagem(), tot=pt.algum;
-  return `<button type="button" class="setor-card${!ativo?" ativo":""}" style="--sc:#1B2436" data-pset=""><h4>📌 Pendências — total</h4><b>${int(tot)}</b><small>${int(pt.semTab)} sem nenhuma tabulação · pedido(s) com algum setor</small></button>`+
-    setoresEsteira().map(s=>{ const n=pt[s.id]||0, f=pt.falhou[s.id]||0;
+  return `<button type="button" class="setor-card${!ativo&&!rotTot?" ativo":""}" style="--sc:#1B2436" data-pset=""><h4>${esc(rotTot||"📌 Pendências — total")}</h4><b>${int(tot)}</b><small>${int(pt.semTab)} sem nenhuma tabulação · pedido(s) com algum setor</small></button>`+
+    ordemSetores(setoresEsteira()).map(s=>{ const n=pt[s.id]||0, f=pt.falhou[s.id]||0;
       return `<button type="button" class="setor-card${ativo===s.id?" ativo":""}" style="--sc:${s.cor}" data-pset="${s.id}"><h4>${esc(ICO_SETOR[s.id]||"📌")} ${esc(s.nome)}${minhaArea(s.id)?' <span class="pill p-aco">meu setor</span>':""}</h4><b>${int(n)}</b><small>${f?`<span style="color:var(--bad);font-weight:600">${f} não cumprido(s)</span>`:"no prazo"}</small></button>`; }).join(""); }
 function renderFilas(c){
   const AR=areasT(), base=pedidosFluxo(), q=nrm(PFS.busca);
@@ -2988,11 +3005,20 @@ function renderFilas(c){
   c.querySelectorAll("tr[data-pk]").forEach(tr=>tr.onclick=()=>{ if(Date.now()-_fimRedim<300) return; const a=tr.dataset.pa; abrirPopup(tr.dataset.pk,a,true,fil.filter(l=>l.a===a).map(l=>l.p.k)); });
   turbinarTabela($("#pfWrap table",c),"filas422",true);
 }
+// [v4.32] Carteira: uma coluna por setor (Compras à esquerda, CX à direita), pendência em destaque com a cor do setor
+function celsSetores(p,AR){ if(!noFluxo(p)){ const d=interDe(p.k); return `<td colspan="${AR.length}" class="col-set">${algumaRes(d)?'<span class="pill p-ok">✓ saiu da esteira</span>':'<span class="muted">—</span>'}</td>`; }
+  const d=interDe(p.k); return AR.map(([a])=>{ const e=estadoArea(p,a,d), c=corArea(a), nm=nomeSetor(a).toUpperCase();
+    const h=e.st==="pendente"?`<span class="pend-set" style="--sc:${c}" title="${esc(e.txt)}">⏳ PENDÊNCIA ${esc(nm)}</span>`
+      :e.st==="falhou"?`<span class="pend-set falhou" style="--sc:${c}" title="${esc(e.txt)}">✕ NÃO CUMPRIDO · ${esc(nm)}</span>`
+      :e.st==="na"?'<span class="muted">—</span>':`<span class="pill ${ST_T[e.st][1]}" title="${esc(e.txt)}">${ST_T[e.st][0]}</span>`;
+    return `<td class="col-set" style="--sc:${c}">${h}${e.st!=="na"?`<span class="sub" title="${esc(e.txt)}">${esc(e.txt)}</span>`:""}</td>`; }).join(""); }
+function setorParaAbrir(p){ const meus=setoresTabula(), d=interDe(p.k);
+  return meus.find(a=>noFluxo(p)&&precisaDe(estadoArea(p,a,d)))||meus[0]||(areasT().find(([a])=>noFluxo(p)&&precisaDe(estadoArea(p,a,d)))||[])[0]||"cx"; }
 // [v4.22] coluna "Tratativa" da Carteira = a situação de cada setor da esteira
 function celTrat(p){ if(!noFluxo(p)){ const d=interDe(p.k); return algumaRes(d)?'<span class="pill p-ok">✓ saiu da esteira</span>':'<span class="muted">—</span>'; }
   const d=interDe(p.k); return `<div class="cel">${areasT().map(([a])=>{ const e=estadoArea(p,a,d); return e.st==="na"?"":`<span class="pill ${ST_T[e.st][1]}" title="${esc(nomeSetor(a))}: ${esc(e.txt)}">${esc(nomeSetor(a))} ${ST_T[e.st][0].split(" ")[0]}</span>`; }).join(" ")}</div>`; }
 function opcoesMotivo(atual){
-  return `<option value="">— escolha a tabulação —</option>`+setoresEsteira().map(s=>`<optgroup label="${esc(s.nome)}">${motivosSetor(s.id).filter(m=>!m.alt&&m.tipo!=="data"&&!m.so_transf).map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(rotMot(m))}${m.classe?` · ${esc(m.classe)}`:""}</option>`).join("")}</optgroup>`).join(""); }
+  return `<option value="">— escolha a tabulação —</option>`+ordemSetores(setoresEsteira()).filter(s=>setoresTabula().includes(s.id)).map(s=>`<optgroup label="${esc(s.nome)}">${motivosSetor(s.id).filter(m=>!m.alt&&m.tipo!=="data"&&!m.so_transf).map(m=>`<option value="${m.id}"${m.id===atual?" selected":""}>${esc(rotMot(m))}${m.classe?` · ${esc(m.classe)}`:""}</option>`).join("")}</optgroup>`).join(""); }
 async function classificarLote(lst,depois){
   const mid=$("#ltMot").value, msg=$("#ltMsg"), nota=tx($("#ltNota").value), m=motivoRes(mid);
   if(!m){ msg.className="msg erro"; msg.textContent="Escolha a tabulação."; return; }
@@ -3108,7 +3134,7 @@ function renderAdmEquipe(c){
   if(ADMQ.lista==null){ c.innerHTML='<p class="cap">Carregando a equipe…</p>'; carregarEquipe().then(()=>{ if(secao==="adm") render(); }); return; }
   const q=nrm(ADMQ.busca), L=ADMQ.lista.filter(u=>!q||[u.nome,u.email,u.perfil,...(u.departamentos||[])].some(x=>nrm(x).includes(q)));
   const nVt=ADMQ.lista.filter(u=>u.ver_tudo).length;
-  c.innerHTML=`<section><header><h2>⚙️ ADM · equipe</h2><p>Quem está na Carteira de Encomendas. Aqui você ajusta <b>só duas coisas</b>: <b>Ver tudo</b> (marcado = vê todos os atendimentos; desmarcado = vê só a fila dela) e <b>Qtd</b> (quantos atendimentos a fila mantém; vazio = 10). Criar ou editar usuários continua em <b>Segurança</b>.</p></header>
+  c.innerHTML=`<section><header><h2>⚙️ ADM · equipe</h2><p>Quem está na Carteira de Pedidos. Aqui você ajusta <b>só duas coisas</b>: <b>Ver tudo</b> (marcado = vê todos os atendimentos; desmarcado = vê só a fila dela) e <b>Qtd</b> (quantos atendimentos a fila mantém; vazio = 10). Criar ou editar usuários continua em <b>Segurança</b>.</p></header>
     ${ADMQ.erro?`<p class="aviso">${esc(ADMQ.erro)}</p>`:""}
     <div class="kpis"><div class="kpi k-cinza"><span>Pessoas na Carteira</span><b>${int(ADMQ.lista.length)}</b><small>ativas</small></div><div class="kpi k-azul"><span>Vê tudo</span><b>${int(nVt)}</b><small>veem todos os atendimentos</small></div><div class="kpi k-roxo"><span>Só a fila</span><b>${int(ADMQ.lista.length-nVt)}</b><small>recebem a Qtd automática</small></div></div>
     <div class="filtros" style="grid-template-columns:minmax(260px,1fr) auto"><input class="busca" id="admBusca" placeholder="Buscar por nome, e-mail, perfil ou departamento..." value="${esc(ADMQ.busca)}"><button type="button" class="peq" id="admRec">↻ Atualizar</button></div>
@@ -3131,7 +3157,7 @@ function renderAdmEquipe(c){
   turbinarTabela($("#admWrap table",c),"adm_equipe",true);
 }
 // [v4.23] gravar na parte de qualquer setor: liberado para quem acessa a Carteira (a trava de quem já está tratando continua)
-function podeGravar(a){ return true; }
+function podeGravar(a){ return setoresTabula().includes(a); }   // [v4.32] cada um tabula no seu setor
 
 // ═══════════════════════════════════════════════════════════════════
 // [v4.28] PAINEL EM "FLUXOGRAMA" + visão do total + comparativo 7 dias + resumo executivo
@@ -3141,7 +3167,7 @@ function podeGravar(a){ return true; }
 //       → Com ação vigente | Alinhamento não cumprido | Sem ação
 //         → (Com ação = 100%) cada ação, por setor → lista de pedidos
 // ═══════════════════════════════════════════════════════════════════
-const PNL={path:["atr"],comp:null,compData:"",compCarregando:false,lista:null,verPend:false};
+const PNL={path:["atr"],comp:null,compData:"",compCarregando:false,lista:null,verPend:false,verFal:false};
 function pct(n,t){ return t?Math.round(n/t*1000)/10:0; }
 function fmtPct(n,t){ const v=pct(n,t); return (Number.isInteger(v)?v:v.toFixed(1)).toString().replace(".",",")+"%"; }
 // situação de um pedido na esteira, juntando todos os setores
@@ -3243,33 +3269,28 @@ setInterval(()=>{ if(!document.hidden) salvarEvolucao(); },5*60000);
 function acoesPorDia(a){ const m=new Map();
   INTER.forEach(doc=>{ ((doc.dados&&doc.dados.res_hist)||[]).forEach(h=>{ if(h.area!==a) return; const d=diaBR(h.em); const x=m.get(d)||{ef:0,ne:0}; naoEfetivo(h)?x.ne++:x.ef++; m.set(d,x); }); });
   return m; }
-function blocoEvolucaoSetores(box){
+function blocoEvolucaoSetores(box){   // [v4.32] todos os setores na tela (Compras à esquerda, CX à direita) — sem abas
   if(EVO.lista===null){ box.innerHTML='<div class="box"><b>📈 Evolução dos departamentos</b><p class="cap">Carregando…</p></div>'; carregarEvolucao(); return; }
-  const st=setoresEsteira(); if(!st.length){ box.innerHTML=""; return; }
-  if(!st.some(s=>s.id===EVO.setor)) EVO.setor=st[0].id;
-  const a=EVO.setor, nm=nomeSetor(a), hoje=hojeISO(), ini=somaDias(hoje,-(EVO.dias-1));
-  const fotos=new Map(EVO.lista.filter(x=>x.dados&&x.dados.setores).map(x=>[x.dia,x.dados.setores[a]]).filter(x=>x[1]));
-  const agora=fotoEvolucaoSetores(); if(agora&&agora.setores[a]) fotos.set(hoje,agora.setores[a]);   // hoje = ao vivo
-  const acoes=acoesPorDia(a), dias=[]; for(let d=ini;d<=hoje;d=somaDias(d,1)) if(fotos.has(d)||acoes.has(d)) dias.push(d);
-  let antRes=null; const L=dias.map(d=>{ const f=fotos.get(d), x=acoes.get(d)||{ef:0,ne:0}; const r={d,f,ef:x.ef,ne:x.ne,resDia:null};
-    if(f&&f.res_acum!=null){ if(antRes!=null) r.resDia=Math.max(0,f.res_acum-antRes); antRes=f.res_acum; } return r; });
-  const comFoto=L.filter(x=>x.f), rot=l=>l.map(x=>dataBR(x.d).slice(0,5));
+  const st=ordemSetores(setoresEsteira()); if(!st.length){ box.innerHTML=""; return; }
+  const hoje=hojeISO(), ini=somaDias(hoje,-(EVO.dias-1)), agora=fotoEvolucaoSetores();
+  const umSetor=a=>{ const nm=nomeSetor(a);
+    const fotos=new Map(EVO.lista.filter(x=>x.dados&&x.dados.setores).map(x=>[x.dia,x.dados.setores[a]]).filter(x=>x[1]));
+    if(agora&&agora.setores[a]) fotos.set(hoje,agora.setores[a]);   // hoje = ao vivo
+    const acoes=acoesPorDia(a), dias=[]; for(let d=ini;d<=hoje;d=somaDias(d,1)) if(fotos.has(d)||acoes.has(d)) dias.push(d);
+    let antRes=null; const L=dias.map(d=>{ const f=fotos.get(d), x=acoes.get(d)||{ef:0,ne:0}; const r={d,f,ef:x.ef,ne:x.ne,resDia:null};
+      if(f&&f.res_acum!=null){ if(antRes!=null) r.resDia=Math.max(0,f.res_acum-antRes); antRes=f.res_acum; } return r; });
+    const comFoto=L.filter(x=>x.f), rot=l=>l.map(x=>dataBR(x.d).slice(0,5)), ult=comFoto[comFoto.length-1];
+    return `<div class="evo-setor" style="--sc:${corArea(a)}"><div class="evo-cab"><b>${esc(ICO_SETOR[a]||"📌")} ${esc(nm)}</b>${ult&&ult.f?`<span>efetividade hoje <b style="color:var(--ok)">${fmtPct(ult.f.acao,ult.f.tot)}</b> · ${int(ult.f.tot)} atrasado(s)</span>`:""}</div>
+      <p class="cap" style="margin:2px 0 6px">Atrasados ${art(a)==="a"?"da":"do"} ${esc(nm)} no fim de cada dia: com ação efetiva, não efetivo, não cumprido e sem ação.</p>
+      <div class="graf">${comFoto.length<2?`<p class="cap">A linha aparece a partir do 2º dia gravado${comFoto.length?` (1º dia: ${dataBR(comFoto[0].d)})`:""}.</p>`
+        :graficoLinhas([{nome:"Com ação efetiva",cor:"#2F7D4F",v:comFoto.map(x=>x.f.acao)},{nome:"Não efetivo",cor:"#C98A0B",v:comFoto.map(x=>x.f.nefet)},{nome:"Não cumprido",cor:"#B83232",v:comFoto.map(x=>x.f.nc)},{nome:"Sem ação",cor:"#8A93A3",v:comFoto.map(x=>x.f.sem)}],rot(comFoto))}</div>
+      <details class="evo-det"><summary>Dia a dia (${int(L.length)})</summary><div class="tbl-wrap" style="max-height:320px;margin-top:6px"><table class="dt-cx"><thead><tr><th>Dia</th><th title="Atrasados que passam pelo setor">Atrasados</th><th>Com ação efetiva</th><th title="Com ação efetiva ÷ atrasados do setor — o mesmo número do fluxograma">Efetividade</th><th>Não efetivo</th><th>Não cumprido</th><th>Sem ação</th><th title="Pedidos que saíram do bloqueio depois de uma ação efetiva do setor">Resolvidos no dia</th></tr></thead><tbody>
+        ${L.slice().reverse().map(x=>`<tr><td class="nw"><b>${dataBR(x.d)}</b>${x.d===hoje?' <span class="pill p-azul">ao vivo</span>':""}</td>${x.f?`<td>${int(x.f.tot)}</td><td>${int(x.f.acao)}</td><td><b style="color:var(--ok)">${fmtPct(x.f.acao,x.f.tot)}</b></td><td>${int(x.f.nefet)}</td><td>${int(x.f.nc)}</td><td>${int(x.f.sem)}</td>`:'<td colspan="6" class="muted">sem foto gravada neste dia</td>'}
+          <td>${x.resDia==null?'<span class="muted">—</span>':int(x.resDia)}</td></tr>`).join("")||'<tr><td colspan="8" class="muted" style="padding:12px">Sem dados no período.</td></tr>'}</tbody></table></div></details></div>`; };
   box.innerHTML=`<div class="box"><div class="sectionhead"><b>📈 Evolução dos departamentos — controle da carteira e efetividade das ações</b>
       <span class="direita">${[15,30,60,90].map(n=>`<button type="button" class="peq${EVO.dias===n?" primary":""}" data-evd="${n}">${n} dias</button>`).join("")}</span></div>
-    <div class="tabs-cx area-tabs" role="tablist" style="margin:8px 0">${st.map(s=>`<button type="button" role="tab" class="tab-cx" aria-selected="${s.id===a}" data-evs="${s.id}">${esc(ICO_SETOR[s.id]||"📌")} ${esc(s.nome)}</button>`).join("")}</div>
-    <div class="grid2">
-      <div><b style="font-size:13px">Atrasados ${art(a)==="a"?"da":"do"} ${esc(nm)} — situação no fim de cada dia</b>
-        <p class="cap" style="margin:2px 0 6px">Mesmo cálculo do fluxograma: com ação efetiva, não efetivo, não cumprido e sem ação (somam o total do dia).</p>
-        <div class="graf">${comFoto.length<2?`<p class="cap">A linha aparece a partir do 2º dia gravado (começou a gravar na v4.29${comFoto.length?`; 1º dia: ${dataBR(comFoto[0].d)}`:""}).</p>`
-          :graficoLinhas([{nome:"Com ação efetiva",cor:"#2F7D4F",v:comFoto.map(x=>x.f.acao)},{nome:"Não efetivo",cor:"#C98A0B",v:comFoto.map(x=>x.f.nefet)},{nome:"Não cumprido",cor:"#B83232",v:comFoto.map(x=>x.f.nc)},{nome:"Sem ação",cor:"#8A93A3",v:comFoto.map(x=>x.f.sem)}],rot(comFoto))}</div></div>
-      <div><b style="font-size:13px">Ações ${art(a)==="a"?"da":"do"} ${esc(nm)} por dia</b>
-        <p class="cap" style="margin:2px 0 6px">Tabulações feitas no dia (inclui o passado) e pedidos que saíram do bloqueio depois de uma ação efetiva do setor (a partir da v4.29).</p>
-        <div class="graf">${L.length<2?'<p class="cap">Ainda não há dias suficientes.</p>':graficoLinhas([{nome:"Ações efetivas (cobranças, alinhamentos…)",cor:"#2F7D4F",v:L.map(x=>x.ef)},{nome:"Ações não efetivas",cor:"#C98A0B",v:L.map(x=>x.ne)},{nome:"Resolvidos (saíram do bloqueio)",cor:"#2B63B0",v:L.map(x=>x.resDia||0)}],rot(L))}</div></div></div>
-    <div class="tbl-wrap" style="max-height:360px;margin-top:10px"><table class="dt-cx"><thead><tr><th>Dia</th><th title="Atrasados que passam pelo setor">Atrasados do setor</th><th>Com ação efetiva</th><th title="Com ação efetiva ÷ atrasados do setor — o mesmo número do fluxograma">Efetividade na carteira</th><th>Não efetivo</th><th>Não cumprido</th><th>Sem ação</th><th title="Tabulações efetivas feitas no dia (ex.: cobrança ao fornecedor, cliente ciente)">Ações efetivas no dia</th><th>Ações não efetivas no dia</th><th title="Pedidos que saíram do bloqueio (liberou, sumiu da planilha, trocou por alternativo…) depois de uma ação efetiva do setor">Resolvidos no dia</th></tr></thead><tbody>
-      ${L.slice().reverse().map(x=>`<tr><td class="nw"><b>${dataBR(x.d)}</b>${x.d===hoje?' <span class="pill p-azul">ao vivo</span>':""}</td>${x.f?`<td>${int(x.f.tot)}</td><td>${int(x.f.acao)}</td><td><b style="color:var(--ok)">${fmtPct(x.f.acao,x.f.tot)}</b></td><td>${int(x.f.nefet)}</td><td>${int(x.f.nc)}</td><td>${int(x.f.sem)}</td>`:'<td colspan="6" class="muted">sem foto gravada neste dia</td>'}
-        <td>${int(x.ef)}</td><td>${int(x.ne)}</td><td>${x.resDia==null?'<span class="muted">—</span>':int(x.resDia)}</td></tr>`).join("")||'<tr><td colspan="10" class="muted" style="padding:12px">Sem dados no período.</td></tr>'}</tbody></table></div>
-    <p class="cap" style="margin:6px 0 0"><b>Como ler:</b> <b>efetividade na carteira</b> = dos atrasados que passam pelo setor, quantos estão com ação efetiva valendo. <b>Ações efetivas</b> são as tabulações que resolvem ou encaminham (cobrança ao fornecedor, cliente ciente, transferência…); <b>não efetivas</b> são as que não resolvem sozinhas (ex.: contato sem sucesso). <b>Resolvidos</b> = o pedido sumiu da planilha ou liberou depois de uma ação efetiva do setor — também é efetividade. Cada setor é medido separado.</p></div>`;
-  box.querySelectorAll("[data-evs]").forEach(b=>b.onclick=()=>{ EVO.setor=b.dataset.evs; render(); });
+    <div class="evo-grade">${st.map(s=>umSetor(s.id)).join("")}</div>
+    <p class="cap" style="margin:8px 0 0"><b>Como ler:</b> <b>efetividade</b> = dos atrasados que passam pelo setor, quantos estão com ação efetiva valendo. Cada setor é medido separado.</p></div>`;
   box.querySelectorAll("[data-evd]").forEach(b=>b.onclick=()=>{ EVO.dias=Number(b.dataset.evd); render(); });
 }
 // lista de pedidos reutilizável (abre o pedido)
@@ -3359,7 +3380,7 @@ function textoResumoExecutivo(){
     `• ${int(cart)} em CARTEIRA (entrega acima de ${cfg().dias_carteira} dias) — fora da conta.`,
     nc?`• ${int(nc)} alinhamento(s) não cumprido(s) — já voltaram para os setores.`:"",
     R?`• Últimos 7 dias: dos ${int(R.coorte.length)} atrasados de ${dataBR(R.base)}, ${int(Object.entries(R.G).filter(([k])=>k.startsWith("✅")).reduce((s,[,x])=>s+x.length,0))} saíram do bloqueio.`:"",
-    "", "Painel: Carteira de Encomendas (PQI)."].filter(x=>x!=="");
+    "", "Painel: Carteira de Pedidos (PQI)."].filter(x=>x!=="");
   return l.join("\n");
 }
 function blocoResumoExecutivo(box){
@@ -3368,23 +3389,19 @@ function blocoResumoExecutivo(box){
     <pre class="resumo-exec">${esc(txt)}</pre><div class="acoes"><button type="button" class="peq primary" data-rcopiar>📋 Copiar texto</button></div></details>`;
   box.querySelector("[data-rcopiar]").onclick=async()=>{ try{ await navigator.clipboard.writeText(txt); toast("📋 Resumo copiado — é só colar no e-mail."); }catch(_){ toast("Selecione o texto e copie com Ctrl+C."); } };
 }
-function renderPainel(c){
+function renderPainel(c){   // [v4.32] Painel enxuto: Carteira bloqueados → Fluxograma → gráficos → Evolução dos departamentos
   renderPainelBase(c);
-  const kp=c.querySelector(".kpis"); if(!kp) return;
-  const wrap=el("div"); wrap.innerHTML='<div id="pnFlux"></div><div id="pnCrit"></div><div id="pnComp"></div><div id="pnRet"></div><div id="pnExec"></div>'; kp.after(wrap);
-  blocoFluxograma($("#pnFlux",c)); blocoCriterios($("#pnCrit",c)); blocoComparativo($("#pnComp",c)); blocoRetrato($("#pnRet",c)); blocoResumoExecutivo($("#pnExec",c));   // [v4.31] + Retrato da carteira bloqueada
-  // atalhos dos cards: Atrasados abre o fluxograma; Falta triar abre "Sem ação"
+  const meio=$("#pnMeio",c); if(!meio) return;
+  meio.innerHTML='<div id="pnPendL"></div><div id="pnFlux"></div>';
+  blocoFluxograma($("#pnFlux",c));
+  // atalhos dos cards: Atrasados abre o fluxograma; "sem tabulação" abre a Carteira filtrada
   const ba=c.querySelector('[data-k="b_atr"]'); if(ba) ba.onclick=()=>{ PNL.path=["atr"]; render(); setTimeout(()=>{ const z=$("#pnFlux"); if(z) z.scrollIntoView({behavior:"smooth",block:"start"}); },0); };
-  c.querySelectorAll('[data-k="triagem"],#pnTriar').forEach(b=>b.onclick=()=>{ PNL.path=["atr"]; PNL.crit="crit"; PNL.critSub=0; render(); setTimeout(()=>{ const z=$("#pnCrit"); if(z) z.scrollIntoView({behavior:"smooth",block:"start"}); },0); });
-  // Pendências por setor (era uma aba) — dentro do Painel
-  const ps=$("#pnSet",c);
-  if(ps){ const det=el("details"); det.className="box"; det.open=PNL.verPend; det.innerHTML='<summary><b>📌 Lista de pendências por setor</b> <span class="muted">— com quem está cada pedido agora</span></summary><div id="pnPendL"></div>'; ps.after(det);
-    det.ontoggle=()=>{ PNL.verPend=det.open; if(det.open&&!$("#pnPendL",det).childElementCount) renderFilas($("#pnPendL",det)); };
-    if(det.open) renderFilas($("#pnPendL",det));
-    ps.querySelectorAll('[data-pset=""]').forEach(b=>b.onclick=()=>{ PNL.verPend=true; PFS.setor=""; render(); setTimeout(()=>{ const z=$("#pnPendL"); if(z) z.scrollIntoView({behavior:"smooth",block:"start"}); },0); }); }
-  // Status do pedido (era uma aba) — no fim do Painel
+  c.querySelectorAll("#pnTriar").forEach(b=>b.onclick=()=>irCarteira({bloq:"sim",prazo:"atrasado",trat:"naoanalisado"}));
+  // card "Na esteira — total": abre/fecha a lista de com quem está cada pedido
+  const pl=$("#pnPendL",c);
+  if(PNL.verPend){ pl.innerHTML='<div class="box"><div class="sectionhead"><b>📋 Com quem está cada pedido agora</b><button type="button" class="peq" data-pfechar>✕ Fechar</button></div><div id="pnPendLi"></div></div>'; renderFilas($("#pnPendLi",pl)); pl.querySelector("[data-pfechar]").onclick=()=>{ PNL.verPend=false; render(); }; }
+  $("#pnSet",c).querySelectorAll('[data-pset=""]').forEach(b=>{ b.classList.toggle("ativo",!!PNL.verPend); b.onclick=()=>{ PNL.verPend=!PNL.verPend; PFS.setor=""; render(); if(PNL.verPend) setTimeout(()=>{ const z=$("#pnPendL"); if(z) z.scrollIntoView({behavior:"smooth",block:"start"}); },0); }; });
   const ev=el("div"); ev.id="pnEvo"; c.appendChild(ev); blocoEvolucaoSetores(ev); salvarEvolucao();   // [v4.29]
-  const st=el("div"); st.className="pn-status"; c.appendChild(st); renderSituacao(st);
 }
 // ═══════════════════════════════════════════════════════════════════
 // [v4.31] RETRATO DA CARTEIRA BLOQUEADA — valor, aging dos vencidos, grupo e tipo × prazo
@@ -3558,6 +3575,15 @@ async function iniciar(){
   }catch(e){ if(e.message==="sessão expirada") return; setStatus("erro",e.message);
     $("#root").innerHTML=`<div class="conflito"><b>Não consegui carregar a carteira.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
 }
+// [v4.32] balão do (i): aparece ao passar o mouse (ou ao focar com o teclado)
+(()=>{ let tip=null, alvo=null;
+  const esconder=()=>{ if(tip) tip.remove(); alvo=null; };
+  const mostrar=t=>{ if(t===alvo) return; alvo=t; tip=tip||Object.assign(document.createElement("div"),{className:"dica-tip",role:"tooltip"}); tip.textContent=t.dataset.dica; document.body.appendChild(tip);
+    tip.style.maxWidth=Math.min(360,innerWidth-16)+"px"; const r=t.getBoundingClientRect(), tw=tip.offsetWidth, th=tip.offsetHeight;
+    let y=r.top-th-8; if(y<8) y=r.bottom+8; tip.style.left=Math.min(Math.max(8,r.left+r.width/2-tw/2),innerWidth-tw-8)+"px"; tip.style.top=y+"px"; };
+  document.addEventListener("mouseover",e=>{ const t=e.target.closest&&e.target.closest("[data-dica]"); t?mostrar(t):esconder(); });
+  document.addEventListener("focusin",e=>{ const t=e.target.closest&&e.target.closest("[data-dica]"); t?mostrar(t):esconder(); });
+  document.addEventListener("scroll",esconder,true); })();
 iniciar();
 </script>
 </body>

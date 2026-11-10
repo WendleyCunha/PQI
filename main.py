@@ -2516,7 +2516,7 @@ def cart_equipe_ajustar(email: str, payload: EquipeAjuste, request: Request):
         if antes != payload.ver_tudo:
             vt["carteira"] = bool(payload.ver_tudo)
             campos["ver_tudo"] = vt
-            _log(request, "acesso", f"{nome} · Carteira de Encomendas (aba ADM)", "Ver tudo", "Vê tudo" if antes else "Só a fila (Qtd)", "Vê tudo" if payload.ver_tudo else "Só a fila (Qtd)")
+            _log(request, "acesso", f"{nome} · Carteira de Pedidos (aba ADM)", "Ver tudo", "Vê tudo" if antes else "Só a fila (Qtd)", "Vê tudo" if payload.ver_tudo else "Só a fila (Qtd)")
     if payload.qtd is not None or payload.qtd_padrao:
         fq = dict(alvo.get("fila_qtd") or {})
         antes = fq.get("carteira")
@@ -2524,7 +2524,7 @@ def cart_equipe_ajustar(email: str, payload: EquipeAjuste, request: Request):
         if antes != novo:
             fq["carteira"] = novo
             campos["fila_qtd"] = fq
-            _log(request, "acesso", f"{nome} · Carteira de Encomendas (aba ADM)", "Qtd da esteira automática", str(antes if antes is not None else "10 (padrão)"), str(novo if novo is not None else "10 (padrão)"))
+            _log(request, "acesso", f"{nome} · Carteira de Pedidos (aba ADM)", "Qtd da esteira automática", str(antes if antes is not None else "10 (padrão)"), str(novo if novo is not None else "10 (padrão)"))
     if campos:
         campos.update(alterado_em=datetime.now().isoformat(), alterado_por=_email(request))
         db.usuario_atualizar(email, campos)
@@ -3272,7 +3272,7 @@ PAGINAS = {
     "/": "index.html",                                                   # Painel de Sistemas (túnel)
     "/diario": "diario.html",                                            # Diário de gestão [v3.7]
     "/ata": "ata.html",                                                  # Gerador de ATA King Star
-    "/carteira": "carteira.html",                                        # Carteira de Encomendas [v4.0]
+    "/carteira": "carteira.html",                                        # Carteira de Pedidos [v4.0]
     "/cartas": "cartas.html",                                            # Cartas de Débito [v4.1]
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
