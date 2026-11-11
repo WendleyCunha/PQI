@@ -400,7 +400,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
           <details class="ag-resp"><summary>👁 Ver a resposta do agente</summary><ol class="ag-dica" style="padding-left:20px;margin:6px 0">${(a.resposta || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol></details>
           ${a.processo ? noMapa(a.processo) : `<div class="ag-bt" style="margin:0"><button type="button" class="ag-b1" data-cp="a${i}">📥 Importar para a IT</button><button type="button" class="ag-b2" data-des="${i}">Desativar</button></div>`}
           <div class="ag-slot"></div></div>`).join('') : '<div class="ag-vz">Todo artigo do agente já é IT do Mapa 🎉</div>'}</div>`;
-    const abrirMapa = id => { if (typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO(id, 'tobe')) fechar(); else toast('Abra o Mapa Digital pelo Painel.'); };
+    const abrirMapa = id => { if (typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO(id, 'tobe')) fechar(); else toast('Abra Processos pelo Painel.'); };
     cc().querySelectorAll('[data-ir]').forEach(b => b.addEventListener('click', () => abrirMapa(b.dataset.ir)));
     cc().querySelectorAll('[data-cp]').forEach(b => b.addEventListener('click', () => {
       const ehArt = b.dataset.cp[0] === 'a', item = ehArt ? arts[+b.dataset.cp.slice(1)] : perg[+b.dataset.cp.slice(1)];
@@ -458,7 +458,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
     cc().innerHTML = `<div class="ag-g2">
       <div class="ag-cx"><h5>Artigos (${ARTS.length})</h5><button type="button" class="ag-b1" id="agNovo" style="margin-bottom:8px">+ Novo artigo</button>${lista}</div>
       ${doMapa ? `<div class="ag-cx"><h5>🔗 ${esc(a.titulo)}</h5>${deP}
-        <div class="ag-dica" style="margin-bottom:8px"><b>Este artigo é a IT do Mapa Digital</b> (${esc((a.origem || {}).codigo || '')}). Ele é montado sozinho a partir dos passos, das regras e do fluxograma — e muda junto a cada alteração no Mapa. Para corrigir, edite a IT: o fluxograma e o agente acompanham.</div>
+        <div class="ag-dica" style="margin-bottom:8px"><b>Este artigo é a IT de Processos</b> (${esc((a.origem || {}).codigo || '')}). Ele é montado sozinho a partir dos passos, das regras e do fluxograma — e muda junto a cada alteração no Mapa. Para corrigir, edite a IT: o fluxograma e o agente acompanham.</div>
         <div class="ag-bt"><button type="button" class="ag-b1" id="fMapa">✎ Editar no Mapa (IT + fluxograma)</button><button type="button" class="ag-b2" id="fTestar">Testar na conversa</button></div>
         <label>O que o agente responde hoje</label><ol class="ag-dica" style="padding-left:20px">${(a.passos || []).map(x => '<li>' + esc(x) + '</li>').join('')}</ol></div>` :
       `<div class="ag-cx"><h5>${a && a.id ? 'Editar artigo' : 'Novo artigo'}</h5>${deP}
@@ -479,7 +479,7 @@ textarea.ag-f{min-height:130px;resize:vertical}
     const testar = cc().querySelector('#fTestar'); if (testar) testar.addEventListener('click', () => { modoChat(); perguntar(a.titulo); });
     const noMapa = cc().querySelector('#fMapa'); if (noMapa) noMapa.addEventListener('click', () => {
       const ok = typeof window.PQI_ABRIR_PROCESSO === 'function' && window.PQI_ABRIR_PROCESSO((a.origem || {}).processo_id || String(a.id).replace(/^mapa-/, ''), 'tobe');
-      if (ok) fechar(); else toast('Abra o Mapa Digital pelo Painel para editar este processo.');
+      if (ok) fechar(); else toast('Abra Processos pelo Painel.para editar este processo.');
     });
     if (doMapa) return;
     cc().querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', async () => {

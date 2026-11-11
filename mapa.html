@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mapa Digital King Star — como é feito hoje × Instrução de Trabalho</title>
+<title>Processos — como é feito hoje × Instrução de Trabalho</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -341,7 +341,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 <div class="wrap">
   <p class="banner" id="banner"></p>
   <div id="root"><p class="cap">Carregando processos…</p></div>
-  <footer class="doc-foot">Mapa Digital King Star · Conhecer a empresa antes de automatizar a empresa · TI 2027 — King Star Conectada</footer>
+  <footer class="doc-foot">Processos · Conhecer a empresa antes de automatizar a empresa · TI 2027 — King Star Conectada</footer>
 </div>
 
 <dialog id="dlgNovo">
@@ -2043,7 +2043,7 @@ function atualizarWho(){
   if(statusAtual.tipo==="ok"){
     const p = vista==="processo" ? procPorId(atual) : null;
     txt += p ? (p.atualizado_em ? ` · última alteração ${dataBR(p.atualizado_em)} por ${p.atualizado_por||"—"}` : "")
-             : ` · Mapa Digital King Star · ${PROCS.length} processo(s)`;
+             : ` · Processos · ${PROCS.length} processo(s)`;
   }
   t.textContent=txt;
 }

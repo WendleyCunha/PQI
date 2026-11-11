@@ -3097,7 +3097,7 @@ def cartas_colab_excluir(colab_id: str, request: Request):
 
 
 # [v6.1] FONTE ÚNICA: toda gravação no Mapa refaz o artigo do agente (agente.py) — nunca derruba a gravação
-def _agente_do_mapa(registro, excluido_id: str = "", quem: str = "Mapa Digital"):
+def _agente_do_mapa(registro, excluido_id: str = "", quem: str = "Processos"):
     try:
         if excluido_id:
             agt.remover_processo(excluido_id)
@@ -3118,7 +3118,7 @@ def mapa_criar(payload: ProcessoEntrada, request: Request):
         raise HTTPException(status_code=400, detail="Dados do processo inválidos.")
     _checar_tamanho(payload.dados)
     reg = db.mapa_criar(payload.dados, _nome_de(request), _email(request))
-    _agente_do_mapa(reg, quem=f"Mapa Digital · {_nome_de(request)}")
+    _agente_do_mapa(reg, quem=f"Processos · {_nome_de(request)}")
     return reg
 
 
@@ -3133,7 +3133,7 @@ def mapa_salvar(processo_id: str, payload: ProcessoEntrada, request: Request):
         raise HTTPException(status_code=404, detail="Processo não encontrado (pode ter sido excluído).")
     if resultado == "conflito":
         return JSONResponse({"detail": "conflito", "atual": registro}, status_code=409)
-    _agente_do_mapa(registro, quem=f"Mapa Digital · {_nome_de(request)}")
+    _agente_do_mapa(registro, quem=f"Processos · {_nome_de(request)}")
     return registro
 
 

@@ -287,7 +287,7 @@ def teste_fonte_unica_mapa():
     print("[v6.1] o artigo do Mapa não é editado no agente")
     como("ger@ks", "Gerente")
     r = t.put("/api/agente/artigos/mapa-P1", json={"titulo": "outra coisa", "passos": ["texto solto"]})
-    ok(r.status_code == 409 and "Mapa" in r.json()["detail"], "editar no agente é bloqueado: manda editar no Mapa")
+    ok(r.status_code == 409 and "Processos" in r.json()["detail"], "editar no agente é bloqueado: manda editar em Processos")
     ok(t.post("/api/agente/artigos/mapa-P1/restaurar", json={"versao": 1}).status_code == 409, "voltar versão também só pelo Mapa")
     r = t.post("/api/agente/sincronizar-mapa").json()
     ok(len(r["artigos"]) == 1 and r["artigos"][0]["id"] == "mapa-P1", "ressincronizar tudo pelo Mapa")
