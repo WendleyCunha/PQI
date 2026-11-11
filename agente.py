@@ -440,7 +440,7 @@ def artigo_do_processo(reg: dict) -> Optional[dict]:
     passos = [x for x in passos if isinstance(x, dict) and _txt(x.get("descricao"))]
     if not passos:
         return None
-    cab = (f"Fonte oficial: Mapa Digital · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
+    cab = (f"Fonte oficial: Processos · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
            + (f"rev. {ver} " if ver else "") + f"({situacao}). Este passo a passo é atualizado sozinho a cada alteração no Mapa.")
     out = [cab]
     corr = [c for c in (d.get("ajustes_agente") or []) if isinstance(c, dict) and _txt(c.get("para"))]
@@ -473,7 +473,7 @@ def artigo_do_processo(reg: dict) -> Optional[dict]:
             "ativo": True}
 
 
-def sincronizar_processo(reg: dict, quem: str = "Mapa Digital") -> Optional[dict]:
+def sincronizar_processo(reg: dict, quem: str = "Processos") -> Optional[dict]:
     """Refaz o artigo do processo. Chamado a cada gravação no Mapa (nunca derruba a gravação)."""
     pid = (reg or {}).get("id")
     if not pid:
@@ -523,7 +523,7 @@ def _aposentar_um(oa: str, art_mapa: dict) -> None:
     if man and man.get("ativo", True) and not str(oa).startswith(PREFIXO_MAPA):
         man.update(ativo=False, atualizado_em=agora(), substituido_por=art_mapa.get("id"))
         P["gravar"](COL_ART, oa, man)
-        P["gravar"](COL_HIS, novo_id(), {"em": agora(), "por": {"nome": "Mapa Digital", "email": ""}, "acao": "desativou", "artigo_id": oa,
+        P["gravar"](COL_HIS, novo_id(), {"em": agora(), "por": {"nome": "Processos", "email": ""}, "acao": "desativou", "artigo_id": oa,
                                          "titulo": man.get("titulo"), "versao": man.get("versao", 1),
                                          "detalhe": f"virou IT no Mapa ({(art_mapa.get('origem') or {}).get('codigo')}) — o agente responde por ela"})
         esquecer_cache()
@@ -543,7 +543,7 @@ def fechar_pendencias_respondidas_pela_it() -> int:
             continue
         a = _it_que_responde(p.get("pergunta", ""))
         if a:
-            p.update(status="resolvida", resolvida_em=agora(), resolvida_por={"nome": "Mapa Digital", "email": ""}, artigo_id=a["id"],
+            p.update(status="resolvida", resolvida_em=agora(), resolvida_por={"nome": "Processos", "email": ""}, artigo_id=a["id"],
                      nota=f"respondida pela IT do Mapa ({(a.get('origem') or {}).get('codigo') or a.get('titulo')})")
             P["gravar"](COL_PEN, p["id"], p)
             n += 1
@@ -624,7 +624,7 @@ def _ligar_a_processo(payload: "CriarProcesso", u: dict) -> dict:
     _historico(u, "ligou ao Mapa", {"id": (art or {}).get("id") or "", "titulo": d.get("nome"), "versao": 1},
                f"{d.get('codigo')} · " + ((f"{levou} passo(s) do artigo viraram a IT" if vazia else f"{levou} passo(s) do artigo acrescentados no fim da IT")
                                          if levou else "assunto ligado ao processo"))
-    sincronizar_processo(reg, "Mapa Digital")
+    sincronizar_processo(reg, "Processos")
     esquecer_cache()
     return {"processo": {"id": reg["id"], "codigo": d.get("codigo"), "nome": d.get("nome")}, "passos": levou, "acrescentou": levou > 0 and not vazia}
 
@@ -691,8 +691,8 @@ def agente_criar_processo(payload: CriarProcesso, request: Request):
             pen["processo_id"] = pid
             P["gravar"](COL_PEN, pen_id, pen)
     _historico(u, "levou para o Mapa", {"id": (art or {}).get("id") or "", "titulo": payload.nome, "versao": 1},
-               f"{codigo} criado no Mapa Digital" + (" com os passos do artigo" if passos else ""))
-    sincronizar_processo(reg, "Mapa Digital")
+               f"{codigo} criado em Processos" + (" com os passos do artigo" if passos else ""))
+    sincronizar_processo(reg, "Processos")
     esquecer_cache()
     return {"processo": {"id": pid, "codigo": codigo, "nome": payload.nome}, "passos": len(passos)}
 
@@ -711,8 +711,8 @@ def remover_processo(pid: str) -> None:
 
 def _bloquear_se_mapa(art: dict) -> None:
     if (art.get("origem") or {}).get("tipo") == "mapa" or str(art.get("id", "")).startswith(PREFIXO_MAPA):
-        raise HTTPException(status_code=409, detail=f"Este artigo vem do Mapa Digital ({(art.get('origem') or {}).get('codigo') or 'processo'}). "
-                                                    "Altere no Mapa — o agente atualiza sozinho.")
+        raise HTTPException(status_code=409, detail=f"Este artigo vem de Processos ({(art.get('origem') or {}).get('codigo') or 'processo'}). "
+                                                    "Altere em Processos — o agente atualiza sozinho.")
 
 
 @router.post("/sincronizar-mapa")

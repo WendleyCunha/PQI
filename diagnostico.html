@@ -890,19 +890,19 @@ function renderInventario(c){
       {campo:"categoria",label:"Categoria",tipo:"select",opcoes:CATEGORIAS_INVENTARIO},
       {campo:"descricao",label:"Descrição / exemplo",largura:260},
       {campo:"registrada",label:"Já registrada oficialmente?",tipo:"select",opcoes:STATUS_REGISTRADA},
-      {campo:"_mapa",label:"No Mapa Digital",tipo:"calc",calc:r=>{ if(!texto(r.atividade)) return ""; if(PROC_MAPA===null) return "…"; const pr=processoDaAtividade(r.atividade); return pr?`${pr.codigo} · ${pr.status}`:"— ainda não mapeada"; }},
+      {campo:"_mapa",label:"Em Processos",tipo:"calc",calc:r=>{ if(!texto(r.atividade)) return ""; if(PROC_MAPA===null) return "…"; const pr=processoDaAtividade(r.atividade); return pr?`${pr.codigo} · ${pr.status}`:"— ainda não mapeada"; }},
     ]}));
   // ponte com o Mapa: cada atividade pode virar um processo (passo a passo, IT e fluxograma em raias)
   const ativs=inv.filter(i=>texto(i.atividade));
   if(ativs.length&&PERM.mapa>=1){
     const box=el("details","box"); box.open=!!estInv.mapaAberto; box.ontoggle=()=>{ estInv.mapaAberto=box.open; };
     const feitas=ativs.filter(i=>processoDaAtividade(i.atividade)).length;
-    box.innerHTML=`<summary>🧩 Levar ao Mapa Digital — ${feitas} de ${ativs.length} atividade(s) já viraram processo</summary>
+    box.innerHTML=`<summary>🧩 Levar a Processos — ${feitas} de ${ativs.length} atividade(s) já viraram processo</summary>
       <p class="cap">O Diagnóstico mostra <b>o que</b> é feito e quanto pesa; o Mapa detalha <b>como</b> cada atividade é feita (passo a passo, Instrução de Trabalho e fluxograma em raias). Leve primeiro as que mais consomem tempo ou dão mais problema.</p>
       <div class="mapa-lista">${ativs.map(i=>{ const pr=processoDaAtividade(i.atividade);
         return `<div class="mapa-item"><b>${esc(i.atividade)}</b>${texto(i.subsetor)?`<span class="pill p-cinza">${esc(i.subsetor)}</span>`:'<span class="pill p-amb">sem subsetor responsável</span>'}
           <span class="st">${pr?`<span class="pill p-ok">${esc(pr.codigo)} · ${esc(pr.status)}</span><a class="btn" href="${linkMapa(i)}">Abrir processo →</a>`
-            :(PERM.mapa>=2?`<a class="btn" href="${linkMapa(i)}" data-livre>＋ Mapear no Mapa Digital</a>`:'<span class="pill p-cinza">ainda não mapeada</span>')}</span></div>`; }).join("")}</div>`;
+            :(PERM.mapa>=2?`<a class="btn" href="${linkMapa(i)}" data-livre>＋ Mapear em Processos</a>`:'<span class="pill p-cinza">ainda não mapeada</span>')}</span></div>`; }).join("")}</div>`;
     c.appendChild(box);
   }
   $("#invAdd",c).onclick=()=>{
@@ -1210,7 +1210,7 @@ function renderDiario(c){
       <label class="f">Depende de terceiros?<select data-ab="depende_terceiros"><option${aberto.depende_terceiros!=="Sim"?" selected":""}>Não</option><option${aberto.depende_terceiros==="Sim"?" selected":""}>Sim</option></select></label>
       <label class="f">Quem? (se depende de terceiros)<input data-ab="quem" value="${esc(aberto.quem)}"></label>
     </div><label class="f" style="margin-top:10px">Observações<textarea data-ab="obs" rows="3">${esc(aberto.obs)}</textarea></label>
-    <label class="f" style="margin-top:10px">🪜 Passos observados (opcional — um por linha; vão para o “Como é feito hoje” do Mapa Digital)<textarea data-ab="passos" rows="4" placeholder="Abrir o sistema de tickets&#10;Localizar o pedido na montagem de cargas&#10;Solicitar a retirada e o cancelamento da NF">${esc(aberto.passos||"")}</textarea></label></details>`;
+    <label class="f" style="margin-top:10px">🪜 Passos observados (opcional — um por linha; vão para o “Como é feito hoje” de Processos)<textarea data-ab="passos" rows="4" placeholder="Abrir o sistema de tickets&#10;Localizar o pedido na montagem de cargas&#10;Solicitar a retirada e o cancelamento da NF">${esc(aberto.passos||"")}</textarea></label></details>`;
   if(analista){ const n=ativs.filter(a=>atribuida(a,analista)).length;
     h+=`<p class="cap" style="margin:10px 0 0">${n?`<span class="pill p-ok">${n} atividade(s) atribuída(s) a ${esc(analista)}</span> aparecem primeiro na lista.`:`<span class="pill p-amb">Nenhuma atividade atribuída a ${esc(analista)} no Inventário</span> — atribua os executores no Inventário para a lista ficar mais enxuta.`}</p>`; }
   if(analista) h+=`<h3>⚡ Iniciar ou trocar de atividade</h3>

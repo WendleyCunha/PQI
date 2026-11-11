@@ -72,7 +72,7 @@ MODULOS = [
     {
         # [v3.1] Substitui o antigo card "Concierge — King Star".
         "id": "mapa",
-        "nome": "Mapa Digital King Star",
+        "nome": "Processos",
         "descricao": "Mapeamento de processos: como é feito hoje × Instrução de Trabalho — gaps, aderência e oportunidades.",
         "url": "/mapa", "icone": "🧩", "tipo": "nuvem",
         "paginas": ["/mapa"],
