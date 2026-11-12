@@ -63,8 +63,8 @@ MODULOS = [
     {
         # [v7.3] FLUXO INTERNO — dono do mapeamento: 1 Organograma · 2 Atividades · 3 Áreas · 4 Processos.
         # Os antigos sistemas "Organogramas" (organograma.html) e "Processos" (mapa.html) agora são PASSOS
-        # daqui: cada passo é uma ABA com nível próprio (Segurança → Fluxo interno → abas). O passo 2
-        # (Atividades) ainda usa o acesso do Diagnóstico até ele ser incorporado.
+        # daqui: cada passo é uma ABA com nível próprio (Segurança → Fluxo interno → abas).
+        # [v7.5] O passo 2 (Atividades) virou a aba "atividades" (antes usava o acesso do Diagnóstico).
         # Ninguém perdeu nem ganhou acesso na troca: ver PASSOS_LEGADO abaixo.
         "id": "mapeamento",
         "nome": "Fluxo interno",   # [v6.6] era "Mapeamento" (o id continua "mapeamento")
@@ -74,6 +74,7 @@ MODULOS = [
         "apis": ["/api/organograma", "/api/mapa"],
         "abas": [
             {"id": "organograma", "nome": "1 · Organograma (setores e pessoas)"},
+            {"id": "atividades", "nome": "2 · Atividades (o que cada setor faz)"},
             {"id": "areas", "nome": "3 · Atividade → Processo (por área)"},
             {"id": "processos", "nome": "4 · Processos (como é feito hoje, fluxograma, IT)"},
         ],
@@ -91,15 +92,13 @@ MODULOS = [
         "url": "/melhoria", "icone": "🔁", "tipo": "nuvem",
         "paginas": ["/melhoria", "/melhoria-solucao"],   # [v7.4] /melhoria-solucao = fases 4–7 do processo (TO BE)
         "apis": ["/api/melhoria"],
+        # [v7.5] as ferramentas do antigo Diagnóstico (RACI, Diário de Bordo, Entrevistas, Gemba, Matriz, Jornada…)
+        "abas": [{"id": "diagnostico", "nome": "Ferramentas do diagnóstico (RACI, Diário de Bordo, Entrevistas, Gemba…)"}],
     },
-    {
-        "id": "diagnostico",
-        "nome": "Diagnóstico",
-        "descricao": "Mapeamento de atividades por departamento: inventário, organograma real, RACI, Diário de Bordo, Gemba, matriz, jornada e relatório.",
-        "url": "/diagnostico", "icone": "🗺️", "tipo": "nuvem",
-        "paginas": ["/diagnostico"],
-        "apis": ["/api/diagnostico", "/api/diagnostico-ia"],
-    },
+    # [v7.5] O sistema "Diagnóstico" deixou de existir: Atividades e Organograma real são o passo 2 do Fluxo interno
+    # (aba "atividades"); as demais ferramentas são da Melhoria Contínua (aba "diagnostico"). Os dados continuam os
+    # mesmos (coleção diagnostico_dep) e o acesso de cada um vem do que tinha no Diagnóstico (ver ABAS_LEGADO).
+    # A tela /diagnostico e as rotas /api/diagnostico… são divididas por SEÇÃO em rota_diagnostico().
     # [v6.1] Removidos do Painel os externos Parque Aliança, Wendley Site e Wendley Cunha (Streamlit).
     # [v7.3] "Processos" (id mapa) e "Organogramas" (id organograma) viraram passos do Fluxo interno.
     {
@@ -268,7 +267,7 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
             saida[mid] = min(3, max(_legado_abas(usuario, perfil, saida, mid).values() or [0]))
     if not _configurado(usuario, perfil, "mapeamento"):   # [v7.3] o maior entre os passos herdados e o Diagnóstico
         leg = passos_legado(usuario, perfil, perfis)
-        saida["mapeamento"] = max([int(saida.get("diagnostico", 0))] + list(leg.values()))
+        saida["mapeamento"] = max(leg.values())
     for mid, nivel in PARA_TODOS.items():   # [v7.2] sistemas para todos os usuários (o admin pode mudar)
         if not _configurado(usuario, perfil, mid):
             saida[mid] = max(int(saida.get(mid, 0)), nivel)
@@ -283,7 +282,11 @@ PARA_TODOS = {"melhoria": 2}
 # configurar o Fluxo interno (ou a aba) para a pessoa/perfil, cada passo vale o que a pessoa tinha no
 # sistema antigo — o que continua gravado no perfil e nas exceções individuais com o id antigo.
 # {aba do Fluxo interno: id do sistema antigo}
-PASSOS_LEGADO = {"organograma": "organograma", "areas": "mapa", "processos": "mapa"}
+PASSOS_LEGADO = {"organograma": "organograma", "areas": "mapa", "processos": "mapa", "atividades": "diagnostico"}
+
+# [v7.5] abas novas que vieram de um sistema que deixou de existir: enquanto a ABA não for configurada
+# (na pessoa ou no perfil), vale exatamente o que a pessoa tinha no sistema antigo. {(sistema, aba): antigo}
+ABAS_LEGADO = {("mapeamento", "atividades"): "diagnostico", ("melhoria", "diagnostico"): "diagnostico"}
 
 
 def nivel_antigo(usuario: dict, perfil, perfis, antigo: str) -> int:
@@ -399,12 +402,14 @@ def abas_do_usuario(usuario: dict, perfil, niveis: dict, perfis: dict = None) ->
             if admin:
                 r[a["id"]] = 4
                 continue
-            if ns <= 0:   # sem acesso ao sistema = nenhuma aba
+            if ns <= 0 and (m["id"], a["id"]) not in ABAS_LEGADO:   # sem acesso ao sistema = nenhuma aba
                 r[a["id"]] = 0
                 continue
             v = _n_aba(du.get(a["id"]))
             if v is None:
                 v = _n_aba(dp.get(a["id"]))
+            if v is None and (m["id"], a["id"]) in ABAS_LEGADO:   # [v7.5] aba nova, ainda não configurada: o que tinha antes
+                v = nivel_aba_herdado(a, nivel_antigo(usuario, perfil, perfis, ABAS_LEGADO[(m["id"], a["id"])]))
             if v is None and m["id"] == "mapeamento" and a["id"] in leg:   # [v7.3] passo herdado do sistema antigo
                 if not fluxo_cfg:
                     v = nivel_aba_herdado(a, leg[a["id"]])
@@ -415,12 +420,42 @@ def abas_do_usuario(usuario: dict, perfil, niveis: dict, perfis: dict = None) ->
     return saida
 
 
-def nivel_efetivo_sistema(nivel_sistema: int, abas: dict) -> int:
+# [v7.5] abas que são outra coisa dentro do sistema (rotas próprias): NÃO aumentam o nível do sistema.
+# Ex.: Editar nas Ferramentas do diagnóstico não dá Editar nas melhorias.
+ABAS_SEPARADAS = {"melhoria": {"diagnostico"}}
+
+
+def nivel_efetivo_sistema(nivel_sistema: int, abas: dict, modulo_id: str = "") -> int:
     """Para o porteiro: se uma aba tem nível MAIOR que o sistema (ex.: sistema Visualizar,
     aba CX Adicionar), a pessoa precisa conseguir gravar — a rota confere a aba."""
+    if abas and modulo_id in ABAS_SEPARADAS:
+        abas = {k: v for k, v in abas.items() if k not in ABAS_SEPARADAS[modulo_id]}
     if not abas:
         return nivel_sistema
     return max(int(nivel_sistema or 0), max((min(int(v), 3) for v in abas.values()), default=0))
+
+
+# [v7.5] O antigo Diagnóstico, dividido por seção: Atividades/Organograma real → Fluxo interno (aba atividades);
+# as ferramentas → Melhoria Contínua (aba diagnostico). Leituras comuns (lista de departamentos, a tela) → quem
+# tiver qualquer uma das duas (cada rota só devolve as seções que a pessoa pode ver).
+SECOES_FLUXO = {"inventario", "organograma", "atividade", "organograma-oficial", "processos-mapa"}
+
+
+def rota_diagnostico(caminho: str, metodo: str = "GET"):
+    """None = não é do Diagnóstico. Senão, lista de (sistema, abas): basta passar em UMA delas."""
+    fluxo, melhoria = ("mapeamento", ["atividades"]), ("melhoria", ["diagnostico"])
+    if caminho == "/diagnostico":
+        return [fluxo, melhoria]
+    if caminho == "/api/diagnostico-ia" or caminho.startswith("/api/diagnostico-ia/"):
+        return [melhoria]
+    if not (caminho == "/api/diagnostico" or caminho.startswith("/api/diagnostico/")):
+        return None
+    partes = caminho.split("/")   # ["", "api", "diagnostico", "dep", <dep>, <secao>]
+    if len(partes) >= 6 and partes[3] == "dep":
+        return [fluxo] if partes[5] in SECOES_FLUXO else ([fluxo, melhoria] if partes[5] == "importar-legado" else [melhoria])
+    if len(partes) >= 4 and partes[3] == "departamentos" and metodo.upper() != "GET":
+        return [fluxo]   # criar departamento = setor novo: é do Fluxo interno
+    return [fluxo, melhoria]
 
 
 def abas_da_rota(modulo: dict, caminho: str):

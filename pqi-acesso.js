@@ -18,8 +18,12 @@
   var script = document.currentScript;
   var MODULO = (script && script.dataset.modulo) || "";
   if (location.pathname === "/melhoria-solucao") MODULO = "melhoria";   // [v7.4] a tela de Processos, dona Melhoria (fases 4–7)
+  // [v7.5] o antigo Diagnóstico: no Fluxo interno é o passo Atividades; dentro da Melhoria, as Ferramentas do diagnóstico
+  var DIAG_MELHORIA = false;
+  try { DIAG_MELHORIA = location.pathname === "/diagnostico" && new URLSearchParams(location.search).get("embed") === "melhoria"; } catch (_) {}
+  if (DIAG_MELHORIA) MODULO = "melhoria";
   // [v7.3] tela que é um PASSO do Fluxo interno: o nível é o da aba do passo (Áreas usa a aba "areas")
-  var ABA_PASSO = location.pathname === "/melhoria-solucao" ? "" : ((script && script.dataset.aba) || "");
+  var ABA_PASSO = location.pathname === "/melhoria-solucao" ? "" : DIAG_MELHORIA ? "diagnostico" : ((script && script.dataset.aba) || "");
   try { if (ABA_PASSO && new URLSearchParams(location.search).get("modo") === "areas") ABA_PASSO = "areas"; } catch (_) {}
   var NOMES = { 0: "Sem acesso", 1: "Visualizar", 2: "Adicionar", 3: "Editar" };
   var DICAS = {
@@ -45,7 +49,9 @@
       acesso.abas = (j.abas && j.abas[MODULO]) || null;
       // uma aba com nível maior que o sistema (ex.: sistema Visualizar, aba CX Adicionar) também libera gravar
       var maxAba = 0;
-      if (acesso.abas) Object.keys(acesso.abas).forEach(function (k) { maxAba = Math.max(maxAba, Math.min(3, Number(acesso.abas[k]) || 0)); });
+      if (acesso.abas) Object.keys(acesso.abas).forEach(function (k) {
+        if (MODULO === "melhoria" && k === "diagnostico") return;   // [v7.5] Ferramentas do diagnóstico não mudam o nível das melhorias
+        maxAba = Math.max(maxAba, Math.min(3, Number(acesso.abas[k]) || 0)); });
       acesso.nivel = Math.max(acesso.nivelSistema, maxAba);
       if (ABA_PASSO) {   // [v7.3] passo do Fluxo interno: vale só a aba do passo (4 = Excluir conta como Editar)
         acesso.nivelSistema = acesso.nivel = Math.min(3, Number((acesso.abas || {})[ABA_PASSO]) || 0);
@@ -339,7 +345,7 @@
   if ((q.get("embed") !== "mapeamento" && q.get("embed") !== "melhoria") || window.parent === window) {
     window.PQI_EMBED = null;
     // [v7.3] Organograma e Processos só existem dentro do Fluxo interno: link antigo / aba antiga vão para lá
-    if (["/organograma", "/mapa"].indexOf(location.pathname) >= 0) {
+    if (["/organograma", "/mapa", "/diagnostico"].indexOf(location.pathname) >= 0) {   // [v7.5] + o antigo Diagnóstico
       var alvo = location.pathname + location.search;
       try { if (window.top !== window && typeof window.top.PQI_ABRIR_FLUXO === "function" && window.top.PQI_ABRIR_FLUXO(alvo)) { history.length > 1 ? history.back() : location.replace("about:blank"); return; } } catch (_) {}
       location.replace("/mapeamento?ir=" + encodeURIComponent(alvo));
@@ -354,6 +360,7 @@
   try { tema(localStorage.getItem("pqi_mapeamento_tema")); } catch (_) {}
   window.PQI_EMBED = {
     modo: modo,
+    embed: q.get("embed"),   // [v7.5] "mapeamento" (Fluxo interno) ou "melhoria" (Melhoria Contínua)
     ir: function (url) { window.parent.postMessage({ pqi: "mapeamento-ir", url: url }, location.origin); }
   };
   var css = document.createElement("style");

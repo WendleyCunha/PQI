@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="/pqi-acesso.js" data-modulo="diagnostico"></script>
+<script src="/pqi-acesso.js" data-modulo="mapeamento" data-aba="atividades"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    Diagnóstico — mesmo padrão visual do RG do Pedido, do Mapa Digital
@@ -62,6 +62,8 @@ a{color:var(--steel)}
   color:var(--ink-3);font:500 10.5px/1.2 "IBM Plex Sans",sans-serif;text-align:center;cursor:pointer;position:relative}
 .side-btn svg{width:20px;height:20px;flex:none}
 .side-btn:hover{background:var(--rule-2);color:var(--ink-2)}
+.side-grp{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);text-align:center;padding:10px 2px 2px;border-top:1px solid var(--rule);margin-top:4px;line-height:1.2}
+.side-grp:first-child{border-top:0;margin-top:0;padding-top:2px}
 .side-btn.ativa{background:var(--steel-soft);color:var(--steel);border-color:var(--steel)}
 .side-btn .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;background:var(--rule-2);color:var(--ink-2);border-radius:8px;padding:0 5px}
 .side-btn.ativa .n{background:var(--steel);color:var(--sheet)}
@@ -325,6 +327,9 @@ const ROTEIRO_ENTREVISTA = [
   "Se pudesse eliminar uma atividade do seu dia, qual seria e por quê?",
 ];
 
+const EMBED_MELHORIA = !!(window.PQI_EMBED && window.PQI_EMBED.embed === "melhoria");
+const ABAS_FLUXO = ["inventario","organograma"];
+const GRUPOS_MELHORIA = {checklist:"Andamento", raci:"Usar · coletar", matriz:"Consultar · consolidar", resumo:"IA"};
 const ABAS = [
   ["checklist","✅","Checklist",renderChecklist],
   ["inventario","📋","Atividades",renderInventario],   // [v6.4] era "Inventário"
@@ -336,9 +341,11 @@ const ABAS = [
   ["matriz","📐","Matriz",renderMatriz],
   ["jornada","🗺️","Mapa de Jornada",renderJornada],
   ["perguntas","❓","6 Perguntas",renderPerguntas],
-  ["resumo","🤖","Resumo IA",renderResumoIA],
   ["relatorio","📄","Relatório Final",renderRelatorio],
-].filter(a=>!window.PQI_EMBED||["inventario","organograma"].includes(a[0]));   // [v6.4] no Mapeamento: só Atividades e Organograma
+  ["resumo","💡","Resumo e sugestões (IA)",renderResumoIA],
+].filter(a=>!window.PQI_EMBED||(EMBED_MELHORIA ? !ABAS_FLUXO.includes(a[0]) : ABAS_FLUXO.includes(a[0])));
+// [v6.4] no Fluxo interno: só Atividades e Organograma real (passo 2).
+// [v7.5] na Melhoria Contínua: as ferramentas, em três grupos — usar (coletar), consultar (consolidar) e a IA.
 
 // ═══════════════════════════════════════════════════════════════════
 // Utilidades
@@ -690,8 +697,9 @@ function mdToHtml(md){
 // ═══════════════════════════════════════════════════════════════════
 // Navegação
 // ═══════════════════════════════════════════════════════════════════
-let abaAtiva = "checklist";
-try{ abaAtiva = sessionStorage.getItem("diag_aba") || "checklist"; }catch(_){}
+const CHAVE_ABA = "diag_aba" + (window.PQI_EMBED ? "_" + (window.PQI_EMBED.embed || "") : "");   // [v7.5] cada lugar lembra a sua aba
+let abaAtiva = window.PQI_EMBED && !EMBED_MELHORIA ? "inventario" : "checklist";
+try{ abaAtiva = sessionStorage.getItem(CHAVE_ABA) || abaAtiva; }catch(_){}
 const SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">';
 const ICO={
   checklist:SV+'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12l3 3 5-6"/></svg>',
@@ -711,15 +719,16 @@ const SEP_DEPOIS=new Set(["checklist","raci","gemba","jornada"]);   // grupos: a
 function montarMenu(){
   const m=$("#menu"); m.innerHTML="";
   ABAS.forEach(([id,ico,nome])=>{
+    if(EMBED_MELHORIA&&GRUPOS_MELHORIA[id]){ const g=el("div","side-grp"); g.textContent=GRUPOS_MELHORIA[id]; m.appendChild(g); }
     const b=el("button","side-btn"); b.type="button"; b.dataset.aba=id; b.title=nome;
     b.innerHTML=`${ICO[id]||""}<span>${esc(nome)}</span>`;
     b.onclick=()=>abrirAba(id); m.appendChild(b);
-    if(SEP_DEPOIS.has(id)) m.appendChild(el("div","side-sep"));
+    if(SEP_DEPOIS.has(id)&&!EMBED_MELHORIA) m.appendChild(el("div","side-sep"));
   });
 }
 function abrirAba(id){
   if(!ABAS.some(a=>a[0]===id)) id=ABAS[0][0];
-  abaAtiva=id; try{ sessionStorage.setItem("diag_aba",id); }catch(_){}
+  abaAtiva=id; try{ sessionStorage.setItem(CHAVE_ABA,id); }catch(_){}
   document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("ativa", b.dataset.aba===id));
   window.scrollTo(0,0); renderAba();
 }
@@ -752,9 +761,12 @@ function progressoDep(ck){ ck=ck||{}; const f=ETAPAS_CHECKLIST.filter(([id])=>ck
 function renderInicio(){
   $("#menu").style.display="none"; $("#btnDeps").hidden=true; $("#barDep").textContent="Mapeamento de atividades por departamento · PQI";
   const c=$("#conteudo"), iniciados=DEPS.filter(d=>progressoDep(d.checklist).f>0).length;
-  c.innerHTML=`<header class="doc-head"><div><h1>Diagnóstico por departamento</h1>
+  c.innerHTML=`<header class="doc-head"><div>${EMBED_MELHORIA?`<h1>Ferramentas do diagnóstico</h1>
+      <p class="obj">Escolha o setor e use as ferramentas para entender o trabalho antes de melhorar: <b>RACI</b>, <b>Diário de Bordo</b>, <b>Entrevistas</b> e <b>Gemba</b> para coletar; <b>Matriz</b>, <b>Mapa de Jornada</b>, <b>6 Perguntas</b> e <b>Relatório</b> para consolidar; e a <b>IA</b> para resumir e sugerir.</p>
+      <p class="cap" style="margin-top:8px">As <b>atividades</b> e o <b>organograma</b> de cada setor vêm do <b>Fluxo interno</b> (passos 1 e 2) — cadastre lá.</p>`
+      :`<h1>Diagnóstico por departamento</h1>
       <p class="obj">Primeiro o departamento, depois o diagnóstico dele: inventário, organograma real, RACI, Diário de Bordo, entrevistas, Gemba, matriz, jornada e relatório — cada departamento com os seus dados, sem misturar pessoas.</p>
-      <p class="cap" style="margin-top:8px">O departamento é o mesmo <b>setor do Organograma</b>: o que você cria aqui aparece lá, e as pessoas cadastradas lá aparecem na aba Organograma do diagnóstico.</p></div>
+      <p class="cap" style="margin-top:8px">O departamento é o mesmo <b>setor do Organograma</b>: o que você cria aqui aparece lá, e as pessoas cadastradas lá aparecem na aba Organograma do diagnóstico.</p>`}</div>
     <div class="stamp"><div class="code">Departamentos</div><dl><dt>Cadastrados</dt><dd>${DEPS.length}</dd><dt>Com diagnóstico iniciado</dt><dd>${iniciados}</dd><dt>Seu acesso</dt><dd>${NOMES_NIVEL[NIVEL]}</dd></dl></div></header>
     ${LEGADO.secoes&&!LEGADO.importado_para&&NIVEL>=3&&DEPS.length?`<div class="box" style="border-left:6px solid var(--amber)"><b>Existe um diagnóstico feito antes da separação por departamento</b> (${LEGADO.secoes} seção(ões) com dados).
       <p class="cap" style="margin:6px 0 10px">Escolha a qual departamento ele pertence. Ele é copiado para lá (seções que já tiverem dados no departamento não são sobrescritas) e o original fica guardado.</p>
@@ -765,7 +777,7 @@ function renderInicio(){
         <div class="pct"><b>${pr.pct}%</b><span class="meta" style="margin:0">da metodologia (${pr.f}/${ETAPAS_CHECKLIST.length} etapas)</span></div><div class="track"><i style="width:${pr.pct}%"></i></div>
         <div class="meta">👥 ${d.pessoas} pessoa(s) no organograma oficial</div></button>`; }).join("")}</div>`
       :'<p class="aviso">Nenhum departamento ainda. Crie o primeiro abaixo — ele também aparece no Organograma.</p>'}
-    ${NIVEL>=2?`<div class="box"><h3 style="margin-top:0">＋ Novo departamento</h3>
+    ${NIVEL>=2&&!EMBED_MELHORIA?`<div class="box"><h3 style="margin-top:0">＋ Novo departamento</h3>
       <div class="grade"><label class="f">Nome<input id="ndNome" placeholder="Ex.: Logística, SAC, Financeiro"></label><label class="f">Descrição (opcional)<input id="ndDesc"></label></div>
       <div class="acoes"><button type="button" class="btn primary" id="ndOk">Criar e abrir o diagnóstico</button><span class="msg" id="ndMsg"></span></div></div>`:""}`;
   c.querySelectorAll("[data-dep]").forEach(b=>b.onclick=()=>abrirDep(b.dataset.dep));
@@ -1566,9 +1578,9 @@ function renderPerguntas(c){
 // 11 · Resumo com IA (chave fica só no servidor)
 // ═══════════════════════════════════════════════════════════════════
 function renderResumoIA(c){
-  c.innerHTML=`<h2>🤖 Resumo com IA (opcional)</h2>
-    <p class="cap">Envia os dados coletados para a API da Anthropic (Claude) gerar um resumo executivo, editável depois. Precisa da variável <code>ANTHROPIC_API_KEY</code> configurada no Render — o sistema funciona 100% sem isso.</p>
-    <div class="acoes"><button class="btn primary" id="iaBtn" type="button">🤖 Gerar resumo executivo com IA</button><span class="msg" id="iaMsg"></span></div>
+  c.innerHTML=`<h2>💡 Resumo e sugestões com IA</h2>
+    <p class="cap">A IA do sistema (a mesma do Agente) lê tudo o que foi coletado neste setor e escreve um resumo executivo com <b>recomendações de melhoria priorizadas</b>. O texto fica editável — e, como tudo o que está escrito, também vira base do Agente.</p>
+    <div class="acoes"><button class="btn primary" id="iaBtn" type="button">💡 Gerar resumo e sugestões</button><span class="msg" id="iaMsg"></span></div>
     <label class="f">Resumo (editável)<textarea id="iaTxt" rows="18">${esc(typeof D.resumo_ia==="string"?D.resumo_ia:"")}</textarea></label>`;
   $("#iaTxt",c).oninput=e=>{ D.resumo_ia=e.target.value; salvar("resumo_ia"); };
   $("#iaBtn",c).onclick=async()=>{
