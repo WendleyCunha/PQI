@@ -3277,6 +3277,7 @@ PAGINAS = {
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
+    "/mapeamento": "mapeamento.html",                                    # Mapeamento (4 passos) [v6.4]
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
     "/ponto": "ponto.html",                                              # Ponto — registro por digital [v5.1]

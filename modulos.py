@@ -61,6 +61,17 @@ MODULOS = [
         "apis": [],
     },
     {
+        # [v6.4] MAPEAMENTO — a sequência do mapeamento num módulo só, em 4 passos:
+        # 1 Organograma · 2 Atividades (Diagnóstico) · 3 Áreas · 4 Processos.
+        # Usa as telas e os dados dos três sistemas (que continuam no Painel). Acesso: ver JUNTA abaixo.
+        "id": "mapeamento",
+        "nome": "Mapeamento",
+        "descricao": "Organograma → Atividades → Áreas → Processos: o mapeamento da empresa em sequência, num lugar só.",
+        "url": "/mapeamento", "icone": "🧭", "tipo": "nuvem",
+        "paginas": ["/mapeamento"],
+        "apis": [],
+    },
+    {
         "id": "diagnostico",
         "nome": "Diagnóstico",
         "descricao": "Mapeamento de atividades por departamento: inventário, organograma real, RACI, Diário de Bordo, Gemba, matriz, jornada e relatório.",
@@ -250,7 +261,16 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
     for mid in LEGADO:   # [v5.9] sistema novo que veio de abas de outro: herda o acesso antigo até ser configurado
         if not _configurado(usuario, perfil, mid):
             saida[mid] = min(3, max(_legado_abas(usuario, perfil, saida, mid).values() or [0]))
+    for mid, origens in JUNTA.items():   # [v6.4] Mapeamento: enquanto não configurado, vale o maior dos três
+        if not _configurado(usuario, perfil, mid):
+            saida[mid] = max(int(saida.get(o, 0)) for o in origens)
     return saida
+
+
+# [v6.4] O Mapeamento mostra as telas do Organograma, do Diagnóstico e de Processos. Enquanto o admin não
+# configurar o Mapeamento para a pessoa (ou o perfil), ela o vê com o MAIOR nível que tem nos três.
+# Cada passo continua respeitando o acesso do sistema de origem (quem não tem Processos não vê o passo 4).
+JUNTA = {"mapeamento": ("organograma", "diagnostico", "mapa")}
 
 
 # [v5.9] RouterKing nasceu das abas "aovivo" e "motoristas" da Qualidade. Enquanto o admin não configurar

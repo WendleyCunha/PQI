@@ -2026,10 +2026,14 @@ const TITULOS_GERAL = {arquitetura:["Visão macro e arquitetura — áreas e pro
 let vista="lista", atual=null, secProc="linha", secGeral="painel";
 const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
 try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav2")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual||null; secProc=s.secProc||"linha"; secGeral=s.secGeral||"painel"; } }catch(_){}
+// [v6.4] MAPEAMENTO, passo 3 "Áreas": esta tela fica presa nas Áreas; abrir/criar um processo leva ao passo 4 (Processos)
+const EMB_AREAS=!!(window.PQI_EMBED&&window.PQI_EMBED.modo==="areas");
+if(EMB_AREAS){ vista="geral"; secGeral="arquitetura"; }
 window.addEventListener("message",e=>{ if(e.origin!==location.origin||!e.data||e.data.pqi!=="mapa-abrir") return;   // [v6.1] o Agente abre a IT aqui
   if(PROCS.some(x=>x.id===e.data.id)) ir("processo",e.data.id,e.data.sec||"tobe"); });
-function guardarNav(){ try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
+function guardarNav(){ if(EMB_AREAS) return; try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
 function ir(v, id, sec){
+  if(EMB_AREAS){ if(v==="processo"&&id){ window.PQI_EMBED.ir(`/mapa?processo=${encodeURIComponent(id)}&sec=linha`); return; } v="geral"; sec="arquitetura"; }
   vista=v; if(id!==undefined&&id!==null) atual=id;
   if(sec){ if(v==="processo") secProc=sec; else if(v==="geral") secGeral=sec; }
   guardarNav(); window.scrollTo(0,0); render();
@@ -2447,7 +2451,8 @@ async function iniciar(){
     await carregarAtividadesDiag();
     const q=new URLSearchParams(location.search), qp=q.get("processo"), qd=q.get("de_dep"), qa=q.get("atividade");
     if(qp||qd){ try{ history.replaceState(null,"",location.pathname); }catch(_){} }
-    if(qp&&procPorId(qp)){ vista="processo"; atual=qp; secProc="linha"; guardarNav(); }
+    const qs=q.get("sec"), secOk=SECOES_PROC.some(x=>Array.isArray(x)&&x[0]===qs);   // [v6.4] abrir direto numa seção
+    if(qp&&procPorId(qp)){ vista="processo"; atual=qp; secProc=secOk?qs:"linha"; guardarNav(); }
     setStatus("ok"); render();
     if(qd&&qa){   // vindo do Diagnóstico: abre o processo da atividade, ou oferece criar
       const dep=ATIV_DIAG.find(x=>x.id===qd)||(BASE&&BASE.setores.find(x=>x.id===qd));

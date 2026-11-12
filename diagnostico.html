@@ -327,7 +327,7 @@ const ROTEIRO_ENTREVISTA = [
 
 const ABAS = [
   ["checklist","✅","Checklist",renderChecklist],
-  ["inventario","📋","Inventário",renderInventario],
+  ["inventario","📋","Atividades",renderInventario],   // [v6.4] era "Inventário"
   ["organograma","🧭","Organograma",renderOrganograma],
   ["raci","🧩","Matriz RACI",renderRaciMatriz],
   ["diario","📓","Diário de Bordo",renderDiario],
@@ -338,7 +338,7 @@ const ABAS = [
   ["perguntas","❓","6 Perguntas",renderPerguntas],
   ["resumo","🤖","Resumo IA",renderResumoIA],
   ["relatorio","📄","Relatório Final",renderRelatorio],
-];
+].filter(a=>!window.PQI_EMBED||["inventario","organograma"].includes(a[0]));   // [v6.4] no Mapeamento: só Atividades e Organograma
 
 // ═══════════════════════════════════════════════════════════════════
 // Utilidades
@@ -718,7 +718,7 @@ function montarMenu(){
   });
 }
 function abrirAba(id){
-  if(!ABAS.some(a=>a[0]===id)) id="checklist";
+  if(!ABAS.some(a=>a[0]===id)) id=ABAS[0][0];
   abaAtiva=id; try{ sessionStorage.setItem("diag_aba",id); }catch(_){}
   document.querySelectorAll("#menu button").forEach(b=>b.classList.toggle("ativa", b.dataset.aba===id));
   window.scrollTo(0,0); renderAba();
@@ -847,7 +847,7 @@ function renderChecklist(c){
 const estInv={mapaAberto:false,pessoa:""};
 function renderInventario(c){
   const inv=lista("inventario");
-  c.innerHTML=`<h2>📋 Inventário de atividades</h2>
+  c.innerHTML=`<h2>📋 Atividades do departamento</h2>
     <p class="cap">Antes de qualquer entrevista: liste os tipos de atividade já conhecidos (tickets, tags do sistema, controles paralelos por fora do oficial). Também é alimentado automaticamente por atividades novas lançadas no Diário de Bordo.</p>
     <p class="cap">Defina o <b>subsetor responsável</b> de cada atividade (ex.: abastecimento de estoque → Recebimento). O Diário de Bordo e a Matriz passam a mostrar quando outro subsetor está fazendo o trabalho.</p>
     <p class="cap">Defina também os <b>executores</b> (quem faz cada atividade — pode ser mais de uma pessoa) e o <b>modo</b>: <b>individual</b>, <b>dividida</b> (cada um faz uma parte) ou <b>em equipe</b> (várias pessoas ao mesmo tempo, como descarregar um caminhão). O Diário de Bordo passa a mostrar primeiro as atividades de cada pessoa, e o RACI e o Mapa já recebem os responsáveis.</p>
