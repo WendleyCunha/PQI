@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapeamento — Organograma, Atividades, Áreas e Processos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="mapeamento"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   mapeamento.html — MAPEAMENTO (v6.4)
+   A sequência do mapeamento num módulo só, em 4 passos:
+     1 Organograma  →  2 Atividades  →  3 Áreas  →  4 Processos
+   Cada passo é a tela que já existe (Organograma, Diagnóstico, Processos),
+   aberta em "modo Mapeamento" (?embed=mapeamento — ver pqi-acesso.js):
+   um sistema nunca abre dentro do outro; quem leva de um passo a outro é esta tela.
+   Mesmo padrão visual do Organograma e de Processos.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column}
+h1,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+button{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--ink-3)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.bar{flex:none;background:var(--paper);border-bottom:1px solid var(--rule);padding-top:env(safe-area-inset-top,0px)}
+.bar-in{display:flex;align-items:center;gap:14px;padding:8px 20px;flex-wrap:wrap}
+.tit{display:flex;flex-direction:column;line-height:1.15;margin-right:6px}
+.tit b{font:700 18px "IBM Plex Sans Condensed",system-ui,sans-serif}
+.tit span{font-size:12px;color:var(--ink-3)}
+.passos{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.passos::-webkit-scrollbar{display:none}
+.passo{display:flex;align-items:center;gap:9px;padding:7px 14px 7px 8px;border-radius:999px;border:1px solid var(--rule);background:var(--sheet);white-space:nowrap;color:var(--ink-2)}
+.passo .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 12px "IBM Plex Sans Condensed",sans-serif;background:var(--rule-2);color:var(--ink-2)}
+.passo b{font-weight:600;font-size:14px}
+.passo small{display:block;font-size:11.5px;color:var(--ink-3);font-weight:400;margin-top:1px}
+.passo.ativo{border-color:var(--steel);background:var(--steel-soft);color:var(--ink)}
+.passo.ativo .n{background:var(--steel);color:var(--sheet)}
+.passo[disabled]{opacity:.45;cursor:not-allowed}
+.seta{color:var(--ink-3);flex:none}
+.tema{flex:none}
+
+.palco{flex:1;position:relative;min-height:0}
+.palco iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--paper);display:none}
+.palco iframe.ativo{display:block}
+.carregando{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:14px;pointer-events:none;opacity:0;transition:opacity .2s}
+.carregando.on{opacity:1}
+.sem-acesso{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--ink-2)}
+.sem-acesso div{max-width:460px;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:20px 22px}
+
+@media (max-width:760px){
+  .bar-in{padding:8px 12px;gap:8px}
+  .tit span,.passo small{display:none}
+  .passo{padding:6px 10px 6px 6px}
+}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <div class="tit"><b>🧭 Mapeamento</b><span>a empresa mapeada, passo a passo</span></div>
+  <nav class="passos" id="passos" aria-label="Passos do mapeamento"></nav>
+  <button type="button" class="tema" id="btnTema" title="Alternar tema claro/escuro (vale para todos os passos)">◐ Tema</button>
+</div></div>
+<div class="palco" id="palco"><div class="carregando" id="carregando">Carregando…</div></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// passo: [id, nome, dica, endereço, sistema de origem (permissão)]
+const PASSOS = [
+  ["organograma", "Organograma", "setores e pessoas", "/organograma", "organograma"],
+  ["atividades", "Atividades", "o que cada setor faz", "/diagnostico", "diagnostico"],
+  ["areas", "Áreas", "atividade vira processo", "/mapa?modo=areas", "mapa"],
+  ["processos", "Processos", "linha de vida, registrar…", "/mapa", "mapa"],
+];
+const QUADROS = {};   // passo → iframe (fica vivo ao trocar de passo)
+let ativo = null, perm = {}, visitou4 = false;
+
+const comEmbed = (url) => url + (url.includes("?") ? "&" : "?") + "embed=mapeamento";
+const pode = (p) => (perm[p[4]] ?? 3) >= 1;
+
+// ─── tema único para todos os passos ───
+function temaAtual() { return document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+function aplicarTema(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("pqi_mapeamento_tema", t); } catch (_) {}
+  Object.values(QUADROS).forEach((f) => { try { f.contentWindow.postMessage({ pqi: "tema", tema: t }, location.origin); } catch (_) {} });
+}
+try { const t = localStorage.getItem("pqi_mapeamento_tema"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}
+$("#btnTema").onclick = () => aplicarTema(temaAtual() === "dark" ? "light" : "dark");
+
+function desenharPassos() {
+  $("#passos").innerHTML = PASSOS.map((p, i) => `${i ? '<span class="seta">›</span>' : ""}<button type="button" class="passo${p[0] === ativo ? " ativo" : ""}" data-p="${p[0]}"
+      ${pode(p) ? "" : `disabled title="Sem acesso a ${esc(p[1])} — peça liberação ao administrador"`} aria-current="${p[0] === ativo}">
+      <span class="n">${i + 1}</span><span><b>${esc(p[1])}</b><small>${esc(p[2])}</small></span></button>`).join("");
+  document.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => abrir(b.dataset.p)));
+}
+
+function quadro(id, url) {
+  let f = QUADROS[id];
+  if (!f) {
+    f = document.createElement("iframe");
+    f.title = PASSOS.find((p) => p[0] === id)[1];
+    f.onload = () => {
+      f.dataset.ok = "1";
+      if (ativo === id) $("#carregando").classList.remove("on");
+      try { f.contentWindow.postMessage({ pqi: "tema", tema: temaAtual() }, location.origin); } catch (_) {}
+    };
+    QUADROS[id] = f; $("#palco").appendChild(f);
+  }
+  if (url) { f.dataset.ok = ""; f.src = comEmbed(url); }
+  return f;
+}
+
+// abre um passo; "url" (opcional) leva o passo a um lugar específico (ex.: a linha de vida de um processo)
+function abrir(id, url) {
+  const p = PASSOS.find((x) => x[0] === id); if (!p) return;
+  document.querySelectorAll(".sem-acesso").forEach((x) => x.remove());
+  Object.values(QUADROS).forEach((f) => f.classList.remove("ativo"));
+  ativo = id; desenharPassos();
+  try { sessionStorage.setItem("pqi_mapeamento_passo", id); } catch (_) {}
+  if (!pode(p)) {
+    const d = document.createElement("div"); d.className = "sem-acesso";
+    d.innerHTML = `<div><b>Sem acesso a ${esc(p[1])}</b><p>Este passo usa o sistema ${esc(p[1] === "Atividades" ? "Diagnóstico" : p[1] === "Áreas" ? "Processos" : p[1])}. Peça liberação ao administrador em Segurança.</p></div>`;
+    $("#palco").appendChild(d); return;
+  }
+  const novo = !QUADROS[id];
+  // Áreas lê os processos: se você passou por Processos, recarrega para mostrar o que mudou
+  const recarregar = id === "areas" && visitou4 && !url;
+  if (id === "processos") visitou4 = true; else if (recarregar) visitou4 = false;
+  const f = quadro(id, url || (novo || recarregar ? p[3] : ""));
+  f.classList.add("ativo");
+  $("#carregando").classList.toggle("on", f.dataset.ok !== "1");
+}
+
+// os passos pedem para ir a outro passo (link para outro sistema, criar/abrir processo nas Áreas…)
+window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.pqi !== "mapeamento-ir" || typeof e.data.url !== "string") return;
+  const u = new URL(e.data.url, location.origin);
+  const destino = u.pathname === "/organograma" ? "organograma" : u.pathname === "/diagnostico" ? "atividades" : u.pathname === "/mapa" ? "processos" : null;
+  if (destino) abrir(destino, u.pathname + u.search);
+});
+
+async function iniciar() {
+  try { const r = await fetch("/api/auth/me", { cache: "no-store" }); if (r.ok) perm = (await r.json()).permissoes || {}; } catch (_) {}
+  const q = new URLSearchParams(location.search);
+  let inicio = q.get("passo");
+  if (!PASSOS.some((p) => p[0] === inicio)) { try { inicio = sessionStorage.getItem("pqi_mapeamento_passo"); } catch (_) {} }
+  if (!PASSOS.some((p) => p[0] === inicio)) inicio = (PASSOS.find(pode) || PASSOS[0])[0];
+  abrir(inicio);
+}
+iniciar();
+})();
+</script>
+</body>
+</html>

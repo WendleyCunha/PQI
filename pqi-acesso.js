@@ -318,3 +318,45 @@
     }
   });
 })();
+
+/* [v6.4] MAPEAMENTO — Organograma, Diagnóstico (Atividades) e Processos abertos DENTRO do módulo
+   Mapeamento (?embed=mapeamento). Nesse modo:
+   • link para outro desses sistemas NÃO abre um dentro do outro: o Mapeamento troca de passo;
+   • o tema claro/escuro é o do Mapeamento (um botão só para todos);
+   • some o rodapé e o botão de tema próprio de cada tela. Fora do Mapeamento nada muda. */
+(function () {
+  "use strict";
+  var q;
+  try { q = new URLSearchParams(location.search); } catch (_) { return; }
+  if (q.get("embed") !== "mapeamento" || window.parent === window) { window.PQI_EMBED = null; return; }
+  var modo = q.get("modo") || "";
+  var raiz = document.documentElement;
+  raiz.classList.add("pqi-embed");
+  if (modo) raiz.classList.add("pqi-embed-" + modo);
+  function tema(t) { if (t === "light" || t === "dark") raiz.setAttribute("data-theme", t); }
+  try { tema(localStorage.getItem("pqi_mapeamento_tema")); } catch (_) {}
+  window.PQI_EMBED = {
+    modo: modo,
+    ir: function (url) { window.parent.postMessage({ pqi: "mapeamento-ir", url: url }, location.origin); }
+  };
+  var css = document.createElement("style");
+  css.textContent = "html.pqi-embed .doc-foot,html.pqi-embed #btnTema{display:none!important}" +
+    "html.pqi-embed-areas .side-rg,html.pqi-embed-areas #btnVoltar{display:none!important}" +
+    "html.pqi-embed-areas .shell-item{grid-template-columns:1fr!important;display:block!important}";
+  (document.head || raiz).appendChild(css);
+  var SISTEMAS = ["/organograma", "/diagnostico", "/mapa"];
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+    var u; try { u = new URL(a.getAttribute("href"), location.href); } catch (_) { return; }
+    if (u.origin !== location.origin || SISTEMAS.indexOf(u.pathname) < 0) return;
+    e.preventDefault();
+    window.PQI_EMBED.ir(u.pathname + u.search);
+  }, true);
+  window.addEventListener("message", function (e) {
+    if (e.origin === location.origin && e.data && e.data.pqi === "tema") {
+      tema(e.data.tema);
+      try { localStorage.setItem("diag_tema", e.data.tema); } catch (_) {}
+    }
+  });
+})();
