@@ -3277,6 +3277,7 @@ PAGINAS = {
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
+    "/empresa": "empresa.html",                                          # Empresa — Fase 0 [v7.0]
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
     "/ponto": "ponto.html",                                              # Ponto — registro por digital [v5.1]
@@ -3329,6 +3330,16 @@ agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           processos=db.mapa_listar,   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
           criar_processo=db.mapa_criar,   # [v6.2] "Falta virar IT" → leva o assunto para o Mapa
           salvar_processo=db.mapa_salvar)
+
+# [v7.0] EMPRESA — FASE 0: setores, pessoas, atividades, IT e fluxograma num lugar só (empresa.py).
+# Não tem banco próprio: usa o Organograma, os processos do Mapa e o inventário do Diagnóstico.
+import empresa as emp
+emp.ligar(app, usuario_atual=usuario_atual, niveis=_niveis, setores_do=_setores_do,
+          processos=db.mapa_listar, criar_processo=db.mapa_criar, salvar_processo=db.mapa_salvar,
+          inventario=lambda dep: db.diagdep_ler(dep, "inventario") or [], nome=_nome_de,
+          sincronizar=lambda reg: _agente_do_mapa(reg, quem="Empresa"),
+          ia=agt.ia_texto, ia_ligada=lambda: bool(agt.provedor()),
+          ve_tudo=lambda u: _deps_permitidos(u) is None)
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

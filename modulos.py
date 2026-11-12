@@ -61,7 +61,19 @@ MODULOS = [
         "apis": [],
     },
     {
+        # [v7.0] EMPRESA — FASE 0: Organograma + Atividades + IT + Fluxograma num card só.
+        # Reúne os sistemas Organogramas, Processos e Diagnóstico (que saem do Painel mas continuam
+        # abrindo daqui, com os mesmos dados). Acesso: ver FUNDIDOS abaixo.
+        "id": "empresa",
+        "nome": "Empresa — Fase 0",
+        "descricao": "Setores e pessoas, atividades de cada setor, a IT e o fluxograma de cada atividade — a empresa mapeada.",
+        "url": "/empresa", "icone": "🏢", "tipo": "nuvem",
+        "paginas": ["/empresa"],
+        "apis": ["/api/empresa"],
+    },
+    {
         "id": "diagnostico",
+        "oculto": True,   # [v7.0] dentro de Empresa — Fase 0 (não aparece mais como card no Painel)
         "nome": "Diagnóstico",
         "descricao": "Mapeamento de atividades por departamento: inventário, organograma real, RACI, Diário de Bordo, Gemba, matriz, jornada e relatório.",
         "url": "/diagnostico", "icone": "🗺️", "tipo": "nuvem",
@@ -72,6 +84,7 @@ MODULOS = [
     {
         # [v3.1] Substitui o antigo card "Concierge — King Star".
         "id": "mapa",
+        "oculto": True,   # [v7.0] dentro de Empresa — Fase 0 (não aparece mais como card no Painel)
         "nome": "Processos",
         "descricao": "Mapeamento de processos: como é feito hoje × Instrução de Trabalho — gaps, aderência e oportunidades.",
         "url": "/mapa", "icone": "🧩", "tipo": "nuvem",
@@ -80,6 +93,7 @@ MODULOS = [
     },
     {
         "id": "organograma",
+        "oculto": True,   # [v7.0] dentro de Empresa — Fase 0 (não aparece mais como card no Painel)
         "nome": "Organogramas",
         "descricao": "Estrutura de cada setor: quem é quem, a quem responde, nível, escala e horário.",
         "url": "/organograma", "icone": "🏛️", "tipo": "nuvem",
@@ -250,6 +264,25 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
     for mid in LEGADO:   # [v5.9] sistema novo que veio de abas de outro: herda o acesso antigo até ser configurado
         if not _configurado(usuario, perfil, mid):
             saida[mid] = min(3, max(_legado_abas(usuario, perfil, saida, mid).values() or [0]))
+    return fundir(usuario, perfil, saida)
+
+
+# [v7.0] EMPRESA — FASE 0 reúne três sistemas. Enquanto o admin não configurar "Empresa" para a pessoa
+# (ou para o perfil dela), ela vale o MAIOR nível que a pessoa tinha nos três — ninguém perde acesso.
+# Depois de configurada, "Empresa" também abre os editores dos três (organograma, fluxograma, IT…),
+# porque eles agora são telas de dentro dela.
+FUNDIDOS = {"empresa": ("organograma", "mapa", "diagnostico")}
+
+
+def fundir(usuario: dict, perfil, saida: dict) -> dict:
+    if usuario.get("papel") == "admin":
+        return saida
+    for novo, antigos in FUNDIDOS.items():
+        if not _configurado(usuario, perfil, novo):
+            saida[novo] = max(int(saida.get(a, 0)) for a in antigos)
+        else:
+            for a in antigos:
+                saida[a] = max(int(saida.get(a, 0)), int(saida.get(novo, 0)))
     return saida
 
 
@@ -375,7 +408,7 @@ def modulo_da_rota(caminho: str):
 def cards_do_usuario(usuario: dict, niveis: dict) -> list:
     """O que o Painel mostra pra esta pessoa (sem as regras internas de rota)."""
     publico = lambda m: {k: m[k] for k in ("id", "nome", "descricao", "url", "icone", "tipo")}
-    cards = [publico(m) for m in MODULOS if niveis.get(m["id"], 0) >= 1]
+    cards = [publico(m) for m in MODULOS if niveis.get(m["id"], 0) >= 1 and not m.get("oculto")]
     if usuario.get("papel") == "admin":
         cards.append(publico(MODULO_ADMIN))
     return cards
@@ -383,4 +416,5 @@ def cards_do_usuario(usuario: dict, niveis: dict) -> list:
 
 def catalogo_publico() -> list:
     return [{**{k: m[k] for k in ("id", "nome", "icone", "tipo", "descricao")}, "so_acesso": so_acesso(m),
+             **({"nome": m["nome"] + " (dentro de Empresa)", "oculto": True} if m.get("oculto") else {}),
              "abas": _abas_mod(m)} for m in MODULOS]

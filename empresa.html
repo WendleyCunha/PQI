@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Empresa — Fase 0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="empresa"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   empresa.html — EMPRESA · FASE 0 (v7.0)
+   Organograma → Atividades → IT → Fluxograma, por setor, num lugar só.
+   Visual "vidro" no mesmo espírito do hub Wendley Desenvolvimento.
+   Dados: /api/empresa/* (empresa.py) — os mesmos do Organograma, Processos e Diagnóstico.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --noite:#070912; --noite2:#0d1120; --txt:#eef1f8; --txt2:#a6aec2; --txt3:#6d7590;
+  --vidro:rgba(255,255,255,.055); --vidro2:rgba(255,255,255,.09); --borda:rgba(255,255,255,.09); --borda2:rgba(255,255,255,.17);
+  --azul:#60a5fa; --ciano:#22d3ee; --violeta:#a78bfa; --verde:#34d399; --ouro:#f5c451; --rosa:#fb7185; --laranja:#fb923c;
+  --grad:linear-gradient(135deg,#60a5fa,#a78bfa); --grad-ok:linear-gradient(135deg,#34d399,#22d3ee);
+  --raio:20px; --raio-m:14px; --raio-p:10px;
+  --sombra:0 24px 60px -24px rgba(0,0,0,.7);
+  --mola:cubic-bezier(.2,.9,.25,1.15);
+  --titulo:'Space Grotesk','Inter',system-ui,sans-serif; --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+/* escuro como o hub; claro só se a página pedir (data-theme="light") */
+@media all{
+  :root[data-theme="light"]{
+    --noite:#eef2f9; --noite2:#e4eaf5; --txt:#141a2b; --txt2:#4a5470; --txt3:#7a84a0;
+    --vidro:rgba(255,255,255,.72); --vidro2:rgba(255,255,255,.92); --borda:rgba(20,30,60,.10); --borda2:rgba(20,30,60,.2);
+    --azul:#2563eb; --ciano:#0891b2; --violeta:#7c3aed; --verde:#059669; --ouro:#b7791f; --rosa:#e11d48; --laranja:#ea580c;
+    --sombra:0 18px 44px -24px rgba(30,40,80,.35); color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--sans);background:var(--noite);color:var(--txt);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--azul);outline-offset:3px;border-radius:10px}
+*{scrollbar-width:thin;scrollbar-color:rgba(128,140,170,.3) transparent}
+
+/* fundo: manchas de luz */
+.fundo{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.fundo i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.42;mix-blend-mode:screen;animation:flutua 28s ease-in-out infinite alternate}
+.fundo i:nth-child(1){width:52vmax;height:52vmax;left:-16vmax;top:-22vmax;background:radial-gradient(circle,rgba(96,165,250,.55),transparent 62%)}
+.fundo i:nth-child(2){width:46vmax;height:46vmax;right:-16vmax;top:-6vmax;background:radial-gradient(circle,rgba(167,139,250,.5),transparent 62%);animation-duration:34s}
+.fundo i:nth-child(3){width:40vmax;height:40vmax;left:20vmax;bottom:-24vmax;background:radial-gradient(circle,rgba(34,211,238,.32),transparent 62%);animation-duration:40s}
+:root[data-theme="light"] .fundo i{mix-blend-mode:multiply;opacity:.22}
+@keyframes flutua{to{transform:translate(6vmax,4vmax) scale(1.08)}}
+@media (prefers-reduced-motion: reduce){ .fundo i{animation:none} *{transition:none!important;animation:none!important} }
+
+.vidro{background:var(--vidro);border:1px solid var(--borda);border-radius:var(--raio);backdrop-filter:saturate(160%) blur(22px);-webkit-backdrop-filter:saturate(160%) blur(22px);box-shadow:var(--sombra)}
+.pagina{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 20px 80px}
+
+/* topo */
+.topo{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:14px 20px;margin:0 -20px 18px;
+  background:linear-gradient(to bottom,var(--noite) 60%,transparent);}
+.marca{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.marca .orbe{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:19px;background:var(--grad);box-shadow:0 8px 24px -8px rgba(96,165,250,.7)}
+.marca b{font:700 17px/1.1 var(--titulo);display:block}
+.marca small{color:var(--txt3);font-size:12px}
+a.bt{text-decoration:none}
+.bt{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:12px;border:1px solid var(--borda);background:var(--vidro);font-weight:600;font-size:13px;white-space:nowrap;transition:.18s}
+.bt:hover{border-color:var(--borda2);background:var(--vidro2);transform:translateY(-1px)}
+.bt.pri{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 26px -12px rgba(96,165,250,.9)}
+.bt.ok{background:var(--grad-ok);border-color:transparent;color:#05261b}
+.bt.peq{padding:6px 10px;font-size:12px;border-radius:10px}
+.bt.fant{background:none;border-color:transparent}
+.bt:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.bt svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* herói da Fase 0 */
+.heroi{display:grid;grid-template-columns:auto 1fr;gap:28px;padding:26px 28px;align-items:center;position:relative;overflow:hidden}
+.heroi::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(120deg,rgba(96,165,250,.6),transparent 35%,transparent 65%,rgba(167,139,250,.6));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.anel{--p:0;--cor:var(--azul);flex:none;width:150px;height:150px;border-radius:50%;display:grid;place-items:center;position:relative;
+  background:conic-gradient(var(--cor) calc(var(--p)*1%),rgba(128,140,170,.16) 0);transition:--p 1s}
+.anel::before{content:"";position:absolute;inset:12px;border-radius:50%;background:var(--noite2)}
+.anel span{position:relative;text-align:center;font:700 34px/1 var(--titulo)}
+.anel span small{display:block;font:500 11px/1.3 var(--sans);color:var(--txt3);margin-top:6px;letter-spacing:.04em;text-transform:uppercase}
+.anel.mini{width:54px;height:54px}.anel.mini::before{inset:6px}.anel.mini span{font-size:14px}
+.anel.medio{width:96px;height:96px}.anel.medio::before{inset:9px}.anel.medio span{font-size:22px}
+.heroi h1{font:700 26px/1.15 var(--titulo);margin:0 0 6px}
+.heroi p{color:var(--txt2);margin:0 0 16px;max-width:70ch}
+.trilha{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.trilha .et{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 8px;border-radius:999px;background:var(--vidro);border:1px solid var(--borda);font-weight:600;font-size:12.5px}
+.trilha .et b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:var(--grad);color:#fff}
+.trilha .et.fim b{background:var(--grad-ok);color:#05261b}
+.trilha .seta{color:var(--txt3)}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.num{padding:12px 14px;border-radius:var(--raio-m);background:var(--vidro);border:1px solid var(--borda)}
+.num span{display:block;color:var(--txt3);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+.num b{font:700 22px/1.2 var(--titulo)}
+.num small{color:var(--txt3);font-size:12px;margin-left:4px}
+
+/* barra de filtros */
+.filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:22px 0 14px}
+.busca{flex:1;min-width:220px;max-width:360px;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:var(--vidro);border:1px solid var(--borda)}
+.busca input{border:0;background:none;outline:none;width:100%}
+.chip{padding:7px 13px;border-radius:999px;border:1px solid var(--borda);background:var(--vidro);font-size:12.5px;font-weight:600;color:var(--txt2);transition:.15s}
+.chip.on{background:var(--grad);color:#fff;border-color:transparent}
+.chip .q{opacity:.75;margin-left:4px;font-weight:500}
+
+/* cards de setor */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.setor{padding:18px;cursor:pointer;text-align:left;width:100%;display:flex;flex-direction:column;gap:14px;transition:.22s var(--mola);position:relative;overflow:hidden}
+.setor:hover{transform:translateY(-3px);border-color:var(--borda2)}
+.setor::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cor,var(--azul))}
+.setor .cab{display:flex;gap:12px;align-items:center}
+.setor .cab>div:not(.anel){flex:1;min-width:0}
+.setor h3{margin:0;font:700 16px/1.25 var(--titulo);overflow-wrap:break-word}
+.setor .sub{color:var(--txt3);font-size:12px}
+.selo{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.selo.ok{background:rgba(52,211,153,.15);color:var(--verde)}
+.selo.and{background:rgba(96,165,250,.15);color:var(--azul)}
+.selo.zero{background:rgba(251,113,133,.13);color:var(--rosa)}
+.selo.ia{background:rgba(167,139,250,.16);color:var(--violeta)}
+.selo.ouro{background:rgba(245,196,81,.15);color:var(--ouro)}
+.barras{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.barras div{font-size:11px;color:var(--txt3)}
+.barras i{display:block;height:6px;border-radius:6px;background:rgba(128,140,170,.18);margin-top:5px;overflow:hidden}
+.barras i::after{content:"";display:block;height:100%;width:var(--w,0%);border-radius:6px;background:var(--grad);transition:width .8s var(--mola)}
+.barras i.cheio::after{background:var(--grad-ok)}
+.setor .rod{display:flex;gap:12px;color:var(--txt2);font-size:12px;flex-wrap:wrap}
+.vazio{padding:28px;text-align:center;color:var(--txt2)}
+.vazio b{display:block;font:600 16px var(--titulo);color:var(--txt);margin-bottom:6px}
+
+/* setor aberto */
+.voltar{margin-bottom:14px}
+.setor-cab{display:flex;gap:20px;align-items:center;padding:22px 24px;flex-wrap:wrap}
+.setor-cab .info{flex:1;min-width:220px}
+.setor-cab h1{font:700 24px/1.15 var(--titulo);margin:0 0 4px}
+.setor-cab p{margin:0;color:var(--txt2)}
+.passos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.passo{padding:14px 16px;text-align:left;display:flex;gap:12px;align-items:center;transition:.2s}
+.passo:hover{border-color:var(--borda2)}
+.passo.on{border-color:transparent;background:linear-gradient(var(--noite2),var(--noite2)) padding-box,var(--grad) border-box;border:1.5px solid transparent}
+.passo .n{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font:700 14px var(--titulo);background:rgba(128,140,170,.16);flex:none}
+.passo.on .n{background:var(--grad);color:#fff}
+.passo.feito .n{background:var(--grad-ok);color:#05261b}
+.passo b{display:block;font:600 14px var(--titulo)}
+.passo small{color:var(--txt3);font-size:12px}
+.painel{padding:20px 22px}
+.painel h2{font:700 18px var(--titulo);margin:0 0 4px}
+.painel .cap{color:var(--txt2);margin:0 0 16px;max-width:90ch}
+.acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sep{height:1px;background:var(--borda);margin:18px 0}
+
+.pessoas{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.pes{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:var(--raio-m);background:var(--vidro);border:1px solid var(--borda)}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--titulo);flex:none;color:#fff;background:var(--grad)}
+.pes small{display:block;color:var(--txt3);font-size:12px}
+.grupo-t{font:600 12px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin:16px 0 8px}
+
+.linhas{display:flex;flex-direction:column;gap:8px}
+.ativ{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-radius:var(--raio-m);background:var(--vidro);border:1px solid var(--borda);transition:.15s}
+.ativ:hover{border-color:var(--borda2)}
+.ativ .t{font-weight:600}
+.ativ .t code{font:600 11px var(--sans);color:var(--txt3);margin-right:6px}
+.ativ .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.pchip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 3px;border-radius:999px;background:rgba(96,165,250,.12);font-size:12px}
+.pchip i{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:700 9px var(--sans);font-style:normal;background:var(--grad);color:#fff}
+.falta{color:var(--rosa);font-size:12px;font-weight:600}
+.ativ.lev{border-style:dashed;background:transparent}
+.ico-st{display:inline-flex;gap:6px}
+.ico-st span{padding:3px 8px;border-radius:8px;font-size:11.5px;font-weight:600;background:rgba(128,140,170,.14);color:var(--txt3)}
+.ico-st span.sim{background:rgba(52,211,153,.14);color:var(--verde)}
+
+.form-nova{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:8px;align-items:end;padding:14px;border-radius:var(--raio-m);background:var(--vidro);border:1px solid var(--borda);margin-bottom:12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--txt2);font-weight:500}
+.inp,label.f input,label.f select,label.f textarea{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--borda);background:rgba(0,0,0,.18);outline:none;transition:.15s}
+:root[data-theme="light"] .inp,:root[data-theme="light"] label.f input,:root[data-theme="light"] label.f select,:root[data-theme="light"] label.f textarea{background:#fff}
+.inp:focus,label.f input:focus,label.f select:focus,label.f textarea:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(96,165,250,.18)}
+textarea{min-height:70px;resize:vertical}
+
+.completa{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:var(--raio-m);margin-top:14px;border:1px solid var(--borda);background:var(--vidro)}
+.completa.sim{border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.08)}
+.completa .txt{flex:1}
+.completa small{display:block;color:var(--txt3)}
+.tog{width:46px;height:26px;border-radius:999px;background:rgba(128,140,170,.3);position:relative;transition:.2s;flex:none}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.25s var(--mola)}
+.tog.on{background:var(--verde)} .tog.on::after{left:23px}
+
+/* popup */
+.fundo-modal{position:fixed;inset:0;z-index:80;background:rgba(3,5,12,.55);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;animation:aparece .18s}
+.modal{width:min(860px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:var(--noite2);border:1px solid var(--borda2);border-radius:var(--raio);box-shadow:0 40px 90px -30px rgba(0,0,0,.85);animation:sobe .28s var(--mola)}
+.modal header{display:flex;gap:12px;align-items:center;padding:18px 20px;border-bottom:1px solid var(--borda)}
+.modal header h3{margin:0;font:700 17px var(--titulo);flex:1}
+.modal .corpo{padding:18px 20px;overflow:auto}
+.modal footer{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--borda);flex-wrap:wrap}
+.modal footer .esq{margin-right:auto}
+@keyframes aparece{from{opacity:0}} @keyframes sobe{from{opacity:0;transform:translateY(16px) scale(.98)}}
+.passo-it{display:grid;grid-template-columns:28px 2.4fr 1fr 1fr 1.4fr auto;gap:6px;align-items:start;margin-bottom:6px}
+.passo-it .nn{font:700 13px var(--titulo);color:var(--txt3);padding-top:9px;text-align:center}
+.passo-it textarea{min-height:40px}
+.passo-it .mini{display:flex;gap:1px;padding-top:6px}
+.passo-it .mini button{padding:2px 6px;border-radius:6px;color:var(--txt3)} .passo-it .mini button:hover{color:var(--txt);background:var(--vidro2)}
+.cab-it{display:grid;grid-template-columns:28px 2.4fr 1fr 1fr 1.4fr auto;gap:6px;font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.brilho{background:linear-gradient(90deg,rgba(167,139,250,.1),rgba(96,165,250,.25),rgba(167,139,250,.1));background-size:200% 100%;animation:brilho 1.4s linear infinite;border-radius:10px;height:42px;margin-bottom:8px}
+@keyframes brilho{to{background-position:-200% 0}}
+.dica-ia{padding:12px 14px;border-radius:var(--raio-m);background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);margin-bottom:14px;font-size:13px;color:var(--txt2)}
+.lista-sel{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;max-height:340px;overflow:auto}
+.lista-sel label{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--vidro);border:1px solid var(--borda);cursor:pointer}
+.lista-sel label:has(input:checked){border-color:var(--azul);background:rgba(96,165,250,.12)}
+.lista-sel small{display:block;color:var(--txt3);font-size:11.5px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99;padding:11px 18px;border-radius:12px;background:var(--noite2);border:1px solid var(--borda2);box-shadow:var(--sombra);font-weight:600;animation:sobe .25s var(--mola)}
+.toast.erro{border-color:rgba(251,113,133,.6);color:var(--rosa)}
+.carregando{display:grid;gap:14px}
+.carregando div{height:120px;border-radius:var(--raio)}
+.aviso-fora{padding:16px 18px;margin-top:18px;border-color:rgba(245,196,81,.35)}
+.aviso-fora h3{margin:0 0 6px;font:700 15px var(--titulo);color:var(--ouro)}
+
+@media (max-width:860px){
+  .heroi{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .trilha{justify-content:center}
+  .passos{grid-template-columns:repeat(2,1fr)}
+  .form-nova{grid-template-columns:1fr}
+  .passo-it,.cab-it{grid-template-columns:24px 1fr auto}
+  .passo-it .x2,.cab-it .x2{display:none}
+  .ativ{grid-template-columns:1fr}
+}
+@media (max-width:520px){ .passos{grid-template-columns:1fr} .topo .rotulo{display:none} }
+</style>
+</head>
+<body>
+<div class="fundo" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="pagina">
+  <header class="topo">
+    <a class="bt fant" href="/" title="Voltar ao Painel"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span class="rotulo">Painel</span></a>
+    <div class="marca"><span class="orbe">🏢</span><div><b>Empresa</b><small>Fase 0 · a empresa mapeada</small></div></div>
+    <a class="bt" href="/organograma?de=empresa" id="btNovoSetor" title="Criar ou organizar setores no Organograma"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="rotulo">Novo setor</span></a>
+    <button class="bt" id="btAtualizar" title="Atualizar"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+  </header>
+  <main id="raiz"><div class="carregando"><div class="vidro brilho" style="height:210px"></div><div class="vidro brilho"></div></div></main>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nrm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const iniciais = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
+const d10 = (s) => { s = String(s || ""); return s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : ""; };
+const raiz = $("#raiz");
+let V = null;                                   // visão completa (/api/empresa/visao)
+const est = { setor: null, aba: "atividades", filtro: "todos", busca: "" };
+const PASSOS = [["pessoas", "Organograma", "Setor e pessoas"], ["atividades", "Atividades", "Cada uma com quem faz"], ["it", "IT", "Instrução de Trabalho"], ["fluxo", "Fluxograma", "O desenho da atividade"]];
+
+// ─── API ───
+async function api(url, op = {}) {
+  const r = await fetch(url, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...op,
+    body: op.body && typeof op.body !== "string" ? JSON.stringify(op.body) : op.body });
+  if (r.status === 401) { location.href = "/?volta=" + encodeURIComponent(location.pathname + location.search); throw new Error("Faça login de novo."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Erro " + r.status);
+  return j;
+}
+function toast(msg, erro) {
+  document.querySelectorAll(".toast").forEach((t) => t.remove());
+  const t = document.createElement("div"); t.className = "toast" + (erro ? " erro" : ""); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), erro ? 5200 : 2800);
+}
+const podeEditar = () => (V ? V.nivel : 0) >= 2;
+
+// ─── estado na URL (para voltar dos editores no mesmo lugar) ───
+function guardarURL() {
+  const q = new URLSearchParams();
+  if (est.setor) { q.set("setor", est.setor); q.set("aba", est.aba); }
+  const url = location.pathname + (q.toString() ? "?" + q : "");
+  try { history.replaceState(null, "", url); sessionStorage.setItem("pqi.empresa.volta", url); } catch (_) {}
+}
+function abrirEditor(url) { guardarURL(); location.href = url + (url.includes("?") ? "&" : "?") + "de=empresa"; }
+
+async function carregar(silencioso) {
+  try { V = await api("/api/empresa/visao"); render(); }
+  catch (e) { if (!silencioso) raiz.innerHTML = `<div class="vidro vazio"><b>Não consegui carregar a Empresa</b>${esc(e.message)}<div style="margin-top:14px"><button class="bt pri" onclick="location.reload()">Tentar de novo</button></div></div>`; else toast(e.message, true); }
+}
+function render() { if (est.setor && V.setores.some((s) => s.id === est.setor)) renderSetor(); else { est.setor = null; renderInicio(); } guardarURL(); }
+
+// ─── INÍCIO: Fase 0 e setores ───
+function anel(p, cls = "", rotulo = "", cor) {
+  const c = cor || (p >= 100 ? "var(--verde)" : p >= 50 ? "var(--azul)" : p > 0 ? "var(--violeta)" : "var(--rosa)");
+  return `<div class="anel ${cls}" style="--p:${p};--cor:${c}"><span>${p}%${rotulo ? `<small>${rotulo}</small>` : ""}</span></div>`;
+}
+function seloSetor(s) {
+  if (s.pronto) return '<span class="selo ok">✓ Pronto</span>';
+  if (!s.contagem.atividades && !s.contagem.levantadas) return '<span class="selo zero">Sem atividades</span>';
+  return '<span class="selo and">Em andamento</span>';
+}
+function barras(p) {
+  return `<div class="barras">${PASSOS.map(([k, n]) => `<div>${n}<i class="${p[k] >= 100 ? "cheio" : ""}" style="--w:${p[k]}%"></i></div>`).join("")}</div>`;
+}
+function renderInicio() {
+  const f = V.fase0;
+  const filtrar = (s) => (!est.busca || nrm(s.nome).includes(nrm(est.busca))) &&
+    (est.filtro === "todos" || (est.filtro === "prontos" && s.pronto) || (est.filtro === "andamento" && !s.pronto && (s.contagem.atividades || s.contagem.levantadas)) ||
+     (est.filtro === "vazios" && !s.contagem.atividades && !s.contagem.levantadas));
+  const conta = { todos: V.setores.length, andamento: V.setores.filter((s) => !s.pronto && (s.contagem.atividades || s.contagem.levantadas)).length,
+    prontos: V.setores.filter((s) => s.pronto).length, vazios: V.setores.filter((s) => !s.contagem.atividades && !s.contagem.levantadas).length };
+  const lista = V.setores.filter(filtrar);
+  raiz.innerHTML = `
+    <section class="vidro heroi">
+      ${anel(f.pct, "", "Fase 0")}
+      <div>
+        <h1>${f.pronta ? "🏁 Fase 0 pronta — a empresa está mapeada" : "Fase 0 — a empresa no papel"}</h1>
+        <p>${f.pronta ? "Todos os setores têm pessoas, atividades, IT e fluxograma. Agora a melhoria (PQI) trabalha em cima do que existe." :
+          "Cada setor passa por 4 passos. Quando todos fecham, a empresa existe com pessoas, regras, processos, organogramas e fluxogramas — e aí começa a melhoria."}</p>
+        <div class="trilha">${PASSOS.map(([k, n], i) => `<span class="et"><b>${i + 1}</b>${n}</span><span class="seta">›</span>`).join("")}<span class="et fim"><b>🏁</b>Melhoria (PQI)</span></div>
+        <div class="nums">
+          <div class="num"><span>Setores prontos</span><b>${f.setores_prontos}</b><small>de ${f.setores}</small></div>
+          <div class="num"><span>Pessoas</span><b>${f.pessoas}</b></div>
+          <div class="num"><span>Atividades</span><b>${f.atividades}</b>${f.levantadas ? `<small>+${f.levantadas} a confirmar</small>` : ""}</div>
+          <div class="num"><span>Com IT</span><b>${f.com_it}</b><small>de ${f.atividades + f.levantadas}</small></div>
+          <div class="num"><span>Com fluxograma</span><b>${f.com_fluxo}</b><small>de ${f.atividades + f.levantadas}</small></div>
+        </div>
+      </div>
+    </section>
+    <div class="filtros">
+      <label class="busca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="busca" placeholder="Buscar setor…" value="${esc(est.busca)}" aria-label="Buscar setor"></label>
+      ${[["todos", "Todos"], ["andamento", "Em andamento"], ["prontos", "Prontos"], ["vazios", "Sem atividades"]].map(([k, n]) =>
+        `<button class="chip${est.filtro === k ? " on" : ""}" data-f="${k}">${n}<span class="q">${conta[k]}</span></button>`).join("")}
+    </div>
+    <div class="grade" id="grade">${lista.map(cardSetor).join("") ||
+      `<div class="vidro vazio" style="grid-column:1/-1"><b>${V.setores.length ? "Nenhum setor neste filtro" : "Nenhum setor cadastrado ainda"}</b>${V.setores.length ? "" : "Comece pelo Organograma: crie os setores e as pessoas de cada um."}</div>`}</div>
+    ${V.fora.length ? `<section class="vidro aviso-fora"><h3>⚠️ Atividades com área que não é setor do Organograma</h3>
+      <p class="cap" style="margin:0 0 10px;color:var(--txt2)">Nada se perdeu: estes processos estão em Processos com um nome de área que não bate com nenhum setor. Abra e troque a área para o setor certo (ou crie o setor no Organograma).</p>
+      ${V.fora.map((g) => `<div class="grupo-t">${esc(g.area)} · ${g.atividades.length}</div><div class="linhas">${g.atividades.map((a) =>
+        `<div class="ativ"><div><div class="t"><code>${esc(a.codigo)}</code>${esc(a.nome)}</div></div><button class="bt peq" data-proc="${esc(a.id)}">Abrir</button></div>`).join("")}</div>`).join("")}</section>` : ""}`;
+  $("#busca").oninput = (e) => { est.busca = e.target.value; const g = $("#grade"); g.innerHTML = V.setores.filter(filtrar).map(cardSetor).join("") || '<div class="vidro vazio" style="grid-column:1/-1"><b>Nenhum setor encontrado</b></div>'; ligarCards(); };
+  raiz.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { est.filtro = b.dataset.f; renderInicio(); }));
+  raiz.querySelectorAll("[data-proc]").forEach((b) => (b.onclick = () => abrirEditor(`/mapa?processo=${encodeURIComponent(b.dataset.proc)}`)));
+  ligarCards();
+}
+function cardSetor(s) {
+  const c = s.contagem;
+  return `<button class="vidro setor" data-setor="${esc(s.id)}" style="--cor:${esc(s.cor || "var(--azul)")}">
+    <div class="cab">${anel(s.pct, "mini")}<div><h3>${esc(s.nome)}</h3><span class="sub">${s.responsavel ? "Resp.: " + esc(s.responsavel) : esc(s.descricao || "")}</span><div style="margin-top:6px">${seloSetor(s)}</div></div></div>
+    ${barras(s.passos)}
+    <div class="rod"><span>👥 ${s.pessoas.length} pessoa(s)</span><span>📋 ${c.atividades} atividade(s)${c.levantadas ? ` · <b style="color:var(--ouro)">${c.levantadas} a confirmar</b>` : ""}</span><span>📘 ${c.com_it} IT</span><span>🔀 ${c.com_fluxo} fluxo</span></div>
+  </button>`;
+}
+function ligarCards() { raiz.querySelectorAll("[data-setor]").forEach((b) => (b.onclick = () => { est.setor = b.dataset.setor; est.aba = proximaAba(setorAtual()); render(); scrollTo(0, 0); })); }
+const setorAtual = () => V.setores.find((s) => s.id === est.setor);
+function proximaAba(s) { return PASSOS.map((p) => p[0]).find((k) => s.passos[k] < 100) || "atividades"; }
+
+// ─── SETOR: 4 passos ───
+function renderSetor() {
+  const s = setorAtual();
+  raiz.innerHTML = `
+    <button class="bt voltar" id="btVoltar"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Todos os setores</button>
+    <section class="vidro setor-cab" style="border-left:4px solid ${esc(s.cor || "var(--azul)")}">
+      ${anel(s.pct, "medio")}
+      <div class="info"><h1>${esc(s.nome)}</h1><p>${s.responsavel ? "Responsável: <b>" + esc(s.responsavel) + "</b> · " : ""}${s.pessoas.length} pessoa(s) · ${s.contagem.atividades} atividade(s)</p></div>
+      ${seloSetor(s)}
+      <div class="acoes">
+        <button class="bt peq" data-ed="/organograma?setor=${encodeURIComponent(s.id)}">🏛️ Organograma</button>
+        <button class="bt peq" data-ed="/diagnostico?dep=${encodeURIComponent(s.id)}" title="Inventário, Gemba, entrevistas, RACI… (as ferramentas vão para o PQI)">🗺️ Diagnóstico</button>
+      </div>
+    </section>
+    <nav class="passos">${PASSOS.map(([k, n, d], i) => `<button class="vidro passo${est.aba === k ? " on" : ""}${s.passos[k] >= 100 ? " feito" : ""}" data-aba="${k}">
+      <span class="n">${s.passos[k] >= 100 ? "✓" : i + 1}</span><span><b>${n}</b><small>${s.passos[k]}% · ${d}</small></span></button>`).join("")}</nav>
+    <section class="vidro painel" id="painel"></section>`;
+  $("#btVoltar").onclick = () => { est.setor = null; render(); };
+  raiz.querySelectorAll("[data-aba]").forEach((b) => (b.onclick = () => { est.aba = b.dataset.aba; renderSetor(); guardarURL(); }));
+  raiz.querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => abrirEditor(b.dataset.ed)));
+  const p = $("#painel");
+  ({ pessoas: abaPessoas, atividades: abaAtividades, it: abaIT, fluxo: abaFluxo })[est.aba](p, s);
+}
+
+function abaPessoas(p, s) {
+  const grupos = {};
+  s.pessoas.forEach((x) => (grupos[x.subsetor || "Sem subsetor"] = grupos[x.subsetor || "Sem subsetor"] || []).push(x));
+  p.innerHTML = `<h2>1 · Organograma</h2><p class="cap">Quem trabalha em ${esc(s.nome)}. O cadastro é o do Organograma — é de lá que as pessoas vêm para as atividades, o Ponto e os outros sistemas.</p>
+    ${s.pessoas.length ? Object.entries(grupos).sort((a, b) => a[0].localeCompare(b[0], "pt-BR")).map(([g, l]) => `<div class="grupo-t">${esc(g)} · ${l.length}</div>
+      <div class="pessoas">${l.map((x) => `<div class="pes"><span class="av">${esc(iniciais(x.nome))}</span><div><b>${esc(x.nome)}</b><small>${esc([x.cargo, x.nivel && "nível " + x.nivel].filter(Boolean).join(" · ") || "—")}</small></div></div>`).join("")}</div>`).join("")
+      : `<div class="vazio"><b>Ninguém cadastrado neste setor</b>Abra o organograma do setor e cadastre as pessoas (nome, cargo, a quem responde).</div>`}
+    ${s.vagas ? `<p class="cap" style="margin-top:12px">+ ${s.vagas} vaga(s) em aberto no organograma.</p>` : ""}
+    <div class="sep"></div>
+    <div class="acoes"><button class="bt pri" id="btOrg">🏛️ Abrir o organograma de ${esc(s.nome)}</button>${s.pessoas.length ? '<button class="bt" id="btSeg">Próximo: atividades ›</button>' : ""}</div>`;
+  $("#btOrg").onclick = () => abrirEditor(`/organograma?setor=${encodeURIComponent(s.id)}`);
+  const b = $("#btSeg"); if (b) b.onclick = () => { est.aba = "atividades"; renderSetor(); guardarURL(); };
+}
+
+function chipsPessoas(l) { return l.length ? l.map((n) => `<span class="pchip"><i>${esc(iniciais(n))}</i>${esc(n)}</span>`).join("") : '<span class="falta">sem pessoa definida</span>'; }
+function abaAtividades(p, s) {
+  const subs = s.subsetores.filter(Boolean);
+  p.innerHTML = `<h2>2 · Atividades</h2><p class="cap">Tudo o que o setor faz, cada atividade ligada a quem faz. Cada atividade é um processo em Processos — a IT e o fluxograma ficam nela.</p>
+    ${podeEditar() ? `<form class="form-nova" id="fNova">
+      <label class="f">Nova atividade<input name="nome" placeholder="Ex.: Conferir a carga na doca" required></label>
+      <label class="f">Subsetor<select name="sub"><option value="">—</option>${subs.map((x) => `<option>${esc(x)}</option>`).join("")}</select></label>
+      <label class="f">Quem faz<input name="pes" placeholder="Clique para escolher" readonly></label>
+      <button class="bt pri" type="submit">+ Adicionar</button></form>` : ""}
+    ${s.levantadas.length ? `<div class="grupo-t">🗺️ Levantadas no Diagnóstico — confirme para entrarem · ${s.levantadas.length}</div><div class="linhas">${s.levantadas.map((a, i) =>
+      `<div class="ativ lev"><div><div class="t">${esc(a.nome)}</div><div class="meta">${a.subsetor ? `<span class="selo and">${esc(a.subsetor)}</span>` : ""}${chipsPessoas(a.pessoas)}</div></div>
+        ${podeEditar() ? `<button class="bt peq ok" data-conf="${i}">✓ Confirmar</button>` : ""}</div>`).join("")}</div>` : ""}
+    <div class="grupo-t">Atividades do setor · ${s.atividades.length}</div>
+    <div class="linhas">${s.atividades.map((a) => `<div class="ativ"><div><div class="t"><code>${esc(a.codigo)}</code>${esc(a.nome)}</div>
+        <div class="meta">${a.subsetor ? `<span class="selo and">${esc(a.subsetor)}</span>` : ""}${chipsPessoas(a.pessoas)}</div></div>
+        <div class="acoes"><span class="ico-st"><span class="${a.it.tem ? "sim" : ""}">${a.it.tem ? "✓" : "○"} IT</span><span class="${a.fluxo.tem ? "sim" : ""}">${a.fluxo.tem ? "✓" : "○"} Fluxo</span></span>
+          ${podeEditar() ? `<button class="bt peq" data-pes="${esc(a.id)}">👥 Pessoas</button>` : ""}<button class="bt peq" data-proc="${esc(a.id)}">Abrir</button></div></div>`).join("")
+      || '<div class="vazio"><b>Nenhuma atividade ainda</b>Cadastre acima tudo o que o setor faz — pode ser só o nome; o resto vem depois.</div>'}</div>
+    <div class="completa${s.lista_completa ? " sim" : ""}"><div class="txt"><b>${s.lista_completa ? "✓ A lista de atividades está completa" : "A lista de atividades está completa?"}</b>
+      <small>${s.lista_completa ? `Confirmado por ${esc(s.lista_completa_por || "—")} em ${d10(s.lista_completa_em)}.` : "Marque quando todas as atividades do setor estiverem cadastradas — sem isso o passo não chega a 100%."}</small></div>
+      ${podeEditar() ? `<button class="tog${s.lista_completa ? " on" : ""}" id="tgCompleta" role="switch" aria-checked="${s.lista_completa}" aria-label="Lista completa"></button>` : ""}</div>`;
+  const f = $("#fNova");
+  if (f) {
+    let escolhidas = [];
+    f.pes.onclick = () => escolherPessoas(s, escolhidas, (l) => { escolhidas = l; f.pes.value = l.join(", "); });
+    f.onsubmit = async (e) => { e.preventDefault(); const b = f.querySelector("button[type=submit]"); b.disabled = true;
+      try { await api("/api/empresa/atividades", { method: "POST", body: { setor_id: s.id, nome: f.nome.value, subsetor: f.sub.value, pessoas: escolhidas } });
+        toast("Atividade cadastrada"); await carregar(true); } catch (er) { toast(er.message, true); b.disabled = false; } };
+  }
+  p.querySelectorAll("[data-conf]").forEach((b) => (b.onclick = async () => { const a = s.levantadas[+b.dataset.conf]; b.disabled = true;
+    try { await api("/api/empresa/atividades", { method: "POST", body: { setor_id: s.id, nome: a.nome, subsetor: a.subsetor, pessoas: a.pessoas } });
+      toast("Confirmada: " + a.nome); await carregar(true); } catch (er) { toast(er.message, true); b.disabled = false; } }));
+  p.querySelectorAll("[data-pes]").forEach((b) => (b.onclick = () => { const a = s.atividades.find((x) => x.id === b.dataset.pes);
+    escolherPessoas(s, a.pessoas, async (l) => { try { await api(`/api/empresa/atividades/${a.id}/pessoas`, { method: "PUT", body: { pessoas: l } }); toast("Pessoas atualizadas"); await carregar(true); } catch (er) { toast(er.message, true); } }, a.nome); }));
+  p.querySelectorAll("[data-proc]").forEach((b) => (b.onclick = () => abrirEditor(`/mapa?processo=${encodeURIComponent(b.dataset.proc)}`)));
+  const t = $("#tgCompleta");
+  if (t) t.onclick = async () => { const nova = !s.lista_completa;
+    if (nova && s.levantadas.length && !confirm(`Ainda há ${s.levantadas.length} atividade(s) do Diagnóstico para confirmar. Marcar a lista como completa mesmo assim?`)) return;
+    try { await api(`/api/empresa/setores/${s.id}/lista-completa`, { method: "POST", body: { completa: nova } }); await carregar(true); } catch (er) { toast(er.message, true); } };
+}
+
+function abaIT(p, s) {
+  const l = s.atividades;
+  p.innerHTML = `<h2>3 · Instruções de Trabalho</h2><p class="cap">Toda atividade precisa de IT: o passo a passo oficial. A IA escreve a primeira versão (ou ajusta a que existe) com o que já se sabe da atividade — você revisa antes de valer. A versão anterior fica guardada.</p>
+    ${V.ia ? "" : '<div class="dica-ia">✨ A IA ainda não está ligada no servidor. Com ela desligada, você escreve a IT à mão aqui mesmo. Para ligar (gratuito): no Render, AGENTE_IA=groq e GROQ_API_KEY.</div>'}
+    <div class="linhas">${l.map((a) => `<div class="ativ"><div><div class="t"><code>${esc(a.codigo)}</code>${esc(a.nome)}</div>
+      <div class="meta">${a.it.tem ? `<span class="selo ok">📘 ${esc(a.it.codigo || "IT")}${a.it.versao ? " · v" + esc(a.it.versao) : ""}</span><span class="sub" style="color:var(--txt3);font-size:12px">${esc(a.it.situacao)}${a.it.passos ? ` · ${a.it.passos} passos` : ""}</span>`
+        : `<span class="selo zero">Sem IT</span>${a.it.hoje ? `<span style="color:var(--txt3);font-size:12px">${a.it.hoje} passo(s) levantados de como é feito hoje — a IA usa</span>` : ""}`}</div></div>
+      <div class="acoes">${podeEditar() ? `<button class="bt peq" style="color:var(--violeta)" data-ia="${esc(a.id)}"${V.ia ? "" : " disabled"}>✨ ${a.it.tem ? "Ajustar" : "Criar"} com IA</button>
+        <button class="bt peq" data-mao="${esc(a.id)}">✍️ ${a.it.tem ? "Editar" : "Escrever"}</button>` : ""}<button class="bt peq" data-sec="${esc(a.id)}">Abrir</button></div></div>`).join("")
+      || '<div class="vazio"><b>Cadastre as atividades primeiro</b>A IT é de cada atividade.</div>'}</div>`;
+  p.querySelectorAll("[data-ia]").forEach((b) => (b.onclick = () => editorIT(b.dataset.ia, true)));
+  p.querySelectorAll("[data-mao]").forEach((b) => (b.onclick = () => editorIT(b.dataset.mao, false)));
+  p.querySelectorAll("[data-sec]").forEach((b) => (b.onclick = () => abrirEditor(`/mapa?processo=${encodeURIComponent(b.dataset.sec)}&sec=it`)));
+}
+
+function abaFluxo(p, s) {
+  p.innerHTML = `<h2>4 · Fluxogramas</h2><p class="cap">O desenho de cada atividade em raias (quem faz o quê). O editor é o mesmo de Processos — o fluxograma e a IT ficam amarrados: mudou um, muda o outro.</p>
+    <div class="linhas">${s.atividades.map((a) => `<div class="ativ"><div><div class="t"><code>${esc(a.codigo)}</code>${esc(a.nome)}</div>
+      <div class="meta">${a.fluxo.tem ? `<span class="selo ok">🔀 ${a.fluxo.simbolos} símbolo(s) · ${a.fluxo.qual === "tobe" ? "como será" : "como é hoje"}</span>` : '<span class="selo zero">Sem fluxograma</span>'}</div></div>
+      <div class="acoes"><button class="bt peq ${a.fluxo.tem ? "" : "pri"}" data-fx="${esc(a.id)}">${a.fluxo.tem ? "Abrir fluxograma" : "🔀 Desenhar"}</button></div></div>`).join("")
+      || '<div class="vazio"><b>Cadastre as atividades primeiro</b>O fluxograma é de cada atividade.</div>'}</div>`;
+  p.querySelectorAll("[data-fx]").forEach((b) => (b.onclick = () => abrirEditor(`/mapa?processo=${encodeURIComponent(b.dataset.fx)}&sec=fluxo`)));
+}
+
+// ─── popup ───
+function modal({ titulo, html, botoes = [], esquerda = "", largura }) {
+  const f = document.createElement("div"); f.className = "fundo-modal";
+  f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"${largura ? ` style="width:min(${largura}px,100%)"` : ""}><header><h3>${titulo}</h3><button class="bt fant peq" data-x aria-label="Fechar">✕</button></header>
+    <div class="corpo">${html}</div><footer>${esquerda ? `<span class="esq">${esquerda}</span>` : ""}${botoes.map((b, i) => `<button class="bt ${b.cls || ""}" data-b="${i}">${b.txt}</button>`).join("")}</footer></div>`;
+  const fechar = () => { f.remove(); document.removeEventListener("keydown", tecla); };
+  const tecla = (e) => { if (e.key === "Escape") fechar(); };
+  document.addEventListener("keydown", tecla);
+  f.addEventListener("click", (e) => { if (e.target === f || e.target.closest("[data-x]")) fechar(); });
+  document.body.appendChild(f);
+  f.querySelectorAll("[data-b]").forEach((b) => (b.onclick = () => botoes[+b.dataset.b].acao(fechar, b)));
+  return { el: f, fechar };
+}
+
+function escolherPessoas(s, atuais, pronto, nomeAtiv) {
+  const outras = V.setores.filter((x) => x.id !== s.id).flatMap((x) => x.pessoas.map((p) => ({ ...p, setor: x.nome })));
+  const conhecidos = new Set([...s.pessoas, ...outras].map((p) => nrm(p.nome)));
+  const extras = atuais.filter((n) => !conhecidos.has(nrm(n)));
+  const marc = (n) => atuais.some((x) => nrm(x) === nrm(n)) ? "checked" : "";
+  const item = (p, dica) => `<label data-n="${esc(nrm(p.nome + " " + dica))}"><input type="checkbox" value="${esc(p.nome)}" ${marc(p.nome)}><span>${esc(p.nome)}<small>${esc(dica)}</small></span></label>`;
+  const m = modal({ titulo: "👥 Quem faz" + (nomeAtiv ? " · " + esc(nomeAtiv) : ""), largura: 720,
+    html: `<input class="inp" id="bPes" placeholder="Buscar pessoa…" style="margin-bottom:12px">
+      <div class="grupo-t" style="margin-top:0">${esc(s.nome)}</div><div class="lista-sel">${s.pessoas.map((p) => item(p, [p.cargo, p.subsetor].filter(Boolean).join(" · "))).join("") || '<span style="color:var(--txt3)">Sem pessoas no organograma deste setor.</span>'}${extras.map((n) => item({ nome: n }, "informado antes")).join("")}</div>
+      <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--txt2)">Pessoas de outros setores (${outras.length})</summary><div class="lista-sel" style="margin-top:8px">${outras.map((p) => item(p, [p.cargo, p.setor].filter(Boolean).join(" · "))).join("")}</div></details>`,
+    botoes: [{ txt: "Cancelar", acao: (f) => f() }, { txt: "Pronto", cls: "pri", acao: (f) => { pronto([...m.el.querySelectorAll("input[type=checkbox]:checked")].map((c) => c.value)); f(); } }] });
+  const b = m.el.querySelector("#bPes"); b.focus();
+  b.oninput = () => m.el.querySelectorAll(".lista-sel label").forEach((l) => (l.hidden = !!b.value && !l.dataset.n.includes(nrm(b.value))));
+}
+
+async function editorIT(pid, comIA) {
+  let det;
+  try { det = await api("/api/empresa/atividades/" + encodeURIComponent(pid)); } catch (e) { return toast(e.message, true); }
+  const a = det.atividade;
+  let passos = det.passos_it.length ? det.passos_it.map((x) => ({ ...x })) : (comIA ? [] : [{ descricao: "", quem: "", sistema: "", regra: "" }]);
+  let origem = "manual";
+  const linhasHTML = () => passos.length ? `<div class="cab-it"><span></span><span>Passo</span><span class="x2">Quem faz</span><span class="x2">Onde (sistema)</span><span class="x2">Regra / cuidado</span><span></span></div>` +
+    passos.map((x, i) => `<div class="passo-it" data-i="${i}"><span class="nn">${i + 1}</span>
+      <textarea class="inp" data-k="descricao" rows="1" placeholder="O que fazer">${esc(x.descricao)}</textarea>
+      <input class="inp x2" data-k="quem" value="${esc(x.quem)}" placeholder="Quem"><input class="inp x2" data-k="sistema" value="${esc(x.sistema)}" placeholder="Onde">
+      <input class="inp x2" data-k="regra" value="${esc(x.regra)}" placeholder="Regra">
+      <span class="mini"><button data-m="sobe" title="Subir">▲</button><button data-m="desce" title="Descer">▼</button><button data-m="tira" title="Tirar">✕</button></span></div>`).join("")
+    : `<div class="vazio" style="padding:18px"><b>Nenhum passo ainda</b>${comIA ? "Clique em “Gerar com IA”." : "Adicione o primeiro passo."}</div>`;
+  const m = modal({ titulo: `📘 IT · ${esc(a.nome)}`, largura: 1040,
+    html: `${comIA ? `<div class="dica-ia">✨ A IA usa o que já está na atividade (quem faz, ${det.passos_hoje.length} passo(s) de como é feito hoje${det.passos_it.length ? `, a IT atual v${esc(det.it.versao || "?")}` : ""}). Diga o que ela precisa saber ou mudar:</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"><textarea class="inp" id="pedIA" style="flex:1;min-width:240px" placeholder="${det.passos_it.length ? "Ex.: incluir a conferência do lacre e trocar planilha por ERP" : "Ex.: o analista recebe o pedido por e-mail, confere no ERP e libera…"}"></textarea>
+      <button class="bt pri" id="btGerar" style="align-self:flex-start">✨ ${det.passos_it.length ? "Ajustar" : "Gerar"} com IA</button></div>` : ""}
+      ${det.it.codigo ? `<p class="cap" style="margin:0 0 10px;color:var(--txt3)">${esc(det.it.codigo)}${det.it.versao ? " · versão atual " + esc(det.it.versao) : ""} — ao aplicar, vira a próxima versão e a atual fica no histórico.</p>` : ""}
+      <div id="lpassos"></div><button class="bt peq" id="btMais" style="margin-top:6px">+ Passo</button>
+      ${det.historico.length ? `<details style="margin-top:14px"><summary style="cursor:pointer;color:var(--txt2)">Versões anteriores (${det.historico.length})</summary><div style="margin-top:8px;color:var(--txt3);font-size:12.5px">${det.historico.map((h) => `v${esc(h.versao || "?")} · ${h.passos} passos · ${esc(h.por || "")} ${d10(h.em)}`).join("<br>")}</div></details>` : ""}`,
+    esquerda: `<button class="bt peq fant" id="btCompleto">Abrir IT completa ›</button>`,
+    botoes: [{ txt: "Cancelar", acao: (f) => f() }, { txt: "Aplicar como IT oficial", cls: "ok", acao: async (f, b) => {
+      ler(); const val = passos.filter((x) => x.descricao.trim());
+      if (!val.length) return toast("Escreva pelo menos um passo.", true);
+      b.disabled = true;
+      try { await api(`/api/empresa/atividades/${pid}/it`, { method: "PUT", body: { passos: val, origem } }); f(); toast("IT gravada"); await carregar(true); }
+      catch (e) { toast(e.message, true); b.disabled = false; } } }] });
+  const L = m.el.querySelector("#lpassos");
+  const ler = () => L.querySelectorAll(".passo-it").forEach((r) => { const x = passos[+r.dataset.i]; r.querySelectorAll("[data-k]").forEach((i) => (x[i.dataset.k] = i.value)); });
+  const desenhar = () => { L.innerHTML = linhasHTML();
+    L.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { ler(); const i = +b.closest(".passo-it").dataset.i, m2 = b.dataset.m;
+      if (m2 === "tira") passos.splice(i, 1); else { const j = m2 === "sobe" ? i - 1 : i + 1; if (j < 0 || j >= passos.length) return; [passos[i], passos[j]] = [passos[j], passos[i]]; }
+      desenhar(); })); };
+  desenhar();
+  m.el.querySelector("#btMais").onclick = () => { ler(); passos.push({ descricao: "", quem: "", sistema: "", regra: "" }); desenhar(); L.querySelector(".passo-it:last-child textarea")?.focus(); };
+  m.el.querySelector("#btCompleto").onclick = () => abrirEditor(`/mapa?processo=${encodeURIComponent(pid)}&sec=it`);
+  const g = m.el.querySelector("#btGerar");
+  if (g) g.onclick = async () => {
+    g.disabled = true; L.innerHTML = '<div class="brilho"></div><div class="brilho"></div><div class="brilho"></div>';
+    try { const r = await api("/api/empresa/it-ia", { method: "POST", body: { processo_id: pid, pedido: m.el.querySelector("#pedIA").value } });
+      passos = r.proposta.passos.map((x) => ({ ...x })); origem = "ia"; toast("Proposta pronta — revise antes de aplicar"); }
+    catch (e) { toast(e.message, true); }
+    g.disabled = false; desenhar(); };
+}
+
+$("#btAtualizar").onclick = () => carregar();
+const q = new URLSearchParams(location.search);
+if (q.get("setor")) { est.setor = q.get("setor"); if (PASSOS.some((p) => p[0] === q.get("aba"))) est.aba = q.get("aba"); }
+carregar();
+})();
+</script>
+</body>
+</html>
