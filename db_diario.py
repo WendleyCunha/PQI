@@ -585,6 +585,16 @@ def diagdep_salvar(dep: str, secao: str, dados, usuario: str) -> None:
         timeout=TIMEOUT_FS)
 
 
+def diagdep_todos() -> dict:
+    """{departamento: {secao: dados}} de todos os departamentos (o agente lê tudo de uma vez)."""
+    out: dict = {}
+    for d in _col_diag_dep().stream(timeout=TIMEOUT_FS):
+        x = d.to_dict() or {}
+        if x.get("dep") and x.get("secao"):
+            out.setdefault(x["dep"], {})[x["secao"]] = x.get("dados")
+    return out
+
+
 def diagdep_checklists() -> dict:
     """{departamento: dados do checklist} — usado para mostrar o andamento."""
     docs = _col_diag_dep().where(filter=FieldFilter("secao", "==", "checklist")).stream(timeout=TIMEOUT_FS)

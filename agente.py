@@ -34,6 +34,7 @@ Coleções no Firestore: agente_artigos · agente_pendencias · agente_perguntas
   IT já amarrada). Quando a IT do Mapa passa a responder, a pendência fecha sozinha e o artigo
   manual sai de cena — uma coisa só.
 """
+import hashlib
 import json
 import os
 import re
@@ -48,6 +49,7 @@ from typing import Callable, List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
+import conhecimento as cnh
 import db_diario as db
 
 router = APIRouter(prefix="/api/agente")
@@ -58,6 +60,8 @@ COL_PEN = "agente_pendencias"
 COL_PERG = "agente_perguntas"
 COL_HIS = "agente_historico"
 COL_EX = "agente_exemplos"      # [v6.4] respostas aprovadas (👍) — referência para perguntas parecidas
+COL_COR = "agente_correcoes"    # [v7.3] correções (DE → PARA) dos artigos gerados (Organograma, Atividades, Melhoria…)
+COL_RESP = "agente_respostas"   # [v7.3] a resposta de cada pergunta: a mesma pergunta recebe a mesma resposta, para todos
 
 MAX_VERSOES = 20          # versões anteriores guardadas dentro de cada artigo (para "voltar versão")
 MIN_PONTOS = 3            # pontuação mínima para considerar que um artigo responde a pergunta
@@ -66,12 +70,13 @@ _CACHE_SEG = 60
 
 def ligar(app, usuario_atual: Callable, nome_perfil: Callable,
           setores: Optional[Callable] = None, usuarios: Optional[Callable] = None, processos: Optional[Callable] = None,
-          criar_processo: Optional[Callable] = None, salvar_processo: Optional[Callable] = None) -> None:
+          criar_processo: Optional[Callable] = None, salvar_processo: Optional[Callable] = None,
+          fontes: Optional[Callable] = None) -> None:
     """setores(): setores do Organograma ([{id, dados:{nome, pessoas:[{nome,cargo,email,vaga…}]}}]);
     usuarios(): {email: {nome, ativo}} de quem tem login no PQI."""
     H.update(usuario_atual=usuario_atual, nome_perfil=nome_perfil,
              setores=setores or (lambda: []), usuarios=usuarios or (lambda: {}), processos=processos or (lambda: []),
-             criar_processo=criar_processo, salvar_processo=salvar_processo)
+             criar_processo=criar_processo, salvar_processo=salvar_processo, fontes=fontes or (lambda: {}))
     app.include_router(router)
 
 
@@ -159,17 +164,47 @@ def _exigir_alimentar(request: Request) -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 # Base de artigos (com cache curto: o agente é chamado a cada pergunta)
 # ══════════════════════════════════════════════════════════════════════════
-_cache = {"t": 0.0, "artigos": []}
+_cache = {"t": 0.0, "artigos": [], "salvos": [], "gerados": []}
 
 
 def esquecer_cache() -> None:
     _cache["t"] = 0.0
 
 
+def _gerados() -> list:
+    """[v7.3] TUDO o que está escrito no Fluxo interno e na Melhoria Contínua vira artigo (conhecimento.py),
+    já com as correções de quem cuida do agente."""
+    try:
+        gerados = cnh.gerar(H.get("fontes", lambda: {})() or {})
+    except Exception as e:   # noqa: BLE001 — uma fonte fora do ar não derruba o agente: fica o que já tinha
+        print(f"[agente] não consegui ler as fontes: {type(e).__name__}: {e}")
+        return _cache.get("gerados") or []
+    corr: dict = {}
+    for c in P["listar"](COL_COR):
+        if c.get("ativo", True):
+            corr.setdefault(c.get("artigo_id"), []).append(c)
+    for lst in corr.values():
+        lst.sort(key=lambda c: c.get("em") or "")
+    return [cnh.aplicar_correcoes(a, corr.get(a["id"], [])) for a in gerados]
+
+
 def artigos() -> list:
+    """Artigos escritos à mão + IT de cada processo (mapa-) + tudo o que é gerado das fontes."""
     if time.time() - _cache["t"] > _CACHE_SEG:
-        _cache.update(t=time.time(), artigos=P["listar"](COL_ART))
+        salvos = P["listar"](COL_ART)
+        gerados = _gerados()
+        _cache.update(t=time.time(), salvos=salvos, gerados=gerados, artigos=salvos + gerados)
     return _cache["artigos"]
+
+
+def artigos_salvos() -> list:
+    artigos()
+    return _cache["salvos"]
+
+
+def artigo(aid: str) -> Optional[dict]:
+    """Um artigo salvo (lido do banco) ou gerado (do cache)."""
+    return P["ler"](COL_ART, aid) or next((a for a in artigos() if a.get("id") == aid and a.get("gerado")), None)
 
 
 def _radical(w: str) -> str:
@@ -196,10 +231,13 @@ def pontuar(pergunta: str, art: dict) -> int:
 MIN_PONTOS_IA = 2   # com IA ligada a busca pode ser menos exigente: se não tiver a ver, a IA responde "não sei"
 
 
-def buscar(pergunta: str, limite: int = 3) -> list:
+def buscar(pergunta: str, limite: int = 5) -> list:
     ativos = [a for a in artigos() if a.get("ativo", True)]
-    notas = sorted(((pontuar(pergunta, a), a) for a in ativos), key=lambda x: -x[0])
+    ws = set(palavras(pergunta))
+    no_titulo = lambda a: len(ws & set(palavras(a.get("titulo", ""))))   # empate: quem tem a pergunta no título vem antes
+    notas = sorted(((pontuar(pergunta, a), a) for a in ativos), key=lambda x: (-x[0], -no_titulo(x[1])))
     minimo = MIN_PONTOS_IA if provedor() else MIN_PONTOS
+    minimo = max(1, min(minimo, 2 * len(ws)))   # [v7.3] pergunta de uma palavra só ("o que é agrupamento?"): basta achá-la no título
     return [a for n, a in notas if n >= minimo][:limite]
 
 
@@ -220,6 +258,10 @@ INSTRUCOES = (   # [v6.4] mais humano: um colega experiente, com as próprias pa
     "Mas NUNCA invente nome de tela, botão, campo, menu, opção, prazo, valor ou regra que não esteja escrito nos artigos: "
     "se o artigo não diz o nome exato, descreva o que fazer sem inventar um nome. "
     "As CORREÇÕES escritas num artigo valem mais que o resto do texto dele. "
+    "Os artigos vêm de TUDO o que está escrito no sistema: Organograma (setores, gestor no topo, pessoas, quem responde a quem), "
+    "Atividades (o que é, quem executa), Processos (IT, como é feito hoje, TO BE, ficha completa) e Melhoria Contínua (melhorias e indicadores). "
+    "Cruze as informações entre eles para responder (ex.: quem é o gestor de um setor = quem está no topo do organograma daquele setor; "
+    "o que uma pessoa faz = as atividades em que ela é executora e os processos em que é responsável). "
     "Se houver CONVERSA ANTERIOR, continue o mesmo assunto. EXEMPLOS APROVADOS são respostas que a equipe validou: use como referência de conteúdo e de jeito de responder. "
     "Se os artigos não permitem responder, responda exatamente: NAO_SEI. "
     "Na última linha, escreva FONTE: seguido do número do artigo que você mais usou (ex.: FONTE: 2)."
@@ -247,13 +289,25 @@ def provedor() -> str:
     return ""
 
 
+LIMITE_CORPO_IA = 3500   # caracteres de cada artigo que vão para a IA (cabe no plano gratuito da Groq)
+
+
+def _corpo(a: dict) -> str:
+    out, tam = [], 0
+    for p in a.get("passos") or []:
+        t = f"- {p}"
+        if tam + len(t) > LIMITE_CORPO_IA:
+            out.append("- …"); break
+        out.append(t); tam += len(t)
+    return "\n".join(out)
+
+
 def perguntar_ia(pergunta: str, achados: list, historico: Optional[list] = None, exemplos: Optional[list] = None) -> Optional[str]:
     """Texto da IA, "NAO_SEI", ou None se a IA está desligada/falhou (aí vale a resposta da base)."""
     prov = provedor()
     if not prov:
         return None
-    base = "\n\n".join(f"ARTIGO {i + 1}: {a.get('titulo')}\n" + "\n".join(f"- {p}" for p in (a.get("passos") or []))
-                       for i, a in enumerate(achados))
+    base = "\n\n".join(f"ARTIGO {i + 1}: {a.get('titulo')}\n" + _corpo(a) for i, a in enumerate(achados))
     usuario = f"ARTIGOS:\n{base}\n\n"
     if exemplos:
         usuario += "EXEMPLOS APROVADOS:\n" + "\n\n".join(f"Pergunta: {e.get('pergunta')}\nResposta aprovada: {e.get('texto')}" for e in exemplos) + "\n\n"
@@ -595,7 +649,7 @@ def _chave_assunto(t: str) -> str:
 def falta_virar_it() -> dict:
     """O que o agente sabe ou foi perguntado e ainda não tem IT no Mapa."""
     procs = {r.get("id"): r for r in (H.get("processos", lambda: [])() or [])}
-    artigos_man = [a for a in artigos() if a.get("ativo", True) and not str(a.get("id", "")).startswith(PREFIXO_MAPA)]
+    artigos_man = [a for a in artigos_salvos() if a.get("ativo", True) and not str(a.get("id", "")).startswith(PREFIXO_MAPA)]
     grupos: dict = {}
     for p in _abertas():
         if p.get("motivo") != "sem_resposta":
@@ -843,19 +897,66 @@ def _ajustar_artigo(art: dict, de: str, para: str, u: dict) -> dict:
     return {"modo": modo, "onde": onde}
 
 
+_ONDE_FONTE = {"organograma": "Organograma", "atividade": "Atividades", "diagnostico": "Diagnóstico",
+               "melhoria": "Melhoria Contínua", "indicador": "Melhoria Contínua · indicador"}
+
+
+def _ajustar_gerado(art: dict, de: str, para: str, u: dict) -> dict:
+    """Artigo gerado das fontes (Organograma, Atividades, Melhoria…): a correção fica guardada no agente e entra
+    no topo do artigo toda vez que ele é refeito — a IA obedece a correção acima do resto."""
+    cid = novo_id()
+    P["gravar"](COL_COR, cid, {"id": cid, "artigo_id": art["id"], "titulo": art.get("titulo"), "de": de, "para": para,
+                               "por": _quem(u), "em": agora(), "ativo": True, "origem": art.get("origem") or {}})
+    onde = _ONDE_FONTE.get((art.get("origem") or {}).get("tipo"), "fonte")
+    return {"modo": "correcao", "onde": f"correção oficial do agente sobre {onde} · {art.get('titulo')}"}
+
+
+def _corrigir_resposta(pergunta_id: str, de: str, para: str, u: dict) -> None:
+    """A resposta dada àquela pergunta passa a ser a corrigida (DE → PARA) — e vale para quem perguntar a mesma coisa."""
+    perg = P["ler"](COL_PERG, pergunta_id)
+    if not perg:
+        return
+    ch = perg.get("chave") or chave_pergunta(perg.get("pergunta", ""))
+    texto = perg.get("texto") or ""
+    if not ch or not texto:
+        return
+    novo, ok_ = _trocar(texto, de, para)
+    if not ok_:
+        novo = texto.rstrip() + f"\n\nCorreção: onde se dizia “{de}”, o correto é: {para}"
+    esquecer_cache()
+    antes = P["ler"](COL_RESP, ch) or {}
+    ids = list((antes.get("versoes") or {}).keys()) or [perg.get("artigo_id")]
+    vers = {i: v for i, v in _versoes_atuais([i for i in ids if i]).items() if v is not None}
+    if not vers:
+        return
+    fonte_ = antes.get("fonte") or {"id": perg.get("artigo_id")}
+    if fonte_.get("id") in vers:
+        fonte_ = {**fonte_, "versao": vers[fonte_["id"]]}
+    P["gravar"](COL_RESP, ch, {"id": ch, "pergunta": perg.get("pergunta"), "texto": novo, "titulo": antes.get("titulo"), "fonte": fonte_,
+                               "versoes": vers, "ruim": False, "aprovada": True, "ajustada_por": _quem(u), "em": agora(),
+                               "de": antes.get("de") or perg.get("de")})
+
+
 @router.post("/ajustar")
 def agente_ajustar(payload: Ajuste, request: Request):
     u = _exigir_alimentar(request)
     if payload.de.lower() == payload.para.lower():
         raise HTTPException(status_code=400, detail="O DE e o PARA estão iguais.")
-    art = P["ler"](COL_ART, payload.artigo_id)
+    art = artigo(payload.artigo_id)
     if not art:
         raise HTTPException(status_code=404, detail="Artigo não encontrado.")
-    eh_mapa = (art.get("origem") or {}).get("tipo") == "mapa" or str(art.get("id", "")).startswith(PREFIXO_MAPA)
-    r = _ajustar_processo(art, payload.de, payload.para, u) if eh_mapa else _ajustar_artigo(art, payload.de, payload.para, u)
+    eh_mapa = (art.get("origem") or {}).get("tipo") in ("mapa", "processo_ficha") or str(art.get("id", "")).startswith(PREFIXO_MAPA)
+    if eh_mapa:
+        r = _ajustar_processo(art, payload.de, payload.para, u)
+    elif art.get("gerado"):
+        r = _ajustar_gerado(art, payload.de, payload.para, u)
+    else:
+        r = _ajustar_artigo(art, payload.de, payload.para, u)
+    esquecer_cache()
     _historico(u, "ajustou", {"id": art["id"], "titulo": art.get("titulo"), "versao": art.get("versao", 1)},
                f"DE “{payload.de[:120]}” → PARA “{payload.para[:120]}” ({r['onde']})")
     if payload.pergunta_id:
+        _corrigir_resposta(payload.pergunta_id, payload.de, payload.para, u)
         for p in _abertas():
             if p.get("pergunta_id") == payload.pergunta_id:
                 p.update(status="resolvida", resolvida_em=agora(), resolvida_por=_quem(u), nota=f"ajustado: {r['onde']}")
@@ -882,7 +983,7 @@ def agente_me(request: Request):
     return {"pode_alimentar": pode, "pendencias": len(_abertas()) if pode else 0, "comigo": len(_comigo(u)),
             "falta_it": total_falta_it() if pode else 0,
             "ia": provedor() or "base", "nome": (u.get("nome") or u.get("email") or "").split(" ")[0],
-            "sugestoes": [a.get("titulo") for a in sorted((a for a in artigos() if a.get("ativo", True)),
+            "sugestoes": [a.get("titulo") for a in sorted((a for a in artigos_salvos() if a.get("ativo", True)),
                                                            key=lambda a: -(a.get("usos") or 0))[:4]]}
 
 
@@ -901,9 +1002,53 @@ def exemplos_para(pergunta: str, achados: list, limite: int = 2) -> list:
     return [e for _, e in cands[:limite]]
 
 
+def chave_pergunta(t: str) -> str:
+    """A mesma pergunta escrita de outro jeito ("Quem é o gestor da Logística?" / "quem e gestor logistica") → mesma chave."""
+    ws = sorted(set(palavras(t)))
+    return "q-" + hashlib.sha1(" ".join(ws).encode("utf-8")).hexdigest()[:20] if ws else ""
+
+
+def _versoes_atuais(ids) -> dict:
+    por_id = {a.get("id"): a for a in artigos()}
+    return {i: (por_id[i].get("versao", 1) if i in por_id and por_id[i].get("ativo", True) else None) for i in ids}
+
+
+def resposta_guardada(pergunta: str) -> Optional[dict]:
+    """[v7.3] Alguém já perguntou isso e a resposta não foi reprovada (👎), e nada mudou nas fontes desde então:
+    vale a MESMA resposta para todo mundo. Mudou a fonte (ou alguém ajustou)? A resposta é refeita."""
+    ch = chave_pergunta(pergunta)
+    r = P["ler"](COL_RESP, ch) if ch else None
+    if not r or r.get("ruim") or not r.get("texto"):
+        return None
+    vers = r.get("versoes") or {}
+    if not vers or _versoes_atuais(vers.keys()) != vers:
+        return None
+    return r
+
+
+def guardar_resposta(pergunta: str, texto: str, usados: list, fonte_: dict, titulo: str, u: dict, aprovada: bool = False) -> None:
+    ch = chave_pergunta(pergunta)
+    if not ch:
+        return
+    P["gravar"](COL_RESP, ch, {"id": ch, "pergunta": pergunta, "texto": texto, "titulo": titulo, "fonte": fonte_,
+                               "versoes": {a.get("id"): a.get("versao", 1) for a in usados}, "ruim": False, "aprovada": aprovada,
+                               "em": agora(), "de": _quem(u)})
+
+
 @router.post("/perguntar")
 def agente_perguntar(payload: Pergunta, request: Request):
     u = _usuario(request)
+    if not payload.historico and provedor():
+        g = resposta_guardada(payload.pergunta)
+        if g:
+            pid = novo_id()
+            resp = {"pergunta_id": pid, "tipo": "resposta", "modo": "ia", "titulo": g.get("titulo"), "texto": g["texto"],
+                    "fonte": g.get("fonte"), "mesma_resposta": True, "aprovada": bool(g.get("aprovada"))}
+            P["gravar"](COL_PERG, pid, {"pergunta": payload.pergunta, "em": agora(), "de": _quem(u), "tela": payload.tela,
+                                        "resultado": "resposta", "artigo_id": (g.get("fonte") or {}).get("id"),
+                                        "artigo_versao": (g.get("fonte") or {}).get("versao"), "texto": g["texto"][:2000],
+                                        "modo": "ia", "util": None, "chave": g.get("id")})
+            return resp
     achados = buscar(payload.pergunta)
     if not achados and payload.historico:   # [v6.4] continuação ("e se o cliente não atender?"): busca com o assunto da conversa
         achados = buscar(payload.historico[-1]["p"] + " " + payload.pergunta)
@@ -916,6 +1061,8 @@ def agente_perguntar(payload: Pergunta, request: Request):
         elif texto:
             texto, usado = _separar_fonte(texto, achados)
             resp.update(tipo="resposta", modo="ia", titulo=usado.get("titulo"), texto=texto, fonte=fonte(usado))
+            if not payload.historico:
+                guardar_resposta(payload.pergunta, texto, achados, fonte(usado), usado.get("titulo"), u)
         if achados and "tipo" not in resp:
             a = achados[0]
             resp.update(tipo="resposta", modo="base", titulo=a.get("titulo"), passos=a.get("passos") or [], fonte=fonte(a))
@@ -926,9 +1073,10 @@ def agente_perguntar(payload: Pergunta, request: Request):
                                 "resultado": resp["tipo"], "artigo_id": (resp.get("fonte") or {}).get("id"),
                                 "artigo_versao": (resp.get("fonte") or {}).get("versao"),
                                 "texto": (resp.get("texto") or "")[:2000] if resp.get("modo") == "ia" else "",
-                                "modo": resp.get("modo"), "util": None})
+                                "modo": resp.get("modo"), "util": None,
+                                "chave": chave_pergunta(payload.pergunta) if resp.get("modo") == "ia" and not payload.historico else ""})
     if resp.get("fonte"):   # contador de uso (ordena as sugestões)
-        art = next((a for a in artigos() if a.get("id") == resp["fonte"]["id"]), None)
+        art = next((a for a in artigos() if a.get("id") == resp["fonte"]["id"] and not a.get("gerado")), None)
         if art:
             art["usos"] = int(art.get("usos") or 0) + 1
             P["gravar"](COL_ART, art["id"], art)
@@ -950,6 +1098,13 @@ def agente_retorno(payload: Retorno, request: Request):
         P["gravar"](COL_EX, payload.pergunta_id, {"id": payload.pergunta_id, "pergunta": perg.get("pergunta"), "texto": perg.get("texto"),
                                                   "artigo_id": perg.get("artigo_id"), "artigo_versao": perg.get("artigo_versao"),
                                                   "por": _quem(u), "em": agora()})
+    r = P["ler"](COL_RESP, perg["chave"]) if perg.get("chave") else None
+    if r and (r.get("texto") or "")[:2000] == (perg.get("texto") or "")[:2000]:   # [v7.3] a resposta que vale para todos
+        if payload.util:
+            r.update(aprovada=True, aprovada_por=_quem(u), aprovada_em=agora())
+        else:   # 👎: não vale mais para ninguém — a próxima pergunta igual é respondida de novo, e vai para as Pendências
+            r.update(ruim=True, reprovada_por=_quem(u), reprovada_em=agora(), obs=(payload.obs or "")[:500])
+        P["gravar"](COL_RESP, r["id"], r)
     if not payload.util:
         _nova_pendencia(u, perg.get("pergunta", ""), "nao_resolveu", payload.obs or "", perg.get("artigo_id"), payload.pergunta_id)
     return {"ok": True}
@@ -1230,7 +1385,8 @@ def agente_painel(request: Request, dias: int = 30):
         "nao_resolveu": sum(1 for p in pergs if p.get("util") is False),
         "mais_usados": [{"titulo": nomes.get(k, "(artigo removido)"), "n": n} for k, n in sorted(usos.items(), key=lambda x: -x[1])[:6]],
         "mais_negativos": [{"titulo": nomes.get(k, "(artigo removido)"), "n": n} for k, n in sorted(negativos.items(), key=lambda x: -x[1])[:3]],
-        "sem_revisao": [a.get("titulo") for a in artigos() if a.get("ativo", True) and (a.get("atualizado_em") or "") < limite_rev],
+        "sem_revisao": [a.get("titulo") for a in artigos_salvos() if a.get("ativo", True) and (a.get("atualizado_em") or "") < limite_rev],
+        "artigos_gerados": sum(1 for a in artigos() if a.get("gerado")),
         "artigos_ativos": sum(1 for a in artigos() if a.get("ativo", True)),
         "ia": provedor() or "base",
     }
