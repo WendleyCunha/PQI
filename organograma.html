@@ -1131,6 +1131,7 @@ function visaoConfig(c,s){
       <div class="acoes"><input id="cNovoSub" placeholder="Novo subsetor" style="max-width:320px"><button type="button" id="cAddSub">${ICO.mais} Adicionar</button></div></section>
     <section><header><h2>Níveis hierárquicos</h2><p>Valem para todos os setores.</p></header>
       <div class="legenda" style="margin:0 0 10px">${legendaNiveis(d)}</div><button type="button" id="cNiveis">Gerenciar níveis</button></section>
+    ${podeEstrutura()?`<section><header><h2>Mudar a estrutura</h2></header><p class="cap">Este setor inteiro pode virar um <b>subsetor de outro setor</b> — as pessoas, as atividades e os processos (com IT e fluxograma) vão junto. Para levar só um subsetor, use <b>⇄ Mudar</b> na aba Por nível.</p><button type="button" id="cEstr">⇄ ${esc(d.nome)} vira subsetor de outro setor</button></section>`:""}
     <section><header><h2>Excluir setor</h2></header><p class="cap">O setor sai da lista (fica guardado no banco como excluído).</p><button type="button" class="warn" id="cDel">Excluir o setor ${esc(d.nome)}</button></section>`;
   [["cNome","nome"],["cResp","responsavel"],["cDesc","descricao"]].forEach(([id,k])=>{ const i=$("#"+id,c); i.oninput=()=>{ d[k]=i.value; salvar(s); }; i.onchange=()=>render(); });
   c.querySelectorAll("#cCores button").forEach(b=>b.onclick=()=>{ d.cor=b.dataset.c; salvar(s); render(); });
@@ -1141,6 +1142,7 @@ function visaoConfig(c,s){
     if(!confirm(n?`Remover o subsetor "${x}"? As ${n} pessoa(s) ficam sem subsetor.`:`Remover o subsetor "${x}"?`)) return;
     d.pessoas.forEach(p=>{ if(tx(p.subsetor)===x) p.subsetor=""; }); d.subsetores=d.subsetores.filter(y=>y!==x); salvar(s); render(); });
   $("#cAddSub",c).onclick=()=>{ const v=tx($("#cNovoSub").value); if(!v) return; if(!d.subsetores.includes(v)) d.subsetores.push(v); salvar(s); render(); };
+  const ce=$("#cEstr",c); if(ce) ce.onclick=()=>abrirEstrutura(s,{inteiro:true});
   $("#cDel",c).onclick=async()=>{ const r=prompt(`Para excluir, digite o nome do setor: ${d.nome}`); if(r===null) return; if(nrm(r)!==nrm(d.nome)){ alert("O nome não confere. Nada foi excluído."); return; }
     try{ const {r:res,j}=await api(`${API}/${s.id}`,{method:"DELETE"}); if(!res.ok) throw new Error(j.detail||res.status); SETORES=SETORES.filter(x=>x!==s); ir("geral"); }catch(e){ alert("Não consegui excluir: "+e.message); } };
 }
@@ -1165,7 +1167,15 @@ function abrirEstrutura(s, alvo){
   const opDest=`<option value="">— escolha o setor —</option>${outros.map(x=>`<option value="${x.id}">${esc(x.dados.nome)}</option>`).join("")}`;
   EST={s,alvo,cor:CORES[SETORES.length%CORES.length]};
   $("#esMsg").textContent=""; $("#esResumo").innerHTML=""; $("#esSim").hidden=true; $("#esVer").hidden=false;
-  if(alvo.pessoa){
+  if(alvo.inteiro){   // [v6.6] o setor inteiro vira subsetor de outro setor
+    $("#esTit").textContent=`${s.dados.nome} vira subsetor de outro setor`;
+    $("#esCorpo").innerHTML=`<p class="cap">Todas as ${s.dados.pessoas.length} posição(ões) de <b>${esc(s.dados.nome)}</b> vão para o setor escolhido, como um subsetor. O card de ${esc(s.dados.nome)} sai da lista de setores (fica guardado no banco).</p>
+      <div class="est-campos" style="margin-left:0"><label class="f">Setor de destino<select id="esDest">${opDest}</select></label>
+      <label class="f">Nome do subsetor no destino (se já existir, junta)<input id="esSubDest" list="dl-es-sub" value="${esc(s.dados.nome)}"></label><datalist id="dl-es-sub"></datalist></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="esLevar" checked style="width:auto"> Levar junto todas as atividades do Diagnóstico e os processos (com a IT e o fluxograma)</label>`;
+    $("#esDest").onchange=()=>{ const d=setorPorId($("#esDest").value); $("#dl-es-sub").innerHTML=d?subsetoresDe(d.dados).map(x=>`<option value="${esc(x)}">`).join(""):""; limparResumo(); };
+    ["esSubDest","esLevar"].forEach(id=>{ const x=$("#"+id); x.addEventListener("input",limparResumo); x.addEventListener("change",limparResumo); });
+  } else if(alvo.pessoa){
     const p=s.dados.pessoas.find(x=>x.id===alvo.pessoa);
     $("#esTit").textContent=`Levar ${tx(p&&p.nome)||"esta pessoa"} para outro setor`;
     $("#esCorpo").innerHTML=`<p class="cap">Sai de <b>${esc(s.dados.nome)}</b> com cargo, nível, escala e horário. Digitais e batidas do Ponto continuam dela.</p>
@@ -1179,22 +1189,24 @@ function abrirEstrutura(s, alvo){
       <label class="est-op"><input type="radio" name="esModo" value="setor" checked><span><b>Transformar em setor</b><small>Vira um setor próprio, com card no Organograma, departamento no Diagnóstico e área em Processos.</small></span></label>
       <div class="est-campos" id="esCamposSetor"><label class="f">Nome do setor novo<input id="esNome" value="${esc(alvo.subsetor)}"></label>
         <div><div style="font-size:13px;color:var(--ink-2)">Cor</div><div class="cores" id="esCores" style="margin-top:6px"></div></div></div>
-      <label class="est-op"><input type="radio" name="esModo" value="mover"><span><b>Mover para outro setor</b><small>Entra como subsetor ${esc(alvo.subsetor)} no setor escolhido (junta se já existir).</small></span></label>
-      <div class="est-campos" id="esCamposMover" hidden><label class="f">Setor de destino<select id="esDest">${opDest}</select></label></div>
+      <label class="est-op"><input type="radio" name="esModo" value="mover"><span><b>Mover para outro setor</b><small>Entra como subsetor no setor escolhido — com o mesmo nome ou junto de um subsetor que já existe lá.</small></span></label>
+      <div class="est-campos" id="esCamposMover" hidden><label class="f">Setor de destino<select id="esDest">${opDest}</select></label>
+        <label class="f">Subsetor no destino (se já existir, junta)<input id="esSubDest" list="dl-es-sub" value="${esc(alvo.subsetor)}"></label><datalist id="dl-es-sub"></datalist></div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="esLevar" checked style="width:auto"> Levar junto as atividades do Diagnóstico deste subsetor e os processos ligados a elas</label>`;
     const cs=$("#esCores"); cs.innerHTML=CORES.map(c=>`<button type="button" style="--c:${c}" data-c="${c}" class="${c===EST.cor?"ativo":""}" aria-label="Cor ${c}"></button>`).join("");
     cs.querySelectorAll("button").forEach(b=>b.onclick=()=>{ EST.cor=b.dataset.c; cs.querySelectorAll("button").forEach(x=>x.classList.toggle("ativo",x===b)); });
     document.querySelectorAll("[name=esModo]").forEach(r=>r.onchange=()=>{ const m=modoEst(); $("#esCamposSetor").hidden=m!=="setor"; $("#esCamposMover").hidden=m!=="mover"; limparResumo(); });
-    ["esNome","esDest","esLevar"].forEach(id=>{ const x=$("#"+id); if(x) x.addEventListener("input",limparResumo); if(x) x.addEventListener("change",limparResumo); });
+    ["esNome","esDest","esLevar","esSubDest"].forEach(id=>{ const x=$("#"+id); if(x) x.addEventListener("input",limparResumo); if(x) x.addEventListener("change",limparResumo); });
+    $("#esDest").addEventListener("change",()=>{ const d=setorPorId($("#esDest").value); $("#dl-es-sub").innerHTML=d?subsetoresDe(d.dados).map(x=>`<option value="${esc(x)}">`).join(""):""; });
   }
   $("#dlgEstrutura").showModal();
 }
-function modoEst(){ if(EST.alvo.pessoa) return "pessoa"; const r=document.querySelector("[name=esModo]:checked"); return r?r.value:"setor"; }
+function modoEst(){ if(EST.alvo.inteiro) return "setor_vira_sub"; if(EST.alvo.pessoa) return "pessoa"; const r=document.querySelector("[name=esModo]:checked"); return r?r.value:"setor"; }
 function limparResumo(){ $("#esResumo").innerHTML=""; $("#esSim").hidden=true; $("#esVer").hidden=false; $("#esMsg").textContent=""; }
 function corpoEst(simular){
   const m=modoEst(), dest=$("#esDest"), sd=$("#esSubDest"), lv=$("#esLevar");
   return {modo:m, subsetor:EST.alvo.subsetor||"", pessoa_id:EST.alvo.pessoa||"", destino_id:m==="setor"?"":(dest?dest.value:""),
-    subsetor_destino:m==="pessoa"&&sd?tx(sd.value):null, novo_nome:m==="setor"?tx($("#esNome").value):"", novo_cor:EST.cor,
+    subsetor_destino:m!=="setor"&&sd?tx(sd.value):null, novo_nome:m==="setor"?tx($("#esNome").value):"", novo_cor:EST.cor,
     levar_atividades:lv?lv.checked:false, simular};
 }
 async function chamarEst(simular){
@@ -1212,7 +1224,8 @@ $("#esNao").onclick=()=>$("#dlgEstrutura").close();
 $("#esVer").onclick=async()=>{
   const bt=$("#esVer"); bt.disabled=true;
   try{ const j=await chamarEst(true); if(!j) return; const R=j.resumo, li=l=>l.map(x=>`<li>${esc(x)}</li>`).join("");
-    $("#esResumo").innerHTML=`<div class="est-resumo"><b>${R.novo_setor?`Nasce o setor ${esc(R.destino)}`:`${esc(R.origem)} → ${esc(R.destino)}`}</b>
+    $("#esResumo").innerHTML=`<div class="est-resumo"><b>${R.novo_setor?`Nasce o setor ${esc(R.destino)}`:`${esc(R.origem)} → ${esc(R.destino)}${R.modo!=="pessoa"&&R.subsetor_destino?` · subsetor ${esc(R.subsetor_destino)}`:""}`}</b>
+      ${R.origem_excluida?`<div class="alerta" style="margin-top:6px">O card de ${esc(R.origem)} sai da lista de setores (fica guardado no banco).</div>`:""}
       <div style="margin-top:8px">👥 Vão ${R.pessoas.length} pessoa(s):</div><ul>${li(R.pessoas)}</ul>
       ${R.responsavel_novo?`<div>Responsável do setor novo: <b>${esc(R.responsavel_novo)}</b></div>`:""}
       ${R.vinculos_cortados.length?`<div class="alerta" style="margin-top:8px">⚠️ Vínculos de chefia que serão cortados (acerte depois):</div><ul>${li(R.vinculos_cortados)}</ul>`:'<div style="margin-top:8px">✓ Nenhum vínculo de chefia é cortado.</div>'}

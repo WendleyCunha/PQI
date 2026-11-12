@@ -1,10 +1,12 @@
 """
 estrutura.py — MUDANÇAS DE ESTRUTURA NO ORGANOGRAMA (v6.5)
 
-Três movimentos, sem recadastrar ninguém:
-  • "setor"  → um SUBSETOR vira SETOR novo (ex.: a perna Qualidade da Frota vira o setor Qualidade)
-  • "mover"  → um SUBSETOR vai para OUTRO SETOR (ex.: Frota sai de Logística e vai para CX)
-  • "pessoa" → UMA PESSOA vai para outro setor
+Movimentos, sem recadastrar ninguém:
+  • "setor"          → um SUBSETOR vira SETOR novo (ex.: a perna Qualidade da Frota vira o setor Qualidade)
+  • "mover"          → um SUBSETOR vai para OUTRO SETOR (ex.: Frota sai de Logística e vai para CX);
+                       com subsetor_destino, junta-se a um subsetor que já existe lá
+  • "setor_vira_sub" → um SETOR INTEIRO vira subsetor de outro setor (o setor antigo é excluído — fica guardado)
+  • "pessoa"         → UMA PESSOA vai para outro setor
 
 O que vai junto e o que é acertado (tudo sai no RESUMO antes de confirmar):
   • as pessoas, com cargo, nível, escala, horário e e-mail (mesmo id);
@@ -48,6 +50,10 @@ class Recusado(Exception):
 
 def _quem_sai(origem: dict, modo: str, subsetor: str, pessoa_id: str) -> list:
     pessoas = origem.get("pessoas") or []
+    if modo == "setor_vira_sub":
+        if not pessoas:
+            raise Recusado("Este setor não tem ninguém para levar.")
+        return list(pessoas)
     if modo == "pessoa":
         p = next((x for x in pessoas if x.get("id") == pessoa_id), None)
         if not p:
@@ -82,13 +88,18 @@ def planejar(origem_id: str, origem: dict, modo: str, subsetor: str = "", pessoa
              subsetor_destino: Optional[str] = None) -> dict:
     """Devolve {"origem", "destino", "inventario_origem", "inventario_destino", "processos" (só os que mudam),
     "resumo"}. "destino" None + novo={nome,cor,descricao} = setor novo."""
-    if modo not in ("setor", "mover", "pessoa"):
+    if modo not in ("setor", "mover", "pessoa", "setor_vira_sub"):
         raise Recusado("Movimento inválido.")
     origem = copy.deepcopy(origem or {})
     sai = _quem_sai(origem, modo, subsetor, pessoa_id)
     ids = {p.get("id") for p in sai}
     nome_origem = tx(origem.get("nome"))
     sub = tx(subsetor) if modo != "pessoa" else tx(sai[0].get("subsetor") if subsetor_destino is None else subsetor_destino)
+    inteiro = modo == "setor_vira_sub"
+    if inteiro:
+        sub = nome_origem
+    # subsetor com que as pessoas, atividades e processos chegam no destino ("" = sem subsetor, no setor novo)
+    sub_dest = "" if modo == "setor" else tx(subsetor_destino) if (subsetor_destino is not None and tx(subsetor_destino)) else sub
 
     if modo == "setor":
         novo = novo or {}
@@ -125,6 +136,10 @@ def planejar(origem_id: str, origem: dict, modo: str, subsetor: str = "", pessoa
             q["subsetor"] = ""
         elif modo == "pessoa" and subsetor_destino is not None:
             q["subsetor"] = tx(subsetor_destino)
+        elif modo in ("mover", "setor_vira_sub"):
+            if inteiro and tx(q.get("subsetor")):
+                q["subsetor_anterior"] = tx(q.get("subsetor"))   # o organograma tem 2 níveis: o subsetor antigo fica anotado
+            q["subsetor"] = sub_dest
         if q.get("id") in ids_dest:   # id repetido no destino (raríssimo): ganha id novo, o Ponto segue pelo ponto_pid
             novos_ids[q["id"]] = secrets.token_hex(5)
         movidos.append(q)
@@ -149,8 +164,9 @@ def planejar(origem_id: str, origem: dict, modo: str, subsetor: str = "", pessoa
         origem["subsetores"] = [s for s in (origem.get("subsetores") or []) if nrm(s if isinstance(s, str) else (s or {}).get("nome")) != nrm(sub)]
         origem["pos_caixas"] = {k: v for k, v in (origem.get("pos_caixas") or {}).items() if k.split("|")[0] not in ids}
     dest["pessoas"] = list(dest.get("pessoas") or []) + movidos
-    if modo != "setor" and sub and not any(nrm(s if isinstance(s, str) else (s or {}).get("nome")) == nrm(sub) for s in dest["subsetores"]):
-        dest["subsetores"] = list(dest["subsetores"]) + [sub]
+    novo_sub = sub_dest if modo != "pessoa" else sub
+    if modo != "setor" and novo_sub and not any(nrm(s if isinstance(s, str) else (s or {}).get("nome")) == nrm(novo_sub) for s in dest["subsetores"]):
+        dest["subsetores"] = list(dest["subsetores"]) + [novo_sub]
     if modo == "setor":
         lid = _lider(movidos)
         dest["responsavel"] = tx(lid.get("nome")) if lid else ""
@@ -162,37 +178,41 @@ def planejar(origem_id: str, origem: dict, modo: str, subsetor: str = "", pessoa
     inv_d = copy.deepcopy(inventario_destino or [])
     proc_mudam, ativs = [], []
     if modo != "pessoa" and levar_atividades:
-        levar = [i for i in inv_o if isinstance(i, dict) and nrm(i.get("subsetor")) == nrm(sub) and tx(i.get("atividade"))]
+        levar = [i for i in inv_o if isinstance(i, dict) and tx(i.get("atividade")) and (inteiro or nrm(i.get("subsetor")) == nrm(sub))]
         nomes = {nrm(i.get("atividade")) for i in levar}
         ja = {nrm(i.get("atividade")) for i in inv_d if isinstance(i, dict)}
         inv_o = [i for i in inv_o if not (isinstance(i, dict) and nrm(i.get("atividade")) in nomes)]
         for i in levar:
             ativs.append(tx(i.get("atividade")))
             if nrm(i.get("atividade")) not in ja:
-                inv_d.append({**i, "subsetor": "" if modo == "setor" else i.get("subsetor", "")})
+                inv_d.append({**i, "subsetor": sub_dest})
         for p in processos or []:
             d = p.get("dados") or {}
             if not isinstance(d, dict) or d.get("_tipo"):
                 continue
             o = d.get("origem") or {}
-            do_setor = o.get("dep") == origem_id or (not o and nrm(d.get("area")) == nrm(nome_origem))
+            do_setor = o.get("dep") == origem_id or ((inteiro or not o) and nrm(d.get("area")) == nrm(nome_origem))
             if not do_setor:
                 continue
-            liga = nrm(o.get("atividade") or d.get("nome")) in nomes or (o and nrm(o.get("subsetor")) == nrm(sub))
+            liga = inteiro or nrm(o.get("atividade") or d.get("nome")) in nomes or (o and nrm(o.get("subsetor")) == nrm(sub))
             if not liga:
                 continue
             nd = copy.deepcopy(d)
             nd["area"] = nome_destino
-            if o:
-                nd["origem"] = {**o, "dep": destino_id or "__novo__", "dep_nome": nome_destino,
-                                "subsetor": "" if modo == "setor" else o.get("subsetor", "")}
+            antigo_sub = o.get("subsetor", "") if o else ""
+            if nrm(nd.get("macroprocesso")) and nrm(nd.get("macroprocesso")) in (nrm(antigo_sub), nrm(sub)):
+                nd["macroprocesso"] = sub_dest
+            nd["origem"] = {**(o or {"atividade": tx(d.get("nome"))}), "dep": destino_id or "__novo__", "dep_nome": nome_destino, "subsetor": sub_dest}
             proc_mudam.append({"id": p["id"], "versao": p.get("versao"), "dados": nd})
 
     # ── histórico ──
     if modo == "setor":
         txt_o, txt_d = f"O subsetor {sub} virou o setor {nome_destino}", f"Setor criado a partir do subsetor {sub} de {nome_origem}"
     elif modo == "mover":
-        txt_o, txt_d = f"O subsetor {sub} foi para {nome_destino}", f"O subsetor {sub} veio de {nome_origem}"
+        para = f" (no subsetor {sub_dest})" if nrm(sub_dest) != nrm(sub) else ""
+        txt_o, txt_d = f"O subsetor {sub} foi para {nome_destino}{para}", f"O subsetor {sub} veio de {nome_origem}{para}"
+    elif inteiro:
+        txt_o, txt_d = f"O setor {nome_origem} virou o subsetor {sub_dest} de {nome_destino}", f"O setor {nome_origem} entrou como subsetor {sub_dest}"
     else:
         n = tx(sai[0].get("nome")) or "(vaga)"
         txt_o, txt_d = f"{n} foi para {nome_destino}", f"{n} veio de {nome_origem}"
@@ -200,7 +220,8 @@ def planejar(origem_id: str, origem: dict, modo: str, subsetor: str = "", pessoa
     origem["historico_estrutura"] = list(origem.get("historico_estrutura") or []) + [{**marca, "texto": txt_o}]
     dest["historico_estrutura"] = list(dest.get("historico_estrutura") or []) + [{**marca, "texto": txt_d}]
 
-    resumo = {"modo": modo, "subsetor": sub, "origem": nome_origem, "destino": nome_destino, "novo_setor": modo == "setor",
+    resumo = {"modo": modo, "subsetor": sub, "subsetor_destino": sub_dest if modo != "pessoa" else sub, "origem": nome_origem,
+              "origem_excluida": inteiro, "destino": nome_destino, "novo_setor": modo == "setor",
               "pessoas": [tx(p.get("nome")) or "(vaga)" for p in sai], "responsavel_novo": dest.get("responsavel", "") if modo == "setor" else "",
               "vinculos_cortados": cortados, "atividades": ativs,
               "processos": [f"{tx(p['dados'].get('codigo'))} {tx(p['dados'].get('nome'))}".strip() for p in proc_mudam],

@@ -350,6 +350,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   <p class="muted" style="margin:0;font-size:13px">Comece só com o nome. O resto você completa ao longo do levantamento.</p>
   <label class="f">Nome do processo *<input id="npNome" placeholder="Ex.: Devolução de produto em loja"></label>
   <label class="f">Área<input id="npArea" list="dl-areas"></label>
+  <label class="f" id="npSubL" hidden>Subsetor (opcional — o processo fica no subsetor; se ele mudar de setor, o processo e a IT vão junto)<select id="npSub"><option value="">— o setor inteiro —</option></select></label>
   <label class="f">Responsável(is) — dono do processo<input id="npDono" placeholder="Clique para escolher uma ou mais pessoas"></label>
   <label class="f">Criticidade<select id="npCrit"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></label>
   <label class="f">Código da IT (se tiver)<input id="npIT" placeholder="Ex.: IT-LOG-012"></label>
@@ -1311,12 +1312,16 @@ function celulaLeitura(row,c){
 
 // ═══ FASE 1 — Áreas e arquitetura (visão geral) ═══
 async function criarProcessos(area, macro, crit, nomes){
+  let algum=false;
   for(const nome of nomes){
     const dados=normalizar({codigo:proximoCodigo(),nome,area,macroprocesso:macro,criticidade:crit});
+    const og=origemFluxo(area,nome,macro); if(og) dados.origem=og;   // [v6.6] Fluxo interno: macro = subsetor
     const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})});
     if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
     j.dados=normalizar(j.dados); PROCS.push(j);
+    if(og){ await garantirAtividade(og.dep,nome,og.subsetor,""); algum=true; }
   }
+  if(algum) await carregarAtividadesDiag();
 }
 function renderArquitetura(c){
   const porArea={}; PROCS.forEach(p=>{ const a=tx(p.dados.area)||"(sem área)"; (porArea[a]=porArea[a]||[]).push(p); });
@@ -1356,11 +1361,12 @@ function renderArquitetura(c){
           <p class="cap" style="margin:4px 0 6px">Levantadas no inventário do Diagnóstico de ${esc(pd.dep.nome)}. Cada uma pode virar um processo para detalhar o passo a passo e o fluxograma.</p>
           <div class="ativ-diag">${pd.lista.map((a,i)=>`<span class="chip-at" title="${esc(a.executores?"Executores: "+a.executores:"Sem executor definido")}">${esc(a.atividade)}${a.subsetor?` <small>· ${esc(a.subsetor)}</small>`:""}${a.executores?` <small>· 👤 ${esc(a.executores)}</small>`:""}${(a.diario||{}).registros?` <small>· 📓 ${a.diario.registros}</small>`:""}<button type="button" class="peq" data-novo-at="${i}">Criar processo</button></span>`).join("")}</div>
           ${pd.lista.length>1?`<button type="button" class="peq" data-todas-at>Criar as ${pd.lista.length} de uma vez</button>`:""}</div>`; })()}
-      ${procs.length?`<div class="scroll"><table class="lista"><thead><tr><th>Código</th><th>Processo</th><th>Macroprocesso</th><th>Criticidade</th><th>Fase atual</th></tr></thead><tbody>${
+      ${procs.length?`<div class="scroll"><table class="lista"><thead><tr><th>Código</th><th>Processo</th><th>${EMB_FLUXO?"Subsetor":"Macroprocesso"}</th><th>Criticidade</th><th>Fase atual</th></tr></thead><tbody>${
         procs.map(p=>`<tr class="clic" data-id="${p.id}"><td class="id">${esc(p.dados.codigo)}</td><td>${esc(p.dados.nome)}</td><td>${esc(p.dados.macroprocesso||"—")}</td><td>${pillCrit(p.dados.criticidade)}</td><td>${pillFase(p)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">Nenhum processo cadastrado nesta área ainda.</p>'}
       ${semArea?"":`<div class="box" style="background:var(--paper)"><b>Cadastrar processos nesta área</b><p class="cap" style="margin:4px 0 10px">Um processo por linha. Dá para colar uma lista inteira de uma vez.</p>
-        <div class="grade"><label class="f">Macroprocesso (opcional)<input data-macro list="dl-macro" placeholder="Ex.: Pós-venda"></label>
+        <div class="grade">${EMB_FLUXO&&setorOficial(nome)?`<label class="f">Subsetor (opcional)<select data-macro><option value="">— o setor inteiro —</option>${subsDaArea(nome).map(x=>`<option>${esc(x)}</option>`).join("")}</select></label>`:'<label class="f">Macroprocesso (opcional)<input data-macro list="dl-macro" placeholder="Ex.: Pós-venda"></label>'}
         <label class="f">Criticidade<select data-crit>${opts(CRITICIDADE,"Média",false)}</select></label></div>
+        ${EMB_FLUXO&&setorOficial(nome)?'<p class="cap" style="margin:8px 0 0">Cada processo cadastrado aqui também entra em <b>Atividades</b> deste setor (no subsetor escolhido).</p>':""}
         <label class="f" style="margin-top:10px">Processos<textarea data-nomes rows="4" placeholder="Troca de produto&#10;Devolução com reembolso&#10;Assistência técnica"></textarea></label>
         <div class="acoes"><button type="button" class="primary" data-criar>Cadastrar processos</button><span class="msg" data-msg></span></div></div>`}`;
     box.querySelectorAll("tr.clic").forEach(tr=>tr.onclick=()=>ir("processo",tr.dataset.id,"linha"));
@@ -2186,8 +2192,23 @@ function proximoCodigo(){
   const n=PROCS.reduce((m,p)=>{ const x=String(p.dados.codigo||"").match(/(\d+)$/); return Math.max(m,x?+x[1]:0); },0);
   return "PROC-"+String(n+1).padStart(3,"0");
 }
+// [v6.6] FLUXO INTERNO (só dentro do módulo Fluxo interno): processo criado aqui já cria a ATIVIDADE no setor
+// (no subsetor escolhido) — assim aparece em Atividades e, se o subsetor mudar de setor, vai junto com a IT.
+const EMB_FLUXO=!!window.PQI_EMBED;
+function subsDaArea(area){ const st=setorOficial(area); return st?(st.subsetores||[]).filter(Boolean):[]; }
+function npSubAtualizar(){
+  const L=$("#npSubL"); if(!EMB_FLUXO||NOVO_ORIGEM){ L.hidden=true; return; }
+  const st=setorOficial($("#npArea").value), subs=subsDaArea($("#npArea").value), atual=$("#npSub").value;
+  L.hidden=!st; $("#npSub").innerHTML=`<option value="">— o setor inteiro —</option>${subs.map(x=>`<option${x===atual?" selected":""}>${esc(x)}</option>`).join("")}`;
+}
+$("#npArea").addEventListener("input",npSubAtualizar); $("#npArea").addEventListener("change",npSubAtualizar);
+async function garantirAtividade(depId, atividade, subsetor, executores){
+  try{ await api(`/api/diagnostico/dep/${encodeURIComponent(depId)}/atividade`,{method:"POST",body:JSON.stringify({atividade,subsetor:subsetor||"",executores:executores||""})}); }
+  catch(_){ /* sem acesso ao Diagnóstico: o processo continua criado e ligado ao setor */ }
+}
+function origemFluxo(area, nome, sub){ const st=EMB_FLUXO&&setorOficial(area); return st?{dep:st.id,atividade:nome,subsetor:sub||""}:null; }
 function abrirNovoProcesso(){
-  const dl=$("#dlgNovo"); ["npNome","npArea","npDono","npIT"].forEach(i=>$("#"+i).value=""); $("#npCrit").value="Média"; $("#npMsg").textContent="";
+  const dl=$("#dlgNovo"); ["npNome","npArea","npDono","npIT"].forEach(i=>$("#"+i).value=""); $("#npCrit").value="Média"; $("#npMsg").textContent=""; $("#npSub").value=""; npSubAtualizar();
   if(!NOVO_ORIGEM) $("#npOrigem").hidden=true;
   dl.showModal(); setTimeout(()=>$("#npNome").focus(),30);
 }
@@ -2199,8 +2220,11 @@ $("#npSim").onclick=async()=>{
   const dados=normalizar({codigo:proximoCodigo(),nome,area:tx($("#npArea").value),dono:tx($("#npDono").value),criticidade:$("#npCrit").value});
   dados.it.codigo=tx($("#npIT").value);
   if(NOVO_ORIGEM){ dados.origem={dep:NOVO_ORIGEM.dep,atividade:NOVO_ORIGEM.atividade,subsetor:NOVO_ORIGEM.subsetor}; dados.macroprocesso=NOVO_ORIGEM.subsetor||""; }
+  const novaAtiv=!NOVO_ORIGEM&&origemFluxo(dados.area,nome,EMB_FLUXO?$("#npSub").value:"");
+  if(novaAtiv){ dados.origem=novaAtiv; dados.macroprocesso=novaAtiv.subsetor||""; }
   $("#npSim").disabled=true;
   try{ const {r,j}=await api(API,{method:"POST",body:JSON.stringify({dados})}); if(!r.ok) throw new Error(j.detail||`HTTP ${r.status}`);
+    if(novaAtiv){ await garantirAtividade(novaAtiv.dep,nome,novaAtiv.subsetor,dados.dono); await carregarAtividadesDiag(); }
     j.dados=normalizar(j.dados); PROCS.push(j); NOVO_ORIGEM=null; $("#dlgNovo").close(); reg.tipo="real"; reg.editando=null; ir("processo",j.id,"registrar");
   }catch(e){ m.textContent=e.message; } finally{ $("#npSim").disabled=false; }
 };

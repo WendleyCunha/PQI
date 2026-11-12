@@ -77,6 +77,21 @@ f = frota(); f["pessoas"][3]["ponto_pid"] = "antigo.m1"
 r = E.planejar("frota", f, "pessoa", pessoa_id="m1", destino_id="cx", destino=cx)
 ok(r["destino"]["pessoas"][1]["ponto_pid"] == "antigo.m1", "quem já mudou antes mantém o primeiro código do Ponto")
 
+print("Subsetor junta-se a outro subsetor · setor inteiro vira subsetor")
+r = E.planejar("frota", frota(), "mover", subsetor="Qualidade", destino_id="cx", destino=cx, subsetor_destino="SAC", inventario_origem=INV, processos=PROCS)
+ok(all(p["subsetor"] == "SAC" for p in r["destino"]["pessoas"]) and r["destino"]["subsetores"] == ["SAC"], "Qualidade junta-se ao SAC em CX (não cria subsetor novo)")
+ok(r["inventario_destino"][0]["subsetor"] == "SAC" and r["processos"][0]["dados"]["origem"]["subsetor"] == "SAC", "atividade e processo (com a IT) vão para o SAC")
+r = E.planejar("frota", frota(), "setor_vira_sub", destino_id="cx", destino=cx, inventario_origem=INV, inventario_destino=[], processos=PROCS)
+R = r["resumo"]
+ok(len(r["destino"]["pessoas"]) == 5 and all(p["subsetor"] == "Frota" for p in r["destino"]["pessoas"][1:]), "Frota inteira entra em CX como subsetor Frota")
+ok(r["destino"]["pessoas"][2].get("subsetor_anterior") == "Qualidade", "o subsetor antigo fica anotado na pessoa")
+ok(r["destino"]["pessoas"][3]["gestor_id"] == "q1" and not R["vinculos_cortados"], "chefias internas continuam (ninguém fica sem gestor)")
+ok(sorted(p["id"] for p in r["processos"]) == ["P1", "P2"] and all(p["dados"]["area"] == "CX" for p in r["processos"]), "todos os processos da Frota vão para CX (inclusive o sem origem)")
+ok(len(r["inventario_destino"]) == 2 and not r["inventario_origem"], "todas as atividades vão")
+ok(R["origem_excluida"] and "virou o subsetor Frota de CX" in R["texto"], "resumo avisa que o card da Frota sai da lista")
+r = E.planejar("frota", frota(), "setor_vira_sub", destino_id="cx", destino=cx, subsetor_destino="Logística")
+ok(all(p["subsetor"] == "Logística" for p in r["destino"]["pessoas"][1:]), "dá para escolher o nome do subsetor no destino")
+
 print("Recusas")
 for args, txt in ((dict(modo="setor", subsetor="Qualidade", novo={"nome": ""}), "setor novo sem nome"),
                   (dict(modo="mover", subsetor="Nada", destino_id="cx", destino=cx), "subsetor vazio"),
