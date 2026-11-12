@@ -13,7 +13,8 @@
    mapeamento.html — MAPEAMENTO (v6.4)
    A sequência do mapeamento num módulo só, em 4 passos:
      1 Organograma  →  2 Atividades  →  3 Áreas  →  4 Processos
-   Cada passo é a tela que já existe (Organograma, Diagnóstico, Processos),
+   Cada passo é uma tela (organograma.html, diagnostico.html, mapa.html) — Organograma e Processos
+   [v7.3] só existem aqui, como passos; o Diagnóstico ainda é sistema próprio até virar Melhoria Contínua —
    aberta em "modo Mapeamento" (?embed=mapeamento — ver pqi-acesso.js):
    um sistema nunca abre dentro do outro; quem leva de um passo a outro é esta tela.
    Mesmo padrão visual do Organograma e de Processos.
@@ -104,10 +105,11 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // passo: [id, nome, dica, endereço, sistema de origem (permissão)]
 const PASSOS = [
-  ["organograma", "Organograma", "setores e pessoas", "/organograma", "organograma"],
+  // [v7.3] o acesso de cada passo é a aba do Fluxo interno ("aba:…"); Atividades ainda usa o Diagnóstico
+  ["organograma", "Organograma", "setores e pessoas", "/organograma", "aba:organograma"],
   ["atividades", "Atividades", "o que cada setor faz", "/diagnostico", "diagnostico"],
-  ["areas", "Áreas", "atividade vira processo", "/mapa?modo=areas", "mapa"],
-  ["processos", "Processos", "linha de vida, registrar…", "/mapa", "mapa"],
+  ["areas", "Áreas", "atividade vira processo", "/mapa?modo=areas", "aba:areas"],
+  ["processos", "Processos", "linha de vida, registrar…", "/mapa", "aba:processos"],
 ];
 // [v7.2] o que fazer em cada passo (qualquer pessoa, lendo, consegue seguir)
 const GUIA = {
@@ -136,7 +138,8 @@ const QUADROS = {};   // passo → iframe (fica vivo ao trocar de passo)
 let ativo = null, perm = {}, visitou4 = false;
 
 const comEmbed = (url) => url + (url.includes("?") ? "&" : "?") + "embed=mapeamento";
-const pode = (p) => (perm[p[4]] ?? 3) >= 1;
+let abasFluxo = null;
+const pode = (p) => p[4].startsWith("aba:") ? (abasFluxo ? (Number(abasFluxo[p[4].slice(4)]) || 0) >= 1 : true) : (perm[p[4]] ?? 3) >= 1;
 
 // ─── tema único para todos os passos ───
 function temaAtual() { return document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
@@ -201,8 +204,13 @@ window.addEventListener("message", (e) => {
 });
 
 async function iniciar() {
-  try { const r = await fetch("/api/auth/me", { cache: "no-store" }); if (r.ok) perm = (await r.json()).permissoes || {}; } catch (_) {}
+  try { const r = await fetch("/api/auth/me", { cache: "no-store" }); if (r.ok) { const j = await r.json(); perm = j.permissoes || {}; abasFluxo = (j.abas || {}).mapeamento || null; } } catch (_) {}
   const q = new URLSearchParams(location.search);
+  // [v7.3] ?ir=/mapa?processo=… — vindo do Agente, de um link antigo ou da Segurança: abre direto no passo certo
+  const ir = q.get("ir");
+  if (ir) { try { history.replaceState(null, "", location.pathname); } catch (_) {}
+    const u = new URL(ir, location.origin), d = u.pathname === "/organograma" ? "organograma" : u.pathname === "/diagnostico" ? "atividades" : u.pathname === "/mapa" ? (u.searchParams.get("modo") === "areas" ? "areas" : "processos") : null;
+    if (d) { abrir(d, u.pathname + u.search); return; } }
   let inicio = q.get("passo");
   if (!PASSOS.some((p) => p[0] === inicio)) { try { inicio = sessionStorage.getItem("pqi_mapeamento_passo"); } catch (_) {} }
   if (!PASSOS.some((p) => p[0] === inicio)) inicio = (PASSOS.find(pode) || PASSOS[0])[0];

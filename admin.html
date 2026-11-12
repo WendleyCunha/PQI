@@ -685,7 +685,7 @@ async function renderDepartamentos(c){
       return `<div class="dep" style="--cor:${esc(d.cor||"#2E4A7A")}"><h4>${esc(d.nome)}</h4><div class="meta">${esc(d.descricao||"")}</div>
         <div class="meta">👥 ${d.pessoas} pessoa(s) no organograma · Diagnóstico ${pct}% (${feitas}/${ETAPAS_DIAG.length})</div><div class="track"><i style="width:${pct}%"></i></div>
         <div class="meta">${d.restritos.length?`🔒 Acesso restrito liberado para: ${esc(d.restritos.join(", "))}`:"Visível a todos que têm acesso aos sistemas"}</div>
-        <div class="links"><a href="/organograma?setor=${encodeURIComponent(d.id)}">🏛️ Organograma</a><a href="/diagnostico?dep=${encodeURIComponent(d.id)}">🗺️ Diagnóstico</a></div></div>`; }).join("")}</div>`:'<p class="aviso">Nenhum departamento ainda.</p>';
+        <div class="links"><a href="/organograma?setor=${encodeURIComponent(d.id)}" onclick="try{if(window.top.PQI_ABRIR_FLUXO&&window.top.PQI_ABRIR_FLUXO(this.getAttribute('href'))){event.preventDefault();}}catch(_){}">🏛️ Organograma (Fluxo interno)</a><a href="/diagnostico?dep=${encodeURIComponent(d.id)}">🗺️ Diagnóstico</a></div></div>`; }).join("")}</div>`:'<p class="aviso">Nenhum departamento ainda.</p>';
   }catch(e){ const L=$("#dLista"); if(L) L.innerHTML=`<p class="erro-box">${esc(e.message)}</p>`; }
 }
 

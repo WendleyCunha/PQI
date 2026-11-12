@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="/pqi-acesso.js" data-modulo="organograma"></script>
+<script src="/pqi-acesso.js" data-modulo="mapeamento" data-aba="organograma"></script>
 <style id="css">
 /* ═══ Mesmo padrão visual do RG do Pedido e do Mapa Digital ═══ */
 :root{
@@ -585,8 +585,7 @@ $("#nsSim").onclick=async()=>{
 // ═══════════════════════════════════════════════════════════════════
 // SETOR ABERTO
 // ═══════════════════════════════════════════════════════════════════
-const VISOES=[["arvore","arvore","Organo­grama"],["nivel","nivel","Por nível"],["lista","lista","Lista e edição"],"sep",["importar","importar","Importar"],["config","config","Setor"]]
-  .filter(v=>!(window.PQI_EMBED&&v[0]==="importar"));   // [v6.4] no Mapeamento: Organograma, Por nível, Lista e edição e Setor
+const VISOES=[["arvore","arvore","Organo­grama"],["nivel","nivel","Por nível"],["lista","lista","Lista e edição"],"sep",["importar","importar","Importar"],["config","config","Setor"]];   // [v7.3] Importar de volta (passo 1 do Fluxo interno)
 function renderSetor(c){
   const s=setorPorId(atual), d=s.dados;
   $("#dl-sub").innerHTML=subsetoresDe(d).map(x=>`<option value="${esc(x)}">`).join("");
