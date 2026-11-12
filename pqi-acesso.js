@@ -17,8 +17,9 @@
   "use strict";
   var script = document.currentScript;
   var MODULO = (script && script.dataset.modulo) || "";
+  if (location.pathname === "/melhoria-solucao") MODULO = "melhoria";   // [v7.4] a tela de Processos, dona Melhoria (fases 4–7)
   // [v7.3] tela que é um PASSO do Fluxo interno: o nível é o da aba do passo (Áreas usa a aba "areas")
-  var ABA_PASSO = (script && script.dataset.aba) || "";
+  var ABA_PASSO = location.pathname === "/melhoria-solucao" ? "" : ((script && script.dataset.aba) || "");
   try { if (ABA_PASSO && new URLSearchParams(location.search).get("modo") === "areas") ABA_PASSO = "areas"; } catch (_) {}
   var NOMES = { 0: "Sem acesso", 1: "Visualizar", 2: "Adicionar", 3: "Editar" };
   var DICAS = {
@@ -335,7 +336,7 @@
   "use strict";
   var q;
   try { q = new URLSearchParams(location.search); } catch (_) { return; }
-  if (q.get("embed") !== "mapeamento" || window.parent === window) {
+  if ((q.get("embed") !== "mapeamento" && q.get("embed") !== "melhoria") || window.parent === window) {
     window.PQI_EMBED = null;
     // [v7.3] Organograma e Processos só existem dentro do Fluxo interno: link antigo / aba antiga vão para lá
     if (["/organograma", "/mapa"].indexOf(location.pathname) >= 0) {

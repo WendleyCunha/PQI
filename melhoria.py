@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/melhoria")
@@ -531,6 +532,73 @@ def sugestoes(request: Request):
         s["ja_tem_melhoria"] = s["processo_id"] in com_card
     out.sort(key=lambda s: -s["peso"])
     return {"sugestoes": out[:80]}
+
+
+# ─── [v7.4] "COMO VAI FICAR" do processo (fases 4 a 7), editado de dentro da melhoria ─────
+# A tela é a mesma de Processos (mapa.html em /melhoria-solucao). Daqui só se grava o que é melhoria:
+# oportunidades, TO BE (nova IT), fluxograma TO BE, validação do TO BE, implantação e as fases 4–7.
+# O "como é feito hoje" (passos reais, IT atual, fluxograma AS IS…) continua sendo do Fluxo interno.
+CAMPOS_MELHORIA = ("oportunidades", "tobe", "validacao_tobe", "implantacao")
+FASES_MELHORIA = ("f4", "f5", "f6", "f7")
+
+
+@router.get("/processos")
+def processos_completos(request: Request):
+    _u(request)
+    return H["processos"]() or []
+
+
+@router.put("/processos/{pid}")
+def processo_salvar_melhoria(pid: str, payload: Doc, request: Request):
+    _u(request)
+    atual = next((p for p in H["processos"]() or [] if p.get("id") == pid), None)
+    if not atual or (atual.get("dados") or {}).get("_tipo"):
+        raise HTTPException(404, "Processo não encontrado (pode ter sido excluído).")
+    novo = json.loads(json.dumps(atual.get("dados") or {}))
+    vem = payload.dados or {}
+    for k in CAMPOS_MELHORIA:
+        if k in vem:
+            novo[k] = vem[k]
+    fases = dict(novo.get("fases") or {})
+    for f in FASES_MELHORIA:
+        if f in (vem.get("fases") or {}):
+            fases[f] = vem["fases"][f]
+    novo["fases"] = fases
+    for k, sub in (("fluxo", "tobe"), ("amarracao", "tobe")):
+        if isinstance(vem.get(k), dict) and sub in vem[k]:
+            novo[k] = {**(novo.get(k) or {}), sub: vem[k][sub]}
+    res, reg = H["salvar_processo"](pid, novo, payload.versao, H["nome"](request))
+    if res == "nao_existe":
+        raise HTTPException(404, "Processo não encontrado (pode ter sido excluído).")
+    if res == "conflito":
+        return JSONResponse({"detail": "conflito", "atual": reg}, status_code=409)
+    try:
+        H.get("sincronizar", lambda r: None)(reg)   # nova IT aprovada passa a valer para o Agente
+    except Exception as e:   # noqa: BLE001
+        print(f"[melhoria] agente não sincronizou: {e}")
+    return reg
+
+
+def situacao_tobe(d: dict) -> dict:
+    """Resumo do 'como vai ficar' de um processo, para o card da melhoria."""
+    tb = d.get("tobe") or {}
+    passos = [x for x in tb.get("passos") or [] if isinstance(x, dict) and tx(x.get("descricao"))]
+    parecer = tx((d.get("validacao_tobe") or {}).get("parecer"))
+    acoes = (d.get("implantacao") or {}).get("acoes") or []
+    return {"passos": len(passos), "pendencias": sum(1 for x in tb.get("pendencias") or [] if x.get("status") not in ("Definida", "Descartada")),
+            "oportunidades": len(d.get("oportunidades") or []), "parecer": parecer, "aprovado": parecer.lower().startswith("aprov"),
+            "simbolos_tobe": len(((d.get("fluxo") or {}).get("tobe") or {}).get("nos") or []),
+            "acoes": len(acoes), "acoes_feitas": sum(1 for a in acoes if a.get("status") == "Concluída"),
+            "f7": bool(((d.get("fases") or {}).get("f7") or {}).get("concluido"))}
+
+
+@router.get("/processos/{pid}/tobe")
+def processo_tobe(pid: str, request: Request):
+    _u(request)
+    p = next((p for p in H["processos"]() or [] if p.get("id") == pid), None)
+    if not p:
+        raise HTTPException(404, "Processo não encontrado.")
+    return situacao_tobe(p.get("dados") or {})
 
 
 # ─── IA: sugerir indicador ───────────────────────────────────────────────
