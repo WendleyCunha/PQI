@@ -419,16 +419,22 @@ def fluxo_em_texto(F: dict, limite: int = 1800) -> List[str]:
 
 
 def it_vigente(d: dict):
-    """Qual IT o processo segue: a nova IT (TO BE) se tem passos; senão a IT atual; senão o como é feito hoje."""
+    """[v7.1] FONTE DA VERDADE = FLUXO INTERNO, na ordem do que VALE hoje:
+    1) nova IT (TO BE) APROVADA · 2) IT oficial · 3) nova IT ainda em validação (só se não houver IT oficial)
+    · 4) como é feito hoje (sem IT). A situação vai no cabeçalho do artigo, para a resposta deixar claro."""
     tb = d.get("tobe") or {}
-    if any(_txt(x.get("descricao")) for x in tb.get("passos") or []):
-        aprov = _txt((d.get("validacao_tobe") or {}).get("parecer")).lower().startswith("aprov")
-        return ("tobe", tb.get("passos") or [], _txt(tb.get("codigo")) or _txt((d.get("it") or {}).get("codigo")), _txt(tb.get("versao")),
-                "aprovada" if aprov else "em validação", tb.get("regras") or "", tb.get("fluxo") or "", "tobe")
     it = d.get("it") or {}
+    tem_tobe = any(_txt(x.get("descricao")) for x in tb.get("passos") or [])
+    aprov = _txt((d.get("validacao_tobe") or {}).get("parecer")).lower().startswith("aprov")
+    tobe = ("tobe", tb.get("passos") or [], _txt(tb.get("codigo")) or _txt(it.get("codigo")), _txt(tb.get("versao")),
+            "aprovada" if aprov else "nova IT ainda em validação", tb.get("regras") or "", tb.get("fluxo") or "", "tobe")
+    if tem_tobe and aprov:
+        return tobe
     if any(_txt(x.get("descricao")) for x in d.get("passos_it") or []):
         return ("it", d.get("passos_it") or [], _txt(it.get("codigo")), _txt(it.get("versao")), "oficial", "", it.get("obs") or "", "asis")
-    return ("real", d.get("passos_real") or [], "", "", "como é feito hoje (sem IT)", "", "", "asis")
+    if tem_tobe:
+        return tobe
+    return ("real", d.get("passos_real") or [], "", "", "como é feito hoje — ainda sem IT oficial", "", "", "asis")
 
 
 def artigo_do_processo(reg: dict) -> Optional[dict]:
@@ -440,9 +446,16 @@ def artigo_do_processo(reg: dict) -> Optional[dict]:
     passos = [x for x in passos if isinstance(x, dict) and _txt(x.get("descricao"))]
     if not passos:
         return None
-    cab = (f"Fonte oficial: Processos · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
-           + (f"rev. {ver} " if ver else "") + f"({situacao}). Este passo a passo é atualizado sozinho a cada alteração no Mapa.")
+    cab = (f"Fonte oficial: Fluxo interno · {_txt(d.get('codigo'))} · " + (f"{cod_it} " if cod_it else "")
+           + (f"rev. {ver} " if ver else "") + f"({situacao}). Este passo a passo é atualizado sozinho a cada alteração no Fluxo interno.")
     out = [cab]
+    # [v7.1] de onde é e quem responde (Organograma): setor, subsetor e responsáveis
+    org = (d.get("origem") or {})
+    onde = " · ".join(t for t in (("Setor: " + _txt(d.get("area"))) if _txt(d.get("area")) else "",
+                                  ("Subsetor: " + _txt(org.get("subsetor"))) if _txt(org.get("subsetor")) else "",
+                                  ("Responsável: " + _txt(d.get("dono"))) if _txt(d.get("dono")) else "") if t)
+    if onde:
+        out.append(onde + ".")
     corr = [c for c in (d.get("ajustes_agente") or []) if isinstance(c, dict) and _txt(c.get("para"))]
     if corr:
         out.append("CORREÇÕES (valem mais que o resto do texto): " + " ".join(
