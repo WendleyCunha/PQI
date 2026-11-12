@@ -3256,6 +3256,89 @@ def org_excluir(setor_id: str, request: Request):
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# [NOVO v6.5] MUDANÇA DE ESTRUTURA: subsetor vira setor · subsetor vai para outro setor ·
+# pessoa vai para outro setor. Regras em estrutura.py; aqui só lê, confere acesso e grava.
+# ──────────────────────────────────────────────────────────────────────────
+import estrutura as est
+
+
+class MudancaEstrutura(BaseModel):
+    modo: str                      # setor · mover · pessoa
+    subsetor: str = ""
+    pessoa_id: str = ""
+    destino_id: str = ""
+    subsetor_destino: Optional[str] = None
+    novo_nome: str = ""
+    novo_cor: str = ""
+    novo_descricao: str = ""
+    levar_atividades: bool = True
+    simular: bool = True
+
+
+@app.post("/api/organograma/setores/{setor_id}/estrutura")
+def org_estrutura(setor_id: str, payload: MudancaEstrutura, request: Request):
+    u = usuario_atual(request)
+    if _niveis(u).get("organograma", 0) < perm.EDITAR:
+        raise HTTPException(status_code=403, detail="Mudar a estrutura (subsetor vira setor, mover para outro setor) é só para quem tem perfil “Editar” no Organograma.")
+    if not _dep_ok(u, setor_id) or (payload.destino_id and not _dep_ok(u, payload.destino_id)):
+        raise HTTPException(status_code=403, detail="Você não tem acesso a um dos setores envolvidos.")
+    if payload.modo == "setor" and _deps_permitidos(u) is not None:
+        raise HTTPException(status_code=403, detail="Seu acesso é restrito a alguns departamentos — peça ao administrador para criar o setor novo.")
+    origem = _setor_ou_erro(u, setor_id)
+    destino = None
+    if payload.modo != "setor":
+        destino = _setor_ou_erro(u, payload.destino_id) if payload.destino_id else None
+    elif any(est.nrm((d.get("dados") or {}).get("nome")) == est.nrm(payload.novo_nome) for d in _todos_setores()):
+        raise HTTPException(status_code=409, detail=f"Já existe um setor chamado “{est.tx(payload.novo_nome)}”.")
+    quem = _nome_de(request)
+    try:
+        plano = est.planejar(setor_id, origem.get("dados") or {}, payload.modo, subsetor=payload.subsetor, pessoa_id=payload.pessoa_id,
+                             destino_id=payload.destino_id, destino=(destino or {}).get("dados") if destino else None,
+                             novo={"nome": payload.novo_nome, "cor": payload.novo_cor, "descricao": payload.novo_descricao},
+                             inventario_origem=db.diagdep_ler(setor_id, "inventario") or [],
+                             inventario_destino=(db.diagdep_ler(payload.destino_id, "inventario") or []) if payload.destino_id else [],
+                             processos=db.mapa_listar() if payload.levar_atividades and payload.modo != "pessoa" else [],
+                             levar_atividades=payload.levar_atividades, quem=quem, subsetor_destino=payload.subsetor_destino)
+    except est.Recusado as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if payload.simular:
+        return {"simulado": True, "resumo": plano["resumo"]}
+    # 1) destino (setor novo ou o de destino) · 2) origem — se a origem falhar, desfaz o destino
+    if payload.modo == "setor":
+        reg_dest = db.docs_criar(COLECAO_ORGANOGRAMA, plano["destino"], quem, u["email"])
+        dest_id = reg_dest["id"]
+    else:
+        res, reg_dest = db.docs_salvar(COLECAO_ORGANOGRAMA, payload.destino_id, plano["destino"], destino["versao"], quem)
+        if res != "ok":
+            raise HTTPException(status_code=409, detail="O setor de destino foi alterado agora há pouco. Atualize a tela e tente de novo.")
+        dest_id = payload.destino_id
+    res, reg_orig = db.docs_salvar(COLECAO_ORGANOGRAMA, setor_id, plano["origem"], origem["versao"], quem)
+    if res != "ok":
+        if payload.modo == "setor":
+            db.docs_excluir(COLECAO_ORGANOGRAMA, dest_id, quem)
+        else:
+            db.docs_salvar(COLECAO_ORGANOGRAMA, dest_id, destino["dados"], None, quem)
+        raise HTTPException(status_code=409, detail="Este setor foi alterado agora há pouco (por você em outra aba ou por outra pessoa). Nada foi mudado — atualize e tente de novo.")
+    # 3) atividades do Diagnóstico e processos (não desfazem a mudança se falharem: avisam)
+    avisos = []
+    try:
+        if plano["resumo"]["atividades"]:
+            db.diagdep_salvar(setor_id, "inventario", plano["inventario_origem"], quem)
+            db.diagdep_salvar(dest_id, "inventario", plano["inventario_destino"], quem)
+        for p in plano["processos"]:
+            d = p["dados"]
+            if (d.get("origem") or {}).get("dep") == "__novo__":
+                d["origem"]["dep"] = dest_id
+            r, reg = db.mapa_salvar(p["id"], d, None, quem)
+            if r == "ok":
+                _agente_do_mapa(reg, quem=f"Organograma · {quem}")
+    except Exception as e:   # noqa: BLE001
+        avisos.append(f"As pessoas mudaram, mas não consegui levar todas as atividades/processos ({e.__class__.__name__}). Confira no Diagnóstico e em Processos.")
+    _log(request, "estrutura", plano["resumo"]["texto"], "Mudança de estrutura no Organograma")
+    return {"sucesso": True, "resumo": plano["resumo"], "destino_id": dest_id, "origem": reg_orig, "destino": reg_dest, "avisos": avisos}
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # [AJUSTADO v2.3] PÁGINAS HTML — o mesmo servidor agora entrega o Painel
 # (túnel) e todos os sistemas que são arquivo HTML.
 #
