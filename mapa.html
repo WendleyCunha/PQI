@@ -1320,7 +1320,7 @@ async function criarProcessos(area, macro, crit, nomes){
 }
 function renderArquitetura(c){
   const porArea={}; PROCS.forEach(p=>{ const a=tx(p.dados.area)||"(sem área)"; (porArea[a]=porArea[a]||[]).push(p); });
-  // [v7.0] todo setor do Organograma aparece como área, mesmo sem processo (antes ficava escondido em "Áreas ainda sem processos")
+  // [v6.3] todo setor do Organograma aparece como área, mesmo sem processo (antes ficava escondido em "Áreas ainda sem processos")
   const nomesSemRepetir=l=>{ const vistos=new Set(); return l.filter(n=>{ const k=nrm(n); if(!k||vistos.has(k)) return false; vistos.add(k); return true; }); };
   const nomes=ordenar(nomesSemRepetir([...Object.keys(porArea),...areasCfg().map(a=>a.nome),...ATIV_DIAG.filter(x=>pendentesDoDiag(x.nome).lista.length).map(x=>x.nome),...(BASE?BASE.setores.map(x=>x.nome):[])]));
   const reais=nomes.filter(n=>n!=="(sem área)"), feitas=reais.filter(n=>areaCfg(n)&&areaCfg(n).mapeado).length;
@@ -2201,7 +2201,7 @@ $("#npSim").onclick=async()=>{
   }catch(e){ m.textContent=e.message; } finally{ $("#npSim").disabled=false; }
 };
 function renderLista(c){
-  const T=totaisGerais(), areas=ordenar([...new Set([...PROCS.map(p=>tx(p.dados.area)),...(BASE?BASE.setores.map(x=>tx(x.nome)):[])].filter(Boolean))]);   // [v7.0] + setores do Organograma
+  const T=totaisGerais(), areas=ordenar([...new Set([...PROCS.map(p=>tx(p.dados.area)),...(BASE?BASE.setores.map(x=>tx(x.nome)):[])].filter(Boolean))]);   // [v6.3] + setores do Organograma
   c.innerHTML=`<div class="lista-topo"><h1>Processos mapeados</h1>
       <div class="lista-acoes"><button type="button" id="lsArq">${ICO.arq} Áreas (Fase 1)</button><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button>
       <button type="button" class="primary" id="lsNovo">${ICO.mais} Novo processo</button></div>
@@ -2447,8 +2447,7 @@ async function iniciar(){
     await carregarAtividadesDiag();
     const q=new URLSearchParams(location.search), qp=q.get("processo"), qd=q.get("de_dep"), qa=q.get("atividade");
     if(qp||qd){ try{ history.replaceState(null,"",location.pathname); }catch(_){} }
-    const qs=q.get("sec"), secOk=SECOES_PROC.some(x=>Array.isArray(x)&&x[0]===qs);   // [v7.0] Empresa abre direto na IT ou no fluxograma
-    if(qp&&procPorId(qp)){ vista="processo"; atual=qp; secProc=secOk?qs:"linha"; guardarNav(); }
+    if(qp&&procPorId(qp)){ vista="processo"; atual=qp; secProc="linha"; guardarNav(); }
     setStatus("ok"); render();
     if(qd&&qa){   // vindo do Diagnóstico: abre o processo da atividade, ou oferece criar
       const dep=ATIV_DIAG.find(x=>x.id===qd)||(BASE&&BASE.setores.find(x=>x.id===qd));

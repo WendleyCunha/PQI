@@ -318,28 +318,3 @@
     }
   });
 })();
-
-/* [v7.0] EMPRESA — FASE 0: Organograma, Processos e Diagnóstico agora abrem de dentro de Empresa.
-   Aberto com ?de=empresa (ou depois de vir de lá), mostra o botão "← Empresa" que volta ao mesmo setor/passo. */
-(function () {
-  "use strict";
-  if (["/organograma", "/mapa", "/diagnostico"].indexOf(location.pathname) < 0) return;   // só nas telas de dentro de Empresa
-  var url = null;
-  try {
-    var q = new URLSearchParams(location.search);
-    if (q.get("de") === "empresa") sessionStorage.setItem("pqi.empresa.ativa", "1");
-    if (sessionStorage.getItem("pqi.empresa.ativa") !== "1") return;
-    url = sessionStorage.getItem("pqi.empresa.volta") || "/empresa";
-  } catch (_) { return; }
-  function por() {
-    if (document.getElementById("pqiVoltaEmpresa")) return;
-    var a = document.createElement("a");
-    a.id = "pqiVoltaEmpresa"; a.href = url; a.textContent = "← Empresa";
-    a.title = "Voltar para Empresa — Fase 0";
-    a.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:9999;padding:10px 16px;border-radius:999px;font:600 13px/1 system-ui,sans-serif;" +
-      "color:#fff;text-decoration:none;background:linear-gradient(135deg,#60a5fa,#a78bfa);box-shadow:0 10px 30px -10px rgba(96,165,250,.9)";
-    a.onclick = function () { try { sessionStorage.removeItem("pqi.empresa.ativa"); } catch (_) {} };
-    document.body.appendChild(a);
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", por); else por();
-})();
