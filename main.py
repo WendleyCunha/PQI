@@ -228,6 +228,16 @@ def _abas(u: dict, niveis: Optional[dict] = None) -> dict:
     return mods.abas_do_usuario(u, _perfil_do(u), niveis if niveis is not None else _niveis(u), _perfis())
 
 
+def _nivel_diag(u: dict, secao: Optional[str] = None) -> int:
+    """[v7.5] Nível (0–3) numa seção do antigo Diagnóstico: Atividades/Organograma real = Fluxo interno → Atividades;
+    as ferramentas = Melhoria Contínua → Ferramentas do diagnóstico. Sem seção: o maior dos dois."""
+    ab = _abas(u)
+    fluxo = int((ab.get("mapeamento") or {}).get("atividades", 0))
+    melh = int((ab.get("melhoria") or {}).get("diagnostico", 0))
+    v = max(fluxo, melh) if secao is None else (fluxo if secao in mods.SECOES_FLUXO else melh)
+    return min(3, v)
+
+
 # [v7.3] Organograma e Processos são PASSOS do Fluxo interno: o nível vem da aba do passo (0–4 → 0–3)
 PASSO_DO_SISTEMA = {"organograma": ["organograma"], "mapa": ["areas", "processos"]}
 
@@ -362,6 +372,21 @@ async def porteiro(request: Request, call_next):
             return _negar(eh_api, 403, "Esta área é só para administradores.")
         return await call_next(request)
 
+    cand = mods.rota_diagnostico(caminho, request.method)
+    if cand is not None:   # [v7.5] o antigo Diagnóstico: vale a aba do Fluxo interno OU da Melhoria (por seção)
+        try:
+            ab = await run_in_threadpool(_abas, usuario)
+        except Exception as e:
+            return _negar(eh_api, 503, f"Não consegui verificar suas permissões agora ({e.__class__.__name__}).")
+        na = max(int((ab.get(mid) or {}).get(a, 0)) for mid, abas_ in cand for a in abas_)
+        metodo = request.method.upper()
+        precisa = perm.VISUALIZAR if metodo in ("GET", "HEAD", "OPTIONS") else (4 if metodo == "DELETE" else perm.ADICIONAR)
+        if na < precisa:
+            onde = " ou ".join("Fluxo interno → Atividades" if mid == "mapeamento" else "Melhoria Contínua → Ferramentas do diagnóstico" for mid, _ in cand)
+            return _negar(eh_api, 403, (f"Você não tem acesso a esta parte ({onde}). Peça liberação ao administrador." if na < 1 else
+                                        f"Seu acesso em {onde} é “Visualizar”: você pode consultar, mas não gravar."))
+        return await call_next(request)
+
     modulo = mods.modulo_da_rota(caminho)
     if modulo is None:
         return _negar(eh_api, 404, "Endereço não encontrado.")
@@ -374,7 +399,7 @@ async def porteiro(request: Request, call_next):
     pode_excluir = None
     try:   # [v4.16] uma aba com nível maior que o sistema também libera gravar (a rota confere a aba)
         abas_mod = (await run_in_threadpool(_abas, usuario, niveis)).get(modulo["id"])
-        nivel = mods.nivel_efetivo_sistema(niveis.get(modulo["id"], 0), abas_mod)
+        nivel = mods.nivel_efetivo_sistema(niveis.get(modulo["id"], 0), abas_mod, modulo["id"])
         rabas = mods.abas_da_rota(modulo, caminho)   # [v7.3] endereço de um passo: vale o nível da aba do passo
         if rabas is not None:
             na = max(int((abas_mod or {}).get(a, 0)) for a in rabas)
@@ -413,10 +438,13 @@ def _usuario_publico(u: dict) -> dict:
 def _sessao_publica(u: dict) -> dict:
     niveis = _niveis(u)
     abas = _abas(u, niveis)
-    efetivos = {k: mods.nivel_efetivo_sistema(v, abas.get(k)) for k, v in niveis.items()}
+    efetivos = {k: mods.nivel_efetivo_sistema(v, abas.get(k), k) for k, v in niveis.items()}
     # [v7.3] compatibilidade: as telas ainda perguntam por "organograma" e "mapa" — agora é o nível do passo
     niveis = {**niveis, "organograma": min(3, int((abas.get("mapeamento") or {}).get("organograma", 0))),
-              "mapa": min(3, max(int((abas.get("mapeamento") or {}).get(x, 0)) for x in ("areas", "processos")))}
+              "mapa": min(3, max(int((abas.get("mapeamento") or {}).get(x, 0)) for x in ("areas", "processos"))),
+              # [v7.5] "diagnostico" = Atividades (Fluxo interno) ou Ferramentas do diagnóstico (Melhoria)
+              "diagnostico": min(3, max(int((abas.get("mapeamento") or {}).get("atividades", 0)),
+                                        int((abas.get("melhoria") or {}).get("diagnostico", 0))))}
     return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, efetivos), "permissoes": niveis,
             "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO),
             "abas": abas, "niveis_aba": mods.NIVEIS_ABA,   # [v4.16] permissão por aba
@@ -1730,7 +1758,7 @@ def diag_departamentos(request: Request):
         deps.append({"id": d["id"], "nome": dados.get("nome", ""), "descricao": dados.get("descricao", ""), "cor": dados.get("cor"),
                      "pessoas": len(dados.get("pessoas") or []), "checklist": cks.get(d["id"]) or {}})
     deps.sort(key=lambda x: (x["nome"] or "").lower())
-    legado = db.diag_legado_resumo() if _niveis(u).get("diagnostico", 0) >= perm.EDITAR else {"secoes": 0}
+    legado = db.diag_legado_resumo() if _nivel_diag(u) >= perm.EDITAR else {"secoes": 0}
     return {"departamentos": deps, "legado": legado}
 
 
@@ -1744,7 +1772,8 @@ def diag_dep_tudo(dep: str, request: Request):
     d = _setor_ou_erro(usuario_atual(request), dep)
     dados = d.get("dados") or {}
     return {"departamento": {"id": dep, "nome": dados.get("nome", ""), "descricao": dados.get("descricao", ""), "cor": dados.get("cor")},
-            "secoes": db.diagdep_ler_todos(dep)}
+            "secoes": {k: v for k, v in db.diagdep_ler_todos(dep).items()
+                       if _nivel_diag(usuario_atual(request), k) >= perm.VISUALIZAR}}   # [v7.5] só o que a pessoa pode ver
 
 
 @app.get("/api/diagnostico/dep/{dep}/organograma-oficial")
@@ -1786,7 +1815,7 @@ def base_cadastros(request: Request):
 @app.post("/api/diagnostico/dep/{dep}/importar-legado")
 def diag_dep_importar(dep: str, request: Request):
     u = usuario_atual(request)
-    if _niveis(u).get("diagnostico", 0) < perm.EDITAR:
+    if _nivel_diag(u) < perm.EDITAR:
         raise HTTPException(status_code=403, detail="Trazer o diagnóstico antigo é só para quem tem perfil “Editar” no Diagnóstico.")
     _setor_ou_erro(u, dep)
     return {"sucesso": True, "secoes": db.diagdep_importar_legado(dep, _nome_de(request))}
@@ -1877,7 +1906,7 @@ def diag_dep_salvar(dep: str, secao: str, payload: SecaoDiagnostico, request: Re
     if tamanho > _LIMITE_SECAO_BYTES:
         raise HTTPException(status_code=413, detail=f"A seção '{secao}' ficou com {tamanho // 1024} KB e passa do limite do Firestore (~1 MB por documento).")
     dados = payload.dados
-    if _niveis(u).get("diagnostico", 0) < perm.EDITAR:
+    if _nivel_diag(u, secao) < perm.EDITAR:
         try:
             dados = perm.so_acrescimos(db.diagdep_ler(dep, secao), dados, u["email"])
         except perm.Recusado as e:
@@ -1890,10 +1919,6 @@ def diag_dep_salvar(dep: str, secao: str, payload: SecaoDiagnostico, request: Re
 def diagnostico_resumo_ia(request: Request, dep: str = ""):
     """Resumo executivo com a API da Anthropic. A chave fica SÓ no servidor
     (variável de ambiente ANTHROPIC_API_KEY no Render), nunca no HTML."""
-    chave = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not chave:
-        return {"erro": "Configure a variável ANTHROPIC_API_KEY no Render (Environment) para usar esta função."}
-
     if not dep:
         return {"erro": "Abra o diagnóstico de um departamento antes de gerar o resumo."}
     setor = _setor_ou_erro(usuario_atual(request), dep)
@@ -1909,8 +1934,15 @@ def diagnostico_resumo_ia(request: Request, dep: str = ""):
         "consumido; 5) principais dependências externas; 6) trabalho invisível identificado; e termine "
         "com 3 a 5 recomendações práticas priorizadas. Não invente dados que não estejam no JSON — "
         "se uma seção estiver vazia, apenas mencione que precisa de mais coleta ali.\n\n"
-        f"DADOS COLETADOS (JSON):\n{json.dumps(dados, ensure_ascii=False, default=str)}"
+        f"DADOS COLETADOS (JSON):\n{json.dumps(dados, ensure_ascii=False, default=str)[:18000]}"
     )
+    # [v7.5] usa a IA ligada no servidor (Groq gratuita ou Anthropic) — a mesma do Agente
+    if agt.provedor():
+        texto = agt.ia_texto("Você é um analista de processos (Lean / melhoria contínua) da King Star Colchões.", prompt, 2000)
+        return {"texto": texto} if texto else {"erro": "A IA não respondeu agora. Tente de novo em alguns segundos."}
+    chave = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not chave:
+        return {"erro": "A IA do sistema não está ligada (configure GROQ_API_KEY no Render)."}
     corpo = json.dumps({
         "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
         "max_tokens": 2000,

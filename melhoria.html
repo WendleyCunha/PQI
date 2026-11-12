@@ -135,6 +135,9 @@ dialog h3{margin:0 0 12px;font-size:20px}
 dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px}
 .toast.erro{background:var(--bad);color:#fff}
+.diag-top{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.diag-fr{display:block;width:100%;height:calc(100vh - 118px);min-height:520px;border:1px solid var(--rule);border-radius:8px;background:var(--paper)}
+body.modo-diag #btNova{display:none}
 .sol-fundo{position:fixed;inset:0;z-index:150;background:var(--paper);display:flex;flex-direction:column}
 .sol-bar{display:flex;align-items:center;gap:12px;padding:8px 18px;border-bottom:1px solid var(--rule);background:var(--steel-soft);font-size:14px;flex-wrap:wrap}
 .sol-fundo iframe{flex:1;border:0;width:100%}
@@ -183,6 +186,7 @@ const i = (txt) => `<button type="button" class="i" data-i="${esc(txt)}" aria-la
 
 // ─── estado ───
 let B = { eu: {}, nivel: 0, ia: false, setores: [], processos: [] }, CARDS = [], INDS = [], PEND = [], SUG = [];
+let DIAG_NIVEL = 0;   // [v7.5] Ferramentas do diagnóstico (aba própria em Segurança → Melhoria Contínua)
 let vista = "quadro", atual = null, filtro = { busca: "", setor: "" };
 try { const n = JSON.parse(sessionStorage.getItem("mc_nav") || "{}"); if (n.vista) { vista = n.vista; atual = n.atual || null; } } catch (_) {}
 const guardarNav = () => { try { sessionStorage.setItem("mc_nav", JSON.stringify({ vista, atual })); } catch (_) {} };
@@ -226,7 +230,7 @@ function ligarGuias(c) {
 // ─── tema ───
 try { const t = localStorage.getItem("mc_tema"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}
 $("#btTema").onclick = () => { const a = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  const n = a === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = n; try { localStorage.setItem("mc_tema", n); } catch (_) {} };
+  const n = a === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = n; try { localStorage.setItem("mc_tema", n); } catch (_) {} temaNoDiag(); };
 
 // ─── dados ───
 const ETAPAS = [["planejar", "Planejar", "P", "entender, medir o antes e planejar"], ["fazer", "Fazer", "D", "executar as ações"], ["checar", "Checar", "C", "medir o depois e comparar"], ["padronizar", "Padronizar", "A", "virar a nova IT"]];
@@ -243,6 +247,7 @@ const pode = (n = 2) => B.nivel >= n;
 async function carregar() {
   const [b, c, i2, p] = await Promise.all([api("/api/melhoria/base"), api("/api/melhoria/cards"), api("/api/melhoria/indicadores"), api("/api/melhoria/pendencias")]);
   B = b; CARDS = c.cards; INDS = i2.indicadores; PEND = p.pendencias;
+  try { const a = window.PQI_ACESSO && (await PQI_ACESSO.pronto); DIAG_NIVEL = a && a.carregado ? a.nivelAba("diagnostico") : 0; } catch (_) { DIAG_NIVEL = 0; }
 }
 async function recarregar() { try { await carregar(); render(); } catch (e) { toast(e.message, true); } }
 
@@ -298,7 +303,8 @@ function seloProva(cd) {
 
 // ─── abas ───
 function desenharAbas() {
-  const ab = [["quadro", "Quadro"], ["indicadores", "Indicadores"], ["pendencias", "Minhas pendências", PEND.length], ["sugestoes", "Sugestões do Fluxo interno"]];
+  const ab = [["quadro", "Quadro"], ["indicadores", "Indicadores"], ["pendencias", "Minhas pendências", PEND.length], ["sugestoes", "Sugestões do Fluxo interno"]]
+    .concat(DIAG_NIVEL >= 1 ? [["diagnostico", "Ferramentas do diagnóstico"]] : []);
   $("#abas").innerHTML = ab.map(([k, n, q]) => `<button type="button" class="aba${(vista === k || (vista === "card" && k === "quadro") || (vista === "indicador" && k === "indicadores")) ? " ativa" : ""}" data-v="${k}">${n}${q ? `<span class="n">${q}</span>` : ""}</button>`).join("");
   document.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => ir(b.dataset.v)));
 }
@@ -308,8 +314,31 @@ function render() {
   const c = $("#root");
   if (vista === "card" && !cardPorId(atual)) vista = "quadro";
   if (vista === "indicador" && !indPorId(atual)) vista = "indicadores";
-  ({ quadro: vQuadro, card: vCard, indicadores: vIndicadores, indicador: vIndicador, pendencias: vPendencias, sugestoes: vSugestoes })[vista](c);
+  if (vista === "diagnostico" && DIAG_NIVEL < 1) vista = "quadro";
+  document.body.classList.toggle("modo-diag", vista === "diagnostico");
+  ({ diagnostico: vDiagnostico, quadro: vQuadro, card: vCard, indicadores: vIndicadores, indicador: vIndicador, pendencias: vPendencias, sugestoes: vSugestoes })[vista](c);
   ligarGuias(c);
+}
+
+// ═══ FERRAMENTAS DO DIAGNÓSTICO [v7.5] ═══
+// As ferramentas do antigo sistema Diagnóstico (mesmos dados, por setor), abertas aqui dentro.
+// Atividades e Organograma real ficam no Fluxo interno (passo 2).
+let DIAG_FRAME = null;
+function vDiagnostico(c) {
+  c.innerHTML = `<div class="diag-top"><span class="cap">Entender o trabalho do setor antes de melhorar: <b>usar</b> (RACI, Diário de Bordo, Entrevistas, Gemba), <b>consultar</b> (Matriz, Jornada, 6 Perguntas, Relatório) e <b>💡 IA</b> (resumo e sugestões).</span>
+    ${i("São as ferramentas do antigo sistema <b>Diagnóstico</b>, com os mesmos dados. As <b>atividades</b> e o <b>organograma</b> de cada setor são cadastrados no <b>Fluxo interno</b> (passos 1 e 2). Tudo o que for escrito aqui também vira base do Agente.")}</div>`;
+  if (!DIAG_FRAME) {
+    DIAG_FRAME = document.createElement("iframe");
+    DIAG_FRAME.className = "diag-fr"; DIAG_FRAME.title = "Ferramentas do diagnóstico";
+    DIAG_FRAME.src = "/diagnostico?embed=melhoria";
+    DIAG_FRAME.onload = () => temaNoDiag();
+  }
+  c.appendChild(DIAG_FRAME);
+}
+function temaNoDiag() {
+  if (!DIAG_FRAME || !DIAG_FRAME.contentWindow) return;
+  const t = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  try { DIAG_FRAME.contentWindow.postMessage({ pqi: "tema", tema: t }, location.origin); } catch (_) {}
 }
 
 // ═══ QUADRO ═══

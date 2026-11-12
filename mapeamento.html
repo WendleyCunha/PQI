@@ -105,9 +105,9 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // passo: [id, nome, dica, endereço, sistema de origem (permissão)]
 const PASSOS = [
-  // [v7.3] o acesso de cada passo é a aba do Fluxo interno ("aba:…"); Atividades ainda usa o Diagnóstico
+  // [v7.3] o acesso de cada passo é a aba do Fluxo interno ("aba:…") — [v7.5] Atividades também
   ["organograma", "Organograma", "setores e pessoas", "/organograma", "aba:organograma"],
-  ["atividades", "Atividades", "o que cada setor faz", "/diagnostico", "diagnostico"],
+  ["atividades", "Atividades", "o que cada setor faz", "/diagnostico", "aba:atividades"],
   ["areas", "Atividade → Processo", "por área", "/mapa?modo=areas", "aba:areas"],   // [v7.4] o que se FAZ no passo
   ["processos", "Processos", "linha de vida, registrar…", "/mapa", "aba:processos"],
 ];
