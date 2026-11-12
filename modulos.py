@@ -61,15 +61,36 @@ MODULOS = [
         "apis": [],
     },
     {
-        # [v6.4] MAPEAMENTO — a sequência do mapeamento num módulo só, em 4 passos:
-        # 1 Organograma · 2 Atividades (Diagnóstico) · 3 Áreas · 4 Processos.
-        # Usa as telas e os dados dos três sistemas (que continuam no Painel). Acesso: ver JUNTA abaixo.
+        # [v7.3] FLUXO INTERNO — dono do mapeamento: 1 Organograma · 2 Atividades · 3 Áreas · 4 Processos.
+        # Os antigos sistemas "Organogramas" (organograma.html) e "Processos" (mapa.html) agora são PASSOS
+        # daqui: cada passo é uma ABA com nível próprio (Segurança → Fluxo interno → abas). O passo 2
+        # (Atividades) ainda usa o acesso do Diagnóstico até ele ser incorporado.
+        # Ninguém perdeu nem ganhou acesso na troca: ver PASSOS_LEGADO abaixo.
         "id": "mapeamento",
         "nome": "Fluxo interno",   # [v6.6] era "Mapeamento" (o id continua "mapeamento")
         "descricao": "Organograma → Atividades → Áreas → Processos: como a empresa funciona por dentro, em sequência, num lugar só.",
         "url": "/mapeamento", "icone": "🧭", "tipo": "nuvem",
-        "paginas": ["/mapeamento"],
-        "apis": [],
+        "paginas": ["/mapeamento", "/organograma", "/mapa"],
+        "apis": ["/api/organograma", "/api/mapa"],
+        "abas": [
+            {"id": "organograma", "nome": "1 · Organograma (setores e pessoas)"},
+            {"id": "areas", "nome": "3 · Áreas (atividade vira processo)"},
+            {"id": "processos", "nome": "4 · Processos (como é feito hoje, fluxograma, IT)"},
+        ],
+        # cada endereço é protegido pelo nível da(s) aba(s) do passo (o maior deles)
+        "rotas_aba": {"/organograma": ["organograma"], "/api/organograma": ["organograma"],
+                      "/mapa": ["areas", "processos"], "/api/mapa": ["areas", "processos"]},
+    },
+    {
+        # [v7.2] MELHORIA CONTÍNUA — melhorias em PDCA sobre o que está no Fluxo interno, com indicador
+        # (pedido ao gestor, lançamentos, antes × depois com prova) e ganho em R$ e tempo.
+        # Para TODOS: enquanto o admin não configurar, cada pessoa entra com "Adicionar" (ver PARA_TODOS).
+        "id": "melhoria",
+        "nome": "Melhoria Contínua",
+        "descricao": "Melhorias em PDCA sobre o Fluxo interno: indicador antes × depois com prova, ganho em R$ e tempo, plano de ação e ATAs.",
+        "url": "/melhoria", "icone": "🔁", "tipo": "nuvem",
+        "paginas": ["/melhoria"],
+        "apis": ["/api/melhoria"],
     },
     {
         "id": "diagnostico",
@@ -80,23 +101,7 @@ MODULOS = [
         "apis": ["/api/diagnostico", "/api/diagnostico-ia"],
     },
     # [v6.1] Removidos do Painel os externos Parque Aliança, Wendley Site e Wendley Cunha (Streamlit).
-    {
-        # [v3.1] Substitui o antigo card "Concierge — King Star".
-        "id": "mapa",
-        "nome": "Processos",
-        "descricao": "Mapeamento de processos: como é feito hoje × Instrução de Trabalho — gaps, aderência e oportunidades.",
-        "url": "/mapa", "icone": "🧩", "tipo": "nuvem",
-        "paginas": ["/mapa"],
-        "apis": ["/api/mapa"],
-    },
-    {
-        "id": "organograma",
-        "nome": "Organogramas",
-        "descricao": "Estrutura de cada setor: quem é quem, a quem responde, nível, escala e horário.",
-        "url": "/organograma", "icone": "🏛️", "tipo": "nuvem",
-        "paginas": ["/organograma"],
-        "apis": ["/api/organograma"],
-    },
+    # [v7.3] "Processos" (id mapa) e "Organogramas" (id organograma) viraram passos do Fluxo interno.
     {
         # [v5.0] QUALIDADE — o Mapa de Entregas sem papel: PCL importa o PDF e trata ajustes/retornos,
         # montagem do palete e conferência na doca no celular, retorno com destino da peça e GAP.
@@ -172,13 +177,13 @@ MODULO_ADMIN = {
 # ──────────────────────────────────────────────────────────────────────────
 PERFIS_PADRAO = [
     {"id": "gestor", "nome": "Gestor", "descricao": "Edita tudo nos sistemas da área.",
-     "niveis": {"diario": 3, "rg": 1, "diagnostico": 3, "mapa": 3, "organograma": 3, "carteira": 3}},
-    {"id": "analista", "nome": "Analista", "descricao": "Edita o Diário; adiciona no Diagnóstico e no Mapa; consulta o Organograma.",
-     "niveis": {"diario": 3, "rg": 1, "diagnostico": 2, "mapa": 2, "organograma": 1, "carteira": 2}},
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 3, "mapeamento": 3, "carteira": 3}},
+    {"id": "analista", "nome": "Analista", "descricao": "Edita o Diário; adiciona no Diagnóstico e no Fluxo interno.",
+     "niveis": {"diario": 3, "rg": 1, "diagnostico": 2, "mapeamento": 2, "carteira": 2}},
     {"id": "colaborador", "nome": "Colaborador", "descricao": "Adiciona demandas e registros, sem alterar os existentes.",
-     "niveis": {"diario": 2, "diagnostico": 2, "mapa": 1, "organograma": 1, "carteira": 2}},
+     "niveis": {"diario": 2, "diagnostico": 2, "mapeamento": 1, "carteira": 2}},
     {"id": "leitura", "nome": "Somente leitura", "descricao": "Consulta os sistemas da área, sem gravar nada.",
-     "niveis": {"diario": 1, "rg": 1, "diagnostico": 1, "mapa": 1, "organograma": 1, "carteira": 1}},
+     "niveis": {"diario": 1, "rg": 1, "diagnostico": 1, "mapeamento": 1, "carteira": 1}},
 ]
 
 PAPEIS = {
@@ -261,16 +266,46 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
     for mid in LEGADO:   # [v5.9] sistema novo que veio de abas de outro: herda o acesso antigo até ser configurado
         if not _configurado(usuario, perfil, mid):
             saida[mid] = min(3, max(_legado_abas(usuario, perfil, saida, mid).values() or [0]))
-    for mid, origens in JUNTA.items():   # [v6.4] Mapeamento: enquanto não configurado, vale o maior dos três
+    if not _configurado(usuario, perfil, "mapeamento"):   # [v7.3] o maior entre os passos herdados e o Diagnóstico
+        leg = passos_legado(usuario, perfil, perfis)
+        saida["mapeamento"] = max([int(saida.get("diagnostico", 0))] + list(leg.values()))
+    for mid, nivel in PARA_TODOS.items():   # [v7.2] sistemas para todos os usuários (o admin pode mudar)
         if not _configurado(usuario, perfil, mid):
-            saida[mid] = max(int(saida.get(o, 0)) for o in origens)
+            saida[mid] = max(int(saida.get(mid, 0)), nivel)
     return saida
 
 
-# [v6.4] O Mapeamento mostra as telas do Organograma, do Diagnóstico e de Processos. Enquanto o admin não
-# configurar o Mapeamento para a pessoa (ou o perfil), ela o vê com o MAIOR nível que tem nos três.
-# Cada passo continua respeitando o acesso do sistema de origem (quem não tem Processos não vê o passo 4).
-JUNTA = {"mapeamento": ("organograma", "diagnostico", "mapa")}
+# [v7.2] Melhoria Contínua é para TODOS: sem configuração, cada usuário entra com "Adicionar" (2).
+PARA_TODOS = {"melhoria": 2}
+
+
+# [v7.3] PASSOS DO FLUXO INTERNO herdados dos sistemas que deixaram de existir: enquanto o admin não
+# configurar o Fluxo interno (ou a aba) para a pessoa/perfil, cada passo vale o que a pessoa tinha no
+# sistema antigo — o que continua gravado no perfil e nas exceções individuais com o id antigo.
+# {aba do Fluxo interno: id do sistema antigo}
+PASSOS_LEGADO = {"organograma": "organograma", "areas": "mapa", "processos": "mapa"}
+
+
+def nivel_antigo(usuario: dict, perfil, perfis, antigo: str) -> int:
+    """Nível (0–3) que a pessoa tinha num sistema que não existe mais (mesma regra de niveis_do_usuario)."""
+    if usuario.get("papel") == "admin":
+        return 3
+    exc = (usuario.get("acessos") or {}).get(antigo)
+    if isinstance(exc, str) and exc.startswith("perfil:"):
+        p = (perfis or {}).get(exc[7:])
+        if p:
+            return max(0, min(3, int((p.get("niveis") or {}).get(antigo, 0) or 0)))
+    elif isinstance(exc, (int, float)) and not isinstance(exc, bool):
+        return max(0, min(3, int(exc)))
+    elif isinstance(exc, str) and exc.strip().isdigit():
+        return max(0, min(3, int(exc)))
+    if perfil is not None:
+        return max(0, min(3, int((perfil.get("niveis") or {}).get(antigo, 0) or 0)))
+    return 3 if antigo in (usuario.get("modulos") or []) else 0
+
+
+def passos_legado(usuario: dict, perfil, perfis) -> dict:
+    return {aba: nivel_antigo(usuario, perfil, perfis, antigo) for aba, antigo in PASSOS_LEGADO.items()}
 
 
 # [v5.9] RouterKing nasceu das abas "aovivo" e "motoristas" da Qualidade. Enquanto o admin não configurar
@@ -343,10 +378,12 @@ def _n_aba(v):
         return None
 
 
-def abas_do_usuario(usuario: dict, perfil, niveis: dict) -> dict:
+def abas_do_usuario(usuario: dict, perfil, niveis: dict, perfis: dict = None) -> dict:
     """{sistema: {aba: nível 0–4}} — já resolvido (pessoa > perfil > herda do sistema)."""
     saida = {}
     admin = usuario.get("papel") == "admin"
+    fluxo_cfg = _configurado(usuario, perfil, "mapeamento")
+    leg = passos_legado(usuario, perfil, perfis) if not admin else {}
     for m in MODULOS:
         abas = _abas_mod(m)
         if not abas:
@@ -368,6 +405,11 @@ def abas_do_usuario(usuario: dict, perfil, niveis: dict) -> dict:
             v = _n_aba(du.get(a["id"]))
             if v is None:
                 v = _n_aba(dp.get(a["id"]))
+            if v is None and m["id"] == "mapeamento" and a["id"] in leg:   # [v7.3] passo herdado do sistema antigo
+                if not fluxo_cfg:
+                    v = nivel_aba_herdado(a, leg[a["id"]])
+                elif leg[a["id"]] > 0:   # configurado: nunca fica abaixo do que já tinha (para reduzir, defina a aba)
+                    v = max(nivel_aba_herdado(a, leg[a["id"]]), nivel_aba_herdado(a, ns))
             r[a["id"]] = nivel_aba_herdado(a, ns) if v is None else v
         saida[m["id"]] = r
     return saida
@@ -379,6 +421,14 @@ def nivel_efetivo_sistema(nivel_sistema: int, abas: dict) -> int:
     if not abas:
         return nivel_sistema
     return max(int(nivel_sistema or 0), max((min(int(v), 3) for v in abas.values()), default=0))
+
+
+def abas_da_rota(modulo: dict, caminho: str):
+    """[v7.3] Abas que protegem este endereço (None = vale o nível do sistema)."""
+    for prefixo, abas in (modulo.get("rotas_aba") or {}).items():
+        if caminho == prefixo or caminho.startswith(prefixo + "/"):
+            return abas
+    return None
 
 
 def modulo_da_rota(caminho: str):

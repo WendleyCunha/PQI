@@ -17,6 +17,9 @@
   "use strict";
   var script = document.currentScript;
   var MODULO = (script && script.dataset.modulo) || "";
+  // [v7.3] tela que é um PASSO do Fluxo interno: o nível é o da aba do passo (Áreas usa a aba "areas")
+  var ABA_PASSO = (script && script.dataset.aba) || "";
+  try { if (ABA_PASSO && new URLSearchParams(location.search).get("modo") === "areas") ABA_PASSO = "areas"; } catch (_) {}
   var NOMES = { 0: "Sem acesso", 1: "Visualizar", 2: "Adicionar", 3: "Editar" };
   var DICAS = {
     1: "Você pode consultar e baixar relatórios, mas não gravar nada neste sistema.",
@@ -43,6 +46,10 @@
       var maxAba = 0;
       if (acesso.abas) Object.keys(acesso.abas).forEach(function (k) { maxAba = Math.max(maxAba, Math.min(3, Number(acesso.abas[k]) || 0)); });
       acesso.nivel = Math.max(acesso.nivelSistema, maxAba);
+      if (ABA_PASSO) {   // [v7.3] passo do Fluxo interno: vale só a aba do passo (4 = Excluir conta como Editar)
+        acesso.nivelSistema = acesso.nivel = Math.min(3, Number((acesso.abas || {})[ABA_PASSO]) || 0);
+        acesso.abas = null;
+      }
       acesso.perfil = j.perfil_nome || "";
       acesso.perfilSistema = (j.perfil_sistema && j.perfil_sistema[MODULO]) || null;   // [v4.23]
       acesso.filaQtd = (j.usuario && j.usuario.fila_qtd && j.usuario.fila_qtd[MODULO]) || null;
@@ -328,7 +335,16 @@
   "use strict";
   var q;
   try { q = new URLSearchParams(location.search); } catch (_) { return; }
-  if (q.get("embed") !== "mapeamento" || window.parent === window) { window.PQI_EMBED = null; return; }
+  if (q.get("embed") !== "mapeamento" || window.parent === window) {
+    window.PQI_EMBED = null;
+    // [v7.3] Organograma e Processos só existem dentro do Fluxo interno: link antigo / aba antiga vão para lá
+    if (["/organograma", "/mapa"].indexOf(location.pathname) >= 0) {
+      var alvo = location.pathname + location.search;
+      try { if (window.top !== window && typeof window.top.PQI_ABRIR_FLUXO === "function" && window.top.PQI_ABRIR_FLUXO(alvo)) { history.length > 1 ? history.back() : location.replace("about:blank"); return; } } catch (_) {}
+      location.replace("/mapeamento?ir=" + encodeURIComponent(alvo));
+    }
+    return;
+  }
   var modo = q.get("modo") || "";
   var raiz = document.documentElement;
   raiz.classList.add("pqi-embed");
@@ -344,6 +360,8 @@
     "html.pqi-embed-areas .side-rg,html.pqi-embed-areas #btnVoltar{display:none!important}" +
     "html.pqi-embed-areas .shell-item{grid-template-columns:1fr!important;display:block!important}";
   (document.head || raiz).appendChild(css);
+  // [v7.2] (i) explicativo em cada campo do Fluxo interno
+  var aj = document.createElement("script"); aj.src = "/pqi-ajuda.js"; aj.defer = true; (document.head || raiz).appendChild(aj);
   var SISTEMAS = ["/organograma", "/diagnostico", "/mapa"];
   document.addEventListener("click", function (e) {
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;

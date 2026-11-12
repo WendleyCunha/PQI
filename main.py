@@ -148,7 +148,7 @@ ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 _CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 # [v6.0] Agente IA do topo: qualquer pessoa logada pergunta; quem alimenta é conferido na rota (agente.py)
-ROTAS_QUALQUER_LOGADO |= {"/pqi-agente.js"}
+ROTAS_QUALQUER_LOGADO |= {"/pqi-agente.js", "/pqi-ajuda.js"}
 ROTAS_QUALQUER_LOGADO_PREFIXO = ("/api/agente/",)
 
 _cache_usuarios: dict = {}
@@ -225,7 +225,17 @@ def _garantir_abas_setores() -> None:
 def _abas(u: dict, niveis: Optional[dict] = None) -> dict:
     """[v4.16] Nível (0–4) de cada ABA de cada sistema — ver modulos.abas_do_usuario."""
     _garantir_abas_setores()
-    return mods.abas_do_usuario(u, _perfil_do(u), niveis if niveis is not None else _niveis(u))
+    return mods.abas_do_usuario(u, _perfil_do(u), niveis if niveis is not None else _niveis(u), _perfis())
+
+
+# [v7.3] Organograma e Processos são PASSOS do Fluxo interno: o nível vem da aba do passo (0–4 → 0–3)
+PASSO_DO_SISTEMA = {"organograma": ["organograma"], "mapa": ["areas", "processos"]}
+
+
+def _nivel_passo(u: dict, abas) -> int:
+    abas = [abas] if isinstance(abas, str) else abas
+    a = _abas(u).get("mapeamento", {})
+    return min(3, max(int(a.get(x, 0)) for x in abas))
 
 
 def _nivel_aba(request: Request, modulo_id: str, aba: str) -> int:
@@ -361,8 +371,14 @@ async def porteiro(request: Request, call_next):
         niveis = await run_in_threadpool(_niveis, usuario)
     except Exception as e:
         return _negar(eh_api, 503, f"Não consegui verificar suas permissões agora ({e.__class__.__name__}).")
+    pode_excluir = None
     try:   # [v4.16] uma aba com nível maior que o sistema também libera gravar (a rota confere a aba)
-        nivel = mods.nivel_efetivo_sistema(niveis.get(modulo["id"], 0), (await run_in_threadpool(_abas, usuario, niveis)).get(modulo["id"]))
+        abas_mod = (await run_in_threadpool(_abas, usuario, niveis)).get(modulo["id"])
+        nivel = mods.nivel_efetivo_sistema(niveis.get(modulo["id"], 0), abas_mod)
+        rabas = mods.abas_da_rota(modulo, caminho)   # [v7.3] endereço de um passo: vale o nível da aba do passo
+        if rabas is not None:
+            na = max(int((abas_mod or {}).get(a, 0)) for a in rabas)
+            nivel, pode_excluir = min(3, na), na >= 4
     except Exception:
         nivel = niveis.get(modulo["id"], 0)
     if nivel < perm.VISUALIZAR:
@@ -371,6 +387,8 @@ async def porteiro(request: Request, call_next):
     precisa = perm.VISUALIZAR if metodo in ("GET", "HEAD", "OPTIONS") else (perm.EDITAR if metodo == "DELETE" else perm.ADICIONAR)
     if modulo["id"] == "carteira" and caminho.startswith(_CART_GRAVA_LIVRE) and metodo != "DELETE":
         precisa = perm.VISUALIZAR   # [v4.23] tabular / responder / fila: quem acessa a Carteira pode gravar
+    if metodo == "DELETE" and pode_excluir is False:
+        return _negar(eh_api, 403, "Excluir é só para quem tem “Excluir” neste passo do Fluxo interno.")
     if nivel < precisa:
         if nivel == perm.VISUALIZAR:
             return _negar(eh_api, 403, f"Seu perfil em “{modulo['nome']}” é “Visualizar”: você pode consultar, mas não gravar.")
@@ -396,6 +414,9 @@ def _sessao_publica(u: dict) -> dict:
     niveis = _niveis(u)
     abas = _abas(u, niveis)
     efetivos = {k: mods.nivel_efetivo_sistema(v, abas.get(k)) for k, v in niveis.items()}
+    # [v7.3] compatibilidade: as telas ainda perguntam por "organograma" e "mapa" — agora é o nível do passo
+    niveis = {**niveis, "organograma": min(3, int((abas.get("mapeamento") or {}).get("organograma", 0))),
+              "mapa": min(3, max(int((abas.get("mapeamento") or {}).get(x, 0)) for x in ("areas", "processos")))}
     return {"usuario": _usuario_publico(u), "modulos": mods.cards_do_usuario(u, efetivos), "permissoes": niveis,
             "perfil_nome": _nome_perfil(u), "so_acesso": sorted(mods.IDS_SO_ACESSO),
             "abas": abas, "niveis_aba": mods.NIVEIS_ABA,   # [v4.16] permissão por aba
@@ -438,7 +459,8 @@ def _conferir_acrescimo(request: Request, modulo_id: str, colecao: str, doc_id: 
     """Perfil Adicionar gravando um documento inteiro (Mapa, Organograma): só passa
     se não mexeu no que outra pessoa registrou (ou se o documento é dele)."""
     u = usuario_atual(request)
-    if _niveis(u).get(modulo_id, 0) >= perm.EDITAR:
+    nivel = _nivel_passo(u, PASSO_DO_SISTEMA[modulo_id]) if modulo_id in PASSO_DO_SISTEMA else _niveis(u).get(modulo_id, 0)
+    if nivel >= perm.EDITAR:
         return dados
     atual = db.docs_ler(colecao, doc_id)
     if not atual or atual.get("criado_por_email") == u["email"]:
@@ -3250,7 +3272,7 @@ def org_criar(payload: ProcessoEntrada, request: Request):
     _checar_tamanho(payload.dados)
     u = usuario_atual(request)
     if _eh_config_niveis(payload.dados):
-        if _niveis(u).get("organograma", 0) < perm.EDITAR:
+        if _nivel_passo(u, "organograma") < perm.EDITAR:
             raise HTTPException(status_code=403, detail="Os níveis hierárquicos valem para todos os setores: só quem tem perfil “Editar” no Organograma altera.")
     elif _deps_permitidos(u) is not None:
         raise HTTPException(status_code=403, detail="Seu acesso é restrito a alguns departamentos — peça ao administrador para criar este setor.")
@@ -3264,7 +3286,7 @@ def org_salvar(setor_id: str, payload: ProcessoEntrada, request: Request):
     _checar_tamanho(payload.dados)
     u = usuario_atual(request)
     if _eh_config_niveis(payload.dados):
-        if _niveis(u).get("organograma", 0) < perm.EDITAR:
+        if _nivel_passo(u, "organograma") < perm.EDITAR:
             raise HTTPException(status_code=403, detail="Os níveis hierárquicos valem para todos os setores: só quem tem perfil “Editar” no Organograma altera.")
         dados = payload.dados
     else:
@@ -3311,7 +3333,7 @@ class MudancaEstrutura(BaseModel):
 @app.post("/api/organograma/setores/{setor_id}/estrutura")
 def org_estrutura(setor_id: str, payload: MudancaEstrutura, request: Request):
     u = usuario_atual(request)
-    if _niveis(u).get("organograma", 0) < perm.EDITAR:
+    if _nivel_passo(u, "organograma") < perm.EDITAR:
         raise HTTPException(status_code=403, detail="Mudar a estrutura (subsetor vira setor, mover para outro setor) é só para quem tem perfil “Editar” no Organograma.")
     if not _dep_ok(u, setor_id) or (payload.destino_id and not _dep_ok(u, payload.destino_id)):
         raise HTTPException(status_code=403, detail="Você não tem acesso a um dos setores envolvidos.")
@@ -3395,6 +3417,7 @@ PAGINAS = {
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
+    "/melhoria": "melhoria.html",                                        # Melhoria Contínua [v7.2]
     "/mapeamento": "mapeamento.html",                                    # Mapeamento (4 passos) [v6.4]
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
@@ -3435,6 +3458,11 @@ def acesso_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-acesso.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/pqi-ajuda.js", include_in_schema=False)
+def ajuda_js():
+    return FileResponse(os.path.join(BASE_DIR, "pqi-ajuda.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/pqi-agente.js", include_in_schema=False)
 def agente_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-agente.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
@@ -3448,6 +3476,12 @@ agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           processos=db.mapa_listar,   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
           criar_processo=db.mapa_criar,   # [v6.2] "Falta virar IT" → leva o assunto para o Mapa
           salvar_processo=db.mapa_salvar)
+
+# [v7.2] MELHORIA CONTÍNUA — rotas em melhoria.py (lê o Fluxo interno; grava em coleções próprias)
+import melhoria as mlh
+mlh.ligar(app, usuario_atual=usuario_atual, niveis=_niveis, nome=_nome_de, setores_do=_setores_do, processos=db.mapa_listar,
+          docs_listar=db.docs_listar, docs_criar=db.docs_criar, docs_salvar=db.docs_salvar, docs_ler=db.docs_ler,
+          docs_excluir=db.docs_excluir, ia=agt.ia_texto, ia_ligada=lambda: bool(agt.provedor()))
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

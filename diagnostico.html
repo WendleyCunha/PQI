@@ -1008,7 +1008,7 @@ function renderOrganograma(c){
       <div><div class="num" style="color:${difs?"var(--bad)":"var(--ok)"}">${difs}</div><div class="cap" style="margin:0">respondem a alguém diferente do oficial</div></div>
       <div><div class="num">${fora}</div><div class="cap" style="margin:0">nesta tabela e fora do oficial</div></div>
       <div class="acoes" style="margin:0 0 0 auto">${faltam.length&&NIVEL>=2?`<button type="button" class="btn primary" id="orgTrazer">⤵ Trazer as ${faltam.length} pessoa(s) do oficial</button>`:""}
-        ${PERM.organograma>=1?`<a class="btn" href="/organograma?setor=${encodeURIComponent(DEP)}">🏛️ Abrir no Organogramas</a>`:""}</div></div>
+        ${PERM.organograma>=1?`<a class="btn" href="/organograma?setor=${encodeURIComponent(DEP)}">🏛️ Abrir no Organograma (passo 1)</a>`:""}</div></div>
       ${!OFICIAL.length?'<p class="cap" style="margin:10px 0 0">O setor ainda não tem pessoas no módulo Organogramas. Cadastre lá a estrutura oficial — ela aparece aqui automaticamente.</p>':""}`;
     const tr=$("#orgTrazer",box);
     if(tr) tr.onclick=()=>{ faltam.forEach(p=>org.push(meu({pessoa:p.nome,papel:p.cargo||"",responde_para:[p.gestor,...(p.tambem||[])].filter(Boolean).join(", "),especialista:"",cobre:"",obs:"",oficial_id:p.id})));
