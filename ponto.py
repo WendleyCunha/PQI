@@ -410,7 +410,8 @@ def org_pessoas(forcar: bool = False) -> dict:
                 for p in d.get("pessoas") or []:
                     if p.get("vaga") or not str(p.get("nome") or "").strip() or not p.get("id"):
                         continue
-                    pid = f"{s['id']}.{p['id']}"
+                    # [v6.5] quem mudou de setor no Organograma guarda o código antigo (digitais e batidas continuam dele)
+                    pid = str(p.get("ponto_pid") or "").strip() or f"{s['id']}.{p['id']}"
                     saida[pid] = {"pid": pid, "nome": str(p.get("nome")).strip(), "cargo": p.get("cargo") or "",
                                   "setor_id": s["id"], "setor": d.get("nome") or "", "cor": d.get("cor") or "",
                                   "subsetor": p.get("subsetor") or "", "gestor": nomes.get(p.get("gestor_id")) or "",

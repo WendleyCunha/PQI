@@ -263,6 +263,17 @@ dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);c
 dialog::backdrop{background:rgba(10,15,25,.45)}
 dialog h3{margin:0 0 12px;font-size:20px}
 dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+/* [v6.5] mudança de estrutura */
+.sub-titulo .mudar{margin-left:auto;font-size:12px;padding:4px 10px}
+.sub-titulo{display:flex;align-items:center;gap:8px}
+.est-op{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--rule);border-radius:8px;margin-bottom:8px;cursor:pointer}
+.est-op:has(input:checked){border-color:var(--steel);background:var(--steel-soft)}
+.est-op b{display:block} .est-op small{color:var(--ink-3)}
+.est-op input[type=radio]{width:auto;margin-top:3px}
+.est-campos{display:grid;gap:10px;margin:6px 0 4px 26px}
+.est-resumo{border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin-top:12px;background:var(--paper);font-size:14px}
+.est-resumo ul{margin:4px 0 8px;padding-left:20px}
+.est-resumo .alerta{color:var(--amber)}
 footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--rule);padding-top:10px}
 
 @media (max-width:860px){
@@ -291,9 +302,16 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dwTit">
   <div class="dw-cab"><h3 id="dwTit">Pessoa</h3><div class="muted" style="font-size:13px" id="dwSub"></div></div>
   <div class="dw-corpo" id="dwCorpo"></div>
-  <div class="dw-rod"><button type="button" class="primary" id="dwSalvar">Salvar</button><button type="button" id="dwCancelar">Cancelar</button><button type="button" class="warn" id="dwExcluir">Excluir</button></div>
+  <div class="dw-rod"><button type="button" class="primary" id="dwSalvar">Salvar</button><button type="button" id="dwCancelar">Cancelar</button><button type="button" id="dwMover" title="Levar esta pessoa para outro setor (o Ponto continua com as digitais e batidas dela)">⇄ Outro setor</button><button type="button" class="warn" id="dwExcluir">Excluir</button></div>
 </aside>
 
+<dialog id="dlgEstrutura" class="largo" aria-labelledby="esTit">
+  <h3 id="esTit">Mudar a estrutura</h3>
+  <div id="esCorpo"></div>
+  <div id="esResumo"></div>
+  <p class="msg erro" id="esMsg" style="margin:10px 0 0"></p>
+  <div class="acts"><button type="button" id="esNao">Cancelar</button><button type="button" id="esVer">Ver o que vai mudar</button><button type="button" class="primary" id="esSim" hidden>Confirmar</button></div>
+</dialog>
 <dialog id="dlgSetor">
   <h3>Novo setor</h3>
   <label class="f">Nome do setor *<input id="nsNome" placeholder="Ex.: Operações, Comercial, RH"></label>
@@ -1022,11 +1040,12 @@ function visaoNivel(c,s){
   d.pessoas.forEach(p=>{ const k=tx(p.subsetor)||"Sem subsetor"; (grupos[k]=grupos[k]||[]).push(p); });
   const nomes=Object.keys(grupos).sort((a,b)=>a==="Sem subsetor"?1:b==="Sem subsetor"?-1:a.localeCompare(b,"pt-BR"));
   if(!nomes.length){ c.innerHTML='<p class="aviso">Nenhuma pessoa neste setor ainda.</p>'; return; }
-  c.innerHTML=`<p class="cap" style="margin-top:16px">Cada subsetor em um bloco, com as pessoas organizadas por nível hierárquico.</p>`+nomes.map(n=>`<div class="sub-bloco"><div class="sub-titulo">${esc(n)} <span>${grupos[n].length} posição(ões)</span></div>
+  c.innerHTML=`<p class="cap" style="margin-top:16px">Cada subsetor em um bloco, com as pessoas organizadas por nível hierárquico.${podeEstrutura()?" Use <b>⇄ Mudar</b> para transformar um subsetor em setor ou levá-lo para outro setor.":""}</p>`+nomes.map(n=>`<div class="sub-bloco"><div class="sub-titulo">${esc(n)} <span>${grupos[n].length} posição(ões)</span>${podeEstrutura()&&n!=="Sem subsetor"?`<button type="button" class="peq mudar" data-mudar="${esc(n)}" title="Transformar em setor ou mover para outro setor">⇄ Mudar</button>`:""}</div>
     ${NIVEIS.map(([nv,rot,sg])=>{ const ps=ordenarPessoas(grupos[n].filter(p=>p.nivel===nv)); if(!ps.length) return "";
       return `<div class="linha-nivel" style="${estNivel(nv)}"><div class="rot">Nível ${esc(sg)}<small>${esc(rot)}</small></div><div class="cards">${ps.map(p=>{
         const g=gestorDe(d,p); return cardHTML(p,{semSub:true}).replace('<div class="pt">',`<div class="pt">${g?`<span class="chip" title="Responde a">↑ ${esc(tx(g.nome)||"vaga")}</span>`:""}`); }).join("")}</div></div>`; }).join("")}</div>`).join("");
   c.querySelectorAll(".pcard").forEach(x=>x.removeAttribute("draggable")); c.querySelectorAll(".hnd").forEach(x=>x.remove());
+  c.querySelectorAll("[data-mudar]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); abrirEstrutura(s,{subsetor:b.dataset.mudar}); });
   ligarCards(c,s);
 }
 
@@ -1137,6 +1156,81 @@ function sugerirGestor(d, nivel, sub, proibidos){
   const mesmo=pool.filter(x=>tx(sub)&&tx(x.subsetor)===tx(sub)); if(mesmo.length) pool=mesmo;
   return pool.length===1 ? pool[0].id : "";
 }
+// ═══ [v6.5] MUDANÇA DE ESTRUTURA — subsetor vira setor · subsetor vai para outro setor · pessoa vai para outro setor ═══
+// O servidor (estrutura.py) faz tudo de uma vez: pessoas, quem responde a quem, Ponto, atividades e processos.
+function podeEstrutura(){ return !!(window.PQI_ACESSO&&PQI_ACESSO.nivelSistema>=3); }
+let EST=null;
+function abrirEstrutura(s, alvo){
+  const outros=SETORES.filter(x=>x.id!==s.id).sort((a,b)=>a.dados.nome.localeCompare(b.dados.nome,"pt-BR"));
+  const opDest=`<option value="">— escolha o setor —</option>${outros.map(x=>`<option value="${x.id}">${esc(x.dados.nome)}</option>`).join("")}`;
+  EST={s,alvo,cor:CORES[SETORES.length%CORES.length]};
+  $("#esMsg").textContent=""; $("#esResumo").innerHTML=""; $("#esSim").hidden=true; $("#esVer").hidden=false;
+  if(alvo.pessoa){
+    const p=s.dados.pessoas.find(x=>x.id===alvo.pessoa);
+    $("#esTit").textContent=`Levar ${tx(p&&p.nome)||"esta pessoa"} para outro setor`;
+    $("#esCorpo").innerHTML=`<p class="cap">Sai de <b>${esc(s.dados.nome)}</b> com cargo, nível, escala e horário. Digitais e batidas do Ponto continuam dela.</p>
+      <div class="est-campos" style="margin-left:0"><label class="f">Setor de destino<select id="esDest">${opDest}</select></label>
+      <label class="f">Subsetor no destino (opcional)<input id="esSubDest" list="dl-es-sub" value="${esc(tx(p&&p.subsetor))}"></label><datalist id="dl-es-sub"></datalist></div>`;
+    $("#esDest").onchange=()=>{ const d=setorPorId($("#esDest").value); $("#dl-es-sub").innerHTML=d?subsetoresDe(d.dados).map(x=>`<option value="${esc(x)}">`).join(""):""; limparResumo(); };
+  } else {
+    const n=s.dados.pessoas.filter(p=>nrm(p.subsetor)===nrm(alvo.subsetor)).length;
+    $("#esTit").textContent=`Subsetor ${alvo.subsetor}`;
+    $("#esCorpo").innerHTML=`<p class="cap">${n} posição(ões) em <b>${esc(s.dados.nome)}</b> · ${esc(alvo.subsetor)}. Escolha o que fazer:</p>
+      <label class="est-op"><input type="radio" name="esModo" value="setor" checked><span><b>Transformar em setor</b><small>Vira um setor próprio, com card no Organograma, departamento no Diagnóstico e área em Processos.</small></span></label>
+      <div class="est-campos" id="esCamposSetor"><label class="f">Nome do setor novo<input id="esNome" value="${esc(alvo.subsetor)}"></label>
+        <div><div style="font-size:13px;color:var(--ink-2)">Cor</div><div class="cores" id="esCores" style="margin-top:6px"></div></div></div>
+      <label class="est-op"><input type="radio" name="esModo" value="mover"><span><b>Mover para outro setor</b><small>Entra como subsetor ${esc(alvo.subsetor)} no setor escolhido (junta se já existir).</small></span></label>
+      <div class="est-campos" id="esCamposMover" hidden><label class="f">Setor de destino<select id="esDest">${opDest}</select></label></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="esLevar" checked style="width:auto"> Levar junto as atividades do Diagnóstico deste subsetor e os processos ligados a elas</label>`;
+    const cs=$("#esCores"); cs.innerHTML=CORES.map(c=>`<button type="button" style="--c:${c}" data-c="${c}" class="${c===EST.cor?"ativo":""}" aria-label="Cor ${c}"></button>`).join("");
+    cs.querySelectorAll("button").forEach(b=>b.onclick=()=>{ EST.cor=b.dataset.c; cs.querySelectorAll("button").forEach(x=>x.classList.toggle("ativo",x===b)); });
+    document.querySelectorAll("[name=esModo]").forEach(r=>r.onchange=()=>{ const m=modoEst(); $("#esCamposSetor").hidden=m!=="setor"; $("#esCamposMover").hidden=m!=="mover"; limparResumo(); });
+    ["esNome","esDest","esLevar"].forEach(id=>{ const x=$("#"+id); if(x) x.addEventListener("input",limparResumo); if(x) x.addEventListener("change",limparResumo); });
+  }
+  $("#dlgEstrutura").showModal();
+}
+function modoEst(){ if(EST.alvo.pessoa) return "pessoa"; const r=document.querySelector("[name=esModo]:checked"); return r?r.value:"setor"; }
+function limparResumo(){ $("#esResumo").innerHTML=""; $("#esSim").hidden=true; $("#esVer").hidden=false; $("#esMsg").textContent=""; }
+function corpoEst(simular){
+  const m=modoEst(), dest=$("#esDest"), sd=$("#esSubDest"), lv=$("#esLevar");
+  return {modo:m, subsetor:EST.alvo.subsetor||"", pessoa_id:EST.alvo.pessoa||"", destino_id:m==="setor"?"":(dest?dest.value:""),
+    subsetor_destino:m==="pessoa"&&sd?tx(sd.value):null, novo_nome:m==="setor"?tx($("#esNome").value):"", novo_cor:EST.cor,
+    levar_atividades:lv?lv.checked:false, simular};
+}
+async function chamarEst(simular){
+  const m=$("#esMsg"); m.textContent="";
+  const b=corpoEst(simular);
+  if(b.modo!=="setor"&&!b.destino_id){ m.textContent="Escolha o setor de destino."; return null; }
+  if(b.modo==="setor"&&!b.novo_nome){ m.textContent="Dê um nome ao setor novo."; return null; }
+  await salvarTudo();
+  if(Object.values(SETORES).some(x=>x._conflito)){ m.textContent="Há um conflito de versão pendente neste setor. Resolva antes de mudar a estrutura."; return null; }
+  const {r,j}=await api(`${API}/${EST.s.id}/estrutura`,{method:"POST",body:JSON.stringify(b)});
+  if(!r.ok){ m.textContent=j.detail||`HTTP ${r.status}`; return null; }
+  return j;
+}
+$("#esNao").onclick=()=>$("#dlgEstrutura").close();
+$("#esVer").onclick=async()=>{
+  const bt=$("#esVer"); bt.disabled=true;
+  try{ const j=await chamarEst(true); if(!j) return; const R=j.resumo, li=l=>l.map(x=>`<li>${esc(x)}</li>`).join("");
+    $("#esResumo").innerHTML=`<div class="est-resumo"><b>${R.novo_setor?`Nasce o setor ${esc(R.destino)}`:`${esc(R.origem)} → ${esc(R.destino)}`}</b>
+      <div style="margin-top:8px">👥 Vão ${R.pessoas.length} pessoa(s):</div><ul>${li(R.pessoas)}</ul>
+      ${R.responsavel_novo?`<div>Responsável do setor novo: <b>${esc(R.responsavel_novo)}</b></div>`:""}
+      ${R.vinculos_cortados.length?`<div class="alerta" style="margin-top:8px">⚠️ Vínculos de chefia que serão cortados (acerte depois):</div><ul>${li(R.vinculos_cortados)}</ul>`:'<div style="margin-top:8px">✓ Nenhum vínculo de chefia é cortado.</div>'}
+      ${R.modo!=="pessoa"?(R.atividades.length?`<div style="margin-top:8px">📋 Atividades do Diagnóstico (${R.atividades.length}):</div><ul>${li(R.atividades)}</ul>`:'<div style="margin-top:8px">📋 Nenhuma atividade do Diagnóstico vai junto.</div>')+(R.processos.length?`<div>🧩 Processos (${R.processos.length}):</div><ul>${li(R.processos)}</ul>`:""):""}
+      <div class="muted" style="margin-top:6px;font-size:13px">⏱️ O Ponto continua com as digitais e batidas de cada pessoa. A mudança fica registrada no histórico dos dois setores.</div></div>`;
+    $("#esSim").hidden=false; $("#esVer").hidden=true; }
+  finally{ bt.disabled=false; }
+};
+$("#esSim").onclick=async()=>{
+  const bt=$("#esSim"); bt.disabled=true;
+  try{ const j=await chamarEst(false); if(!j) return;
+    const x=await api(API); if(x.r.ok){ const todos=x.j||[]; SETORES=todos.filter(z=>!(z.dados&&z.dados._tipo==="niveis")).map(z=>({...z,dados:normalizar(z.dados)})); }
+    $("#dlgEstrutura").close();
+    ir("setor",j.destino_id,"arvore");
+    $("#banner").textContent=`✓ ${j.resumo.texto}.`+(j.avisos&&j.avisos.length?" "+j.avisos.join(" "):"")+(j.resumo.vinculos_cortados.length?` Acerte quem ficou sem gestor (${j.resumo.vinculos_cortados.length}).`:"");
+  }finally{ bt.disabled=false; }
+};
+
 function abrirPessoa(s, id, pre){
   const d=s.dados, orig=id?d.pessoas.find(x=>x.id===id):null;
   const p=orig?JSON.parse(JSON.stringify(orig)):{id:uid(),extras:[],abaixo_de:"",nome:"",cargo:"",nivel:nivelPadrao(),subsetor:"",gestor_id:"",escala:"",horario:"",email:"",ramal:"",foto:"",vaga:false,obs:"",...pre};
@@ -1144,7 +1238,7 @@ function abrirPessoa(s, id, pre){
   if(!orig&&!p.gestor_id){ p.gestor_id=sugerirGestor(d,p.nivel,p.subsetor,new Set([p.id])); p._gSug=!!p.gestor_id; }
   dw={s,id,p,setorId:s.id};
   $("#dwTit").textContent=orig?"Editar pessoa":"Adicionar pessoa";
-  $("#dwExcluir").hidden=!orig;
+  $("#dwExcluir").hidden=!orig; $("#dwMover").hidden=!orig||!podeEstrutura();
   desenharGaveta();
   $("#drawer").classList.add("aberto"); $("#dwFundo").classList.add("aberto");
   setTimeout(()=>{ const n=$("#dwNome"); n&&n.focus(); },60);
@@ -1211,6 +1305,7 @@ $("#dwSalvar").onclick=()=>{
   }
   fecharGaveta(); render();
 };
+$("#dwMover").onclick=()=>{ if(dw&&dw.id){ const {s,id}=dw; fecharGaveta(); abrirEstrutura(s,{pessoa:id}); } };
 $("#dwExcluir").onclick=()=>{ if(dw&&dw.id){ const {s,id}=dw; fecharGaveta(); excluirPessoa(s,id); } };
 function limparReferencias(d,id){ d.pessoas.forEach(x=>{ x.extras=(x.extras||[]).filter(y=>y!==id); if(x.abaixo_de===id) x.abaixo_de=""; }); }
 function excluirPessoa(s,id){
