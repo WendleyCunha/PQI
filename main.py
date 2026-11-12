@@ -3418,6 +3418,7 @@ PAGINAS = {
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
     "/melhoria": "melhoria.html",                                        # Melhoria Contínua [v7.2]
+    "/melhoria-solucao": "mapa.html",                                    # Melhoria: fases 4–7 do processo [v7.4]
     "/mapeamento": "mapeamento.html",                                    # Mapeamento (4 passos) [v6.4]
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
@@ -3481,7 +3482,8 @@ agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
 import melhoria as mlh
 mlh.ligar(app, usuario_atual=usuario_atual, niveis=_niveis, nome=_nome_de, setores_do=_setores_do, processos=db.mapa_listar,
           docs_listar=db.docs_listar, docs_criar=db.docs_criar, docs_salvar=db.docs_salvar, docs_ler=db.docs_ler,
-          docs_excluir=db.docs_excluir, ia=agt.ia_texto, ia_ligada=lambda: bool(agt.provedor()))
+          docs_excluir=db.docs_excluir, ia=agt.ia_texto, ia_ligada=lambda: bool(agt.provedor()),
+          salvar_processo=db.mapa_salvar, sincronizar=lambda reg: _agente_do_mapa(reg, quem="Melhoria Contínua"))
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

@@ -66,13 +66,28 @@ SETORES = [{"id": "qual", "dados": {"nome": "Qualidade", "pessoas": [{"nome": "R
                                                                      {"nome": "Léo", "email": "leo@ks"}]}}]
 
 
+SINC: list = []
+
+
+def salvar_proc(pid, dados, versao, usuario):
+    for i, r in enumerate(PROCS):
+        if r["id"] == pid:
+            v = r.get("versao", 1)
+            if versao is not None and versao != v:
+                return "conflito", r
+            PROCS[i] = {**r, "dados": dados, "versao": v + 1}
+            return "ok", PROCS[i]
+    return "nao_existe", None
+
+
 def montar():
     app = FastAPI()
     M.H.clear()
     M.ligar(app, usuario_atual=lambda r: USUARIO, niveis=lambda u: NIVEL, nome=lambda r: USUARIO["nome"], setores_do=lambda u: SETORES,
             processos=lambda: PROCS, docs_listar=lambda c: [pub(i, r) for i, r in col(c).items()], docs_criar=criar, docs_salvar=salvar,
             docs_ler=lambda c, i: pub(i, col(c)[i]) if i in col(c) else None, docs_excluir=lambda c, i, u: bool(col(c).pop(i, None)),
-            ia=lambda s, u: None, ia_ligada=lambda: False, agora=lambda: AGORA["v"])
+            ia=lambda s, u: None, ia_ligada=lambda: False, agora=lambda: AGORA["v"],
+            salvar_processo=salvar_proc, sincronizar=lambda r: SINC.append(r["id"]))
     return TestClient(app)
 
 
@@ -158,7 +173,25 @@ n = mods.niveis_do_usuario({"email": "z@ks"}, {"niveis": {}}, {})
 ok(n["melhoria"] == 2, "Melhoria é para todos: sem configuração, entra com Adicionar")
 n = mods.niveis_do_usuario({"email": "z@ks"}, {"niveis": {"melhoria": 0}}, {})
 ok(n["melhoria"] == 0, "o admin ainda pode tirar o acesso")
+print("Como vai ficar (fases 4–7) editado de dentro da melhoria")
+t = montar()
+proc = t.get("/api/melhoria/processos").json()[0]
+d = {**proc["dados"], "nome": "NOME TROCADO", "passos_real": [], "tobe": {"passos": [{"id": "t1", "descricao": "Escanear a etiqueta"}]},
+     "validacao_tobe": {"parecer": "Aprovado"}, "fases": {"f2": {"concluido": False}, "f5": {"concluido": True}}, "fluxo": {"asis": {"nos": []}, "tobe": {"nos": [{"id": "x"}]}}}
+r = t.put("/api/melhoria/processos/P1", json={"dados": d, "versao": proc.get("versao", 1)})
+nd = r.json()["dados"]
+ok(r.status_code == 200 and nd["nome"] == "Triagem de retornos" and len(nd["passos_real"]) == 2, "da melhoria não se mexe no como é feito hoje (nome e passos reais ficam)")
+ok(nd["tobe"]["passos"][0]["descricao"] == "Escanear a etiqueta" and nd["fases"]["f5"]["concluido"] and "f2" not in nd["fases"], "grava só TO BE, validação e fases 4–7")
+ok(nd["fluxo"]["tobe"]["nos"] and "asis" not in nd["fluxo"], "fluxograma: só o TO BE")
+ok(SINC == ["P1"], "TO BE aprovado sincroniza o Agente")
+ok(t.put("/api/melhoria/processos/P1", json={"dados": d, "versao": 1}).status_code == 409, "versão velha: conflito")
+tb = t.get("/api/melhoria/processos/P1/tobe").json()
+ok(tb["passos"] == 1 and tb["aprovado"] and tb["simbolos_tobe"] == 1, "resumo do TO BE para o card")
+
 raiz = os.path.dirname(os.path.abspath(__file__))
 main = open(os.path.join(raiz, "main.py"), encoding="utf-8").read()
+mp = open(os.path.join(raiz, "mapa.html"), encoding="utf-8").read()
+ok("MODO_MELHORIA" in mp and '"/melhoria-solucao": "mapa.html"' in main, "a tela das fases 4–7 é servida pela Melhoria")
+ok(mods.modulo_da_rota("/melhoria-solucao")["id"] == "melhoria", "protegida pelo acesso da Melhoria (para todos)")
 ok('"/melhoria": "melhoria.html"' in main and "mlh.ligar(" in main and os.path.exists(os.path.join(raiz, "melhoria.html")), "página e rotas ligadas")
 print(f"\n{OK} verificações ok.")

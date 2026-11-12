@@ -74,7 +74,7 @@ MODULOS = [
         "apis": ["/api/organograma", "/api/mapa"],
         "abas": [
             {"id": "organograma", "nome": "1 · Organograma (setores e pessoas)"},
-            {"id": "areas", "nome": "3 · Áreas (atividade vira processo)"},
+            {"id": "areas", "nome": "3 · Atividade → Processo (por área)"},
             {"id": "processos", "nome": "4 · Processos (como é feito hoje, fluxograma, IT)"},
         ],
         # cada endereço é protegido pelo nível da(s) aba(s) do passo (o maior deles)
@@ -89,7 +89,7 @@ MODULOS = [
         "nome": "Melhoria Contínua",
         "descricao": "Melhorias em PDCA sobre o Fluxo interno: indicador antes × depois com prova, ganho em R$ e tempo, plano de ação e ATAs.",
         "url": "/melhoria", "icone": "🔁", "tipo": "nuvem",
-        "paginas": ["/melhoria"],
+        "paginas": ["/melhoria", "/melhoria-solucao"],   # [v7.4] /melhoria-solucao = fases 4–7 do processo (TO BE)
         "apis": ["/api/melhoria"],
     },
     {

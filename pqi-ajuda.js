@@ -16,7 +16,7 @@
     "aba:lista e edicao": "Todas as pessoas do setor numa tabela, para editar rápido (nome, cargo, nível, subsetor, a quem responde).",
     "aba:importar": "Cole as pessoas de uma planilha (Excel ou Google Sheets) de uma vez: nome, cargo, nível, subsetor, a quem responde…",
     "aba:setor": "Dados do setor: nome, cor, subsetores, níveis. Aqui também o setor inteiro pode virar subsetor de outro setor (⇄ Mudar a estrutura).",
-    "/diagnostico>aba:atividades": "Tudo o que o departamento faz, uma linha por atividade, com subsetor e executores. <b>Pronto quando</b> a lista estiver completa. Próximo passo: <b>3 · Áreas</b>, onde cada atividade vira processo.",
+    "/diagnostico>aba:atividades": "Tudo o que o departamento faz, uma linha por atividade, com subsetor e executores. <b>Pronto quando</b> a lista estiver completa. Próximo passo: <b>3 · Atividade → Processo</b>.",
     "/diagnostico>aba:organograma": "O organograma REAL (como funciona na prática), que pode ser diferente do oficial do passo 1. Use para registrar quem de fato faz o quê.",
     "aba:linha de vida": "O resumo do processo: em que fase está, quanto segue a IT e o que falta. Próximo passo: <b>Registrar</b> como é feito hoje.",
     "aba:registrar": "Registre o que foi visto no levantamento: passos reais, passos da IT e anotações.",

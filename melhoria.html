@@ -135,6 +135,9 @@ dialog h3{margin:0 0 12px;font-size:20px}
 dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px}
 .toast.erro{background:var(--bad);color:#fff}
+.sol-fundo{position:fixed;inset:0;z-index:150;background:var(--paper);display:flex;flex-direction:column}
+.sol-bar{display:flex;align-items:center;gap:12px;padding:8px 18px;border-bottom:1px solid var(--rule);background:var(--steel-soft);font-size:14px;flex-wrap:wrap}
+.sol-fundo iframe{flex:1;border:0;width:100%}
 .salvo{font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
 .salvo i{width:8px;height:8px;border-radius:50%;background:var(--ok)} .salvo.s i{background:var(--amber)} .salvo.e i{background:var(--bad)}
 @media (max-width:1000px){ .quadro{grid-template-columns:repeat(2,1fr)} .pdca{grid-template-columns:repeat(2,1fr)} }
@@ -263,6 +266,8 @@ function proximoPasso(cd) {
     return { txt: "Tudo pronto para começar. Avance para <b>Fazer</b>.", sec: null, avancar: "fazer" };
   }
   if (et === "fazer") {
+    const tb = cd._tobe;
+    if (tb && !c.sem_tobe && !tb.passos) return { txt: "Desenhe <b>como vai ficar</b>: a nova IT (TO BE) e o fluxograma TO BE, na seção <b>Como vai ficar</b>. Se esta melhoria não muda o jeito de fazer (ex.: só troca de fornecedor), marque “não muda a IT”.", sec: "sTB" };
     const abertas = (c.acoes || []).filter((x) => x.status !== "Feita").length;
     if (abertas) return { txt: `Execute o plano: <b>${abertas}</b> ação(ões) ainda aberta(s). Marque como <b>Feita</b> quando concluir.`, sec: "s6" };
     if (!c.data_mudanca) return { txt: "Informe a <b>data da mudança</b> (quando a nova forma começou a valer). Ela separa o antes do depois.", sec: "s4" };
@@ -274,8 +279,9 @@ function proximoPasso(cd) {
     return { txt: "Veja o resultado no antes × depois. Melhorou? Avance para <b>Padronizar</b>. Não melhorou? Volte para <b>Planejar</b> e tente outra solução.", sec: "s4", avancar: "padronizar" };
   }
   if (et === "padronizar") {
-    if (!c.it_atualizada) return { txt: "Atualize a <b>IT no Fluxo interno</b> (Processos › TO BE · nova IT) para a nova forma virar regra e o Agente responder por ela. Depois marque ✓ abaixo.", sec: "s8" };
-    return { txt: "IT atualizada. <b>Conclua</b> a melhoria.", sec: null, avancar: "concluida" };
+    const tb = cd._tobe;
+    if (!c.sem_tobe && !c.it_atualizada && !(tb && tb.aprovado)) return { txt: "Faça a <b>Validação do TO BE</b> (seção Como vai ficar). Aprovada, a nova IT passa a valer no <b>Fluxo interno</b> e o Agente passa a responder por ela.", sec: "sTB" };
+    return { txt: c.sem_tobe ? "Esta melhoria não muda a IT. <b>Conclua</b> a melhoria." : "Nova IT aprovada e valendo no Fluxo interno. <b>Conclua</b> a melhoria.", sec: null, avancar: "concluida" };
   }
   return { txt: "", sec: null };
 }
@@ -415,14 +421,17 @@ function vCard(c) {
   <section class="secao" id="s5"><header><span class="num">5</span><h2>Ganho</h2>${i("Quanto a melhoria rende. <b>Custo</b>: preço unitário antes e depois × quantidade por mês. <b>Tempo</b>: minutos por vez antes e depois × vezes por mês (o Fluxo interno já tem esses números em Como é feito hoje). <b>Organização/acesso</b>: descreva o que mudou.")}</header>
     <div id="ganhoBox"></div></section>
 
-  <section class="secao" id="s6"><header><span class="num">6</span><h2>Plano de ação</h2>${i("O que vai ser feito, quem faz e até quando. Cada pessoa vê as ações dela em <b>Minhas pendências</b>, com aviso quando atrasar. Na etapa <b>Fazer</b>, marque cada ação como <b>Feita</b>.")}<span class="st muted" style="font-size:13px">${d.acoes.filter((x) => x.status === "Feita").length}/${d.acoes.length} feita(s)</span></header>
+  <section class="secao" id="sTB"><header><span class="num">6</span><h2>Como vai ficar (a solução)</h2>${i("Aqui fica o <b>como vai ficar</b> do processo — o que antes eram as fases 4 a 7 de Processos: <b>Confronto e GAPs</b> (onde a prática foge da IT), <b>Oportunidades</b>, <b>TO BE · nova IT</b> com o fluxograma de como vai ficar, <b>Validação do TO BE</b> e <b>Implantação</b>. O TO BE é do processo: outras melhorias do mesmo processo trabalham nele também. Aprovado, vira a IT oficial no Fluxo interno.")}<span class="st" id="tbSelo"></span></header>
+    <div id="tbBox"><p class="cap">Carregando…</p></div></section>
+
+  <section class="secao" id="s6"><header><span class="num">7</span><h2>Plano de ação</h2>${i("O que vai ser feito, quem faz e até quando. Cada pessoa vê as ações dela em <b>Minhas pendências</b>, com aviso quando atrasar. Na etapa <b>Fazer</b>, marque cada ação como <b>Feita</b>.")}<span class="st muted" style="font-size:13px">${d.acoes.filter((x) => x.status === "Feita").length}/${d.acoes.length} feita(s)</span></header>
     <div id="acoesBox"></div></section>
 
-  <section class="secao" id="s7"><header><span class="num">7</span><h2>ATAs e anotações</h2>${i("<b>ATA</b>: registro de uma reunião sobre a melhoria (quem participou e o que se decidiu). <b>Anotação</b>: qualquer observação rápida, com data e autor.")}</header>
+  <section class="secao" id="s7"><header><span class="num">8</span><h2>ATAs e anotações</h2>${i("<b>ATA</b>: registro de uma reunião sobre a melhoria (quem participou e o que se decidiu). <b>Anotação</b>: qualquer observação rápida, com data e autor.")}</header>
     <div id="atasBox"></div></section>
 
-  <section class="secao" id="s8"><header><span class="num">8</span><h2>Padronizar e encerrar</h2>${i("Uma melhoria só termina quando a nova forma vira <b>regra</b>: atualize a IT do processo no Fluxo interno (Processos › TO BE · nova IT). Assim o Agente passa a responder pela forma nova. Na parte 2, isso será feito daqui com um clique.")}</header>
-    <label class="op" style="max-width:520px"><input type="checkbox" id="itOk" ${d.it_atualizada ? "checked" : ""} ${ro}><span><b>A IT do processo foi atualizada no Fluxo interno</b><small>Marque depois de aprovar a nova IT em Processos.</small></span></label>
+  <section class="secao" id="s8"><header><span class="num">9</span><h2>Padronizar e encerrar</h2>${i("Uma melhoria só termina quando a nova forma vira <b>regra</b>: a <b>Validação do TO BE</b> (seção 6) aprovada faz a nova IT valer no Fluxo interno, e o Agente passa a responder por ela. Se a melhoria não muda o jeito de fazer (ex.: só troca de fornecedor), marque a opção abaixo.")}</header>
+    <label class="op" style="max-width:560px"><input type="checkbox" id="semTobe" ${d.sem_tobe ? "checked" : ""} ${ro}><span><b>Esta melhoria não muda a IT do processo</b><small>Ex.: comprar mais barato, trocar fornecedor, dar ou tirar um acesso. Dispensa o TO BE e a validação.</small></span></label>
     <div class="acoes">${pode(2) && d.etapa !== "planejar" && !["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq" id="cVoltaPlan">↺ Não melhorou — voltar para Planejar</button>` : ""}
       ${pode(2) && !["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq warn" id="cCancelar">Cancelar melhoria</button>` : ""}
       ${pode(2) && ["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq" id="cReabrir">Reabrir</button>` : ""}
@@ -434,13 +443,13 @@ function vCard(c) {
   c.querySelectorAll("[name=tipo]").forEach((el) => (el.onchange = () => { d.triagem.tipo = el.value; salvarCard(cd, true); }));
   c.querySelectorAll("[data-ganho]").forEach((el) => (el.onchange = () => { const s = new Set(d.triagem.ganhos || []); el.checked ? s.add(el.dataset.ganho) : s.delete(el.dataset.ganho); d.triagem.ganhos = [...s]; salvarCard(cd, true); }));
   c.querySelectorAll("[data-t]").forEach((el) => el.addEventListener("change", () => { d.triagem[el.dataset.t] = el.value; salvarCard(cd); }));
-  const it = $("#itOk"); it.onchange = () => { d.it_atualizada = it.checked; salvarCard(cd, true); };
+  const st = $("#semTobe"); st.onchange = () => { d.sem_tobe = st.checked; salvarCard(cd, true); };
   const vp = $("#cVoltaPlan"); if (vp) vp.onclick = () => { if (confirm("Voltar para Planejar? O histórico fica guardado; você pode ajustar o plano e tentar outra solução.")) mudarEtapa(cd, "planejar"); };
   const cc = $("#cCancelar"); if (cc) cc.onclick = () => mudarEtapa(cd, "cancelada");
   const cr = $("#cReabrir"); if (cr) cr.onclick = () => mudarEtapa(cd, "planejar");
   const cx = $("#cExcluir"); if (cx) cx.onclick = async () => { if (!confirm(`Excluir ${d.codigo}? (fica guardado no banco como excluído)`)) return; try { await api(`/api/melhoria/cards/${cd.id}`, { method: "DELETE" }); await carregar(); ir("quadro"); } catch (e) { toast(e.message, true); } };
   ligarProximo(cd);
-  secIndicador(cd, p); secResultado(cd); secGanho(cd, p); secAcoes(cd, listaP); secAtas(cd);
+  secIndicador(cd, p); secResultado(cd); secGanho(cd, p); secSolucao(cd, p); secAcoes(cd, listaP); secAtas(cd);
 }
 
 // ─── 3 · indicador ───
@@ -621,7 +630,40 @@ async function mostrarGanho(cd) {
       ${t.reais_mes != null ? `<div class="kpi"><span>Tempo em R$</span><b>${rs(t.reais_mes)}</b><small>por mês · ${rs(t.reais_ano)} por ano</small></div>` : ""}` : ""}</div>` : "";
 }
 
-// ─── 6 · plano de ação ───
+// ─── 6 · como vai ficar (fases 4–7 do processo) ───
+async function secSolucao(cd, p) {
+  const box = $("#tbBox"); if (!box) return;
+  let t; try { t = await api(`/api/melhoria/processos/${cd.dados.processo_id}/tobe`); } catch (e) { box.innerHTML = `<p class="msg erro">${esc(e.message)}</p>`; return; }
+  cd._tobe = t; atualizarProximo(cd);
+  const g = p.gaps || {}, sel = $("#tbSelo");
+  if (sel) sel.innerHTML = cd.dados.sem_tobe ? '<span class="pill p-cinza">não muda a IT</span>' : t.aprovado ? '<span class="pill p-ok">✓ TO BE aprovado</span>' : t.passos ? '<span class="pill p-amb">TO BE em desenho</span>' : '<span class="pill p-cinza">a desenhar</span>';
+  const bt = (sec, ic, nome, info, dica) => `<button type="button" class="op" style="display:block;text-align:left" data-sol="${sec}"><b>${ic} ${nome}</b><small>${info}</small><small style="color:var(--prog)">${dica}</small></button>`;
+  box.innerHTML = `<p class="cap">${cd.dados.processo_codigo} ${esc(cd.dados.processo_nome)} — clique numa etapa para abrir. Tudo o que você fizer aqui fica no processo e aparece no Fluxo interno quando for aprovado.</p>
+    <div class="opcoes">
+      ${bt("confronto", "⚖️", "Confronto e GAPs", `${g.divergente || 0} diferente(s) da IT · ${g.sem_it || 0} sem IT · ${g.nao_feito || 0} da IT não feito(s)`, "Onde a prática foge da IT — ponto de partida")}
+      ${bt("oportunidades", "💡", "Oportunidades", `${t.oportunidades} registrada(s)`, "O que dá para melhorar, a partir dos GAPs")}
+      ${bt("tobe", "📝", "TO BE · nova IT", t.passos ? `${t.passos} passo(s)${t.pendencias ? ` · ${t.pendencias} pendência(s) em aberto` : ""}` : "ainda vazio", "O passo a passo de como vai ficar")}
+      ${bt("fluxo", "🔀", "Fluxograma TO BE", t.simbolos_tobe ? `${t.simbolos_tobe} símbolo(s)` : "ainda vazio", "Amarrado à nova IT: mudou um, muda o outro")}
+      ${bt("validacao_tobe", "✅", "Validação do TO BE", t.parecer || "não validado", "Aprovado = vira a IT oficial no Fluxo interno")}
+      ${bt("implantacao", "🚀", "Implantação", `${t.acoes_feitas}/${t.acoes} ação(ões) concluída(s)`, "Como colocar a nova IT para rodar")}
+    </div>`;
+  box.querySelectorAll("[data-sol]").forEach((b) => (b.onclick = () => abrirSolucao(cd, b.dataset.sol)));
+}
+function abrirSolucao(cd, sec) {
+  document.querySelectorAll(".sol-fundo").forEach((x) => x.remove());
+  const f = document.createElement("div"); f.className = "sol-fundo";
+  f.innerHTML = `<div class="sol-bar"><button type="button" id="solFechar">← Voltar para a melhoria</button><span><b>${esc(cd.dados.codigo)}</b> · ${esc(cd.dados.titulo)} · <span class="muted">como vai ficar: ${esc(cd.dados.processo_codigo)} ${esc(cd.dados.processo_nome)}</span></span>${i("Esta é a parte de <b>como vai ficar</b> do processo (fases 4 a 7). Use o menu à esquerda para passar por Confronto e GAPs → Oportunidades → TO BE · nova IT → Fluxograma TO BE → Validação → Implantação. Grava sozinho ao sair de cada campo.")}</div>
+    <iframe title="Como vai ficar" src="/melhoria-solucao?processo=${encodeURIComponent(cd.dados.processo_id)}&sec=${encodeURIComponent(sec)}&embed=melhoria"></iframe>`;
+  document.body.appendChild(f); document.body.style.overflow = "hidden";
+  const fr = f.querySelector("iframe"); fr.onload = () => { const t = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); try { fr.contentWindow.postMessage({ pqi: "tema", tema: t }, location.origin); } catch (_) {} };
+  $("#solFechar").onclick = () => { f.remove(); document.body.style.overflow = ""; const p = procPorId(cd.dados.processo_id) || {}; secSolucao(cd, p); };
+}
+// links que a tela da solução manda abrir (ex.: Organograma) vão para o Fluxo interno pelo Painel
+addEventListener("message", (e) => { if (e.origin !== location.origin || !e.data || e.data.pqi !== "mapeamento-ir") return;
+  try { if (window.top.PQI_ABRIR_FLUXO && window.top.PQI_ABRIR_FLUXO(e.data.url)) return; } catch (_) {}
+  toast("Abra o Fluxo interno pelo Painel para ver isso."); });
+
+// ─── 7 · plano de ação ───
 function secAcoes(cd, listaP) {
   const d = cd.dados, box = $("#acoesBox"), ro = !pode(2) ? "disabled" : "";
   const st = ["A fazer", "Fazendo", "Feita"];

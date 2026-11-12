@@ -382,7 +382,14 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 //   passo real SEM ligação a passo da IT              → ➕ feito sem IT
 //   passo da IT que nenhum passo real usa             → ❌ na IT e não é feito
 // ═══════════════════════════════════════════════════════════════════
-const API = "/api/mapa/processos";
+// [v7.4] A mesma tela serve a dois donos:
+//  • FLUXO INTERNO (passos Áreas/Processos): como é feito HOJE — fases 1 a 3 (identificação, como é feito hoje,
+//    fluxograma AS IS, IT atual, anotações, validação do AS IS);
+//  • MELHORIA CONTÍNUA (/melhoria-solucao): como VAI FICAR — fases 4 a 7 (confronto e GAPs, oportunidades,
+//    TO BE · nova IT com o fluxograma TO BE, validação do TO BE, implantação), presa num processo só.
+const MODO_MELHORIA = location.pathname === "/melhoria-solucao";
+const SEC_MELHORIA = new Set(["confronto","oportunidades","tobe","validacao_tobe","implantacao"]);
+const API = MODO_MELHORIA ? "/api/melhoria/processos" : "/api/mapa/processos";
 // [v3.4] Lista de reserva: vale só se o Organograma não responder. Com ele no ar, as áreas são os setores do Organograma.
 let AREAS_PADRAO = ["Comercial","Lojas","Financeiro","Faturamento / Fiscal","Logística","Expedição","Estoque","Compras","SAC / CX","Qualidade","RH","Marketing","TI","Diretoria"];
 const STATUS_PROC = ["Em levantamento","Em validação","Validado","Revisar"];
@@ -1788,7 +1795,7 @@ function abaFluxo(c,p,d,sv){
   c.innerHTML=`<p class="cap">Fluxograma em raias (swimlane): cada <b>raia</b> é quem executa — pessoa, função ou subsetor. Assim fica visível quem faz cada passo e onde o trabalho passa de mão em mão. Desenhe o <b>AS IS</b> (como é hoje) e o <b>TO BE</b> (como será).</p>
     ${faixaAmarracao(d,FX.ver,"fluxo")}
     <div class="fx-barra">
-      <span class="fx-seg" role="tablist"><button type="button" data-ver="asis" class="${FX.ver==="asis"?"ativo":""}">AS IS · como é hoje</button><button type="button" data-ver="tobe" class="${FX.ver==="tobe"?"ativo":""}">TO BE · como será</button></span>
+      <span class="fx-seg" role="tablist">${MODO_MELHORIA?`<button type="button" data-ver="tobe" class="ativo">TO BE · como vai ficar</button>`:`<button type="button" data-ver="asis" class="ativo">AS IS · como é hoje</button>`}</span>
       <span class="fx-seg"><button type="button" id="fxMenos" title="Diminuir">−</button><span id="fxZ">${Math.round(FX.zoom*100)}%</span><button type="button" id="fxMais" title="Aumentar">+</button></span>
       <button type="button" id="fxAjustar">Ajustar à tela</button>
       <span style="flex:1"></span>
@@ -2053,7 +2060,10 @@ const SECOES_PROC = [
   ["confronto","gaps","Confronto e GAPs","F4"], ["oportunidades","oport","Oportuni­dades","F4"],
   ["tobe","tobe","TO BE · nova IT","F5"], ["validacao_tobe","aprovacao","Validação TO BE","F6"], ["implantacao","implantacao","Implanta­ção","F7"], "sep",
   ["historico","historico","Histórico"],
-];
+].filter(x=>{ if(!Array.isArray(x)) return true;
+  if(MODO_MELHORIA) return SEC_MELHORIA.has(x[0])||x[0]==="fluxo"||x[0]==="historico";   // Melhoria: só o "como vai ficar"
+  return !SEC_MELHORIA.has(x[0]); })                                                          // Fluxo interno: só o "como é hoje"
+ .filter((x,i,l)=>!(x==="sep"&&(i===0||l[i-1]==="sep")));
 const TITULOS_PROC = {
   registrar:["Registrar",""], real:["Como é feito hoje (AS IS)",""], it:["Instrução de Trabalho atual",""],
   fluxo:["Fluxograma em raias (swimlane)","AS IS e TO BE, com a simbologia padrão."],
@@ -2063,18 +2073,19 @@ const TITULOS_PROC = {
   validacao:["Validação do AS IS",""], tobe:["Desenho TO BE — nova Instrução de Trabalho",""], validacao_tobe:["Validação do TO BE",""],
   implantacao:["Planejar implantação",""], historico:["Histórico de registros","Tudo o que foi registrado neste processo, do mais recente para o mais antigo."],
 };
-const SECOES_GERAL = [["arquitetura","arq","Áreas (Fase 1)"],["painel","painel","Painel"],["confronto","gaps","Confronto geral"],["oportunidades","oport","Oportuni­dades"],["exportar","exportar","Exportar"]];
+const SECOES_GERAL = [["arquitetura","arq","Áreas (Fase 1)"],["painel","painel","Painel"],["confronto","gaps","Confronto geral"],["oportunidades","oport","Oportuni­dades"],["exportar","exportar","Exportar"]]
+  .filter(x=>!["confronto","oportunidades"].includes(x[0]));   // [v7.4] confronto e oportunidades: Melhoria Contínua
 const TITULOS_GERAL = {arquitetura:["Visão macro e arquitetura — áreas e processos",""],painel:["Painel do mapeamento",""],confronto:["Confronto geral",""],oportunidades:["Oportunidades",""],exportar:["Exportar",""]};
 
 let vista="lista", atual=null, secProc="linha", secGeral="painel";
 const filtro={busca:"",area:"",status:"",cat:"",tipo:"",stOp:""};
-try{ const s=JSON.parse(sessionStorage.getItem("mapa_nav2")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual||null; secProc=s.secProc||"linha"; secGeral=s.secGeral||"painel"; } }catch(_){}
+try{ const s=MODO_MELHORIA?{}:JSON.parse(sessionStorage.getItem("mapa_nav2")||"{}"); if(s.vista){ vista=s.vista; atual=s.atual||null; secProc=s.secProc||"linha"; secGeral=s.secGeral||"painel"; } }catch(_){}
 // [v6.4] MAPEAMENTO, passo 3 "Áreas": esta tela fica presa nas Áreas; abrir/criar um processo leva ao passo 4 (Processos)
 const EMB_AREAS=!!(window.PQI_EMBED&&window.PQI_EMBED.modo==="areas");
 if(EMB_AREAS){ vista="geral"; secGeral="arquitetura"; }
 window.addEventListener("message",e=>{ if(e.origin!==location.origin||!e.data||e.data.pqi!=="mapa-abrir") return;   // [v6.1] o Agente abre a IT aqui
   if(PROCS.some(x=>x.id===e.data.id)) ir("processo",e.data.id,e.data.sec||"tobe"); });
-function guardarNav(){ if(EMB_AREAS) return; try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
+function guardarNav(){ if(EMB_AREAS||MODO_MELHORIA) return; try{ sessionStorage.setItem("mapa_nav2",JSON.stringify({vista,atual,secProc,secGeral})); }catch(_){} }
 function ir(v, id, sec){
   if(EMB_AREAS){ if(v==="processo"&&id){ window.PQI_EMBED.ir(`/mapa?processo=${encodeURIComponent(id)}&sec=linha`); return; } v="geral"; sec="arquitetura"; }
   vista=v; if(id!==undefined&&id!==null) atual=id;
@@ -2105,9 +2116,11 @@ function sitClasse(s){ return {"Em levantamento":"exec","Em validação":"val","
 
 function render(){
   atualizarListas();
-  if(vista==="processo" && !procPorId(atual)) vista="lista";
+  if(MODO_MELHORIA){ vista="processo"; if(!SECOES_PROC.some(x=>Array.isArray(x)&&x[0]===secProc)) secProc="confronto"; if(secProc==="fluxo") FX.ver="tobe"; }
+  else { if(SEC_MELHORIA.has(secProc)) secProc="it"; if(secProc==="fluxo") FX.ver="asis"; if(secGeral==="confronto"||secGeral==="oportunidades") secGeral="painel"; }
+  if(vista==="processo" && !procPorId(atual)){ if(MODO_MELHORIA){ $("#root").innerHTML='<div class="conflito">Processo não encontrado.</div>'; return; } vista="lista"; }
   const root=$("#root"); root.innerHTML=""; $("#barAcoes").innerHTML=""; $("#banner").textContent="";
-  $("#btnVoltar").hidden = vista==="lista";
+  $("#btnVoltar").hidden = vista==="lista" || MODO_MELHORIA;
   if(vista==="processo") renderProcessoShell(root);
   else if(vista==="geral") renderGeralShell(root);
   else renderLista(root);
@@ -2312,7 +2325,7 @@ function renderProcessoShell(c){
   const p=procPorId(atual), d=p.dados, R=confronto(d), sv=()=>salvar(p);
   botaoBar("Baixar Excel deste processo",async()=>{ await salvarTudo(); await excelMulti(`mapa_${d.codigo||"processo"}`,linhasExport([p])); },"",ICO.exportar);
   botaoBar("Imprimir ou salvar PDF",()=>imprimir(`${d.codigo} — ${d.nome}`,relatorioHTML(p)),"",ICO.imprimir);
-  botaoBar("Excluir",async()=>{ if(!confirm(`Excluir o processo ${d.codigo} — ${d.nome}? (fica guardado no banco como excluído)`)) return;
+  if(!MODO_MELHORIA) botaoBar("Excluir",async()=>{ if(!confirm(`Excluir o processo ${d.codigo} — ${d.nome}? (fica guardado no banco como excluído)`)) return;
     const {r,j}=await api(`${API}/${p.id}`,{method:"DELETE"}); if(!r.ok) throw new Error(j.detail||r.status); PROCS=PROCS.filter(x=>x!==p); ir("lista"); },"warn");
   const cont={real:d.passos_real.filter(x=>tx(x.descricao)).length, it:d.passos_it.filter(x=>tx(x.descricao)).length, confronto:R.gaps,
     oportunidades:d.oportunidades.length, anotacoes:d.anotacoes.length, historico:registrosDo(p).length};
@@ -2362,8 +2375,8 @@ function renderLinha(c,p){
       <dt>IT</dt><dd>${esc(d.it.codigo||"—")}${d.it.versao?` · rev. ${esc(d.it.versao)}`:""}</dd>
       <dt>Área</dt><dd>${esc(d.area||"—")}</dd><dt>Responsável</dt><dd>${esc(d.dono||"—")}</dd><dt>Criticidade</dt><dd>${esc(d.criticidade||"—")}</dd>
       <dt>Atualizado</dt><dd>${esc(dataBR(p.atualizado_em))}<br><span class="muted">${esc(p.atualizado_por||"")}</span></dd></dl></div></header>
-    <section><header><h2>Fases do processo</h2><p>As 7 fases da metodologia — clique numa fase para ir até ela.</p></header>
-      <div class="chain">${FASES.map(([id,nome,sec],i)=>{ const e=EF[id], at=EF.atual===id;
+    <section><header><h2>Fases do processo</h2><p>As fases do mapeamento (como é feito hoje) — clique numa fase para ir até ela. Da 4ª à 7ª (diagnóstico, TO BE, validação e implantação) ficam na <b>Melhoria Contínua</b>.</p></header>
+      <div class="chain">${FASES.slice(0,3).map(([id,nome,sec],i)=>{ const e=EF[id], at=EF.atual===id;
         const k=e.ok?["st-ok","p-ok","Concluída"]:at?["st-prog","p-azul","Fase atual"]:e.and?["st-warn","p-warn","Em andamento"]:["","p-cinza","A fazer"];
         if(id==="f1"&&!e.ok) k[2]=tx(d.area)?"Área em mapeamento":"Defina a área";
         return `<div class="link clic ${k[0]}" data-ir="${sec}" role="button" tabindex="0" title="Ir para: ${esc(nome)}"><div class="knot">${i+1}</div><div class="nm">${esc(nome)}</div><div class="st"><span class="pill ${k[1]}">${k[2]}</span></div><div class="doc">${e.ok&&e.em?esc(dataBR(e.em))+(e.por?" · "+esc(e.por):""):""}</div></div>`; }).join("")}</div></section>
