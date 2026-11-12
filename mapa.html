@@ -2055,7 +2055,7 @@ const ICO = {
 const SECOES_PROC = [
   ["linha","linha","Linha de vida"], ["registrar","registrar","Registrar"], "sep",
   ["identificacao","info","Identifi­cação","F1"], "sep",
-  ["real","real","Como é feito hoje","F2"], ["fluxo","fluxo","Fluxo­grama","F2"], ["it","it","IT atual","F2"], ["anotacoes","notas","Anotações","F2"],
+  ["real","real","Como é feito hoje","F2"], ["fluxo","fluxo",MODO_MELHORIA?"Fluxo­grama TO BE":"Fluxo­grama",MODO_MELHORIA?"F5":"F2"], ["it","it","IT atual","F2"], ["anotacoes","notas","Anotações","F2"],
   ["validacao","aprovacao","Validação AS IS","F3"],
   ["confronto","gaps","Confronto e GAPs","F4"], ["oportunidades","oport","Oportuni­dades","F4"],
   ["tobe","tobe","TO BE · nova IT","F5"], ["validacao_tobe","aprovacao","Validação TO BE","F6"], ["implantacao","implantacao","Implanta­ção","F7"], "sep",
@@ -2063,7 +2063,9 @@ const SECOES_PROC = [
 ].filter(x=>{ if(!Array.isArray(x)) return true;
   if(MODO_MELHORIA) return SEC_MELHORIA.has(x[0])||x[0]==="fluxo"||x[0]==="historico";   // Melhoria: só o "como vai ficar"
   return !SEC_MELHORIA.has(x[0]); })                                                          // Fluxo interno: só o "como é hoje"
- .filter((x,i,l)=>!(x==="sep"&&(i===0||l[i-1]==="sep")));
+ .filter((x,i,l)=>!(x==="sep"&&(i===0||l[i-1]==="sep")))
+ .sort((a,b)=>{ if(!MODO_MELHORIA) return 0; const o=["confronto","oportunidades","tobe","fluxo","validacao_tobe","implantacao","sep","historico"];   // Melhoria: na ordem do trabalho
+   return o.indexOf(Array.isArray(a)?a[0]:a)-o.indexOf(Array.isArray(b)?b[0]:b); });
 const TITULOS_PROC = {
   registrar:["Registrar",""], real:["Como é feito hoje (AS IS)",""], it:["Instrução de Trabalho atual",""],
   fluxo:["Fluxograma em raias (swimlane)","AS IS e TO BE, com a simbologia padrão."],
