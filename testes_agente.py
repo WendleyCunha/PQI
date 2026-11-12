@@ -435,7 +435,21 @@ def teste_humano_memoria_exemplos_ajustar():
     ok(r["modo"] == "texto" and art["passos"] == ["Abra o chamado de Vistoria no Concierge"] and art["versao"] == 2, "artigo manual: troca no passo, com versão nova")
 
 
+def teste_fonte_da_verdade_fluxo_interno():
+    print("[v7.1] Fonte da verdade = Fluxo interno: o que VALE hoje vem primeiro")
+    base = {"codigo": "PROC-050", "nome": "Triagem", "area": "Qualidade", "dono": "Rita", "origem": {"dep": "q", "subsetor": "Retornos"},
+            "passos_real": [{"descricao": "Olhar a peça"}], "passos_it": [{"descricao": "Conferir lacre"}], "it": {"codigo": "IT-50"},
+            "tobe": {"passos": [{"descricao": "Escanear a etiqueta"}]}, "validacao_tobe": {"parecer": ""}}
+    ok(A.it_vigente(base)[0] == "it", "IT oficial vale mais que a nova IT ainda em validação")
+    ok(A.it_vigente({**base, "validacao_tobe": {"parecer": "Aprovado"}})[0] == "tobe", "nova IT aprovada passa a valer")
+    ok(A.it_vigente({**base, "passos_it": []})[4] == "nova IT ainda em validação", "sem IT oficial, a nova IT entra avisando que está em validação")
+    ok("ainda sem IT" in A.it_vigente({**base, "passos_it": [], "tobe": {}})[4], "só o como é feito hoje: avisa que não há IT")
+    art = A.artigo_do_processo({"id": "PX", "dados": base})
+    ok("Fluxo interno" in art["passos"][0] and "Setor: Qualidade · Subsetor: Retornos · Responsável: Rita." in art["passos"], "artigo diz a fonte, o setor, o subsetor e o responsável")
+
+
 if __name__ == "__main__":
+    teste_fonte_da_verdade_fluxo_interno()
     teste_permissoes()
     teste_perguntas()
     teste_ia_simulada()
