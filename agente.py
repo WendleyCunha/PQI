@@ -289,32 +289,6 @@ def perguntar_ia(pergunta: str, achados: list, historico: Optional[list] = None,
         return None
 
 
-def ia_texto(sistema: str, usuario: str, max_tokens: int = 1500) -> Optional[str]:
-    """[v7.0] Pedido livre à IA configurada (Empresa: escrever/ajustar IT). None = IA desligada ou falhou."""
-    prov = provedor()
-    if not prov:
-        return None
-    try:
-        if prov == "groq":
-            modelo = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
-            corpo = {"model": modelo, "temperature": 0.3, "max_tokens": max_tokens,
-                     "messages": [{"role": "system", "content": sistema}, {"role": "user", "content": usuario}]}
-            if "gpt-oss" in modelo:
-                corpo.update(max_tokens=max_tokens + 2500, reasoning_effort="low", include_reasoning=False)
-            r = _http_json("https://api.groq.com/openai/v1/chat/completions", corpo,
-                           {"Authorization": "Bearer " + os.environ["GROQ_API_KEY"]}, timeout=60)
-            return (r.get("choices") or [{}])[0].get("message", {}).get("content", "").strip() or None
-        r = _http_json("https://api.anthropic.com/v1/messages",
-                       {"model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"), "max_tokens": max_tokens, "system": sistema,
-                        "messages": [{"role": "user", "content": usuario}]},
-                       {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01"}, timeout=60)
-        return "".join(b.get("text", "") for b in r.get("content", []) if b.get("type") == "text").strip() or None
-    except (urllib.error.URLError, TimeoutError, ValueError, KeyError) as e:
-        ULTIMO_ERRO_IA.clear(); ULTIMO_ERRO_IA.update(em=agora(), provedor=prov, status=getattr(e, "code", None), detalhe=f"{type(e).__name__}: {e}"[:400])
-        print(f"[agente] IA ({prov}) falhou no pedido livre: {type(e).__name__}: {e}")
-        return None
-
-
 def _separar_fonte(texto: str, achados: list):
     m = re.search(r"\n?\s*FONTE:\s*(\d+)\s*$", texto)
     usado = achados[0]
