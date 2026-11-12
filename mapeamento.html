@@ -63,6 +63,16 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .seta{color:var(--ink-3);flex:none}
 .tema{flex:none}
 
+/* [v7.2] guia do passo: o que fazer, quando está pronto e qual o próximo */
+.guia{flex:none;display:flex;gap:14px;align-items:flex-start;background:var(--prog-soft);border-bottom:1px solid var(--rule);padding:9px 20px;font-size:13.5px;color:var(--ink)}
+.guia .ic{font-size:18px;line-height:1.2}
+.guia .col{flex:1;min-width:0}
+.guia b{color:var(--prog)}
+.guia .linha{display:flex;gap:18px;flex-wrap:wrap;margin-top:2px;color:var(--ink-2)}
+.guia button{padding:5px 10px;font-size:12.5px;align-self:center}
+.guia .x{background:none;border:0;color:var(--ink-3);padding:2px 6px}
+.guia-min{flex:none;padding:3px 20px;border-bottom:1px solid var(--rule);font-size:12.5px}
+.guia-min button{padding:3px 9px;font-size:12px}
 .palco{flex:1;position:relative;min-height:0}
 .palco iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--paper);display:none}
 .palco iframe.ativo{display:block}
@@ -84,6 +94,7 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   <nav class="passos" id="passos" aria-label="Passos do mapeamento"></nav>
   <button type="button" class="tema" id="btnTema" title="Alternar tema claro/escuro (vale para todos os passos)">◐ Tema</button>
 </div></div>
+<div id="guia"></div>
 <div class="palco" id="palco"><div class="carregando" id="carregando">Carregando…</div></div>
 
 <script>
@@ -98,6 +109,29 @@ const PASSOS = [
   ["areas", "Áreas", "atividade vira processo", "/mapa?modo=areas", "mapa"],
   ["processos", "Processos", "linha de vida, registrar…", "/mapa", "mapa"],
 ];
+// [v7.2] o que fazer em cada passo (qualquer pessoa, lendo, consegue seguir)
+const GUIA = {
+  organograma: { faca: "Escolha o setor (ou crie em <b>＋ Novo setor</b>) e cadastre as pessoas: nome, cargo, nível, subsetor e a quem responde.",
+    pronto: "todas as pessoas do setor estão no desenho, cada uma com o seu gestor.", prox: "atividades" },
+  atividades: { faca: "Escolha o departamento e, na aba <b>Atividades</b>, liste tudo o que ele faz — uma linha por atividade, com subsetor e executores.",
+    pronto: "a lista de atividades do departamento está completa.", prox: "areas" },
+  areas: { faca: "Em cada área, cada atividade vira processo: clique em <b>Criar processo</b> (ou cadastre processos novos, escolhendo o subsetor). Quando todos estiverem cadastrados, marque <b>✓ 100% mapeado</b>.",
+    pronto: "toda atividade da área virou processo.", prox: "processos" },
+  processos: { faca: "Abra o processo e registre <b>Como é feito hoje</b>, passo a passo (o fluxograma é montado sozinho). Depois confira a <b>IT atual</b>.",
+    pronto: "o passo a passo e o fluxograma de cada processo estão completos — a empresa está mapeada. Daqui em diante, melhorias vão para a <b>Melhoria Contínua</b>.", prox: "" },
+};
+function desenharGuia() {
+  const g = GUIA[ativo], el = $("#guia"); if (!g) { el.innerHTML = ""; return; }
+  let fechado = false; try { fechado = localStorage.getItem("pqi_fi_guia") === "0"; } catch (_) {}
+  const i = PASSOS.findIndex((p) => p[0] === ativo), prox = PASSOS.find((p) => p[0] === g.prox);
+  if (fechado) { el.innerHTML = `<div class="guia-min"><button type="button" id="gAbre">ⓘ O que fazer neste passo</button></div>`; $("#gAbre").onclick = () => { try { localStorage.removeItem("pqi_fi_guia"); } catch (_) {} desenharGuia(); }; return; }
+  el.innerHTML = `<div class="guia"><span class="ic">ⓘ</span><div class="col"><div><b>Passo ${i + 1} · ${esc(PASSOS[i][1])}:</b> ${g.faca}</div>
+    <div class="linha"><span>✓ <b>Pronto quando</b> ${g.pronto}</span>${prox ? `<span>➜ <b>Próximo:</b> ${PASSOS.indexOf(prox) + 1} · ${esc(prox[1])}</span>` : ""}</div>
+    <div class="linha" style="font-size:12.5px"><span>Passe o mouse no <b>(i)</b> ao lado de cada campo para saber o que preencher.</span></div></div>
+    ${prox ? `<button type="button" id="gProx">Ir para ${esc(prox[1])} ›</button>` : ""}<button type="button" class="x" id="gFecha" title="Esconder o guia">✕</button></div>`;
+  const b = $("#gProx"); if (b) b.onclick = () => abrir(prox[0]);
+  $("#gFecha").onclick = () => { try { localStorage.setItem("pqi_fi_guia", "0"); } catch (_) {} desenharGuia(); };
+}
 const QUADROS = {};   // passo → iframe (fica vivo ao trocar de passo)
 let ativo = null, perm = {}, visitou4 = false;
 
@@ -142,7 +176,7 @@ function abrir(id, url) {
   const p = PASSOS.find((x) => x[0] === id); if (!p) return;
   document.querySelectorAll(".sem-acesso").forEach((x) => x.remove());
   Object.values(QUADROS).forEach((f) => f.classList.remove("ativo"));
-  ativo = id; desenharPassos();
+  ativo = id; desenharPassos(); desenharGuia();
   try { sessionStorage.setItem("pqi_mapeamento_passo", id); } catch (_) {}
   if (!pode(p)) {
     const d = document.createElement("div"); d.className = "sem-acesso";

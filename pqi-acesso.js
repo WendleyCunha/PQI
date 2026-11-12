@@ -344,6 +344,8 @@
     "html.pqi-embed-areas .side-rg,html.pqi-embed-areas #btnVoltar{display:none!important}" +
     "html.pqi-embed-areas .shell-item{grid-template-columns:1fr!important;display:block!important}";
   (document.head || raiz).appendChild(css);
+  // [v7.2] (i) explicativo em cada campo do Fluxo interno
+  var aj = document.createElement("script"); aj.src = "/pqi-ajuda.js"; aj.defer = true; (document.head || raiz).appendChild(aj);
   var SISTEMAS = ["/organograma", "/diagnostico", "/mapa"];
   document.addEventListener("click", function (e) {
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;

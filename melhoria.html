@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Melhoria Contínua — PDCA com prova</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/pqi-acesso.js" data-modulo="melhoria"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   melhoria.html — MELHORIA CONTÍNUA (v7.2)
+   Toda melhoria nasce de um processo do Fluxo interno e anda em PDCA:
+   Planejar → Fazer → Checar → Padronizar. O indicador prova o antes × depois.
+   Mesmo padrão visual do Fluxo interno (Organograma / Processos).
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599;
+  --rule:#D9DEE7; --rule-2:#EBEEF3; --steel:#2E4A7A; --steel-soft:#E3EAF5;
+  --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7; --bad:#B83232; --bad-soft:#F9E2E2;
+  --prog:#2B63B0; --prog-soft:#E1EBF8; --block:#6B46A8; --block-soft:#EEE7F8; --idle:#8A93A3; --idle-soft:#EEF0F3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+    --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+    --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+  --rule:#2F384A; --rule-2:#252D3D; --steel:#8FB0E6; --steel-soft:#22304A;
+  --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --prog:#7FA9EA; --prog-soft:#1E2E48; --block:#B79AE6; --block-soft:#2E2442; --idle:#8A93A3; --idle-soft:#262D3A;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.cond{font-family:"IBM Plex Sans Condensed","Arial Narrow","IBM Plex Sans",system-ui,sans-serif}
+h1{font-size:26px;margin:0 0 4px} h2{font-size:19px;margin:0} h3{font-size:16px;margin:16px 0 8px}
+button,.btn{font:500 14px/1 "IBM Plex Sans",system-ui,sans-serif;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--ink-3)} button.primary{background:var(--steel);border-color:var(--steel);color:var(--sheet)}
+button.peq{padding:6px 10px;font-size:13px} button.warn{color:var(--bad)} button.ok{background:var(--ok);border-color:var(--ok);color:var(--sheet)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+input,select,textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:5px;padding:7px 9px;width:100%}
+textarea{min-height:64px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+label.f .rot{display:flex;align-items:center;gap:6px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cap{color:var(--ink-3);font-size:13px;margin:2px 0 12px;max-width:90ch}
+.muted{color:var(--ink-3)}
+.acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.msg{font-size:13px}.msg.ok{color:var(--ok)}.msg.erro{color:var(--bad)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-amb{background:var(--amber-soft);color:var(--amber)}
+.p-azul{background:var(--prog-soft);color:var(--prog)} .p-cinza{background:var(--idle-soft);color:var(--idle)} .p-rox{background:var(--block-soft);color:var(--block)}
+
+/* barra */
+.bar{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--rule);padding-top:env(safe-area-inset-top,0px)}
+.bar-in{display:flex;align-items:center;gap:12px;padding:8px 24px;flex-wrap:wrap}
+.tit{display:flex;flex-direction:column;line-height:1.15;margin-right:8px}
+.tit b{font:700 18px "IBM Plex Sans Condensed",system-ui,sans-serif} .tit span{font-size:12px;color:var(--ink-3)}
+.abas{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+.aba{border-radius:999px;padding:7px 14px;font-size:13.5px;color:var(--ink-2)}
+.aba.ativa{border-color:var(--steel);background:var(--steel-soft);color:var(--ink);font-weight:600}
+.aba .n{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;margin-left:5px}
+.wrap{padding:20px 24px 70px}
+
+/* (i) */
+.i{width:19px;height:19px;padding:0;border-radius:50%;display:inline-grid;place-items:center;font:700 11px/1 Georgia,serif;font-style:italic;color:var(--prog);background:var(--prog-soft);border:1px solid transparent;flex:none;cursor:help;vertical-align:middle}
+.i:hover,.i[aria-expanded="true"]{border-color:var(--prog)}
+#dica{position:fixed;z-index:200;max-width:340px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-left:3px solid var(--prog);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;box-shadow:0 10px 30px rgba(10,15,25,.18)}
+#dica b{color:var(--prog)}
+.guia{display:flex;gap:12px;align-items:flex-start;background:var(--prog-soft);border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:14px}
+.guia .ic{font-size:20px;line-height:1}
+.guia ol{margin:4px 0 0;padding-left:20px}
+.guia .fechar{margin-left:auto;background:none;border:0;color:var(--ink-3);padding:2px 6px}
+.proximo{display:flex;gap:12px;align-items:center;background:var(--amber-soft);border:1px solid var(--amber);border-radius:8px;padding:12px 14px;margin:14px 0}
+.proximo b{color:var(--amber)} .proximo .txt{flex:1}
+
+/* quadro */
+.filtros{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filtros input,.filtros select{width:auto;min-width:200px}
+.quadro{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:12px;align-items:start}
+.col{background:var(--rule-2);border-radius:10px;padding:10px;min-height:120px}
+.col-t{display:flex;align-items:center;gap:8px;font:600 15px "IBM Plex Sans Condensed",sans-serif;margin:2px 4px 10px}
+.col-t .cnt{color:var(--ink-3);font-weight:500}
+.cartao{display:block;width:100%;text-align:left;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:11px 12px;margin-bottom:8px;cursor:pointer;font:inherit;color:inherit}
+.cartao:hover{border-color:var(--ink-3)}
+.cartao .cod{font:600 12px "IBM Plex Sans Condensed",sans-serif;color:var(--ink-3)}
+.cartao .tt{font-weight:600;margin:2px 0 4px}
+.cartao .pr{font-size:12.5px;color:var(--ink-2)}
+.cartao .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.cartao .prox{font-size:12px;color:var(--amber);margin-top:6px}
+
+/* card aberto */
+.cab{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;background:var(--sheet);border:1px solid var(--rule);border-left:4px solid var(--steel);border-radius:8px;padding:16px 18px}
+.cab .info{flex:1;min-width:260px}
+.pdca{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.et{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:center}
+.et .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 13px "IBM Plex Sans Condensed",sans-serif;background:var(--rule-2);color:var(--ink-2);flex:none}
+.et.feita .n{background:var(--ok);color:var(--sheet)} .et.atual{border-color:var(--steel);background:var(--steel-soft)} .et.atual .n{background:var(--steel);color:var(--sheet)}
+.et b{display:block;font-size:14px} .et small{color:var(--ink-3);font-size:12px}
+.secao{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:16px 18px;margin-bottom:12px}
+.secao > header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.secao > header .num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--steel);color:var(--sheet);font:600 12px sans-serif;flex:none}
+.secao > header .st{margin-left:auto}
+.opcoes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.op{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;cursor:pointer;background:var(--paper)}
+.op:has(input:checked){border-color:var(--steel);background:var(--steel-soft)}
+.op input{width:auto;margin-top:3px} .op small{display:block;color:var(--ink-3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0}
+.kpi{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+.kpi span{display:block;font-size:12px;color:var(--ink-3)} .kpi b{font:700 22px "IBM Plex Sans Condensed",sans-serif}
+.kpi small{display:block;color:var(--ink-3);font-size:12px}
+.prova{border-radius:8px;padding:12px 14px;margin:10px 0;font-size:14px}
+.prova.comprovada{background:var(--ok-soft);border:1px solid var(--ok)} .prova.piorou{background:var(--bad-soft);border:1px solid var(--bad)}
+.prova.variacao_normal,.prova.poucos_dados,.prova.sem_mudanca{background:var(--amber-soft);border:1px solid var(--amber)}
+.sem-ind{background:var(--bad-soft);border:1px solid var(--bad);border-radius:8px;padding:10px 14px;margin:8px 0;font-size:14px}
+.grafico{width:100%;background:var(--paper);border:1px solid var(--rule);border-radius:8px;margin:8px 0}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{text-align:left;font-size:12px;color:var(--ink-3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.t td{padding:5px 6px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+table.t tr.clic{cursor:pointer} table.t tr.clic:hover td{background:var(--rule-2)}
+.lista-reg{display:flex;flex-direction:column;gap:8px}
+.reg{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font-size:14px}
+.reg .meta{font-size:12px;color:var(--ink-3);margin-bottom:4px}
+.hist{font-size:13px;color:var(--ink-2)} .hist div{padding:3px 0;border-bottom:1px dashed var(--rule-2)}
+.vazio{padding:16px;text-align:center;color:var(--ink-3)}
+dialog{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:22px;max-width:640px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+dialog h3{margin:0 0 12px;font-size:20px}
+dialog .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px}
+.toast.erro{background:var(--bad);color:#fff}
+.salvo{font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.salvo i{width:8px;height:8px;border-radius:50%;background:var(--ok)} .salvo.s i{background:var(--amber)} .salvo.e i{background:var(--bad)}
+@media (max-width:1000px){ .quadro{grid-template-columns:repeat(2,1fr)} .pdca{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:620px){ .quadro,.pdca{grid-template-columns:1fr} .wrap{padding:14px 12px 60px} .bar-in{padding:8px 12px} .tit span{display:none} }
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <div class="tit"><b>🔁 Melhoria Contínua</b><span>melhorar o que está no Fluxo interno — com prova</span></div>
+  <nav class="abas" id="abas" aria-label="Seções"></nav>
+  <span class="salvo" id="salvo"><i></i><span>Pronto</span></span>
+  <button type="button" class="primary" id="btNova">＋ Nova melhoria</button>
+  <button type="button" id="btTema" title="Alternar tema claro/escuro">◐ Tema</button>
+</div></div>
+<div class="wrap"><div id="root"><p class="cap">Carregando…</p></div></div>
+
+<dialog id="dlgNova" aria-labelledby="nvTit">
+  <h3 id="nvTit">Nova melhoria</h3>
+  <p class="cap" style="margin-top:-4px">Toda melhoria nasce de um processo que já está mapeado no <b>Fluxo interno</b>. Comece só com o essencial — o resto o sistema vai pedindo, passo a passo.</p>
+  <label class="f"><span class="rot">Processo do Fluxo interno *<button type="button" class="i" data-i="O processo (ou atividade) que você quer melhorar. A lista vem do <b>Fluxo interno</b>: se o processo não aparece, mapeie-o lá primeiro (Áreas › Cadastrar processos).">i</button></span><select id="nvProc"></select></label>
+  <label class="f" style="margin-top:10px"><span class="rot">O que você quer melhorar? *<button type="button" class="i" data-i="Um título curto, que diga o resultado desejado. Ex.: <b>Triagem de retornos mais rápida</b>, <b>Reduzir erro na nota fiscal</b>, <b>Comprar caixa de papelão mais barato</b>.">i</button></span><input id="nvTit2" placeholder="Ex.: Triagem de retornos mais rápida"></label>
+  <label class="f" style="margin-top:10px"><span class="rot">O que está acontecendo hoje?<button type="button" class="i" data-i="Descreva o problema ou a oportunidade como você vê: o que incomoda, quando acontece, quem reclama. Não precisa saber a causa ainda.">i</button></span><textarea id="nvDesc" placeholder="Ex.: a triagem leva meia hora por peça e as anotações ficam num caderno"></textarea></label>
+  <p class="msg erro" id="nvMsg"></p>
+  <div class="acts"><button type="button" id="nvNao">Cancelar</button><button type="button" class="primary" id="nvSim">Criar e começar</button></div>
+</dialog>
+
+<div id="dica" role="tooltip" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const tx = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+const nrm = (s) => tx(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+const dBR = (s) => { s = String(s || ""); return s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : ""; };
+const nf = (v, c = 1) => v == null || isNaN(v) ? "—" : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: c, minimumFractionDigits: 0 });
+const rs = (v) => v == null || isNaN(v) ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pct = (v) => v == null || isNaN(v) ? "—" : (v > 0 ? "+" : "") + nf(v, 1) + "%";
+const i = (txt) => `<button type="button" class="i" data-i="${esc(txt)}" aria-label="Ajuda">i</button>`;
+
+// ─── estado ───
+let B = { eu: {}, nivel: 0, ia: false, setores: [], processos: [] }, CARDS = [], INDS = [], PEND = [], SUG = [];
+let vista = "quadro", atual = null, filtro = { busca: "", setor: "" };
+try { const n = JSON.parse(sessionStorage.getItem("mc_nav") || "{}"); if (n.vista) { vista = n.vista; atual = n.atual || null; } } catch (_) {}
+const guardarNav = () => { try { sessionStorage.setItem("mc_nav", JSON.stringify({ vista, atual })); } catch (_) {} };
+
+async function api(url, op = {}) {
+  const r = await fetch(url, { headers: { "Content-Type": "application/json" }, cache: "no-store", ...op, body: op.body && typeof op.body !== "string" ? JSON.stringify(op.body) : op.body });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { $("#root").innerHTML = '<div class="sem-ind"><b>Sua sessão expirou.</b> Entre de novo pelo Painel.</div>'; throw new Error("sessão expirada"); }
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Erro " + r.status);
+  return j;
+}
+function toast(m, erro) { document.querySelectorAll(".toast").forEach((t) => t.remove()); const t = document.createElement("div"); t.className = "toast" + (erro ? " erro" : ""); t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), erro ? 5500 : 2600); }
+function salvo(est, txt) { const s = $("#salvo"); s.className = "salvo" + (est === "s" ? " s" : est === "e" ? " e" : ""); s.querySelector("span").textContent = txt; }
+
+// ─── (i) ajuda: passe o mouse, foque ou toque ───
+const dica = $("#dica"); let dicaDe = null;
+function mostrarDica(b) {
+  dica.innerHTML = b.dataset.i; dica.hidden = false; dicaDe = b; b.setAttribute("aria-expanded", "true");
+  const r = b.getBoundingClientRect(), w = Math.min(340, innerWidth - 16);
+  dica.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - w - 8)) + "px";
+  const h = dica.offsetHeight; dica.style.top = (r.bottom + 8 + h < innerHeight ? r.bottom + 8 : Math.max(8, r.top - h - 8)) + "px";
+}
+function esconderDica() { dica.hidden = true; if (dicaDe) dicaDe.setAttribute("aria-expanded", "false"); dicaDe = null; }
+document.addEventListener("mouseover", (e) => { const b = e.target.closest && e.target.closest(".i"); if (b) mostrarDica(b); else if (dicaDe && !dica.contains(e.target)) esconderDica(); });
+document.addEventListener("focusin", (e) => { if (e.target.classList && e.target.classList.contains("i")) mostrarDica(e.target); });
+document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".i"); if (b) { e.preventDefault(); dicaDe === b ? esconderDica() : mostrarDica(b); } else if (!dica.contains(e.target)) esconderDica(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") esconderDica(); });
+addEventListener("scroll", esconderDica, true);
+
+// ─── guia "como funciona" no topo de cada aba (dá para esconder) ───
+function guia(chave, ic, titulo, itens) {
+  let fechado = false; try { fechado = localStorage.getItem("mc_guia_" + chave) === "0"; } catch (_) {}
+  if (fechado) return `<p class="cap"><button type="button" class="peq" data-abreguia="${chave}">ⓘ Como funciona</button></p>`;
+  return `<div class="guia"><span class="ic">${ic}</span><div><b>${titulo}</b><ol>${itens.map((x) => `<li>${x}</li>`).join("")}</ol></div><button type="button" class="fechar" data-fechaguia="${chave}" title="Esconder este guia">✕</button></div>`;
+}
+function ligarGuias(c) {
+  c.querySelectorAll("[data-fechaguia]").forEach((b) => (b.onclick = () => { try { localStorage.setItem("mc_guia_" + b.dataset.fechaguia, "0"); } catch (_) {} render(); }));
+  c.querySelectorAll("[data-abreguia]").forEach((b) => (b.onclick = () => { try { localStorage.removeItem("mc_guia_" + b.dataset.abreguia); } catch (_) {} render(); }));
+}
+
+// ─── tema ───
+try { const t = localStorage.getItem("mc_tema"); if (t) document.documentElement.dataset.theme = t; } catch (_) {}
+$("#btTema").onclick = () => { const a = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const n = a === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = n; try { localStorage.setItem("mc_tema", n); } catch (_) {} };
+
+// ─── dados ───
+const ETAPAS = [["planejar", "Planejar", "P", "entender, medir o antes e planejar"], ["fazer", "Fazer", "D", "executar as ações"], ["checar", "Checar", "C", "medir o depois e comparar"], ["padronizar", "Padronizar", "A", "virar a nova IT"]];
+const NOME_ET = { planejar: "Planejar", fazer: "Fazer", checar: "Checar", padronizar: "Padronizar", concluida: "Concluída", cancelada: "Cancelada" };
+const GANHOS = [["tempo", "⏱️ Tempo", "fazer mais rápido, menos espera"], ["dinheiro", "💰 Dinheiro", "gastar menos, ganhar mais"], ["qualidade", "✅ Qualidade", "menos erro, retrabalho, reclamação"], ["organizacao", "🧭 Organização / acesso", "menos passagens de mão, quem faz o quê, acessos certos"]];
+const procPorId = (id) => B.processos.find((p) => p.id === id);
+const cardPorId = (id) => CARDS.find((c) => c.id === id);
+const indPorId = (id) => INDS.find((x) => x.id === id);
+const setorPorId = (id) => B.setores.find((s) => s.id === id);
+const setorDoProc = (p) => p && (setorPorId(p.setor_id) || B.setores.find((s) => nrm(s.nome) === nrm(p.area)));
+const pessoas = (p) => { const s = setorDoProc(p); const l = s ? s.pessoas : []; return l.length ? l : B.setores.flatMap((x) => x.pessoas); };
+const pode = (n = 2) => B.nivel >= n;
+
+async function carregar() {
+  const [b, c, i2, p] = await Promise.all([api("/api/melhoria/base"), api("/api/melhoria/cards"), api("/api/melhoria/indicadores"), api("/api/melhoria/pendencias")]);
+  B = b; CARDS = c.cards; INDS = i2.indicadores; PEND = p.pendencias;
+}
+async function recarregar() { try { await carregar(); render(); } catch (e) { toast(e.message, true); } }
+
+// ─── próximo passo de cada melhoria (o sistema diz o que fazer) ───
+function analiseLocal(c) {
+  const ind = c.indicador_id && indPorId(c.indicador_id), meds = ind ? (ind.dados.medicoes || []) : [];
+  const dm = c.data_mudanca || "";
+  return { ind, nAntes: meds.filter((m) => !dm || m.data < dm).length, nDepois: dm ? meds.filter((m) => m.data >= dm).length : 0 };
+}
+function proximoPasso(cd) {
+  const c = cd.dados, a = analiseLocal(c), et = c.etapa;
+  if (et === "concluida") return { txt: "Melhoria concluída. 🎉", sec: null };
+  if (et === "cancelada") return { txt: "Melhoria cancelada.", sec: null };
+  const semInd = !c.indicador_id && !c.sem_indicador;
+  if (et === "planejar") {
+    if (!c.triagem || !c.triagem.tipo) return { txt: "Responda a triagem: é um <b>problema</b> ou uma <b>mudança na forma de fazer</b>? E que ganho você espera.", sec: "s2" };
+    if (semInd) return { txt: "Defina o <b>indicador</b> — é ele que vai provar a melhoria. Não sabe qual? Peça a um gestor ou use 💡 Sugerir.", sec: "s3" };
+    if (a.ind && a.ind.dados.status !== "ativo") return { txt: `Aguardando o indicador ser definido por <b>${esc(((a.ind.dados.pedido || {}).delegado || (a.ind.dados.pedido || {}).para || {}).nome || "—")}</b>. Enquanto isso, monte o plano de ação.`, sec: "s6" };
+    if (a.ind && a.nAntes < 4) return { txt: `Lance os valores de <b>como está hoje</b> (linha de base): faltam ${4 - a.nAntes} de pelo menos 4.`, sec: "s4" };
+    if (!(c.acoes || []).length) return { txt: "Monte o <b>plano de ação</b>: o que vai ser feito, quem faz e até quando.", sec: "s6" };
+    return { txt: "Tudo pronto para começar. Avance para <b>Fazer</b>.", sec: null, avancar: "fazer" };
+  }
+  if (et === "fazer") {
+    const abertas = (c.acoes || []).filter((x) => x.status !== "Feita").length;
+    if (abertas) return { txt: `Execute o plano: <b>${abertas}</b> ação(ões) ainda aberta(s). Marque como <b>Feita</b> quando concluir.`, sec: "s6" };
+    if (!c.data_mudanca) return { txt: "Informe a <b>data da mudança</b> (quando a nova forma começou a valer). Ela separa o antes do depois.", sec: "s4" };
+    return { txt: "Ações feitas e data da mudança marcada. Avance para <b>Checar</b>.", sec: null, avancar: "checar" };
+  }
+  if (et === "checar") {
+    if (a.ind && a.nDepois < 4) return { txt: `Lance os valores <b>depois da mudança</b>: faltam ${4 - a.nDepois} de pelo menos 4 para ter prova.`, sec: "s4" };
+    if (!c.ganho || !Object.keys(c.ganho).length) return { txt: "Registre o <b>ganho</b> (R$, tempo ou o que mudou na organização).", sec: "s5" };
+    return { txt: "Veja o resultado no antes × depois. Melhorou? Avance para <b>Padronizar</b>. Não melhorou? Volte para <b>Planejar</b> e tente outra solução.", sec: "s4", avancar: "padronizar" };
+  }
+  if (et === "padronizar") {
+    if (!c.it_atualizada) return { txt: "Atualize a <b>IT no Fluxo interno</b> (Processos › TO BE · nova IT) para a nova forma virar regra e o Agente responder por ela. Depois marque ✓ abaixo.", sec: "s8" };
+    return { txt: "IT atualizada. <b>Conclua</b> a melhoria.", sec: null, avancar: "concluida" };
+  }
+  return { txt: "", sec: null };
+}
+function seloProva(cd) {
+  const c = cd.dados;
+  if (c.sem_indicador) return '<span class="pill p-bad">sem indicador</span>';
+  if (!c.indicador_id) return '<span class="pill p-cinza">indicador a definir</span>';
+  const ind = indPorId(c.indicador_id);
+  if (ind && ind.dados.status !== "ativo") return '<span class="pill p-amb">indicador pedido</span>';
+  const a = analiseLocal(c);
+  if (a.nDepois >= 4 && a.nAntes >= 4) return '<span class="pill p-azul">pronto para comparar</span>';
+  return `<span class="pill p-cinza">${a.nAntes}/4 antes · ${a.nDepois}/4 depois</span>`;
+}
+
+// ─── abas ───
+function desenharAbas() {
+  const ab = [["quadro", "Quadro"], ["indicadores", "Indicadores"], ["pendencias", "Minhas pendências", PEND.length], ["sugestoes", "Sugestões do Fluxo interno"]];
+  $("#abas").innerHTML = ab.map(([k, n, q]) => `<button type="button" class="aba${(vista === k || (vista === "card" && k === "quadro") || (vista === "indicador" && k === "indicadores")) ? " ativa" : ""}" data-v="${k}">${n}${q ? `<span class="n">${q}</span>` : ""}</button>`).join("");
+  document.querySelectorAll("[data-v]").forEach((b) => (b.onclick = () => ir(b.dataset.v)));
+}
+function ir(v, id) { vista = v; atual = id ?? null; guardarNav(); scrollTo(0, 0); render(); }
+function render() {
+  desenharAbas();
+  const c = $("#root");
+  if (vista === "card" && !cardPorId(atual)) vista = "quadro";
+  if (vista === "indicador" && !indPorId(atual)) vista = "indicadores";
+  ({ quadro: vQuadro, card: vCard, indicadores: vIndicadores, indicador: vIndicador, pendencias: vPendencias, sugestoes: vSugestoes })[vista](c);
+  ligarGuias(c);
+}
+
+// ═══ QUADRO ═══
+function vQuadro(c) {
+  const setores = [...new Set(CARDS.map((x) => x.dados.setor_nome).filter(Boolean))].sort();
+  const passa = (x) => (!filtro.setor || x.dados.setor_nome === filtro.setor) && (!filtro.busca || nrm([x.dados.codigo, x.dados.titulo, x.dados.processo_nome, x.dados.responsavel].join(" ")).includes(nrm(filtro.busca)));
+  const vis = CARDS.filter(passa), fim = vis.filter((x) => ["concluida", "cancelada"].includes(x.dados.etapa));
+  c.innerHTML = guia("quadro", "🔁", "Como funciona a Melhoria Contínua", [
+    "Toda melhoria nasce de um <b>processo do Fluxo interno</b>. Clique em <b>＋ Nova melhoria</b> (ou use uma <b>Sugestão do Fluxo interno</b>).",
+    "Ela anda em <b>PDCA</b>: <b>Planejar</b> (entender e medir o antes) → <b>Fazer</b> (executar) → <b>Checar</b> (medir o depois) → <b>Padronizar</b> (virar a nova IT).",
+    "O <b>indicador</b> é a prova: sem ele, a melhoria fica marcada como <b>não comprovada</b>. Se você não sabe qual usar, <b>peça a um gestor</b>.",
+    "Em cada melhoria, a faixa amarela <b>👉 Próximo passo</b> diz exatamente o que fazer agora."]) + `
+    <div class="filtros"><input id="fBusca" placeholder="Buscar melhoria, processo ou responsável…" value="${esc(filtro.busca)}">
+      <select id="fSetor"><option value="">Todos os setores</option>${setores.map((s) => `<option${s === filtro.setor ? " selected" : ""}>${esc(s)}</option>`).join("")}</select></div>
+    <div class="quadro">${ETAPAS.map(([k, n, l, d]) => { const l2 = vis.filter((x) => x.dados.etapa === k);
+      return `<section class="col"><div class="col-t">${l} · ${n} <span class="cnt">${l2.length}</span>${i(`<b>${n}</b>: ${d}.`)}</div>${l2.map(cartao).join("") || '<div class="vazio" style="padding:8px">—</div>'}</section>`; }).join("")}</div>
+    ${fim.length ? `<details style="margin-top:16px"><summary class="cap" style="cursor:pointer">Concluídas e canceladas (${fim.length})</summary><div class="grade" style="margin-top:8px">${fim.map(cartao).join("")}</div></details>` : ""}
+    ${CARDS.length ? "" : '<div class="vazio">Nenhuma melhoria ainda. Clique em <b>＋ Nova melhoria</b> ou veja as <b>Sugestões do Fluxo interno</b>.</div>'}`;
+  $("#fBusca").oninput = (e) => { filtro.busca = e.target.value; const pos = e.target.selectionStart; vQuadro(c); ligarGuias(c); const b = $("#fBusca"); b.focus(); b.setSelectionRange(pos, pos); };
+  $("#fSetor").onchange = (e) => { filtro.setor = e.target.value; render(); };
+  c.querySelectorAll("[data-card]").forEach((b) => (b.onclick = () => ir("card", b.dataset.card)));
+}
+function cartao(cd) {
+  const c = cd.dados, pp = proximoPasso(cd);
+  return `<button type="button" class="cartao" data-card="${cd.id}"><div class="cod">${esc(c.codigo)} · ${esc(c.setor_nome || "")}${c.subsetor ? " · " + esc(c.subsetor) : ""}</div>
+    <div class="tt">${esc(c.titulo)}</div><div class="pr">${esc(c.processo_codigo)} ${esc(c.processo_nome)}${c.responsavel ? ` · 👤 ${esc(c.responsavel)}` : ""}</div>
+    <div class="tags">${seloProva(cd)}${(c.triagem && c.triagem.tipo) ? `<span class="pill p-rox">${c.triagem.tipo === "problema" ? "problema" : "mudança de forma"}</span>` : ""}${((c.triagem || {}).ganhos || []).map((g) => `<span class="pill p-cinza">${esc((GANHOS.find((x) => x[0] === g) || [, g])[1])}</span>`).join("")}</div>
+    ${pp.txt && !["concluida", "cancelada"].includes(c.etapa) ? `<div class="prox">👉 ${pp.txt.replace(/<[^>]+>/g, "").slice(0, 110)}</div>` : ""}</button>`;
+}
+
+// ═══ NOVA MELHORIA ═══
+function abrirNova(pre = {}) {
+  if (!pode(2)) return toast("Seu perfil na Melhoria Contínua é só de consulta.", true);
+  const porSetor = {}; B.processos.forEach((p) => (porSetor[p.area || "(sem setor)"] = porSetor[p.area || "(sem setor)"] || []).push(p));
+  $("#nvProc").innerHTML = `<option value="">— escolha o processo —</option>` + Object.keys(porSetor).sort().map((s) => `<optgroup label="${esc(s)}">${porSetor[s].map((p) => `<option value="${p.id}"${p.id === pre.processo_id ? " selected" : ""}>${esc(p.codigo)} · ${esc(p.nome)}${p.subsetor ? " (" + esc(p.subsetor) + ")" : ""}</option>`).join("")}</optgroup>`).join("");
+  $("#nvTit2").value = pre.titulo || ""; $("#nvDesc").value = pre.descricao || ""; $("#nvMsg").textContent = "";
+  $("#dlgNova").showModal(); setTimeout(() => (pre.processo_id ? $("#nvTit2") : $("#nvProc")).focus(), 30);
+}
+$("#btNova").onclick = () => abrirNova();
+$("#nvNao").onclick = () => $("#dlgNova").close();
+$("#nvSim").onclick = async () => {
+  const m = $("#nvMsg"); if (!$("#nvProc").value) return (m.textContent = "Escolha o processo do Fluxo interno.");
+  if (!tx($("#nvTit2").value)) return (m.textContent = "Escreva o que você quer melhorar.");
+  $("#nvSim").disabled = true;
+  try { const r = await api("/api/melhoria/cards", { method: "POST", body: { dados: { processo_id: $("#nvProc").value, titulo: tx($("#nvTit2").value), descricao: $("#nvDesc").value, triagem: {}, ganho: {} } } });
+    $("#dlgNova").close(); await carregar(); ir("card", r.id); toast(`${r.dados.codigo} criada — siga o 👉 Próximo passo`); }
+  catch (e) { m.textContent = e.message; } finally { $("#nvSim").disabled = false; }
+};
+
+// ═══ CARD DE MELHORIA (gravação automática ao sair do campo) ═══
+let pendSalvar = null, salvando = Promise.resolve();
+function salvarCard(cd, redesenhar) {
+  salvo("s", "Salvando…"); clearTimeout(pendSalvar);
+  pendSalvar = setTimeout(() => { salvando = salvando.then(async () => {
+    try { const r = await api(`/api/melhoria/cards/${cd.id}`, { method: "PUT", body: { dados: cd.dados, versao: cd.versao } });
+      Object.assign(cd, { dados: r.dados, versao: r.versao }); salvo("", "Tudo salvo");
+      if (redesenhar) render(); else atualizarProximo(cd); }
+    catch (e) { salvo("e", "Não salvou"); toast(e.message + (e.message.includes("agora há pouco") ? "" : ""), true); if (e.message.includes("agora há pouco")) recarregar(); }
+  }); }, 350);
+}
+function atualizarProximo(cd) { const el = $("#proxBox"); if (el) el.outerHTML = boxProximo(cd); ligarProximo(cd); }
+function boxProximo(cd) {
+  const pp = proximoPasso(cd);
+  return `<div class="proximo" id="proxBox"><span style="font-size:20px">👉</span><div class="txt"><b>Próximo passo:</b> ${pp.txt}</div>
+    ${pp.sec ? `<button type="button" class="peq" data-ir-sec="${pp.sec}">Ir até lá</button>` : ""}
+    ${pp.avancar && pode(2) ? `<button type="button" class="${pp.avancar === "concluida" ? "ok" : "primary"} peq" data-avancar="${pp.avancar}">${pp.avancar === "concluida" ? "✓ Concluir" : "Avançar para " + NOME_ET[pp.avancar] + " ›"}</button>` : ""}</div>`;
+}
+function ligarProximo(cd) {
+  const s = document.querySelector("[data-ir-sec]"); if (s) s.onclick = () => { const el = document.getElementById(s.dataset.irSec); if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); const f = el.querySelector("input,select,textarea,button:not(.i)"); f && setTimeout(() => f.focus(), 350); } };
+  const a = document.querySelector("[data-avancar]"); if (a) a.onclick = () => mudarEtapa(cd, a.dataset.avancar);
+}
+function mudarEtapa(cd, nova) {
+  if (nova === "cancelada" && !confirm("Cancelar esta melhoria? Ela sai do quadro (fica em Concluídas e canceladas).")) return;
+  cd.dados.etapa = nova; salvarCard(cd, true); toast(`Etapa: ${NOME_ET[nova]}`);
+}
+function vCard(c) {
+  const cd = cardPorId(atual), d = cd.dados, p = procPorId(d.processo_id) || {};
+  d.triagem = d.triagem || {}; d.ganho = d.ganho || {}; ["acoes", "atas", "anotacoes"].forEach((k) => (d[k] = d[k] || []));
+  const ordem = ETAPAS.map((x) => x[0]), idx = ordem.indexOf(d.etapa);
+  const ro = !pode(2) ? "disabled" : "";
+  const listaP = pessoas(p);
+  c.innerHTML = `<div class="acoes" style="margin-top:0"><button type="button" id="cVoltar">← Quadro</button></div>
+  <div class="cab"><div class="info"><div class="muted" style="font-size:13px">${esc(d.codigo)} · ${esc(d.setor_nome || "")}${d.subsetor ? " · " + esc(d.subsetor) : ""} · etapa <b>${NOME_ET[d.etapa]}</b></div>
+    <h1>${esc(d.titulo)}</h1><div class="muted">Processo do Fluxo interno: <b>${esc(d.processo_codigo)} ${esc(d.processo_nome)}</b>${p.horas_mes ? ` · consome ${nf(p.horas_mes)} h/mês` : ""}${p.gaps && (p.gaps.divergente || p.gaps.sem_it) ? ` · ${p.gaps.divergente} passo(s) diferente(s) da IT, ${p.gaps.sem_it} sem IT` : ""}</div></div>
+    <div>${seloProva(cd)}</div></div>
+  <nav class="pdca">${ETAPAS.map(([k, n, l, ds], j) => `<div class="et ${d.etapa === k ? "atual" : (idx > j || d.etapa === "concluida") ? "feita" : ""}"><span class="n">${(idx > j || d.etapa === "concluida") ? "✓" : l}</span><span><b>${n}</b><small>${ds}</small></span></div>`).join("")}</nav>
+  ${boxProximo(cd)}
+
+  <section class="secao" id="s1"><header><span class="num">1</span><h2>O quê e onde</h2>${i("O que se quer melhorar, o que acontece hoje e quem conduz a melhoria. O processo vem do Fluxo interno e não muda aqui.")}</header>
+    <div class="grade"><label class="f"><span class="rot">O que você quer melhorar ${i("O resultado desejado, em poucas palavras.")}</span><input data-c="titulo" value="${esc(d.titulo)}" ${ro}></label>
+      <label class="f"><span class="rot">Quem conduz ${i("A pessoa responsável por fazer a melhoria andar (não precisa fazer tudo sozinha). Vem do Organograma.")}</span><input data-c="responsavel" list="dlPessoas" value="${esc(d.responsavel || "")}" ${ro}></label></div>
+    <label class="f" style="margin-top:10px"><span class="rot">O que está acontecendo hoje ${i("O problema ou a oportunidade, do jeito que você vê. Fatos ajudam: quanto, quando, quem reclama.")}</span><textarea data-c="descricao" ${ro}>${esc(d.descricao || "")}</textarea></label>
+    <datalist id="dlPessoas">${listaP.map((x) => `<option value="${esc(x.nome)}">${esc(x.cargo || "")}</option>`).join("")}</datalist></section>
+
+  <section class="secao" id="s2"><header><span class="num">2</span><h2>Triagem</h2>${i("Duas perguntas que definem o caminho. <b>Problema</b>: o resultado está ruim e a causa não é clara — é preciso investigar a causa antes de mudar. <b>Mudança de forma</b>: já se sabe o que mudar — vai direto para o plano.")}${d.triagem.tipo ? '<span class="st pill p-ok">✓ feita</span>' : '<span class="st pill p-amb">a fazer</span>'}</header>
+    <div class="opcoes" style="margin-top:8px">
+      <label class="op"><input type="radio" name="tipo" value="problema" ${d.triagem.tipo === "problema" ? "checked" : ""} ${ro}><span><b>É um problema</b><small>O resultado está ruim e não sei bem a causa. (Na parte 2, o sistema sugere 5 Porquês / Ishikawa.)</small></span></label>
+      <label class="op"><input type="radio" name="tipo" value="mudanca" ${d.triagem.tipo === "mudanca" ? "checked" : ""} ${ro}><span><b>É mudar a forma de fazer</b><small>Já sei o que mudar: um passo, uma compra, um acesso, quem faz.</small></span></label></div>
+    <div class="rot" style="margin:14px 0 6px;font-size:13px;color:var(--ink-2);display:flex;gap:6px;align-items:center">Que ganho você espera? (pode marcar mais de um) ${i("Ajuda a escolher o indicador e a registrar o ganho no fim. Tempo e dinheiro dão número; organização/acesso também vale (ex.: tirar uma passagem de mão, dar acesso a quem precisa, tirar de quem trava).")}</div>
+    <div class="opcoes">${GANHOS.map(([k, n, ds]) => `<label class="op"><input type="checkbox" data-ganho="${k}" ${(d.triagem.ganhos || []).includes(k) ? "checked" : ""} ${ro}><span><b>${n}</b><small>${ds}</small></span></label>`).join("")}</div>
+    <label class="f" style="margin-top:10px"><span class="rot">O que você espera com a melhoria ${i("Uma frase com o resultado esperado. Ex.: <b>triagem de 30 para 15 min por peça</b>; <b>caixa de R$ 1,00 para R$ 0,70</b>.")}</span><input data-t="esperado" value="${esc(d.triagem.esperado || "")}" placeholder="Ex.: triagem de 30 para 15 min por peça" ${ro}></label></section>
+
+  <section class="secao" id="s3"><header><span class="num">3</span><h2>Indicador — a prova da melhoria</h2>${i("O indicador é um <b>número medido ao longo do tempo</b> (não um % de meta). Ele guarda o <b>antes</b> e o <b>depois</b> da mudança — é assim que se prova que a ação X melhorou o resultado. O indicador é do <b>processo</b>: serve para outras melhorias do mesmo processo.")}${d.indicador_id ? ((indPorId(d.indicador_id) || { dados: {} }).dados.status === "ativo" ? '<span class="st pill p-ok">✓ definido</span>' : '<span class="st pill p-amb">⏳ pedido</span>') : d.sem_indicador ? '<span class="st pill p-bad">sem indicador</span>' : '<span class="st pill p-amb">a definir</span>'}</header>
+    <div id="indBox"></div></section>
+
+  <section class="secao" id="s4"><header><span class="num">4</span><h2>Antes × depois</h2>${i("Lance os valores do indicador com data. Tudo antes da <b>data da mudança</b> é a <b>linha de base</b>; a partir dela, é o <b>resultado</b>. Com pelo menos 4 valores de cada lado, o sistema diz se a melhoria é <b>comprovada</b> (a média depois saiu da variação normal do antes) ou se <b>pode ser acaso</b>.")}</header>
+    <div id="resBox"><p class="cap">Defina o indicador (seção 3) para ver o antes × depois.</p></div></section>
+
+  <section class="secao" id="s5"><header><span class="num">5</span><h2>Ganho</h2>${i("Quanto a melhoria rende. <b>Custo</b>: preço unitário antes e depois × quantidade por mês. <b>Tempo</b>: minutos por vez antes e depois × vezes por mês (o Fluxo interno já tem esses números em Como é feito hoje). <b>Organização/acesso</b>: descreva o que mudou.")}</header>
+    <div id="ganhoBox"></div></section>
+
+  <section class="secao" id="s6"><header><span class="num">6</span><h2>Plano de ação</h2>${i("O que vai ser feito, quem faz e até quando. Cada pessoa vê as ações dela em <b>Minhas pendências</b>, com aviso quando atrasar. Na etapa <b>Fazer</b>, marque cada ação como <b>Feita</b>.")}<span class="st muted" style="font-size:13px">${d.acoes.filter((x) => x.status === "Feita").length}/${d.acoes.length} feita(s)</span></header>
+    <div id="acoesBox"></div></section>
+
+  <section class="secao" id="s7"><header><span class="num">7</span><h2>ATAs e anotações</h2>${i("<b>ATA</b>: registro de uma reunião sobre a melhoria (quem participou e o que se decidiu). <b>Anotação</b>: qualquer observação rápida, com data e autor.")}</header>
+    <div id="atasBox"></div></section>
+
+  <section class="secao" id="s8"><header><span class="num">8</span><h2>Padronizar e encerrar</h2>${i("Uma melhoria só termina quando a nova forma vira <b>regra</b>: atualize a IT do processo no Fluxo interno (Processos › TO BE · nova IT). Assim o Agente passa a responder pela forma nova. Na parte 2, isso será feito daqui com um clique.")}</header>
+    <label class="op" style="max-width:520px"><input type="checkbox" id="itOk" ${d.it_atualizada ? "checked" : ""} ${ro}><span><b>A IT do processo foi atualizada no Fluxo interno</b><small>Marque depois de aprovar a nova IT em Processos.</small></span></label>
+    <div class="acoes">${pode(2) && d.etapa !== "planejar" && !["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq" id="cVoltaPlan">↺ Não melhorou — voltar para Planejar</button>` : ""}
+      ${pode(2) && !["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq warn" id="cCancelar">Cancelar melhoria</button>` : ""}
+      ${pode(2) && ["concluida", "cancelada"].includes(d.etapa) ? `<button type="button" class="peq" id="cReabrir">Reabrir</button>` : ""}
+      ${pode(3) ? `<button type="button" class="peq warn" id="cExcluir">Excluir</button>` : ""}</div>
+    <h3>Histórico</h3><div class="hist">${(d.historico || []).slice().reverse().map((h) => `<div>${dBR(h.em)} · <b>${esc(h.por || "")}</b> — ${esc(h.texto)}</div>`).join("") || "—"}</div></section>`;
+
+  $("#cVoltar").onclick = () => ir("quadro");
+  c.querySelectorAll("[data-c]").forEach((el) => el.addEventListener("change", () => { d[el.dataset.c] = el.value; salvarCard(cd); }));
+  c.querySelectorAll("[name=tipo]").forEach((el) => (el.onchange = () => { d.triagem.tipo = el.value; salvarCard(cd, true); }));
+  c.querySelectorAll("[data-ganho]").forEach((el) => (el.onchange = () => { const s = new Set(d.triagem.ganhos || []); el.checked ? s.add(el.dataset.ganho) : s.delete(el.dataset.ganho); d.triagem.ganhos = [...s]; salvarCard(cd, true); }));
+  c.querySelectorAll("[data-t]").forEach((el) => el.addEventListener("change", () => { d.triagem[el.dataset.t] = el.value; salvarCard(cd); }));
+  const it = $("#itOk"); it.onchange = () => { d.it_atualizada = it.checked; salvarCard(cd, true); };
+  const vp = $("#cVoltaPlan"); if (vp) vp.onclick = () => { if (confirm("Voltar para Planejar? O histórico fica guardado; você pode ajustar o plano e tentar outra solução.")) mudarEtapa(cd, "planejar"); };
+  const cc = $("#cCancelar"); if (cc) cc.onclick = () => mudarEtapa(cd, "cancelada");
+  const cr = $("#cReabrir"); if (cr) cr.onclick = () => mudarEtapa(cd, "planejar");
+  const cx = $("#cExcluir"); if (cx) cx.onclick = async () => { if (!confirm(`Excluir ${d.codigo}? (fica guardado no banco como excluído)`)) return; try { await api(`/api/melhoria/cards/${cd.id}`, { method: "DELETE" }); await carregar(); ir("quadro"); } catch (e) { toast(e.message, true); } };
+  ligarProximo(cd);
+  secIndicador(cd, p); secResultado(cd); secGanho(cd, p); secAcoes(cd, listaP); secAtas(cd);
+}
+
+// ─── 3 · indicador ───
+function secIndicador(cd, p) {
+  const d = cd.dados, box = $("#indBox"), ro = !pode(2);
+  const ind = d.indicador_id && indPorId(d.indicador_id);
+  if (ind) {
+    const x = ind.dados, ped = x.pedido || {}, alvo = ped.delegado || ped.para;
+    box.innerHTML = x.status === "ativo" ? `<div class="kpis"><div class="kpi"><span>Indicador</span><b style="font-size:17px">${esc(x.nome)}</b><small>${esc(x.o_que_mede || "")}</small></div>
+        <div class="kpi"><span>Unidade · sentido</span><b style="font-size:17px">${esc(x.unidade || "—")} · ${x.sentido === "menor" ? "⬇ menor é melhor" : "⬆ maior é melhor"}</b></div>
+        <div class="kpi"><span>Meta</span><b style="font-size:17px">${x.meta !== undefined && x.meta !== "" ? esc(x.meta) : "—"}</b><small>${esc(x.frequencia || "")} · mede: ${esc(x.quem_mede || "—")}</small></div></div>
+        <div class="acoes"><button type="button" class="peq" data-abre-ind="${ind.id}">Abrir o indicador (lançar valores, editar)</button>${ro ? "" : '<button type="button" class="peq" id="indTrocar">Trocar indicador</button>'}</div>`
+      : `<div class="sem-ind" style="background:var(--amber-soft);border-color:var(--amber)"><b>⏳ Indicador pedido</b> a <b>${esc((alvo || {}).nome || "—")}</b>${ped.em ? ` em ${dBR(ped.em)}` : ""}. Quando a pessoa preencher, ele aparece aqui e você já pode lançar os valores do antes.</div>
+        <div class="acoes"><button type="button" class="peq" data-abre-ind="${ind.id}">Ver o pedido</button>${ro ? "" : '<button type="button" class="peq" id="indTrocar">Trocar</button>'}</div>`;
+    box.querySelectorAll("[data-abre-ind]").forEach((b) => (b.onclick = () => ir("indicador", b.dataset.abreInd)));
+    const tr = $("#indTrocar"); if (tr) tr.onclick = () => { d.indicador_id = ""; salvarCard(cd, true); };
+    return;
+  }
+  const doProc = INDS.filter((x) => x.dados.processo_id === d.processo_id);
+  box.innerHTML = `${d.sem_indicador ? '<div class="sem-ind">⚠️ <b>Melhoria sem indicador — não comprovada.</b> Ela pode seguir, mas no fim não dá para provar que melhorou. Você pode definir um indicador a qualquer momento.</div>' : ""}
+    <p class="cap">Escolha um caminho:</p>
+    <div class="opcoes">
+      ${doProc.length ? `<div class="op" style="display:block"><b>Usar um indicador deste processo</b> ${i("Indicadores que já existem para este processo (de outras melhorias ou pedidos). Usar o mesmo mantém a história completa.")}
+        <select id="indExist" style="margin-top:6px" ${ro ? "disabled" : ""}><option value="">— escolha —</option>${doProc.map((x) => `<option value="${x.id}">${esc(x.dados.nome || "(pedido em aberto)")} · ${esc(x.dados.status)}</option>`).join("")}</select></div>` : ""}
+      <div class="op" style="display:block"><b>Criar agora</b> ${i("Se você já sabe o que medir. Ex.: <b>Tempo médio de triagem</b> (min, menor é melhor, semanal).")}<div class="acoes" style="margin:6px 0 0"><button type="button" class="peq" id="indCriar" ${ro ? "disabled" : ""}>Criar indicador</button>
+        <button type="button" class="peq" id="indSug" ${ro ? "disabled" : ""}>💡 Sugerir${B.ia ? " (IA)" : ""}</button></div></div>
+      <div class="op" style="display:block"><b>Pedir a um gestor</b> ${i("Sem indicador não há prova. Se você não sabe qual usar ou não tem o dado, peça ao gestor do processo: ele recebe o pedido em <b>Minhas pendências</b> e pode preencher ou <b>delegar</b> a alguém do time.")}<div class="acoes" style="margin:6px 0 0"><button type="button" class="peq primary" id="indPedir" ${ro ? "disabled" : ""}>Pedir indicador</button></div></div>
+      ${d.sem_indicador ? "" : `<div class="op" style="display:block"><b>Seguir sem indicador</b> ${i("Possível, mas a melhoria fica marcada como <b>não comprovada</b>. Use só quando não houver número a medir (ex.: uma mudança de acesso).")}<div class="acoes" style="margin:6px 0 0"><button type="button" class="peq warn" id="indSem" ${ro ? "disabled" : ""}>Seguir sem indicador</button></div></div>`}
+    </div><div id="indForm"></div>`;
+  const ex = $("#indExist"); if (ex) ex.onchange = () => { if (!ex.value) return; d.indicador_id = ex.value; d.sem_indicador = false; salvarCard(cd, true); };
+  const sem = $("#indSem"); if (sem) sem.onclick = () => { if (!confirm("Seguir sem indicador?\n\nA melhoria fica marcada como NÃO COMPROVADA — no fim não será possível provar que melhorou.")) return; d.sem_indicador = true; salvarCard(cd, true); };
+  const cri = $("#indCriar"); if (cri) cri.onclick = () => formIndicador(cd, p, {});
+  const sug = $("#indSug"); if (sug) sug.onclick = async () => { sug.disabled = true; sug.textContent = "Pensando…";
+    try { const r = await api("/api/melhoria/ia/indicador", { method: "POST", body: { processo_id: d.processo_id, ganhos: (d.triagem || {}).ganhos || [], descricao: d.titulo + ". " + (d.descricao || "") } });
+      $("#indForm").innerHTML = `<h3>Sugestões ${r.fonte === "ia" ? "da IA" : "(padrão, pelo ganho esperado)"} ${i("Clique numa sugestão para usar como ponto de partida — você ajusta antes de criar.")}</h3><div class="opcoes">${r.sugestoes.map((s, k) => `<button type="button" class="op" style="display:block;text-align:left" data-sg="${k}"><b>${esc(s.nome)}</b><small>${esc(s.o_que_mede || "")} · ${esc(s.unidade || "")} · ${s.sentido === "menor" ? "menor é melhor" : "maior é melhor"} · ${esc(s.frequencia || "")}</small></button>`).join("")}</div>`;
+      document.querySelectorAll("[data-sg]").forEach((b) => (b.onclick = () => formIndicador(cd, p, r.sugestoes[+b.dataset.sg]))); }
+    catch (e) { toast(e.message, true); } finally { sug.disabled = false; sug.textContent = "💡 Sugerir" + (B.ia ? " (IA)" : ""); } };
+  const ped = $("#indPedir"); if (ped) ped.onclick = () => formPedido(cd, p);
+}
+function camposIndicador(x) {
+  return `<div class="grade">
+    <label class="f"><span class="rot">Nome do indicador * ${i("Curto e claro. Ex.: <b>Tempo médio de triagem</b>, <b>% de notas com erro</b>, <b>Custo da caixa de papelão</b>.")}</span><input id="iNome" value="${esc(x.nome || "")}"></label>
+    <label class="f"><span class="rot">O que mede (e como) ${i("Como o número é obtido. Ex.: <b>minutos do recebimento da peça até o destino definido; média da semana</b>. Ajuda quem vai medir a fazer sempre do mesmo jeito.")}</span><input id="iOque" value="${esc(x.o_que_mede || "")}"></label>
+    <label class="f"><span class="rot">Unidade ${i("Em que o número é medido: %, min, h, R$, qtd…")}</span><input id="iUn" list="dlUn" value="${esc(x.unidade || "")}"><datalist id="dlUn"><option>%</option><option>min</option><option>h</option><option>R$</option><option>qtd</option><option>dias</option></datalist></label>
+    <label class="f"><span class="rot">Sentido ${i("Para o sistema saber se subir é bom ou ruim. Tempo e custo: <b>menor é melhor</b>. Vendas e acertos: <b>maior é melhor</b>.")}</span><select id="iSent"><option value="menor"${x.sentido === "menor" ? " selected" : ""}>⬇ menor é melhor</option><option value="maior"${x.sentido === "maior" ? " selected" : ""}>⬆ maior é melhor</option></select></label>
+    <label class="f"><span class="rot">Frequência ${i("De quanto em quanto tempo o valor é lançado. O sistema lembra quem mede quando atrasar.")}</span><select id="iFreq">${[["diaria", "Diária"], ["semanal", "Semanal"], ["quinzenal", "Quinzenal"], ["mensal", "Mensal"]].map(([k, n]) => `<option value="${k}"${(x.frequencia || "semanal") === k ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+    <label class="f"><span class="rot">Meta ${i("O valor que se quer alcançar. Opcional — mas com a meta o gráfico mostra a distância até ela.")}</span><input id="iMeta" value="${esc(x.meta ?? "")}" placeholder="Ex.: 15"></label>
+    <label class="f"><span class="rot">Quem mede ${i("A pessoa que lança os valores. Ela recebe o lembrete em Minhas pendências.")}</span><input id="iQuem" list="dlPessoas" value="${esc(x.quem_mede || "")}"></label></div>`;
+}
+function lerCamposIndicador(base) {
+  const quem = tx($("#iQuem").value), pes = B.setores.flatMap((s) => s.pessoas).find((x) => nrm(x.nome) === nrm(quem));
+  return { ...base, nome: tx($("#iNome").value), o_que_mede: tx($("#iOque").value), unidade: tx($("#iUn").value), sentido: $("#iSent").value, frequencia: $("#iFreq").value,
+    meta: tx($("#iMeta").value), quem_mede: quem, quem_mede_email: pes ? pes.email : (base.quem_mede_email || "") };
+}
+function formIndicador(cd, p, pre) {
+  const f = $("#indForm");
+  f.innerHTML = `<h3>Novo indicador do processo ${esc(p.codigo || "")}</h3>${camposIndicador({ sentido: "menor", frequencia: "semanal", quem_mede: cd.dados.responsavel, ...pre })}
+    <div class="acoes"><button type="button" class="primary" id="iSalvar">Criar e usar nesta melhoria</button><button type="button" id="iCancel">Cancelar</button><span class="msg erro" id="iMsg"></span></div>`;
+  f.scrollIntoView({ behavior: "smooth", block: "nearest" }); $("#iNome").focus();
+  $("#iCancel").onclick = () => (f.innerHTML = "");
+  $("#iSalvar").onclick = async () => { const dados = lerCamposIndicador({ processo_id: cd.dados.processo_id, processo_nome: cd.dados.processo_nome, processo_codigo: cd.dados.processo_codigo, setor_nome: cd.dados.setor_nome });
+    if (!dados.nome) return ($("#iMsg").textContent = "Dê um nome ao indicador.");
+    try { const r = await api("/api/melhoria/indicadores", { method: "POST", body: { dados } }); INDS.push(r); cd.dados.indicador_id = r.id; cd.dados.sem_indicador = false; salvarCard(cd, true);
+      toast("Indicador criado — agora lance os valores de como está hoje (seção 4)"); } catch (e) { $("#iMsg").textContent = e.message; } };
+}
+function formPedido(cd, p) {
+  const f = $("#indForm"), s = setorDoProc(p), lista = s ? s.pessoas : [];
+  const sug = lista.filter((x) => nrm(x.nome) === nrm(s && s.responsavel))[0] || lista.slice().sort((a, b) => (a.nivel || "Z").localeCompare(b.nivel || "Z"))[0];
+  f.innerHTML = `<h3>Pedir o indicador a um gestor</h3>
+    <div class="grade"><label class="f"><span class="rot">Para quem * ${i("O gestor do processo (vem do Organograma). Ele vê o pedido em <b>Minhas pendências</b> e pode preencher ou delegar. Se a pessoa não tiver e-mail no Organograma, avise-a pessoalmente.")}</span>
+      <input id="pPara" list="dlPessoas" value="${esc(sug ? sug.nome : "")}"></label>
+      <label class="f"><span class="rot">Recado ${i("Explique o que você quer medir e por quê. Quanto mais claro, mais rápido vem o indicador.")}</span><input id="pMsg" placeholder="Ex.: precisamos medir o tempo da triagem para provar a melhoria"></label></div>
+    <div class="acoes"><button type="button" class="primary" id="pEnviar">Enviar pedido</button><button type="button" id="pCancel">Cancelar</button><span class="msg erro" id="pErro"></span></div>`;
+  f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  $("#pCancel").onclick = () => (f.innerHTML = "");
+  $("#pEnviar").onclick = async () => { const nome = tx($("#pPara").value); if (!nome) return ($("#pErro").textContent = "Escolha para quem.");
+    const pes = B.setores.flatMap((x) => x.pessoas).find((x) => nrm(x.nome) === nrm(nome));
+    try { const r = await api("/api/melhoria/indicadores", { method: "POST", body: { dados: { processo_id: cd.dados.processo_id, processo_nome: cd.dados.processo_nome, processo_codigo: cd.dados.processo_codigo, setor_nome: cd.dados.setor_nome } } });
+      const r2 = await api(`/api/melhoria/indicadores/${r.id}/pedido`, { method: "POST", body: { para_nome: nome, para_email: pes ? pes.email : "", mensagem: tx($("#pMsg").value) } });
+      INDS.push(r2.indicador); cd.dados.indicador_id = r.id; cd.dados.sem_indicador = false; salvarCard(cd, true);
+      toast(`Pedido enviado a ${nome}${pes && pes.email ? "" : " — sem e-mail no Organograma: avise pessoalmente"}`); }
+    catch (e) { $("#pErro").textContent = e.message; } };
+}
+
+// ─── 4 · antes × depois ───
+async function secResultado(cd) {
+  const d = cd.dados, box = $("#resBox"), ind = d.indicador_id && indPorId(d.indicador_id), ro = !pode(2);
+  const campoData = `<label class="f" style="max-width:260px"><span class="rot">Data da mudança ${i("O dia em que a nova forma começou a valer. Tudo antes é o <b>antes</b> (linha de base); a partir dela, o <b>depois</b>. Marque na etapa <b>Fazer</b>, quando a mudança for implantada.")}</span><input type="date" id="rData" value="${esc(d.data_mudanca || "")}" ${ro ? "disabled" : ""}></label>`;
+  if (!ind || ind.dados.status !== "ativo") { box.innerHTML = (d.sem_indicador ? '<p class="cap">Sem indicador: não há antes × depois para comparar.</p>' : '<p class="cap">Defina o indicador (seção 3) para ver o antes × depois.</p>') + campoData; ligarData(cd); return; }
+  box.innerHTML = '<p class="cap">Calculando…</p>';
+  let r; try { r = await api(`/api/melhoria/cards/${cd.id}/resultado`); } catch (e) { box.innerHTML = `<p class="msg erro">${esc(e.message)}</p>`; return; }
+  const cp = r.comparacao || {}, x = ind.dados, un = x.unidade ? " " + x.unidade : "";
+  box.innerHTML = `<div class="grade" style="align-items:end">${campoData}<div class="acoes" style="margin:0"><button type="button" class="primary peq" id="rLancar" ${ro ? "disabled" : ""}>＋ Lançar valores</button><button type="button" class="peq" data-abre-ind="${ind.id}">Ver todos os lançamentos</button></div></div>
+    <div id="rForm"></div>
+    ${grafico(x, d.data_mudanca)}
+    <div class="kpis"><div class="kpi"><span>Antes (linha de base)</span><b>${nf(cp.antes && cp.antes.media, 2)}${un}</b><small>${(cp.antes || {}).n || 0} valor(es)</small></div>
+      <div class="kpi"><span>Depois</span><b>${nf(cp.depois && cp.depois.media, 2)}${un}</b><small>${(cp.depois || {}).n || 0} valor(es)</small></div>
+      <div class="kpi"><span>Variação</span><b>${pct(cp.variacao_pct)}</b><small>${x.sentido === "menor" ? "menor é melhor" : "maior é melhor"}</small></div>
+      <div class="kpi"><span>Meta</span><b>${x.meta !== "" && x.meta != null ? esc(x.meta) + un : "—"}</b><small>${esc(x.frequencia || "")}</small></div></div>
+    <div class="prova ${cp.situacao || ""}">${({ comprovada: "✅", piorou: "🔻", variacao_normal: "〰️", poucos_dados: "⏳", sem_mudanca: "📌" })[cp.situacao] || ""} ${esc(cp.texto || "")}
+      ${cp.situacao !== "sem_mudanca" && cp.antes && cp.antes.media != null ? `<div class="muted" style="font-size:12.5px;margin-top:4px">Variação normal do antes: de ${nf(cp.limite_inf, 2)} a ${nf(cp.limite_sup, 2)}${un} (média ± 2 desvios).</div>` : ""}</div>`;
+  ligarData(cd);
+  box.querySelectorAll("[data-abre-ind]").forEach((b) => (b.onclick = () => ir("indicador", b.dataset.abreInd)));
+  const bl = $("#rLancar"); if (bl) bl.onclick = () => formLancar($("#rForm"), ind, () => vCard($("#root")));
+}
+function ligarData(cd) { const el = $("#rData"); if (el) el.onchange = () => { cd.dados.data_mudanca = el.value; salvarCard(cd, true); }; }
+function formLancar(alvo, ind, depois) {
+  alvo.innerHTML = `<div class="secao" style="background:var(--paper)"><b>Lançar valores de “${esc(ind.dados.nome)}”</b> ${i("Um valor por linha: <b>data e valor</b>, separados por espaço, tab ou ponto e vírgula. Dá para colar direto do Excel. Ex.: <b>01/10/2026 30</b>. Se a data já existir, vale o valor novo.")}
+    <div class="grade" style="margin-top:8px"><label class="f">Data<input type="date" id="lData" value="${hojeISO()}"></label><label class="f">Valor${ind.dados.unidade ? " (" + esc(ind.dados.unidade) + ")" : ""}<input id="lValor" inputmode="decimal" placeholder="Ex.: 28,5"></label><label class="f">Observação (opcional)<input id="lObs"></label></div>
+    <details style="margin-top:8px"><summary class="cap" style="cursor:pointer">Colar várias linhas (do Excel ou de um relatório)</summary><textarea id="lColar" placeholder="01/10/2026	30&#10;08/10/2026	32,5&#10;15/10/2026	31"></textarea></details>
+    <div class="acoes"><button type="button" class="primary" id="lOk">Lançar</button><button type="button" id="lNao">Fechar</button><span class="msg" id="lMsg"></span></div></div>`;
+  $("#lValor").focus();
+  $("#lNao").onclick = () => (alvo.innerHTML = "");
+  $("#lOk").onclick = async () => {
+    const valores = [];
+    const col = $("#lColar").value.trim();
+    if (col) col.split(/\r?\n/).forEach((l) => { const m = l.trim().match(/^(\S+)[\s;\t]+(.+?)(?:[\s;\t]+(.*))?$/); if (m) valores.push({ data: m[1], valor: m[2], obs: m[3] || "" }); });
+    if (tx($("#lValor").value)) valores.push({ data: $("#lData").value, valor: $("#lValor").value, obs: $("#lObs").value });
+    if (!valores.length) return ($("#lMsg").className = "msg erro", $("#lMsg").textContent = "Informe um valor (ou cole as linhas).");
+    try { const r = await api(`/api/melhoria/indicadores/${ind.id}/medicoes`, { method: "POST", body: { valores } });
+      Object.assign(ind, { dados: r.indicador.dados, versao: r.indicador.versao }); PEND = (await api("/api/melhoria/pendencias")).pendencias;
+      toast(`${r.lancados} valor(es) lançado(s)` + (r.erros.length ? ` · ${r.erros.length} linha(s) ignorada(s)` : "")); depois(); }
+    catch (e) { $("#lMsg").className = "msg erro"; $("#lMsg").textContent = e.message; } };
+}
+// gráfico: valores no tempo, meta (tracejada), médias antes/depois e a data da mudança
+function grafico(x, dm) {
+  const ms = (x.medicoes || []).filter((m) => m.data && m.valor != null).sort((a, b) => a.data.localeCompare(b.data));
+  if (!ms.length) return '<div class="vazio grafico">Nenhum valor lançado ainda. Clique em <b>＋ Lançar valores</b> e comece pelo <b>como está hoje</b>.</div>';
+  const W = 900, H = 260, L = 56, R = 16, T = 16, Bm = 34;
+  const t = (s) => new Date(s + "T12:00:00").getTime();
+  const t0 = t(ms[0].data), t1 = Math.max(t(ms[ms.length - 1].data), t0 + 86400000);
+  const meta = parseFloat(String(x.meta || "").replace(",", "."));
+  const vs = ms.map((m) => m.valor).concat(isNaN(meta) ? [] : [meta]);
+  let y0 = Math.min(...vs), y1 = Math.max(...vs); if (y0 === y1) { y0 -= 1; y1 += 1; } const pad = (y1 - y0) * 0.12; y0 -= pad; y1 += pad;
+  const X = (d) => L + (t(d) - t0) / (t1 - t0) * (W - L - R), Y = (v) => T + (1 - (v - y0) / (y1 - y0)) * (H - T - Bm);
+  const media = (l) => l.length ? l.reduce((a, b) => a + b.valor, 0) / l.length : null;
+  const antes = dm ? ms.filter((m) => m.data < dm) : ms, depois = dm ? ms.filter((m) => m.data >= dm) : [];
+  const ma = media(antes), md = media(depois);
+  const ticks = [0, .25, .5, .75, 1].map((f) => y0 + f * (y1 - y0));
+  let s = `<svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico do indicador">`;
+  ticks.forEach((v) => (s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--rule-2)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)">${nf(v, 1)}</text>`));
+  if (!isNaN(meta)) s += `<line x1="${L}" x2="${W - R}" y1="${Y(meta)}" y2="${Y(meta)}" stroke="var(--ok)" stroke-dasharray="6 5" stroke-width="1.5"/><text x="${W - R}" y="${Y(meta) - 5}" text-anchor="end" font-size="11" fill="var(--ok)">meta ${esc(x.meta)}</text>`;
+  if (dm && t(dm) >= t0 && t(dm) <= t1) s += `<line x1="${X(dm)}" x2="${X(dm)}" y1="${T}" y2="${H - Bm}" stroke="var(--amber)" stroke-width="2"/><text x="${X(dm) + 4}" y="${T + 11}" font-size="11" fill="var(--amber)">mudança ${dBR(dm).slice(0, 5)}</text>`;
+  if (ma != null && antes.length) s += `<line x1="${X(antes[0].data)}" x2="${X(antes[antes.length - 1].data)}" y1="${Y(ma)}" y2="${Y(ma)}" stroke="var(--ink-3)" stroke-width="2" stroke-dasharray="2 3"/><text x="${X(antes[0].data)}" y="${Y(ma) - 5}" font-size="11" fill="var(--ink-3)">média antes ${nf(ma, 1)}</text>`;
+  if (md != null) s += `<line x1="${X(depois[0].data)}" x2="${X(depois[depois.length - 1].data)}" y1="${Y(md)}" y2="${Y(md)}" stroke="var(--prog)" stroke-width="2" stroke-dasharray="2 3"/><text x="${X(depois[depois.length - 1].data)}" y="${Y(md) - 5}" text-anchor="end" font-size="11" fill="var(--prog)">média depois ${nf(md, 1)}</text>`;
+  s += `<polyline fill="none" stroke="var(--steel)" stroke-width="2" points="${ms.map((m) => `${X(m.data)},${Y(m.valor)}`).join(" ")}"/>`;
+  ms.forEach((m) => (s += `<circle cx="${X(m.data)}" cy="${Y(m.valor)}" r="4" fill="${dm && m.data >= dm ? "var(--prog)" : "var(--ink-3)"}"><title>${dBR(m.data)}: ${nf(m.valor, 2)}${m.obs ? " — " + esc(m.obs) : ""}</title></circle>`));
+  const nt = Math.min(6, ms.length); for (let k = 0; k < nt; k++) { const m = ms[Math.round(k * (ms.length - 1) / Math.max(1, nt - 1))]; s += `<text x="${X(m.data)}" y="${H - 12}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${dBR(m.data).slice(0, 5)}</text>`; }
+  return s + "</svg>";
+}
+
+// ─── 5 · ganho ───
+async function secGanho(cd, p) {
+  const d = cd.dados, g = d.ganho = d.ganho || {}, box = $("#ganhoBox"), ro = !pode(2) ? "disabled" : "";
+  g.custo = g.custo || {}; g.tempo = g.tempo || {};
+  const fx = (k, sub, rot, dica, ph) => `<label class="f"><span class="rot">${rot} ${i(dica)}</span><input inputmode="decimal" data-g="${k}.${sub}" value="${esc(g[k][sub] ?? "")}" placeholder="${ph ? "ex.: " + ph : ""}" ${ro}></label>`;
+  box.innerHTML = `<h3 style="margin-top:0">💰 Custo</h3><div class="grade">
+      ${fx("custo", "antes", "Custo unitário ANTES (R$)", "Quanto custava cada unidade/execução antes. Ex.: <b>1,00</b>.", "1,00")}
+      ${fx("custo", "depois", "Custo unitário DEPOIS (R$)", "Quanto passou a custar. Ex.: <b>0,50</b>.", "0,50")}
+      ${fx("custo", "qtd_mes", "Quantidade por mês", "Quantas unidades/execuções por mês. Com ela o sistema calcula a economia por mês e por ano.", "1000")}</div>
+    <h3>⏱️ Tempo</h3><div class="grade">
+      ${fx("tempo", "min_antes", "Minutos por vez ANTES", "Quanto tempo levava cada execução. Dica: o Fluxo interno tem o tempo de cada passo em Como é feito hoje.", "30")}
+      ${fx("tempo", "min_depois", "Minutos por vez DEPOIS", "Quanto tempo leva agora.", "20")}
+      ${fx("tempo", "vezes_mes", "Vezes por mês", "Quantas vezes por mês o processo acontece.", "120")}
+      ${fx("tempo", "custo_hora", "Custo da hora (R$, opcional)", "Se informar, o tempo poupado vira R$. Ex.: salário + encargos ÷ horas trabalhadas.", "40")}</div>
+    <h3>🧭 Organização / acesso</h3><label class="f"><span class="rot">O que mudou ${i("Para ganhos sem número: passos eliminados, passagens de mão que sumiram, quem ganhou acesso, quem perdeu acesso que travava o fluxo.")}</span><textarea data-g="org" ${ro} placeholder="Ex.: eliminada a passagem pelo financeiro; Logística ganhou acesso à tela X">${esc(g.org || "")}</textarea></label>
+    <div id="ganhoRes"></div>`;
+  box.querySelectorAll("[data-g]").forEach((el) => el.addEventListener("change", () => { const [k, sub] = el.dataset.g.split("."); if (sub) g[k][sub] = el.value; else g[k] = el.value; salvarCard(cd); setTimeout(() => mostrarGanho(cd), 900); }));
+  mostrarGanho(cd);
+}
+async function mostrarGanho(cd) {
+  const el = $("#ganhoRes"); if (!el) return;
+  let r; try { r = (await api(`/api/melhoria/cards/${cd.id}/resultado`)).ganhos; } catch (_) { return; }
+  const c = r.custo, t = r.tempo;
+  el.innerHTML = (c || t) ? `<div class="kpis">${c ? `<div class="kpi"><span>Redução de custo</span><b>${pct(c.reducao_pct != null ? -c.reducao_pct : null).replace("+", "")}</b><small>${rs(c.por_unidade)} por unidade</small></div>
+      <div class="kpi"><span>Economia</span><b>${rs(c.mes)}</b><small>por mês · ${rs(c.ano)} por ano</small></div>` : ""}
+    ${t ? `<div class="kpi"><span>Tempo poupado</span><b>${nf(t.horas_mes, 1)} h/mês</b><small>${nf(t.min_por_vez, 1)} min por vez (${pct(t.reducao_pct != null ? -t.reducao_pct : null).replace("+", "")})</small></div>
+      ${t.reais_mes != null ? `<div class="kpi"><span>Tempo em R$</span><b>${rs(t.reais_mes)}</b><small>por mês · ${rs(t.reais_ano)} por ano</small></div>` : ""}` : ""}</div>` : "";
+}
+
+// ─── 6 · plano de ação ───
+function secAcoes(cd, listaP) {
+  const d = cd.dados, box = $("#acoesBox"), ro = !pode(2) ? "disabled" : "";
+  const st = ["A fazer", "Fazendo", "Feita"];
+  box.innerHTML = `${d.acoes.length ? `<table class="t"><thead><tr><th>O quê ${i("A ação, começando com um verbo. Ex.: <b>Criar campo de avaria no ERP</b>.")}</th><th>Quem ${i("Quem executa. Vem do Organograma — a pessoa vê a ação em Minhas pendências.")}</th><th>Até quando ${i("Prazo. Depois dele, a ação aparece como ATRASADA.")}</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${d.acoes.map((a, k) => `<tr><td><input data-a="${k}.o_que" value="${esc(a.o_que || "")}" ${ro}></td><td><input data-a="${k}.quem" list="dlPessoas" value="${esc(a.quem || "")}" ${ro}></td>
+      <td><input type="date" data-a="${k}.quando" value="${esc(a.quando || "")}" ${ro}></td>
+      <td><select data-a="${k}.status" ${ro}>${st.map((s) => `<option${(a.status || "A fazer") === s ? " selected" : ""}>${s}</option>`).join("")}</select></td>
+      <td>${ro ? "" : `<button type="button" class="peq warn" data-ax="${k}" title="Tirar">✕</button>`}</td></tr>`).join("")}</tbody></table>` : '<p class="cap">Nenhuma ação ainda.</p>'}
+    ${ro ? "" : '<div class="acoes"><button type="button" class="peq" id="aAdd">＋ Ação</button></div>'}`;
+  box.querySelectorAll("[data-a]").forEach((el) => el.addEventListener("change", () => { const [k, campo] = el.dataset.a.split("."); d.acoes[+k][campo] = el.value; salvarCard(cd, campo === "status"); }));
+  box.querySelectorAll("[data-ax]").forEach((b) => (b.onclick = () => { d.acoes.splice(+b.dataset.ax, 1); salvarCard(cd, true); }));
+  const add = $("#aAdd"); if (add) add.onclick = () => { d.acoes.push({ id: uid(), o_que: "", quem: "", quando: "", status: "A fazer" }); secAcoes(cd, listaP); const ins = box.querySelectorAll("tbody tr:last-child input"); ins[0] && ins[0].focus(); };
+}
+
+// ─── 7 · ATAs e anotações ───
+function secAtas(cd) {
+  const d = cd.dados, box = $("#atasBox"), ro = !pode(2);
+  box.innerHTML = `<div class="grade" style="align-items:start"><div><h3 style="margin-top:0">ATAs (${d.atas.length})</h3><div class="lista-reg">${d.atas.slice().reverse().map((a) => `<div class="reg"><div class="meta">${dBR(a.data)} · ${esc(a.por || "")}${a.participantes ? " · com " + esc(a.participantes) : ""}</div><b>${esc(a.assunto || "")}</b><div style="white-space:pre-wrap">${esc(a.texto || "")}</div></div>`).join("") || '<p class="cap">Nenhuma ATA.</p>'}</div>
+      ${ro ? "" : `<details style="margin-top:8px"><summary class="cap" style="cursor:pointer">＋ Registrar ATA</summary><div class="grade" style="margin-top:6px"><label class="f">Data<input type="date" id="taData" value="${hojeISO()}"></label><label class="f">Assunto<input id="taAss" placeholder="Ex.: definição do novo fluxo da triagem"></label></div>
+        <label class="f" style="margin-top:8px">Participantes<input id="taPart" placeholder="Ex.: Rita, Léo, Carlos"></label><label class="f" style="margin-top:8px">Decisões e combinados<textarea id="taTxt"></textarea></label><div class="acoes"><button type="button" class="primary peq" id="taOk">Salvar ATA</button></div></details>`}</div>
+    <div><h3 style="margin-top:0">Anotações (${d.anotacoes.length})</h3><div class="lista-reg">${d.anotacoes.slice().reverse().map((a) => `<div class="reg"><div class="meta">${dBR(a.em)} · ${esc(a.por || "")}</div><div style="white-space:pre-wrap">${esc(a.texto)}</div></div>`).join("") || '<p class="cap">Nenhuma anotação.</p>'}</div>
+      ${ro ? "" : '<label class="f" style="margin-top:8px">Nova anotação<textarea id="anTxt" placeholder="Algo que vale registrar…"></textarea></label><div class="acoes"><button type="button" class="peq" id="anOk">Anotar</button></div>'}</div></div>`;
+  const ta = $("#taOk"); if (ta) ta.onclick = () => { if (!tx($("#taAss").value) && !tx($("#taTxt").value)) return toast("Escreva o assunto ou as decisões.", true);
+    d.atas.push({ id: uid(), data: $("#taData").value, assunto: tx($("#taAss").value), participantes: tx($("#taPart").value), texto: $("#taTxt").value, por: B.eu.nome }); salvarCard(cd, true); toast("ATA registrada"); };
+  const an = $("#anOk"); if (an) an.onclick = () => { const t = $("#anTxt").value.trim(); if (!t) return; d.anotacoes.push({ id: uid(), em: new Date().toISOString(), por: B.eu.nome, texto: t }); salvarCard(cd, true); };
+}
+
+// ═══ INDICADORES ═══
+function vIndicadores(c) {
+  const st = { ativo: '<span class="pill p-ok">ativo</span>', solicitado: '<span class="pill p-amb">pedido</span>', em_preenchimento: '<span class="pill p-amb">delegado</span>' };
+  const hj = hojeISO();
+  c.innerHTML = guia("indicadores", "📈", "Indicadores: o número que prova a melhoria", [
+    "Indicador é um <b>número medido ao longo do tempo</b> (ex.: minutos por triagem), não um % de meta. Ele é do <b>processo</b> e serve para todas as melhorias dele.",
+    "Quem não sabe qual usar <b>pede a um gestor</b> (dentro da melhoria, seção 3). O gestor vê o pedido em <b>Minhas pendências</b> e preenche ou <b>delega</b>.",
+    "Lance os valores com data — um a um ou <b>colando do Excel</b>. O sistema lembra quem mede quando atrasar.",
+    "Com 4 valores antes e 4 depois da mudança, a melhoria mostra se foi <b>comprovada</b>."]) + `
+    ${INDS.length ? `<table class="t"><thead><tr><th>Indicador</th><th>Processo</th><th>Situação</th><th>Último valor</th><th>Próximo lançamento ${i("Calculado pela frequência a partir do último lançamento. Atrasado aparece em vermelho e vira pendência de quem mede.")}</th><th>Quem mede</th></tr></thead><tbody>
+      ${INDS.slice().sort((a, b) => (a.dados.processo_codigo || "").localeCompare(b.dados.processo_codigo || "")).map((x) => { const d = x.dados, u = x.ultimo;
+        return `<tr class="clic" data-ind="${x.id}"><td><b>${esc(d.nome || "(a definir)")}</b>${d.unidade ? ` <span class="muted">(${esc(d.unidade)})</span>` : ""}</td><td>${esc(d.processo_codigo || "")} ${esc(d.processo_nome || "")}</td><td>${st[d.status] || esc(d.status)}</td>
+        <td>${u ? `${nf(u.valor, 2)} <span class="muted">em ${dBR(u.data)}</span>` : "—"}</td><td>${x.proximo ? `<span class="${x.proximo <= hj ? "msg erro" : ""}">${dBR(x.proximo)}${x.proximo <= hj ? " · atrasado" : ""}</span>` : "—"}</td><td>${esc(d.quem_mede || ((d.pedido || {}).delegado || (d.pedido || {}).para || {}).nome || "—")}</td></tr>`; }).join("")}</tbody></table>`
+      : '<div class="vazio">Nenhum indicador ainda. Eles nascem dentro de uma melhoria (seção 3 · Indicador).</div>'}`;
+  c.querySelectorAll("[data-ind]").forEach((tr) => (tr.onclick = () => ir("indicador", tr.dataset.ind)));
+}
+function vIndicador(c) {
+  const ind = indPorId(atual), x = ind.dados, ped = x.pedido || {}, alvo = ped.delegado || ped.para, ro = !pode(2);
+  const melhorias = CARDS.filter((k) => k.dados.indicador_id === ind.id);
+  const ehMeu = alvo && ((alvo.email && alvo.email === B.eu.email) || nrm(alvo.nome) === nrm(B.eu.nome));
+  const p = procPorId(x.processo_id) || {};
+  c.innerHTML = `<div class="acoes" style="margin-top:0"><button type="button" id="iVoltar">← Indicadores</button></div>
+    <div class="cab"><div class="info"><div class="muted" style="font-size:13px">Indicador do processo <b>${esc(x.processo_codigo || "")} ${esc(x.processo_nome || "")}</b></div><h1>${esc(x.nome || "Indicador a definir")}</h1>
+      <div class="muted">${melhorias.length ? "Usado em: " + melhorias.map((k) => `<a href="#" data-card="${k.id}">${esc(k.dados.codigo)}</a>`).join(", ") : "Ainda não usado em nenhuma melhoria."}</div></div></div>
+    ${x.status !== "ativo" ? `<div class="proximo"><span style="font-size:20px">👉</span><div class="txt"><b>Próximo passo:</b> ${ehMeu ? "este pedido é <b>seu</b>. Preencha o indicador abaixo (o que medir, unidade, sentido, frequência) — ou <b>delegue</b> a alguém do seu time." : `aguardando <b>${esc((alvo || {}).nome || "—")}</b> preencher o indicador.`}</div></div>
+      <div class="secao"><b>Pedido</b> ${i("Quem pediu, para quem e o recado. Quem recebeu pode preencher ou delegar.")}<p style="margin:6px 0">De <b>${esc((ped.por || {}).nome || "—")}</b> para <b>${esc((ped.para || {}).nome || "—")}</b>${ped.em ? ` em ${dBR(ped.em)}` : ""}${ped.delegado ? ` · delegado a <b>${esc(ped.delegado.nome)}</b> por ${esc(ped.delegado.por || "")}` : ""}</p>${ped.mensagem ? `<p class="cap">“${esc(ped.mensagem)}”</p>` : ""}
+        ${ro ? "" : `<details><summary class="cap" style="cursor:pointer">Delegar a outra pessoa</summary><div class="grade" style="margin-top:6px"><label class="f">Para quem<input id="dPara" list="dlPessoasI"></label><label class="f">Recado<input id="dMsg"></label></div><div class="acoes"><button type="button" class="peq" id="dOk">Delegar</button></div></details>`}</div>` : ""}
+    <section class="secao"><header><h2>${x.status === "ativo" ? "Definição" : "Preencher o indicador"}</h2>${i("Estes campos dizem o que é medido e como. Preenchidos, o indicador fica <b>ativo</b> e já pode receber valores.")}</header>${camposIndicador(x)}
+      ${ro ? "" : `<div class="acoes"><button type="button" class="primary" id="iSalvar2">${x.status === "ativo" ? "Salvar alterações" : "Preencher e ativar"}</button><span class="msg" id="iMsg2"></span></div>`}</section>
+    ${x.status === "ativo" ? `<section class="secao"><header><h2>Lançamentos</h2>${i("Os valores medidos, com data. O gráfico mostra a evolução e a meta. Mesma data lançada de novo: vale o valor novo.")}</header>
+      <div class="acoes"><button type="button" class="primary peq" id="iLancar" ${ro ? "disabled" : ""}>＋ Lançar valores</button></div><div id="iForm"></div>${grafico(x, "")}
+      <table class="t"><thead><tr><th>Data</th><th>Valor</th><th>Observação</th><th>Lançado por</th><th></th></tr></thead><tbody>${(x.medicoes || []).slice().reverse().map((m) => `<tr><td>${dBR(m.data)}</td><td>${nf(m.valor, 2)}</td><td>${esc(m.obs || "")}</td><td class="muted">${esc(m.por || "")}</td><td>${pode(3) ? `<button type="button" class="peq warn" data-mx="${m.id}" title="Apagar">✕</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="5" class="vazio">Nenhum valor ainda.</td></tr>'}</tbody></table></section>` : ""}
+    <section class="secao"><h3 style="margin-top:0">Histórico</h3><div class="hist">${(x.historico || []).slice().reverse().map((h) => `<div>${dBR(h.em)} · <b>${esc(h.por || "")}</b> — ${esc(h.texto)}</div>`).join("") || "—"}</div></section>
+    <datalist id="dlPessoas">${pessoas(p).map((y) => `<option value="${esc(y.nome)}">${esc(y.cargo || "")}</option>`).join("")}</datalist>
+    <datalist id="dlPessoasI">${pessoas(p).map((y) => `<option value="${esc(y.nome)}">${esc(y.cargo || "")}</option>`).join("")}</datalist>`;
+  $("#iVoltar").onclick = () => ir("indicadores");
+  c.querySelectorAll("[data-card]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); ir("card", a.dataset.card); }));
+  const sv = $("#iSalvar2"); if (sv) sv.onclick = async () => { const dados = lerCamposIndicador(x); if (!dados.nome) return ($("#iMsg2").className = "msg erro", $("#iMsg2").textContent = "Dê um nome ao indicador.");
+    try { const r = await api(`/api/melhoria/indicadores/${ind.id}`, { method: "PUT", body: { dados, versao: ind.versao } }); Object.assign(ind, { dados: r.dados, versao: r.versao }); PEND = (await api("/api/melhoria/pendencias")).pendencias; toast(r.dados.status === "ativo" && x.status !== "ativo" ? "Indicador ativado — já dá para lançar valores" : "Salvo"); render(); }
+    catch (e) { $("#iMsg2").className = "msg erro"; $("#iMsg2").textContent = e.message; } };
+  const dl = $("#dOk"); if (dl) dl.onclick = async () => { const nome = tx($("#dPara").value); if (!nome) return toast("Escolha para quem delegar.", true);
+    const pes = B.setores.flatMap((s) => s.pessoas).find((y) => nrm(y.nome) === nrm(nome));
+    try { const r = await api(`/api/melhoria/indicadores/${ind.id}/delegar`, { method: "POST", body: { para_nome: nome, para_email: pes ? pes.email : "", mensagem: tx($("#dMsg").value) } }); Object.assign(ind, { dados: r.indicador.dados, versao: r.indicador.versao }); PEND = (await api("/api/melhoria/pendencias")).pendencias; toast(`Delegado a ${nome}`); render(); }
+    catch (e) { toast(e.message, true); } };
+  const la = $("#iLancar"); if (la) la.onclick = () => formLancar($("#iForm"), ind, () => render());
+  c.querySelectorAll("[data-mx]").forEach((b) => (b.onclick = async () => { if (!confirm("Apagar este lançamento?")) return;
+    try { const r = await api(`/api/melhoria/indicadores/${ind.id}/medicoes/${b.dataset.mx}`, { method: "DELETE" }); Object.assign(ind, { dados: r.indicador.dados, versao: r.indicador.versao }); render(); } catch (e) { toast(e.message, true); } }));
+}
+
+// ═══ MINHAS PENDÊNCIAS ═══
+function vPendencias(c) {
+  const ic = { pedido_indicador: "📈", lancar: "✍️", acao: "✅" }, rot = { pedido_indicador: "Definir indicador", lancar: "Lançar valor", acao: "Ação da melhoria" };
+  c.innerHTML = guia("pendencias", "📋", "O que está com você", [
+    "<b>Definir indicador</b>: alguém pediu que você defina como medir um processo. Abra, preencha (ou delegue a alguém do time).",
+    "<b>Lançar valor</b>: um indicador que você mede está na hora (pela frequência).",
+    "<b>Ação</b>: uma ação de plano em seu nome. Marque como <b>Feita</b> na melhoria quando concluir."]) +
+    (PEND.length ? `<div class="lista-reg">${PEND.map((p) => `<div class="reg" style="display:flex;gap:12px;align-items:center"><span style="font-size:22px">${ic[p.tipo]}</span><div style="flex:1"><div class="meta">${rot[p.tipo]}</div><b>${esc(p.titulo)}</b><div class="muted" style="font-size:13px">${esc(p.detalhe || "")}</div></div>
+      <button type="button" class="primary peq" data-pend="${p.tipo}|${p.id}">${p.tipo === "acao" ? "Abrir melhoria" : p.tipo === "lancar" ? "Lançar" : "Preencher"}</button></div>`).join("")}</div>` : '<div class="vazio">Nada pendente com você. 👏</div>');
+  c.querySelectorAll("[data-pend]").forEach((b) => (b.onclick = () => { const [t, id] = b.dataset.pend.split("|"); ir(t === "acao" ? "card" : "indicador", id); }));
+}
+
+// ═══ SUGESTÕES DO FLUXO INTERNO ═══
+function vSugestoes(c) {
+  const ic = { gap: "⚠️", tempo: "⏱️", sem_it: "📄", sem_indicador: "📈" }, rot = { gap: "Feito diferente da IT", tempo: "Consome muito tempo", sem_it: "Sem IT", sem_indicador: "Sem indicador" };
+  const tit = { gap: "Alinhar a prática com a IT", tempo: "Reduzir o tempo", sem_it: "Padronizar com uma IT", sem_indicador: "Começar a medir" };
+  c.innerHTML = guia("sugestoes", "💡", "Onde atuar — o próprio Fluxo interno aponta", [
+    "<b>Feito diferente da IT</b>: no levantamento (Como é feito hoje), passos marcados como divergentes, sem IT ou previstos e não feitos.",
+    "<b>Consome muito tempo</b>: tempo × vezes por mês dos passos passa de 10 h/mês.",
+    "<b>Sem IT</b> e <b>Sem indicador</b>: o básico que falta para poder melhorar com prova.",
+    "Clique em <b>Criar melhoria</b>: ela já nasce ligada ao processo."]) +
+    (SUG.length ? `<div class="lista-reg">${SUG.map((s, k) => `<div class="reg" style="display:flex;gap:12px;align-items:center"><span style="font-size:22px">${ic[s.tipo]}</span><div style="flex:1"><div class="meta">${rot[s.tipo]}${s.ja_tem_melhoria ? ' · <span class="pill p-azul">já tem melhoria em andamento</span>' : ""}</div><b>${esc(s.titulo)}</b><div class="muted" style="font-size:13px">${esc(s.texto)}</div></div>
+      ${pode(2) ? `<button type="button" class="peq ${s.ja_tem_melhoria ? "" : "primary"}" data-sug="${k}">Criar melhoria</button>` : ""}</div>`).join("")}</div>` : '<div class="vazio">Sem sugestões agora. Elas aparecem quando o Fluxo interno tem divergências, tempos altos ou processos sem IT/indicador.</div>');
+  c.querySelectorAll("[data-sug]").forEach((b) => (b.onclick = () => { const s = SUG[+b.dataset.sug]; abrirNova({ processo_id: s.processo_id, titulo: tit[s.tipo], descricao: s.texto }); }));
+}
+
+// ─── início ───
+(async () => {
+  try { await carregar(); try { SUG = (await api("/api/melhoria/sugestoes")).sugestoes; } catch (_) {} render(); salvo("", "Tudo salvo"); }
+  catch (e) { if (e.message !== "sessão expirada") $("#root").innerHTML = `<div class="sem-ind"><b>Não consegui carregar a Melhoria Contínua.</b><br>${esc(e.message)}<div class="acoes"><button type="button" onclick="location.reload()">Tentar de novo</button></div></div>`; }
+})();
+})();
+</script>
+</body>
+</html>

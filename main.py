@@ -148,7 +148,7 @@ ROTAS_SO_ADMIN = {"/admin", "/api/diag"}
 _CART_GRAVA_LIVRE = ("/api/carteira/interacoes", "/api/carteira/reservas", "/api/carteira/atribuicoes", "/api/carteira/presenca", "/api/carteira/equipe", "/api/carteira/evolucao", "/api/carteira/transferencias")
 ROTAS_QUALQUER_LOGADO = {"/api/auth/senha", "/pqi-acesso.js", "/api/base/cadastros"}  # [v3.4] cadastro mestre
 # [v6.0] Agente IA do topo: qualquer pessoa logada pergunta; quem alimenta é conferido na rota (agente.py)
-ROTAS_QUALQUER_LOGADO |= {"/pqi-agente.js"}
+ROTAS_QUALQUER_LOGADO |= {"/pqi-agente.js", "/pqi-ajuda.js"}
 ROTAS_QUALQUER_LOGADO_PREFIXO = ("/api/agente/",)
 
 _cache_usuarios: dict = {}
@@ -3395,6 +3395,7 @@ PAGINAS = {
     "/rg-pedido-acompanhamento.html": "rg-pedido-acompanhamento.html",   # RG do Pedido
     "/diagnostico": "diagnostico.html",                                  # Diagnóstico
     "/mapa": "mapa.html",
+    "/melhoria": "melhoria.html",                                        # Melhoria Contínua [v7.2]
     "/mapeamento": "mapeamento.html",                                    # Mapeamento (4 passos) [v6.4]
     "/organograma": "organograma.html",                                  # Organogramas                                                # Mapa Digital King Star
     "/qualidade": "qualidade.html",                                      # Qualidade — conferência de cargas [v5.0]
@@ -3435,6 +3436,11 @@ def acesso_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-acesso.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/pqi-ajuda.js", include_in_schema=False)
+def ajuda_js():
+    return FileResponse(os.path.join(BASE_DIR, "pqi-ajuda.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/pqi-agente.js", include_in_schema=False)
 def agente_js():
     return FileResponse(os.path.join(BASE_DIR, "pqi-agente.js"), media_type="application/javascript", headers={"Cache-Control": "no-cache"})
@@ -3448,6 +3454,12 @@ agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           processos=db.mapa_listar,   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
           criar_processo=db.mapa_criar,   # [v6.2] "Falta virar IT" → leva o assunto para o Mapa
           salvar_processo=db.mapa_salvar)
+
+# [v7.2] MELHORIA CONTÍNUA — rotas em melhoria.py (lê o Fluxo interno; grava em coleções próprias)
+import melhoria as mlh
+mlh.ligar(app, usuario_atual=usuario_atual, niveis=_niveis, nome=_nome_de, setores_do=_setores_do, processos=db.mapa_listar,
+          docs_listar=db.docs_listar, docs_criar=db.docs_criar, docs_salvar=db.docs_salvar, docs_ler=db.docs_ler,
+          docs_excluir=db.docs_excluir, ia=agt.ia_texto, ia_ligada=lambda: bool(agt.provedor()))
 
 # [v5.0] QUALIDADE — rotas em qualidade.py (usa o mesmo login e a permissão por aba)
 import qualidade as qld

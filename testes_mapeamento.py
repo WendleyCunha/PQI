@@ -49,6 +49,8 @@ ok("EMB_AREAS" in ler("mapa.html"), "Processos: passo Áreas leva o processo par
 ok("garantirAtividade" in ler("mapa.html") and "EMB_FLUXO" in ler("mapa.html"), "Fluxo interno: processo novo cria a atividade (no subsetor)")
 ok('"/api/diagnostico/dep/{dep}/atividade"' in ler("main.py"), "rota que cria a atividade")
 ok(mods.POR_ID["mapeamento"]["nome"] == "Fluxo interno", "módulo se chama Fluxo interno (id continua mapeamento)")
+ok("pqi-ajuda.js" in ler("pqi-acesso.js") and '"/pqi-ajuda.js"' in ler("main.py"), "(i) explicativo carregado só dentro do Fluxo interno")
+ok("GUIA" in ler("mapeamento.html") and "Pronto quando" in ler("mapeamento.html"), "cada passo diz o que fazer, quando está pronto e o próximo")
 d = ler("diagnostico.html")
 ok('"Atividades",renderInventario' in d and '["inventario","organograma"]' in d, "Diagnóstico: Inventário vira Atividades; no Mapeamento só Atividades e Organograma")
 ok('v[0]==="importar"' in ler("organograma.html"), "Organograma: sem Importar dentro do Mapeamento")

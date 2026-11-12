@@ -72,6 +72,17 @@ MODULOS = [
         "apis": [],
     },
     {
+        # [v7.2] MELHORIA CONTÍNUA — melhorias em PDCA sobre o que está no Fluxo interno, com indicador
+        # (pedido ao gestor, lançamentos, antes × depois com prova) e ganho em R$ e tempo.
+        # Para TODOS: enquanto o admin não configurar, cada pessoa entra com "Adicionar" (ver PARA_TODOS).
+        "id": "melhoria",
+        "nome": "Melhoria Contínua",
+        "descricao": "Melhorias em PDCA sobre o Fluxo interno: indicador antes × depois com prova, ganho em R$ e tempo, plano de ação e ATAs.",
+        "url": "/melhoria", "icone": "🔁", "tipo": "nuvem",
+        "paginas": ["/melhoria"],
+        "apis": ["/api/melhoria"],
+    },
+    {
         "id": "diagnostico",
         "nome": "Diagnóstico",
         "descricao": "Mapeamento de atividades por departamento: inventário, organograma real, RACI, Diário de Bordo, Gemba, matriz, jornada e relatório.",
@@ -264,7 +275,14 @@ def niveis_do_usuario(usuario: dict, perfil, perfis: dict = None) -> dict:
     for mid, origens in JUNTA.items():   # [v6.4] Mapeamento: enquanto não configurado, vale o maior dos três
         if not _configurado(usuario, perfil, mid):
             saida[mid] = max(int(saida.get(o, 0)) for o in origens)
+    for mid, nivel in PARA_TODOS.items():   # [v7.2] sistemas para todos os usuários (o admin pode mudar)
+        if not _configurado(usuario, perfil, mid):
+            saida[mid] = max(int(saida.get(mid, 0)), nivel)
     return saida
+
+
+# [v7.2] Melhoria Contínua é para TODOS: sem configuração, cada usuário entra com "Adicionar" (2).
+PARA_TODOS = {"melhoria": 2}
 
 
 # [v6.4] O Mapeamento mostra as telas do Organograma, do Diagnóstico e de Processos. Enquanto o admin não
