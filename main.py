@@ -1807,6 +1807,39 @@ def diag_dep_processos_mapa(dep: str, request: Request):
     return {"processos": saida}
 
 
+# [v6.6] FLUXO INTERNO: processo criado direto (Áreas ou "Novo processo") já cria a ATIVIDADE no setor,
+# no subsetor escolhido. Se a atividade já existe, só completa subsetor/executores vazios.
+class AtividadeNova(BaseModel):
+    atividade: str
+    subsetor: str = ""
+    executores: str = ""
+
+
+@app.post("/api/diagnostico/dep/{dep}/atividade")
+def diag_dep_atividade(dep: str, payload: AtividadeNova, request: Request):
+    u = usuario_atual(request)
+    _setor_ou_erro(u, dep)
+    nome = re.sub(r"\s+", " ", payload.atividade or "").strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Informe o nome da atividade.")
+    inv = db.diagdep_ler(dep, "inventario") or []
+    alvo = _sem_acento(nome)
+    existe = next((i for i in inv if isinstance(i, dict) and _sem_acento(i.get("atividade")) == alvo), None)
+    if existe:
+        mudou = False
+        for campo, valor in (("subsetor", payload.subsetor), ("executores", payload.executores)):
+            if valor.strip() and not str(existe.get(campo) or "").strip():
+                existe[campo] = valor.strip(); mudou = True
+        if mudou:
+            db.diagdep_salvar(dep, "inventario", inv, _nome_de(request))
+        return {"sucesso": True, "criada": False}
+    inv.append({"atividade": nome, "subsetor": payload.subsetor.strip(), "executores": payload.executores.strip(), "modo": "Individual",
+                "categoria": "", "descricao": "", "registrada": "", "_por": u["email"]})
+    inv.sort(key=lambda i: _sem_acento((i or {}).get("atividade")) if isinstance(i, dict) else "")
+    db.diagdep_salvar(dep, "inventario", inv, _nome_de(request))
+    return {"sucesso": True, "criada": True}
+
+
 @app.get("/api/diagnostico/dep/{dep}/{secao}")
 def diag_dep_ler(dep: str, secao: str, request: Request):
     _setor_ou_erro(usuario_atual(request), dep)
@@ -3313,6 +3346,8 @@ def org_estrutura(setor_id: str, payload: MudancaEstrutura, request: Request):
             raise HTTPException(status_code=409, detail="O setor de destino foi alterado agora há pouco. Atualize a tela e tente de novo.")
         dest_id = payload.destino_id
     res, reg_orig = db.docs_salvar(COLECAO_ORGANOGRAMA, setor_id, plano["origem"], origem["versao"], quem)
+    if res == "ok" and payload.modo == "setor_vira_sub":   # [v6.6] o setor inteiro virou subsetor: o antigo sai da lista (fica guardado)
+        db.docs_excluir(COLECAO_ORGANOGRAMA, setor_id, quem)
     if res != "ok":
         if payload.modo == "setor":
             db.docs_excluir(COLECAO_ORGANOGRAMA, dest_id, quem)

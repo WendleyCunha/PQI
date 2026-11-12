@@ -65,8 +65,8 @@ MODULOS = [
         # 1 Organograma · 2 Atividades (Diagnóstico) · 3 Áreas · 4 Processos.
         # Usa as telas e os dados dos três sistemas (que continuam no Painel). Acesso: ver JUNTA abaixo.
         "id": "mapeamento",
-        "nome": "Mapeamento",
-        "descricao": "Organograma → Atividades → Áreas → Processos: o mapeamento da empresa em sequência, num lugar só.",
+        "nome": "Fluxo interno",   # [v6.6] era "Mapeamento" (o id continua "mapeamento")
+        "descricao": "Organograma → Atividades → Áreas → Processos: como a empresa funciona por dentro, em sequência, num lugar só.",
         "url": "/mapeamento", "icone": "🧭", "tipo": "nuvem",
         "paginas": ["/mapeamento"],
         "apis": [],
