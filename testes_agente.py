@@ -186,7 +186,9 @@ def teste_ia_simulada():
         def quebra(*a, **k):
             raise A.urllib.error.URLError("fora do ar")
         A._http_json = quebra
-        r = t.post("/api/agente/perguntar", json={"pergunta": "como importar a planilha?"}).json()
+        r = t.post("/api/agente/perguntar", json={"pergunta": "Como importar a PLANILHA"}).json()
+        ok(r.get("mesma_resposta") and r["texto"].startswith("1. Clique em Importar"), "[v7.3] mesma pergunta: a mesma resposta (nem chama a IA)")
+        r = t.post("/api/agente/perguntar", json={"pergunta": "qual o passo para importar a planilha?"}).json()
         ok(r["tipo"] == "resposta" and r["modo"] == "base", "IA fora do ar: responde pela base")
     finally:
         A._http_json = original
@@ -448,7 +450,106 @@ def teste_fonte_da_verdade_fluxo_interno():
     ok("Fluxo interno" in art["passos"][0] and "Setor: Qualidade · Subsetor: Retornos · Responsável: Rita." in art["passos"], "artigo diz a fonte, o setor, o subsetor e o responsável")
 
 
+def teste_tudo_vira_base():
+    print("[v7.3] TUDO o que está escrito vira base: Organograma, Atividades, Processos, Melhoria")
+    ligar_memoria()
+    PROCESSOS.clear()
+    org = [{"id": "log", "dados": {"nome": "Logística", "descricao": "Entrega e expedição", "pessoas": [
+        {"id": "g", "nome": "Carlos Souza", "cargo": "Gerente de Logística", "nivel": "B", "email": "carlos@ks", "ramal": "2201", "x": 10},
+        {"id": "s", "nome": "Bia Lima", "cargo": "Supervisora", "nivel": "C", "subsetor": "Expedição", "gestor_id": "g"},
+        {"id": "c", "nome": "Davi Rocha", "cargo": "Conferente", "nivel": "D", "subsetor": "Expedição", "gestor_id": "s", "apelido": "Davizão"},
+        {"id": "v", "nome": "", "cargo": "Conferente", "vaga": True, "subsetor": "Expedição", "gestor_id": "s"}]}},
+           {"id": "niv", "dados": {"_tipo": "niveis"}}]
+    diag = {"log": {"inventario": [{"atividade": "Agrupamento", "subsetor": "Expedição", "executores": "Davi, Bia Lima",
+                                    "modo": "Individual", "categoria": "Operacional",
+                                    "descricao": "Juntar os pedidos da mesma rota no mesmo palete antes do carregamento."}],
+                    "gemba": {"observacoes": [{"onde": "doca 3", "vi": "palete sem etiqueta"}]}}}
+    PROCESSOS.append({"id": "P1", "versao": 1, "dados": {"codigo": "PROC-007", "nome": "Agrupamento", "area": "Logística", "dono": "Bia Lima",
+                      "objetivo": "Reduzir viagens", "origem": {"dep": "log", "atividade": "Agrupamento"},
+                      "oportunidades": [{"texto": "usar leitor de código de barras"}],
+                      "passos_real": [{"descricao": "Separar por rota"}]}})
+    cards = [{"id": "m1", "dados": {"codigo": "MLH-001", "titulo": "Etiqueta no palete", "status": "Em andamento", "indicador_id": "i1",
+                                    "problema": "palete sem etiqueta na doca"}}]
+    inds = [{"id": "i1", "dados": {"nome": "Paletes sem etiqueta por dia", "unidade": "un", "lancamentos": [{"data": "2026-10-01", "valor": 12}]}}]
+    FONTES = {"setores": org, "diag": diag, "processos": PROCESSOS, "melhoria_cards": cards, "melhoria_indicadores": inds}
+    app = FastAPI()
+    A.ligar(app, usuario_atual=lambda request: dict(USUARIO),
+            nome_perfil=lambda u: "Administrador" if u.get("papel") == "admin" else u.get("_perfil_nome"),
+            processos=lambda: list(PROCESSOS), criar_processo=criar_proc, salvar_processo=salvar_proc,
+            setores=lambda: org, usuarios=lambda: CONTAS, fontes=lambda: FONTES)
+    t = TestClient(app)
+    A.esquecer_cache()
+    ids = {a["id"]: a for a in A.artigos()}
+    setor = ids.get("org-log")
+    ok(setor and any("GESTOR" in p and "Carlos Souza" in p for p in setor["passos"]), "setor: o topo do organograma é o gestor")
+    ok(any("2201" in p for p in setor["passos"]) and any("Davizão" in p for p in setor["passos"]), "todos os campos da pessoa (até campo novo) viram base")
+    ok(not any("10" == p for p in setor["passos"]) and not any("x: 10" in p for p in setor["passos"]), "posição na tela não é conteúdo")
+    ok(any("Responsável pelo subsetor Expedição: Bia Lima" in p for p in setor["passos"]), "responsável de cada subsetor")
+    ok(A.buscar("quem é o gestor da logistica")[0]["id"] == "org-log", "“quem é o gestor da logística” acha o organograma do setor")
+    ativ = A.buscar("o que é agrupamento")
+    ok(any(a["id"].startswith("ativ-log") for a in ativ[:2]), "“o que é agrupamento” acha a atividade")
+    a_at = ids.get("ativ-log-agrupamento")
+    ok(a_at and any("Juntar os pedidos" in p for p in a_at["passos"]) and any("Davi, Bia Lima" in p for p in a_at["passos"])
+       and any("PROC-007" in p for p in a_at["passos"]), "atividade: o que é, quem executa e o processo ligado")
+    davi = ids.get("pes-log-c")
+    ok(davi and any("Agrupamento" in p for p in davi["passos"]) and any("Expedição" in p for p in davi["passos"]), "relação cruzada: a pessoa e as atividades dela")
+    bia = ids.get("pes-log-s")
+    ok(bia and any("Respondem a Bia Lima: Davi Rocha" in p for p in bia["passos"]) and any("PROC-007" in p for p in bia["passos"]),
+       "relação cruzada: quem responde a ela e os processos de que é responsável")
+    ok(any("palete sem etiqueta" in p for p in ids["diag-log-gemba"]["passos"]), "outras seções do diagnóstico, campo a campo")
+    ok(any("leitor de código de barras" in p for p in ids["proc-P1"]["passos"]), "ficha completa do processo (oportunidades…)")
+    ok(any("Paletes sem etiqueta" in p for p in ids["mlh-m1"]["passos"]) and "ind-i1" in ids, "Melhoria Contínua: melhorias e indicadores")
+    ok(not any(a.get("gerado") for a in A.artigos_salvos()), "artigos gerados não são gravados (sempre refeitos da fonte)")
+
+    print("[v7.3] mudou a fonte → muda a resposta")
+    v1 = ids["org-log"]["versao"]
+    org[0]["dados"]["pessoas"][0]["nome"] = "Carla Dias"
+    A.esquecer_cache()
+    novo = next(a for a in A.artigos() if a["id"] == "org-log")
+    ok(novo["versao"] != v1 and any("Carla Dias" in p for p in novo["passos"]), "trocou o gestor no Organograma: o agente sabe na hora")
+
+    print("[v7.3] mesma pergunta = mesma resposta; 👎 → pendência; ajuste vira a verdade para todos")
+    os.environ.update(AGENTE_IA="groq", GROQ_API_KEY="teste")
+    chamadas = {"n": 0}
+    def falsa(url, corpo, cab, timeout=40):
+        chamadas["n"] += 1
+        chamadas["user"] = corpo["messages"][1]["content"]
+        return {"choices": [{"message": {"content": "O gestor da Logística é a Carla Pires.\nFONTE: 1"}}]}
+    orig = A._http_json
+    A._http_json = falsa
+    try:
+        como("ana@ks")
+        r1 = t.post("/api/agente/perguntar", json={"pergunta": "Quem é o gestor da Logística?"}).json()
+        ok(r1["modo"] == "ia" and r1["fonte"]["id"] == "org-log" and "Carla Dias" in chamadas["user"], "IA recebe o organograma")
+        como("rui@ks")
+        r2 = t.post("/api/agente/perguntar", json={"pergunta": "quem e o gestor da logistica"}).json()
+        ok(r2.get("mesma_resposta") and r2["texto"] == r1["texto"] and chamadas["n"] == 1, "outra pessoa, mesma pergunta: mesma resposta")
+        t.post("/api/agente/retorno", json={"pergunta_id": r2["pergunta_id"], "util": False, "obs": "o nome está errado"})
+        pend = [p for p in A._abertas() if p.get("pergunta_id") == r2["pergunta_id"]]
+        ok(pend and pend[0]["motivo"] == "nao_resolveu", "👎 vai para as pendências")
+        ok(A.P["ler"](A.COL_RESP, A.chave_pergunta("quem e o gestor da logistica"))["ruim"], "👎: a resposta deixa de valer para todos")
+        como("ger@ks", "Gerente")
+        r = t.post("/api/agente/ajustar", json={"artigo_id": "org-log", "de": "Carla Pires", "para": "Carla Dias, Gerente de Logística",
+                                                "pergunta_id": r2["pergunta_id"]}).json()
+        ok(r["modo"] == "correcao" and "Organograma" in r["onde"], "ajuste de artigo gerado vira correção oficial")
+        org_c = next(a for a in A.artigos() if a["id"] == "org-log")
+        ok("CORREÇÕES" in org_c["passos"][0] and "Carla Dias, Gerente de Logística" in org_c["passos"][0], "a correção entra no topo do artigo")
+        como("lia@ks")
+        r3 = t.post("/api/agente/perguntar", json={"pergunta": "quem é o gestor da logística"}).json()
+        ok(r3.get("mesma_resposta") and "Carla Dias, Gerente de Logística" in r3["texto"] and chamadas["n"] == 1,
+           "a resposta ajustada vale para quem perguntar a mesma coisa")
+        ok(not [p for p in A._abertas() if p.get("pergunta_id") == r2["pergunta_id"]], "a pendência fecha com o ajuste")
+        org[0]["dados"]["descricao"] = "Entrega, expedição e frota"
+        A.esquecer_cache()
+        t.post("/api/agente/perguntar", json={"pergunta": "quem é o gestor da logística"})
+        ok(chamadas["n"] == 2, "mudou a fonte: a resposta é refeita")
+    finally:
+        A._http_json = orig
+        os.environ.pop("AGENTE_IA", None); os.environ.pop("GROQ_API_KEY", None)
+
+
 if __name__ == "__main__":
+    teste_tudo_vira_base()
     teste_fonte_da_verdade_fluxo_interno()
     teste_permissoes()
     teste_perguntas()

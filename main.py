@@ -3476,7 +3476,21 @@ agt.ligar(app, usuario_atual=usuario_atual, nome_perfil=_nome_perfil,
           usuarios=lambda: {x.get("email"): {"nome": x.get("nome"), "ativo": x.get("ativo", True)} for x in db.usuarios_listar()},
           processos=db.mapa_listar,   # [v6.1] o Mapa Digital é a fonte dos artigos de processo
           criar_processo=db.mapa_criar,   # [v6.2] "Falta virar IT" → leva o assunto para o Mapa
-          salvar_processo=db.mapa_salvar)
+          salvar_processo=db.mapa_salvar,
+          # [v7.3] TUDO o que está escrito vira base do agente: Organograma, Atividades/Diagnóstico, Processos e Melhoria
+          fontes=lambda: {"setores": _todos_setores(), "diag": db.diagdep_todos(), "processos": db.mapa_listar(),
+                          "melhoria_cards": db.docs_listar("melhoria_cards"), "melhoria_indicadores": db.docs_listar("melhoria_indicadores")})
+
+# [v7.3] Gravou em qualquer fonte? o agente refaz o que sabe na próxima pergunta (sem esperar o cache vencer)
+_FONTES_DO_AGENTE = ("/api/organograma", "/api/diagnostico", "/api/mapa", "/api/melhoria", "/api/agente/ajustar")
+
+
+@app.middleware("http")
+async def _agente_fonte_mudou(request: Request, call_next):
+    resp = await call_next(request)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path.startswith(_FONTES_DO_AGENTE) and resp.status_code < 400:
+        agt.esquecer_cache()
+    return resp
 
 # [v7.2] MELHORIA CONTÍNUA — rotas em melhoria.py (lê o Fluxo interno; grava em coleções próprias)
 import melhoria as mlh
