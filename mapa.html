@@ -1697,7 +1697,10 @@ const FX_ESPALHA=new Set(["processo","documento","subprocesso","sistema","manual
 // [v5.13] escolhe os lados de cada ligação sem duas saírem/chegarem pelo mesmo ponto
 function fxLados(F,G){
   const lados={}, uso={};
-  F.ligacoes.forEach(l=>{ if(G.nos[l.de]&&G.nos[l.para]) lados[l.id]=["right","left"]; });
+  const VERT=x=>x==="top"||x==="bottom";
+  F.ligacoes.forEach(l=>{ if(!G.nos[l.de]||!G.nos[l.para]) return;
+    // [v5.15] padrão: sai pela direita, entra pela esquerda; a pessoa pode escolher sair/entrar por CIMA ou por BAIXO
+    lados[l.id]=[VERT(l.sai)?l.sai:"right", VERT(l.entra)?l.entra:"left"]; });
   // losango: cada bico com UMA linha só
   Object.values(G.nos).forEach(o=>{ if(o.n.tipo!=="decisao") return; const c={x:o.x+o.w/2,y:o.y+o.h/2};
     const ent=F.ligacoes.filter(l=>l.para===o.n.id&&lados[l.id]), sai=F.ligacoes.filter(l=>l.de===o.n.id&&lados[l.id]);
@@ -1708,8 +1711,9 @@ function fxLados(F,G){
     sai.sort((p,q)=>{ const P=G.nos[p.para],Q=G.nos[q.para], vp=P.x>=o.x+o.w?0:1, vq=Q.x>=o.x+o.w?0:1; return (vp-vq)||(Math.abs(P.y+P.h/2-c.y)-Math.abs(Q.y+Q.h/2-c.y)); });
     const pega=(pref,outro)=>{ if(livre.has(pref)){ livre.delete(pref); return pref; } const dy=outro.y+outro.h/2-c.y;
       const ord=dy>0?["bottom","top","right","left"]:["top","bottom","right","left"]; const l=ord.find(x=>livre.has(x)); if(l) livre.delete(l); return l||pref; };
-    ent.forEach(l=>{ lados[l.id][1]=pega("left",G.nos[l.de]); });
-    sai.forEach(l=>{ const quer=["right","bottom","top"].includes(l.ds)?l.ds:"right"; lados[l.id][0]=pega(quer,G.nos[l.para]); }); });
+    ent.sort((p,q)=>(VERT(q.entra)?1:0)-(VERT(p.entra)?1:0)); sai.sort((p,q)=>(VERT(q.sai)?1:0)-(VERT(p.sai)?1:0));   // escolha da pessoa vem primeiro
+    ent.forEach(l=>{ lados[l.id][1]=pega(VERT(l.entra)?l.entra:"left",G.nos[l.de]); });
+    sai.forEach(l=>{ const quer=VERT(l.sai)?l.sai:["right","bottom","top"].includes(l.ds)?l.ds:"right"; lados[l.id][0]=pega(quer,G.nos[l.para]); }); });
   // pontos de ligação: várias linhas no mesmo lado → pontos diferentes, em ordem (não se cruzam na borda)
   const reg=(no,lado,l,ponta,alvo)=>{ (uso[no+"|"+lado]=uso[no+"|"+lado]||[]).push({l,ponta,alvo}); };
   F.ligacoes.forEach(l=>{ const L=lados[l.id]; if(!L) return; reg(l.de,L[0],l,0,G.nos[l.para]); reg(l.para,L[1],l,1,G.nos[l.de]); });
@@ -1989,7 +1993,8 @@ function abaFluxo(c,p,d,sv){
       if(ponta){ const l=F.ligacoes.find(x=>x.id===ponta.dataset.l), qual=ponta.dataset.p; ponta.style.pointerEvents="none";
         acompanhar(ev=>{ const q=pt(ev); ponta.setAttribute("x",q.x-6); ponta.setAttribute("y",q.y-6); },
           ev=>{ const alvo=noSob(ev); if(alvo){ const outro=qual==="de"?l.para:l.de; if(alvo.dataset.n!==outro){ const ob=fxGeom(F).nos[alvo.dataset.n];
-              if(qual==="de"){ l.de=alvo.dataset.n; l.ds=fxLadoProximo(ob,pt(ev)); } else { l.para=alvo.dataset.n; l.ps=fxLadoProximo(ob,pt(ev)); } l.via=null; salvarFx(); } }
+              const ld=fxLadoProximo(ob,pt(ev)), v=(ld==="top"||ld==="bottom")?ld:null;   // [v5.15] solta na parte de cima/baixo do card = sai/entra por ali
+              if(qual==="de"){ l.de=alvo.dataset.n; l.ds=ld; if(v) l.sai=v; else delete l.sai; } else { l.para=alvo.dataset.n; l.ps=ld; if(v) l.entra=v; else delete l.entra; } l.via=null; salvarFx(); } }
             redesenhar(); }); return; }
       if(hit){ FX.sel={tipo:"lig",id:hit.dataset.l}; redesenhar(); return; }
       if(no&&FX.multi.size>1&&FX.multi.has(no.dataset.n)){   // [v5.11] arrasta o GRUPO; as setas acompanham ao vivo
@@ -2135,11 +2140,16 @@ function abaFluxo(c,p,d,sv){
       props.innerHTML=`<div class="fx-pt">Ligação</div><p class="cap" style="margin:0 0 8px">${esc(nm(l.de))} → ${esc(nm(l.para))}</p>
         <label class="f">Texto (ex.: Sim / Não)<input id="pRot" value="${esc(l.rotulo||"")}"></label>
         <div class="acoes"><button type="button" class="peq" data-r="Sim">Sim</button><button type="button" class="peq" data-r="Não">Não</button></div>
+        <div class="grade" style="grid-template-columns:1fr 1fr;gap:8px">
+          <label class="f">Sai por<select id="pSai"><option value="">Direita (padrão)</option><option value="top"${l.sai==="top"?" selected":""}>Em cima</option><option value="bottom"${l.sai==="bottom"?" selected":""}>Embaixo</option></select></label>
+          <label class="f">Entra por<select id="pEntra"><option value="">Esquerda (padrão)</option><option value="top"${l.entra==="top"?" selected":""}>Em cima</option><option value="bottom"${l.entra==="bottom"?" selected":""}>Embaixo</option></select></label></div>
         <div class="acoes"><button type="button" class="peq" id="pInv">Inverter sentido</button>${l.via?'<button type="button" class="peq" id="pVia">Tirar desvio</button>':""}<button type="button" class="peq warn" id="pDel">Excluir</button></div>
-        <p class="cap">Arraste o ponto azul do meio para desviar; arraste uma ponta para ligar a outro símbolo.</p>`;
+        <p class="cap">Arraste o ponto azul do meio para desviar; arraste uma ponta para ligar a outro símbolo. Soltar a ponta na parte de cima ou de baixo do card faz a linha sair/entrar por ali.</p>`;
+      const lado=(id,campo)=>{ const sl=$(id,props); sl.onchange=()=>{ if(sl.value) l[campo]=sl.value; else delete l[campo]; l.via=null; salvarFx(); redesenhar(); }; };
+      lado("#pSai","sai"); lado("#pEntra","entra");
       $("#pRot",props).oninput=e=>{ l.rotulo=e.target.value; salvarFx(); }; $("#pRot",props).onchange=()=>redesenhar();
       props.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ l.rotulo=b.dataset.r; salvarFx(); redesenhar(); });
-      $("#pInv",props).onclick=()=>{ [l.de,l.para]=[l.para,l.de]; [l.ds,l.ps]=[l.ps,l.ds]; salvarFx(); redesenhar(); };
+      $("#pInv",props).onclick=()=>{ [l.de,l.para]=[l.para,l.de]; [l.ds,l.ps]=[l.ps,l.ds]; const sa=l.sai, en=l.entra; if(en) l.sai=en; else delete l.sai; if(sa) l.entra=sa; else delete l.entra; salvarFx(); redesenhar(); };
       const pv=$("#pVia",props); if(pv) pv.onclick=()=>{ l.via=null; salvarFx(); redesenhar(); };
       $("#pDel",props).onclick=excluirSel; return; }
     // nada selecionado: raias + geração automática
