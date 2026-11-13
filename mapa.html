@@ -1570,14 +1570,25 @@ function abaImplantacao(c,p,d,sv){
 //   lim        : {x1,y1,x2,y2} área permitida (opcional)
 // devolve [{x,y},...] ou null se não achar caminho
 // ═══════════════════════════════════════════════════════════════════
-function rotearLinha(a, b, obst, lim){
-  const M=260;
+function rotearLinha(a, b, obst, lim, ocup, Mg){
+  const M=Mg||260; ocup=ocup||[];
   const bx1=Math.min(a.x,b.x)-M, bx2=Math.max(a.x,b.x)+M, by1=Math.min(a.y,b.y)-M, by2=Math.max(a.y,b.y)+M;
   const rel=obst.filter(o=>o.x2>bx1&&o.x1<bx2&&o.y2>by1&&o.y1<by2);
   const dentro=(x,y)=>rel.some(o=>x>o.x1&&x<o.x2&&y>o.y1&&y<o.y2);
   if(dentro(a.x,a.y)||dentro(b.x,b.y)) return null;
   const xs=new Set([a.x,b.x]), ys=new Set([a.y,b.y]);
   rel.forEach(o=>{ xs.add(o.x1); xs.add(o.x2); ys.add(o.y1); ys.add(o.y2); });
+  // [v5.13] corredores paralelos às linhas já traçadas: dá lugar para a próxima linha passar ao lado, sem encostar
+  ocup.forEach(g=>{ if(g.h){ if(g.y>by1&&g.y<by2){ ys.add(g.y-16); ys.add(g.y+16); } } else if(g.x>bx1&&g.x<bx2){ xs.add(g.x-16); xs.add(g.x+16); } });
+  const ocH=ocup.filter(g=>g.h), ocV=ocup.filter(g=>!g.h);
+  const pena=(x1,y1,x2,y2)=>{ let c=0;
+    if(y1===y2){ const lo=Math.min(x1,x2), hi=Math.max(x1,x2);
+      ocH.forEach(g=>{ if(Math.abs(g.y-y1)<8&&Math.min(hi,g.b)-Math.max(lo,g.a)>2) c+=900; });          // mesma trilha de outra linha
+      ocV.forEach(g=>{ if(g.x>lo&&g.x<hi&&y1>g.a&&y1<g.b) c+=40; }); }                                      // cruza outra linha
+    else { const lo=Math.min(y1,y2), hi=Math.max(y1,y2);
+      ocV.forEach(g=>{ if(Math.abs(g.x-x1)<8&&Math.min(hi,g.b)-Math.max(lo,g.a)>2) c+=900; });
+      ocH.forEach(g=>{ if(g.y>lo&&g.y<hi&&x1>g.a&&x1<g.b) c+=40; }); }
+    return c; };
   const meio=arr=>{ const v=[...arr].sort((p,q)=>p-q), out=new Set(v); for(let i=0;i<v.length-1;i++) if(v[i+1]-v[i]>24) out.add((v[i]+v[i+1])/2); return [...out].sort((p,q)=>p-q); };
   let X=meio(xs), Y=meio(ys);
   if(lim){ X=X.filter(x=>x>=lim.x1&&x<=lim.x2); Y=Y.filter(y=>y>=lim.y1&&y<=lim.y2); }
@@ -1594,13 +1605,13 @@ function rotearLinha(a, b, obst, lim){
   const h=(i,j)=>Math.abs(X[i]-b.x)+Math.abs(Y[j]-b.y);
   const k0=chave(ia,ja,4); custo.set(k0,0); push(h(ia,ja),k0);
   let fim=null, passos=0;
-  while(heap.length&&passos<60000){ passos++;
+  while(heap.length&&passos<120000){ passos++;
     const [,k]=pop(), d=k%5, ij=(k-d)/5, i=Math.floor(ij/ny), j=ij%ny, g=custo.get(k);
     if(i===ib&&j===jb){ fim=k; break; }
     DIRS.forEach(([di,dj],nd)=>{ const ni=i+di, nj=j+dj; if(ni<0||nj<0||ni>=nx||nj>=ny) return;
       if(d!==4&&(nd^1)===d&&(nd>>1)===(d>>1)) return;          // não volta pelo mesmo caminho
       if(dentro(X[ni],Y[nj])||bloq(X[i],Y[j],X[ni],Y[nj])) return;
-      const nk=chave(ni,nj,nd), ng=g+Math.abs(X[ni]-X[i])+Math.abs(Y[nj]-Y[j])+(d!==4&&d!==nd?CURVA:0);
+      const nk=chave(ni,nj,nd), ng=g+Math.abs(X[ni]-X[i])+Math.abs(Y[nj]-Y[j])+(d!==4&&d!==nd?CURVA:0)+(ocup.length?pena(X[i],Y[j],X[ni],Y[nj]):0);
       if(ng<(custo.has(nk)?custo.get(nk):Infinity)){ custo.set(nk,ng); veio.set(nk,k); push(ng+h(ni,nj),nk); } });
   }
   if(fim==null) return null;
@@ -1632,7 +1643,7 @@ function segmentoCruza(p1,p2,obst){ return obst.some(o=>{
 //   nó      {id,tipo,texto,raia,x,ry}   (ry = altura dentro da raia)
 //   ligação {id,de,para,ds,ps,rotulo,via:{x,y}|null}  (ds/ps = lado)
 // ═══════════════════════════════════════════════════════════════════
-const RAIA_W=150, RAIA_MIN=150, FX_FOLGA=10;
+const RAIA_W=150, RAIA_MIN=150, FX_FOLGA=14;
 const SIMB={
   inicio:{nome:"Início",w:120,h:46,fill:"#E1F2E7",stroke:"#2F7D4F"},
   fim:{nome:"Fim",w:120,h:46,fill:"#F9E2E2",stroke:"#B83232"},
@@ -1659,27 +1670,78 @@ function fxGeom(F){
   const W=Math.max(1100,...Object.values(nos).map(o=>o.x+o.w+180)), H=Math.max(y,RAIA_MIN);
   return {raias,nos,W,H};
 }
-function fxPorta(o,lado){ return lado==="top"?{x:o.x+o.w/2,y:o.y}:lado==="bottom"?{x:o.x+o.w/2,y:o.y+o.h}:lado==="left"?{x:o.x,y:o.y+o.h/2}:{x:o.x+o.w,y:o.y+o.h/2}; }
+function fxPorta(o,lado,t){ t=t==null?.5:t; return lado==="top"?{x:o.x+o.w*t,y:o.y}:lado==="bottom"?{x:o.x+o.w*t,y:o.y+o.h}:lado==="left"?{x:o.x,y:o.y+o.h*t}:{x:o.x+o.w,y:o.y+o.h*t}; }
 function fxFora(p,lado,dist){ return lado==="top"?{x:p.x,y:p.y-dist}:lado==="bottom"?{x:p.x,y:p.y+dist}:lado==="left"?{x:p.x-dist,y:p.y}:{x:p.x+dist,y:p.y}; }
 function fxLadoAuto(a,b){ const ax=a.x+a.w/2, ay=a.y+a.h/2, bx=b.x+b.w/2, by=b.y+b.h/2, dx=bx-ax, dy=by-ay;
+  // [v5.13] linha que VOLTA (destino à esquerda) não corta o fluxo: sai por baixo/cima e contorna
+  if(b.x+b.w<a.x-20){ if(Math.abs(dy)<30) return ["bottom","bottom"]; return dy>0?["bottom","top"]:["top","bottom"]; }
   if(Math.abs(dx)>=Math.abs(dy)*0.8) return dx>=0?["right","left"]:["left","right"];
   return dy>=0?["bottom","top"]:["top","bottom"]; }
+const FX_ESPALHA=new Set(["processo","documento","subprocesso","sistema","manual","espera","entrada","nota","inicio","fim"]);
+// [v5.13] escolhe os lados de cada ligação sem duas saírem/chegarem pelo mesmo ponto
+function fxLados(F,G){
+  const lados={}, uso={};   // uso[no|lado] = [{l,ponta,alvo}]
+  const reg=(no,lado,l,ponta,alvo)=>{ (uso[no+"|"+lado]=uso[no+"|"+lado]||[]).push({l,ponta,alvo}); };
+  F.ligacoes.forEach(l=>{ const A=G.nos[l.de], B=G.nos[l.para]; if(!A||!B) return; const auto=fxLadoAuto(A,B); lados[l.id]=[l.ds||auto[0],l.ps||auto[1]]; });
+  // losango (decisão): cada bico recebe UMA linha só (entrando ou saindo); as que chegam têm prioridade
+  // lado do OUTRO símbolo que olha para o bico
+  const ladoDe=(o,p)=>{ const cx=o.x+o.w/2, cy=o.y+o.h/2, dx=p.x-cx, dy=p.y-cy; return Math.abs(dx)>=Math.abs(dy)?(dx>=0?"right":"left"):(dy>=0?"bottom":"top"); };
+  Object.values(G.nos).forEach(o=>{ if(o.n.tipo!=="decisao") return; const c={x:o.x+o.w/2,y:o.y+o.h/2};
+    const pontas=[]; F.ligacoes.forEach(l=>{ if(!lados[l.id]) return;
+      if(l.para===o.n.id) pontas.push({l,i:1,outro:G.nos[l.de],fixo:!!l.ps});
+      if(l.de===o.n.id) pontas.push({l,i:0,outro:G.nos[l.para],fixo:!!l.ds}); });
+    if(pontas.length<2) return;
+    // padrão do fluxograma: entra pela esquerda/cima, sai pela direita/baixo
+    pontas.forEach(u=>{ if(u.fixo) return; const B=u.outro, dx=B.x+B.w/2-c.x, dy=B.y+B.h/2-c.y; let pref;
+      if(u.i===1) pref=dx<-o.w/2?"left":dy<0?"top":dx<0?"left":"bottom";
+      else pref=dx>o.w/2?"right":dy>0?"bottom":dy<0?"top":"right";
+      if(pref!==lados[u.l.id][u.i]){ lados[u.l.id][u.i]=pref; const op=1-u.i; if(!(op?u.l.ps:u.l.ds)) lados[u.l.id][op]=ladoDe(u.outro,fxPorta(o,pref)); } });
+    const dist=u=>Math.hypot(u.outro.x+u.outro.w/2-c.x,u.outro.y+u.outro.h/2-c.y);
+    pontas.sort((p,q)=>(q.fixo-p.fixo)||(q.i-p.i)||(dist(p)-dist(q)));
+    const usado=new Set();
+    pontas.forEach(u=>{ let lado=lados[u.l.id][u.i];
+      if(usado.has(lado)&&!u.fixo){ const B=u.outro, dx=B.x+B.w/2-c.x, dy=B.y+B.h/2-c.y, nota={right:dx,left:-dx,bottom:dy,top:-dy};
+        const livre=["right","bottom","top","left"].filter(x=>!usado.has(x)).sort((p,q)=>nota[q]-nota[p])[0]; if(livre) lado=livre; }
+      usado.add(lado);
+      if(lado!==lados[u.l.id][u.i]){ lados[u.l.id][u.i]=lado; const outraPonta=1-u.i;
+        if(!(outraPonta?u.l.ps:u.l.ds)) lados[u.l.id][outraPonta]=ladoDe(u.outro,fxPorta(o,lado)); } }); });
+  F.ligacoes.forEach(l=>{ const L=lados[l.id]; if(!L) return; reg(l.de,L[0],l,0,G.nos[l.para]); reg(l.para,L[1],l,1,G.nos[l.de]); });
+  // portas distribuídas no lado (ordenadas pela posição do outro símbolo, para as linhas não se cruzarem na saída)
+  const fr={}; Object.entries(uso).forEach(([k,lst])=>{ const [no,lado]=k.split("|"), o=G.nos[no];
+    if(lst.length<2||!FX_ESPALHA.has(o.n.tipo)||((o.n.tipo==="inicio"||o.n.tipo==="fim")&&(lado==="left"||lado==="right"))){ lst.forEach(u=>(fr[u.l.id]=fr[u.l.id]||[.5,.5])[u.ponta]=.5); return; }
+    const hor=lado==="top"||lado==="bottom"; lst.sort((p,q)=>hor?(p.alvo.x+p.alvo.w/2)-(q.alvo.x+q.alvo.w/2):(p.alvo.y+p.alvo.h/2)-(q.alvo.y+q.alvo.h/2));
+    lst.forEach((u,i)=>{ (fr[u.l.id]=fr[u.l.id]||[.5,.5])[u.ponta]=(i+1)/(lst.length+1); }); });
+  return {lados,fr};
+}
 function fxLadoProximo(o,p){ const c=[["top",Math.abs(p.y-o.y)],["bottom",Math.abs(p.y-(o.y+o.h))],["left",Math.abs(p.x-o.x)],["right",Math.abs(p.x-(o.x+o.w))]]; return c.sort((a,b)=>a[1]-b[1])[0][0]; }
 function fxRotas(F,G){
   const obst=Object.values(G.nos).map(o=>({x1:o.x-FX_FOLGA,y1:o.y-FX_FOLGA,x2:o.x+o.w+FX_FOLGA,y2:o.y+o.h+FX_FOLGA}));
   obst.push({x1:-1e5,y1:-1e5,x2:RAIA_W+4,y2:1e5});
   const lim={x1:RAIA_W+6,y1:-60,x2:G.W+200,y2:G.H+80};
-  const out={};
-  F.ligacoes.forEach(l=>{ const A=G.nos[l.de], B=G.nos[l.para]; if(!A||!B) return;
-    const auto=fxLadoAuto(A,B), ds=l.ds||auto[0], ps=l.ps||auto[1];
-    const pa=fxPorta(A,ds), pb=fxPorta(B,ps), a2=fxFora(pa,ds,FX_FOLGA+8), b2=fxFora(pb,ps,FX_FOLGA+8);
+  const out={}, ocup=[], {lados,fr}=fxLados(F,G);
+  const marcar=pts=>{ for(let i=0;i<pts.length-1;i++){ const p=pts[i],q=pts[i+1];
+    if(p.y===q.y) ocup.push({h:true,y:p.y,a:Math.min(p.x,q.x),b:Math.max(p.x,q.x)}); else ocup.push({h:false,x:p.x,a:Math.min(p.y,q.y),b:Math.max(p.y,q.y)}); } };
+  // [v5.13] ordem: primeiro as linhas que seguem em frente e as mais curtas (fluxo principal reto), por último as que voltam
+  const tam=l=>{ const A=G.nos[l.de],B=G.nos[l.para]; return Math.abs(A.x-B.x)+Math.abs(A.y-B.y)+(B.x+B.w<A.x?1e5:0)+(l.via?-5e5:0); };
+  F.ligacoes.filter(l=>G.nos[l.de]&&G.nos[l.para]).sort((p,q)=>tam(p)-tam(q)).forEach(l=>{ const A=G.nos[l.de], B=G.nos[l.para];
+    const [ds,ps]=lados[l.id], [ta,tb]=fr[l.id]||[.5,.5];
+    const pa=fxPorta(A,ds,ta), pb=fxPorta(B,ps,tb), a2=fxFora(pa,ds,FX_FOLGA+8), b2=fxFora(pb,ps,FX_FOLGA+8);
     let meio=null;
-    if(l.via){ const r1=rotearLinha(a2,l.via,obst,lim), r2=rotearLinha(l.via,b2,obst,lim); if(r1&&r2) meio=[...r1,...r2.slice(1)]; }
-    if(!meio) meio=rotearLinha(a2,b2,obst,lim);
+    if(l.via){ const r1=rotearLinha(a2,l.via,obst,lim,ocup), r2=rotearLinha(l.via,b2,obst,lim,ocup); if(r1&&r2) meio=[...r1,...r2.slice(1)]; }
+    if(!meio) meio=rotearLinha(a2,b2,obst,lim,ocup);
+    if(!meio) meio=rotearLinha(a2,b2,obst,lim,ocup,700);          // procura mais longe antes de desistir
+    if(!meio) meio=rotearLinha(a2,b2,obst,lim,[],900);
     if(!meio) meio=[a2,{x:b2.x,y:a2.y},b2];
-    out[l.id]=simplificarPontos([pa,...meio,pb]);
+    const pts=simplificarPontos([pa,...meio,pb]); out[l.id]=pts; marcar(pts);
   });
   return out;
+}
+// [v5.13] símbolo nunca fica em cima de outro: empurra para o lado livre mais próximo (na mesma raia)
+function fxSemSobrepor(F,n){
+  const G=fxGeom(F), o=G.nos[n.id]; if(!o) return; const M=24;
+  const bate=(x,y)=>Object.values(G.nos).some(p=>p.n.id!==n.id&&x<p.x+p.w+M&&x+o.w+M>p.x&&y<p.y+p.h+M&&y+o.h+M>p.y);
+  if(!bate(o.x,o.y)) return;
+  for(let k=1;k<200;k++){ for(const dx of [k*10,-k*10]){ const nx=o.x+dx; if(nx<RAIA_W+16) continue; if(!bate(nx,o.y)){ n.x=Math.round(nx); return; } } }
 }
 function fxQuebrar(t,w,h,fs){
   const max=Math.max(4,Math.floor((w-14)/(fs*0.56))), maxL=Math.max(1,Math.floor((h-8)/(fs*1.25)));
@@ -1745,8 +1807,15 @@ function svgFluxo(F, op={}){
   F.ligacoes.forEach(l=>{ const pts=R[l.id]; if(!pts) return; const ativo=sel.tipo==="lig"&&sel.id===l.id, d=caminhoSVG(pts);
     s+=`<path d="${d}" fill="none" stroke="${ativo?"#2B63B0":"#4A5568"}" stroke-width="${ativo?2.4:1.6}" stroke-linejoin="round" marker-end="url(#${ativo?"fxSetaSel":"fxSeta"})"/>`;
     if(op.edicao) s+=`<path class="fx-hit" data-l="${l.id}" d="${d}" fill="none" stroke="transparent" stroke-width="14" style="cursor:pointer"/>`;
-    if(l.rotulo){ let best=[pts[0],pts[1]],bl=0; for(let i=0;i<pts.length-1;i++){ const len=Math.abs(pts[i+1].x-pts[i].x)+Math.abs(pts[i+1].y-pts[i].y); if(len>bl){ bl=len; best=[pts[i],pts[i+1]]; } }
-      const mx=(best[0].x+best[1].x)/2, my=(best[0].y+best[1].y)/2, tw=Math.max(26,l.rotulo.length*7+10);
+    if(l.rotulo){ // [v5.13] rótulo perto da saída, no 1º ponto da própria linha onde não encosta em outra linha
+      const tw=Math.max(26,l.rotulo.length*7+10), outras=[];
+      Object.entries(R).forEach(([id,q])=>{ if(id!==l.id) for(let i=0;i<q.length-1;i++) outras.push([q[i],q[i+1]]); });
+      const livre=(x,y)=>{ const x1=x-tw/2-2,x2=x+tw/2+2,y1=y-12,y2=y+12;
+        return !outras.some(([p,q])=>{ const lx=Math.min(p.x,q.x),hx=Math.max(p.x,q.x),ly=Math.min(p.y,q.y),hy=Math.max(p.y,q.y); return hx>=x1&&lx<=x2&&hy>=y1&&ly<=y2; }); };
+      let mx=null, my=null;
+      busca: for(let i=0;i<pts.length-1;i++){ const p=pts[i], q=pts[i+1], len=Math.abs(q.x-p.x)+Math.abs(q.y-p.y), sx=Math.sign(q.x-p.x), sy=Math.sign(q.y-p.y), m=(p.y===q.y?tw/2:12)+(i===0?16:4);
+        for(let t=m;t<=len-m;t+=6){ const x=p.x+sx*t, y=p.y+sy*t; if(livre(x,y)){ mx=x; my=y; break busca; } } }
+      if(mx==null){ let best=[pts[0],pts[1]],bl=0; for(let i=0;i<pts.length-1;i++){ const len=Math.abs(pts[i+1].x-pts[i].x)+Math.abs(pts[i+1].y-pts[i].y); if(len>bl){ bl=len; best=[pts[i],pts[i+1]]; } } mx=(best[0].x+best[1].x)/2; my=(best[0].y+best[1].y)/2; }
       s+=`<g class="fx-rot" data-l="${l.id}"><rect x="${mx-tw/2}" y="${my-10}" width="${tw}" height="20" rx="4" fill="#FFFFFF" stroke="#D9DEE7"/><text x="${mx}" y="${my+1}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="#1B2436">${esc(l.rotulo)}</text></g>`; }
     if(op.edicao&&ativo){ const mid=l.via||(()=>{ const i=Math.floor((pts.length-1)/2); return {x:(pts[i].x+pts[i+1].x)/2,y:(pts[i].y+pts[i+1].y)/2}; })();
       s+=`<circle class="fx-mid" data-l="${l.id}" cx="${mid.x}" cy="${mid.y}" r="7" fill="#2B63B0" stroke="#FFFFFF" stroke-width="2" style="cursor:move"><title>Arraste para desviar a ligação</title></circle>
@@ -1940,7 +2009,7 @@ function abaFluxo(c,p,d,sv){
             const q=pt(ev); if(!sn) sn=fxAlinhar(o,o.x+q.x-q0.x,o.y+q.y-q0.y,outros,tol);
             const r=raiaEm(sn.y+o.h/2);
             n.x=Math.max(RAIA_W+16,sn.sx?Math.round(sn.x):Math.round(sn.x/10)*10); n.raia=r.id;
-            n.ry=Math.max(10,sn.sy?Math.round(sn.y-r.y):Math.round((sn.y-r.y)/10)*10);
+            n.ry=Math.max(10,sn.sy?Math.round(sn.y-r.y):Math.round((sn.y-r.y)/10)*10); fxSemSobrepor(F,n);
             F.ligacoes.forEach(l=>{ if(l.de===n.id||l.para===n.id) l.via=null; }); salvarFx(); redesenhar(); }); return; }
       if(cab){ FX.sel={tipo:"raia",id:cab.dataset.r}; redesenhar(); return; }
       // [v5.11] fundo: dois cliques = selecionar área; segurar e arrastar = mover a tela; clique simples tira a seleção
@@ -1995,7 +2064,7 @@ function abaFluxo(c,p,d,sv){
         const a=ord[0], b=ord[ord.length-1], soma=ord.reduce((t,n)=>t+o(n).h,0); let gap=((b.ry||0)+o(b).h-(a.ry||0)-soma)/(ord.length-1); if(gap<20) gap=30; let y=a.ry||0;
         ord.forEach(n=>{ n.ry=Math.round(y); y+=o(n).h+gap; }); });
       if(!fez){ PQI_ESTAVEL.aviso("Para espaçar na vertical, marque 2 ou mais símbolos da mesma raia."); return; } }
-    F.ligacoes.forEach(l=>{ if(FX.multi.has(l.de)||FX.multi.has(l.para)) l.via=null; }); salvarFx(); redesenhar(); }
+    sel.forEach(n=>fxSemSobrepor(F,n)); F.ligacoes.forEach(l=>{ if(FX.multi.has(l.de)||FX.multi.has(l.para)) l.via=null; }); salvarFx(); redesenhar(); }
   // [v5.12] setas do teclado movem o símbolo (ou o grupo) — 10 em 10; com Shift, 1 em 1
   FX.mover=(dx,dy)=>{ const ids=FX.multi.size?FX.multi:(FX.sel.tipo==="no"?new Set([FX.sel.id]):null); if(!ids) return false;
     F.nos.forEach(n=>{ if(!ids.has(n.id)) return; n.x=Math.max(RAIA_W+16,n.x+dx); n.ry=Math.max(10,(n.ry||0)+dy); });
