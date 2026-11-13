@@ -1388,12 +1388,25 @@ function renderArquitetura(c){
       <div class="kpi"><span>Processos cadastrados</span><b>${PROCS.length}</b><small>${PROCS.filter(p=>p.dados.criticidade==="Alta").length} com criticidade Alta</small></div></div>
     ${totPend?`<p class="aviso">🗺️ <b>${totPend} atividade(s) levantadas no Diagnóstico</b> ainda não viraram processo. Elas aparecem em cada área abaixo — clique numa para criar o processo e mapear o passo a passo e o fluxograma.</p>`:""}
     <div class="acoes"><input id="arNova" list="dl-areas" placeholder="Nome de uma nova área" style="max-width:320px"><button type="button" id="arAdd">+ Adicionar área</button><span class="msg" id="arMsg"></span></div>
-    ${foraOrg.length?`<div class="conflito" style="margin:10px 0"><b>${foraOrg.length} área(s) com processos não existem no Organograma:</b> ${foraOrg.map(esc).join(", ")}.<br><span style="font-size:12px">Para ligar ao cadastro oficial, renomeie a área nos processos para o nome do setor do Organograma (ou cadastre o setor lá).</span></div>`:""}
+    ${foraOrg.length?`<div class="conflito" style="margin:10px 0"><b>${foraOrg.length} área(s) com processos não existem no Organograma:</b> ${foraOrg.map(esc).join(", ")}.<br><span style="font-size:12px">Clique no processo para abrir e ajustar, ou mova todos os processos da área para um setor do Organograma.</span>
+      ${foraOrg.map(nome=>`<div class="fora-org" style="margin-top:10px;padding-top:8px;border-top:1px dashed currentColor">
+        <b>${esc(nome)}</b> · ${(porArea[nome]||[]).length} processo(s):
+        <div class="mini4" style="margin:6px 0">${(porArea[nome]||[]).map(p=>`<button type="button" class="peq" data-abrirproc="${esc(p.id)}" title="Abrir o processo">${esc(p.dados.codigo||"")} · ${esc(p.dados.nome||"(sem nome)")}</button>`).join("")}</div>
+        <div class="acoes" style="margin:0"><select data-moverpara="${esc(nome)}" style="max-width:280px"><option value="">Mover todos para o setor…</option>${BASE.setores.map(x=>`<option>${esc(x.nome)}</option>`).join("")}</select>
+          <button type="button" class="peq" data-moverok="${esc(nome)}">Mover</button></div></div>`).join("")}</div>`:""}
     <div id="arLista"></div>
     ${vazias.length?`<h3>Áreas ainda sem processos</h3><div class="mini4">${vazias.map(a=>`<button type="button" class="peq" data-nova="${esc(a)}">+ ${esc(a)}</button>`).join("")}</div>`:""}`;
   const addArea=async nome=>{ nome=tx(nome); if(!nome) return; await areaGarantida(nome); await gravarCfg(); estArq.aberta=nome; render(); };
   $("#arAdd",c).onclick=()=>addArea($("#arNova").value);
   c.querySelectorAll("[data-nova]").forEach(b=>b.onclick=()=>addArea(b.dataset.nova));
+  // [v7.5] área fora do Organograma: abrir o processo direto, ou mover todos para um setor oficial
+  c.querySelectorAll("[data-abrirproc]").forEach(b=>b.onclick=()=>ir("processo",b.dataset.abrirproc));
+  c.querySelectorAll("[data-moverok]").forEach(b=>b.onclick=async()=>{ const de=b.dataset.moverok, sel=[...c.querySelectorAll("[data-moverpara]")].find(x=>x.dataset.moverpara===de), para=tx(sel&&sel.value);
+    if(!para){ PQI_ESTAVEL.aviso("Escolha o setor do Organograma para onde mover."); return; }
+    const ps=porArea[de]||[]; if(!confirm(`Mover ${ps.length} processo(s) de "${de}" para "${para}"?`)) return;
+    ps.forEach(p=>{ p.dados.area=para; salvar(p); });
+    const cfg=areaCfg(de); if(cfg&&!areaCfg(para)){ cfg.nome=para; await gravarCfg(); }
+    estArq.aberta=para; render(); PQI_ESTAVEL.aviso(`✓ ${ps.length} processo(s) movidos para ${para}. Ctrl+Z desfaz.`); });
   const lista=$("#arLista",c);
   nomes.forEach(nome=>{
     const procs=(porArea[nome]||[]).slice().sort((a,b)=>String(a.dados.macroprocesso+a.dados.codigo).localeCompare(String(b.dados.macroprocesso+b.dados.codigo),"pt-BR",{numeric:true}));
