@@ -274,7 +274,9 @@ table.matriz td.zero{color:var(--rule)}
 .fx-laco{position:absolute;z-index:6;border:1.5px dashed #2B63B0;background:rgba(43,99,176,.10);border-radius:4px;pointer-events:none}
 .fx-port{fill:#2B63B0;stroke:#fff;stroke-width:2;opacity:0;cursor:crosshair;transition:opacity .12s}
 .fx-no:hover .fx-port{opacity:1}
-.fx-edit{position:absolute;z-index:5;font:13px "IBM Plex Sans",sans-serif;border:2px solid var(--amber);border-radius:6px;padding:6px;background:#fff;color:#1B2436;resize:none}
+.fx-edit{position:absolute;z-index:5;box-sizing:border-box;min-height:0;font:13px/1.25 "IBM Plex Sans",sans-serif;border:2px dashed #2B63B0;border-radius:8px;padding:4px 6px;background:#fff;color:#1B2436;resize:none;outline:none;overflow:hidden;box-shadow:0 0 0 4px rgba(43,99,176,.15),0 6px 18px -6px rgba(27,36,54,.35)}
+.fx-alinhar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.fx-alinhar button{width:100%}
 .fx-fantasma{position:fixed;z-index:70;pointer-events:none;background:var(--steel);color:#fff;font-size:12px;padding:4px 8px;border-radius:6px}
 .fx-raias{display:flex;flex-direction:column;gap:4px}
 .fx-raia{display:flex;gap:2px;align-items:center} .fx-raia input{padding:5px 7px;font-size:13px}
@@ -1709,6 +1711,25 @@ function fxTexto(n,w,h){
   const ax=n.tipo==="nota"?{x:12,a:"start"}:{x:w/2,a:"middle"};
   return `<text x="${ax.x}" y="${cy}" text-anchor="${ax.a}" dominant-baseline="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="${fs}" fill="#1B2436" font-weight="${["inicio","fim","conector"].includes(n.tipo)?600:400}">${L.map((l,i)=>`<tspan x="${ax.x}" dy="${i?fs*1.25:0}">${esc(l)}</tspan>`).join("")}</text>`;
 }
+// [v5.12] GUIAS DE ALINHAMENTO: ao arrastar, encaixa na borda ou no centro de outro símbolo e mostra a linha rosa
+function fxAlinhar(o,x,y,outros,tol){
+  const meus=(p,t)=>[[p,0,0],[p+t/2,t/2,1],[p+t,t,2]];   // [posição, deslocamento, 0=borda inicial 1=centro 2=borda final]
+  let bx=null, by=null;
+  const testar=(alvo,lista,melhor)=>{ lista.forEach(([a,off,k])=>alvo.forEach((v,i)=>{ const d=Math.abs(v-a)-(i===1&&k===1?tol*0.7:0);   // centro com centro tem preferência (é o alinhamento usual do fluxograma)
+      if(Math.abs(v-a)<=tol&&(!melhor.v||d<melhor.v.d)) melhor.v={d,pos:v-off,linha:v}; })); };
+  const mx={v:null}, my={v:null};
+  outros.forEach(p=>{ testar([p.x,p.x+p.w/2,p.x+p.w],meus(x,o.w),mx); testar([p.y,p.y+p.h/2,p.y+p.h],meus(y,o.h),my); });
+  bx=mx.v; by=my.v;
+  return {x:bx?bx.pos:x,y:by?by.pos:y,sx:!!bx,sy:!!by,linhas:[bx&&{t:"v",v:bx.linha},by&&{t:"h",v:by.linha}].filter(Boolean)};
+}
+function fxGuias(svg,linhas,G){
+  const velho=svg.querySelector("#fxGuias"); if(velho) velho.remove(); if(!linhas.length) return;
+  const NS="http://www.w3.org/2000/svg", g=document.createElementNS(NS,"g"); g.id="fxGuias"; g.setAttribute("pointer-events","none");
+  linhas.forEach(l=>{ const ln=document.createElementNS(NS,"line");
+    Object.entries(l.t==="v"?{x1:l.v,y1:0,x2:l.v,y2:G.H}:{x1:RAIA_W,y1:l.v,x2:G.W,y2:l.v}).forEach(([k,v])=>ln.setAttribute(k,v));
+    ln.setAttribute("stroke","#E0457B"); ln.setAttribute("stroke-width","1.4"); ln.setAttribute("stroke-dasharray","6 4"); g.appendChild(ln); });
+  svg.appendChild(g);
+}
 // desenha o fluxograma inteiro (também usado no PDF e na exportação)
 function svgFluxo(F, op={}){
   const G=fxGeom(F), R=fxRotas(F,G), sel=op.sel||{};
@@ -1816,7 +1837,7 @@ function abaFluxo(c,p,d,sv){
       F.raias.push(r); F.nos.push(n); FX.sel={tipo:"no",id:n.id}; sv(); render(); });
     props.innerHTML='<div class="fx-pt">Fluxograma</div><p class="cap">Escolha ao lado como começar. Depois você ajusta à vontade: arrastar símbolos entre as raias, ligar, desviar linhas, trocar tipos.</p>'; return; }
   const salvarFx=()=>{ sv(); };
-  const redesenhar=()=>{ const sl=area.scrollLeft, st=area.scrollTop; area.innerHTML=svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom}); area.scrollLeft=sl; area.scrollTop=st; ligarSvg(); marcarMulti(); desenharProps(); };
+  const redesenhar=()=>{ if(FX.fecharEdicao){ const f=FX.fecharEdicao; FX.fecharEdicao=null; f(); } const sl=area.scrollLeft, st=area.scrollTop; area.innerHTML=svgFluxo(F,{edicao:true,sel:FX.sel,id:"fxSvg",zoom:FX.zoom}); area.scrollLeft=sl; area.scrollTop=st; ligarSvg(); marcarMulti(); desenharProps(); };
   // [v5.11] SELEÇÃO POR ÁREA: dois cliques no fundo liberam o retângulo; o grupo marcado se move junto (com as setas)
   FX.multi=new Set([...FX.multi].filter(id=>F.nos.some(n=>n.id===id)));
   function marcarMulti(){ const s=$("#fxSvg"); if(!s) return; area.classList.toggle("selecionando",FX.modoArea);
@@ -1907,11 +1928,19 @@ function abaFluxo(c,p,d,sv){
           ev=>{ area.classList.remove("movendo"); if(!arr) return; const q=pt(ev); aplicar(q.x-q0.x,q.y-q0.y); salvarFx(); redesenhar(); });
         return; }
       if(no&&FX.multi.size){ limparMulti(); }
-      if(no){ const n=F.nos.find(x=>x.id===no.dataset.n), G=fxGeom(F), o=G.nos[n.id], q0=pt(e); let arr=false;
-        if(!(FX.sel.tipo==="no"&&FX.sel.id===n.id)){ FX.sel={tipo:"no",id:n.id}; desenharProps(); s.querySelectorAll(".fx-no").forEach(g=>{}); }
-        acompanhar(ev=>{ const q=pt(ev); if(!arr&&Math.hypot(q.x-q0.x,q.y-q0.y)<4) return; arr=true; no.setAttribute("transform",`translate(${o.x+q.x-q0.x},${o.y+q.y-q0.y})`); },
-          ev=>{ if(!arr){ redesenhar(); return; } const q=pt(ev), nx=o.x+q.x-q0.x, ny=o.y+q.y-q0.y, r=raiaEm(ny+o.h/2);
-            n.x=Math.max(RAIA_W+16,Math.round(nx/10)*10); n.raia=r.id; n.ry=Math.max(10,Math.round((ny-r.y)/10)*10);
+      if(no){ const n=F.nos.find(x=>x.id===no.dataset.n), G=fxGeom(F), o=G.nos[n.id], q0=pt(e); let arr=false, sn=null;
+        if(!(FX.sel.tipo==="no"&&FX.sel.id===n.id)){ FX.sel={tipo:"no",id:n.id}; desenharProps(); }
+        const outros=Object.values(G.nos).filter(x=>x.n.id!==n.id), tol=7/(FX.zoom||1);
+        acompanhar(ev=>{ const q=pt(ev); if(!arr&&Math.hypot(q.x-q0.x,q.y-q0.y)<4) return; arr=true;
+            sn=fxAlinhar(o,o.x+q.x-q0.x,o.y+q.y-q0.y,outros,tol); no.setAttribute("transform",`translate(${sn.x},${sn.y})`); fxGuias(s,sn.linhas,G); },
+          ev=>{ fxGuias(s,[],G);
+            if(!arr){ // [v5.12] dois cliques no mesmo símbolo = escrever direto no balão
+              const agora=Date.now(), duplo=FX.ultClique&&FX.ultClique.id===n.id&&agora-FX.ultClique.t<450;
+              FX.ultClique=duplo?null:{id:n.id,t:agora}; redesenhar(); if(duplo) editarNo(n.id); return; }
+            const q=pt(ev); if(!sn) sn=fxAlinhar(o,o.x+q.x-q0.x,o.y+q.y-q0.y,outros,tol);
+            const r=raiaEm(sn.y+o.h/2);
+            n.x=Math.max(RAIA_W+16,sn.sx?Math.round(sn.x):Math.round(sn.x/10)*10); n.raia=r.id;
+            n.ry=Math.max(10,sn.sy?Math.round(sn.y-r.y):Math.round((sn.y-r.y)/10)*10);
             F.ligacoes.forEach(l=>{ if(l.de===n.id||l.para===n.id) l.via=null; }); salvarFx(); redesenhar(); }); return; }
       if(cab){ FX.sel={tipo:"raia",id:cab.dataset.r}; redesenhar(); return; }
       // [v5.11] fundo: dois cliques = selecionar área; segurar e arrastar = mover a tela; clique simples tira a seleção
@@ -1922,18 +1951,55 @@ function abaFluxo(c,p,d,sv){
         ()=>{ area.classList.remove("panning"); if(!andou&&(FX.sel.tipo||FX.multi.size)){ FX.sel={}; limparMulti(); redesenhar(); } });
     };
     s.ondblclick=e=>{ const no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab"), lig=e.target.closest(".fx-hit,.fx-rot");
-      if(no) editarTexto(F.nos.find(x=>x.id===no.dataset.n),no);
+      if(no){ if(!area.querySelector(".fx-edit")) editarNo(no.dataset.n); }
       else if(cab){ const r=F.raias.find(x=>x.id===cab.dataset.r), nv=prompt("Nome da raia (quem executa):",r.nome); if(nv!=null&&tx(nv)){ r.nome=tx(nv); salvarFx(); redesenhar(); } }
       else if(lig){ const l=F.ligacoes.find(x=>x.id===lig.dataset.l), nv=prompt("Texto da ligação (ex.: Sim, Não):",l.rotulo||""); if(nv!=null){ l.rotulo=tx(nv); salvarFx(); redesenhar(); } }
       else entrarModoArea(); };
   }
-  function editarTexto(n,g){
-    const r=g.getBoundingClientRect(), ar=area.getBoundingClientRect(), t=el("textarea","fx-edit");
-    Object.assign(t.style,{left:(r.left-ar.left+area.scrollLeft)+"px",top:(r.top-ar.top+area.scrollTop)+"px",width:Math.max(150,r.width)+"px",height:Math.max(60,r.height)+"px"});
-    t.value=n.texto||""; area.appendChild(t); t.focus(); t.select();
-    const ok=()=>{ if(!t.isConnected) return; n.texto=t.value.trim(); t.remove(); salvarFx(); redesenhar(); };
-    t.onblur=ok; t.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); ok(); } if(e.key==="Escape"){ t.remove(); } };
+  // [v5.12] escrever direto no balão: a caixa fica por cima do símbolo, no tamanho, cor e letra dele
+  function editarNo(id){ const sv=$("#fxSvg"), n=F.nos.find(x=>x.id===id); if(sv&&n) editarTexto(n); }
+  function editarTexto(n){
+    if(FX.fecharEdicao){ const f=FX.fecharEdicao; FX.fecharEdicao=null; f(); }
+    const sv=$("#fxSvg"); if(!sv) return; const o=fxGeom(F).nos[n.id]; if(!o) return;
+    const ar=area.getBoundingClientRect(), sr=sv.getBoundingClientRect(), z=FX.zoom||1, S=SIMB[n.tipo]||SIMB.processo;
+    const fr={decisao:[.72,.66],entrada:[.8,1],manual:[.8,1],documento:[1,.82],sistema:[1,.78],subprocesso:[.86,1],conector:[1.6,1]}[n.tipo]||[1,1];
+    const w=Math.max(130,o.w*fr[0]*z), h=Math.max(46,o.h*fr[1]*z);
+    const cx=sr.left-ar.left+area.scrollLeft+(o.x+o.w/2)*z, cy=sr.top-ar.top+area.scrollTop+(o.y+o.h/2)*z;
+    const t=el("textarea","fx-edit");
+    Object.assign(t.style,{left:(cx-w/2)+"px",top:(cy-h/2)+"px",width:w+"px",height:h+"px",fontSize:Math.max(12,12.5*z)+"px",
+      textAlign:n.tipo==="nota"?"left":"center",background:S.fill==="none"||S.fill==="#FFFFFF"?"#fff":S.fill,
+      fontWeight:["inicio","fim","conector"].includes(n.tipo)?600:400});
+    t.value=n.texto||""; t.placeholder=S.nome; t.setAttribute("aria-label","Texto do símbolo");
+    const centrar=()=>{ t.style.paddingTop=t.style.paddingBottom="4px"; t.style.height="0px"; const alt=t.scrollHeight; t.style.height=h+"px"; const sobra=h-alt; t.style.paddingTop=4+Math.max(0,sobra/2)+"px"; };
+    area.appendChild(t); centrar(); t.focus(); t.select();
+    let feito=false;
+    const gravar=()=>{ if(feito) return; feito=true; FX.fecharEdicao=null; const v=t.value.trim(); t.remove(); if(v!==(n.texto||"")){ n.texto=v; salvarFx(); } };
+    const ok=()=>{ if(feito) return; gravar(); redesenhar(); };
+    FX.fecharEdicao=gravar;
+    t.oninput=()=>{ centrar(); const pt2=$("#pTxt",props); if(pt2) pt2.value=t.value; };
+    t.onblur=ok; t.onpointerdown=e=>e.stopPropagation();
+    t.onkeydown=e=>{ e.stopPropagation();
+      if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); ok(); }
+      if(e.key==="Escape"){ e.preventDefault(); feito=true; FX.fecharEdicao=null; t.remove(); } };
   }
+  // [v5.12] alinhar / espaçar os símbolos selecionados (seleção por área)
+  function alinharGrupo(modo){ const G=fxGeom(F), sel=F.nos.filter(n=>FX.multi.has(n.id)), o=n=>G.nos[n.id]; if(sel.length<2) return;
+    if(modo==="linha"){ const ref=sel.slice().sort((a,b)=>o(a).x-o(b).x)[0], c=(ref.ry||0)+o(ref).h/2;
+      sel.forEach(n=>{ n.ry=Math.max(10,Math.round(c-o(n).h/2)); }); }
+    else if(modo==="coluna"){ const ref=sel.slice().sort((a,b)=>o(a).y-o(b).y)[0], c=o(ref).x+o(ref).w/2;
+      sel.forEach(n=>{ n.x=Math.max(RAIA_W+16,Math.round(c-o(n).w/2)); }); }
+    else if(modo==="espacoH"){ const ord=sel.slice().sort((a,b)=>o(a).x-o(b).x), a=o(ord[0]), b=o(ord[ord.length-1]);
+      const soma=ord.reduce((t,n)=>t+o(n).w,0); let gap=(b.x+b.w-a.x-soma)/(ord.length-1); if(gap<30) gap=40; let x=a.x;
+      ord.forEach(n=>{ n.x=Math.round(x); x+=o(n).w+gap; }); }
+    else if(modo==="espacoV"){ let fez=false; F.raias.forEach(r=>{ const ord=sel.filter(n=>n.raia===r.id).sort((a,b)=>(a.ry||0)-(b.ry||0)); if(ord.length<2) return; fez=true;
+        const a=ord[0], b=ord[ord.length-1], soma=ord.reduce((t,n)=>t+o(n).h,0); let gap=((b.ry||0)+o(b).h-(a.ry||0)-soma)/(ord.length-1); if(gap<20) gap=30; let y=a.ry||0;
+        ord.forEach(n=>{ n.ry=Math.round(y); y+=o(n).h+gap; }); });
+      if(!fez){ PQI_ESTAVEL.aviso("Para espaçar na vertical, marque 2 ou mais símbolos da mesma raia."); return; } }
+    F.ligacoes.forEach(l=>{ if(FX.multi.has(l.de)||FX.multi.has(l.para)) l.via=null; }); salvarFx(); redesenhar(); }
+  // [v5.12] setas do teclado movem o símbolo (ou o grupo) — 10 em 10; com Shift, 1 em 1
+  FX.mover=(dx,dy)=>{ const ids=FX.multi.size?FX.multi:(FX.sel.tipo==="no"?new Set([FX.sel.id]):null); if(!ids) return false;
+    F.nos.forEach(n=>{ if(!ids.has(n.id)) return; n.x=Math.max(RAIA_W+16,n.x+dx); n.ry=Math.max(10,(n.ry||0)+dy); });
+    F.ligacoes.forEach(l=>{ if(ids.has(l.de)||ids.has(l.para)) l.via=null; }); salvarFx(); redesenhar(); return true; };
   function excluirSel(){
     if(FX.multi.size){ const ids=FX.multi; F.nos=F.nos.filter(n=>!ids.has(n.id)); F.ligacoes=F.ligacoes.filter(l=>!ids.has(l.de)&&!ids.has(l.para));
       d.fluxo[FX.ver]=F; FX.multi=new Set(); FX.sel={}; salvarFx(); redesenhar(); return; }
@@ -1978,7 +2044,9 @@ function abaFluxo(c,p,d,sv){
         <label class="f">Raia (quem executa)<select id="pRaia">${F.raias.map(r=>`<option value="${r.id}"${r.id===n.raia?" selected":""}>${esc(r.nome)}</option>`).join("")}</select></label>
         ${AMARRA_NUNCA.has(n.tipo)?"":`<label class="f">🔗 Passo da IT<select id="pPasso"><option value="">${AMARRA_AUTO.has(n.tipo)?"— vira um passo novo —":"— só no fluxograma —"}</option>${listaDaVersao(d,FX.ver).map((x,i)=>`<option value="${x.id}"${x.id===n.passo?" selected":""}>${i+1}. ${esc(nomeCurto(x.rotulo||x.descricao))}</option>`).join("")}</select></label>`}
         <div class="acoes"><button type="button" class="peq" id="pDup">Duplicar</button><button type="button" class="peq warn" id="pDel">Excluir</button></div>
-        <p class="cap">Para ligar: puxe um dos pontos ● da borda até outro símbolo.</p>`;
+        <p class="cap">Para ligar: puxe um dos pontos ● da borda até outro símbolo.</p>
+        <p class="cap">✏️ <b>Dois cliques no símbolo</b> para escrever direto nele (Enter salva · Shift+Enter quebra a linha · Esc cancela).</p>
+        <p class="cap">📏 Ao arrastar, a <b style="color:#E0457B">linha rosa</b> aparece quando o símbolo fica alinhado com outro — solte nela. As setas do teclado ajustam fino (Shift = 1 em 1).</p>`;
       $("#pTipo",props).onchange=e=>{ n.tipo=e.target.value; salvarFx(); redesenhar(); };
       $("#pTxt",props).oninput=e=>{ n.texto=e.target.value; salvarFx(); }; $("#pTxt",props).onchange=()=>redesenhar();
       $("#pRaia",props).onchange=e=>{ n.raia=e.target.value; salvarFx(); redesenhar(); };
@@ -1998,7 +2066,13 @@ function abaFluxo(c,p,d,sv){
       const pv=$("#pVia",props); if(pv) pv.onclick=()=>{ l.via=null; salvarFx(); redesenhar(); };
       $("#pDel",props).onclick=excluirSel; return; }
     // nada selecionado: raias + geração automática
-    props.innerHTML=`<div class="fx-pt">Raias (quem executa)</div>
+    const blocoAlinhar=FX.multi.size>1?`<div class="fx-pt">Alinhar ${FX.multi.size} símbolos</div>
+      <div class="fx-alinhar"><button type="button" class="peq" data-al="linha" title="Mesma altura dentro da raia (pelo primeiro da esquerda)">⇹ Mesma linha</button>
+        <button type="button" class="peq" data-al="coluna" title="Centro na mesma coluna (pelo de cima)">⇵ Mesma coluna</button>
+        <button type="button" class="peq" data-al="espacoH" title="Distância igual entre eles, da esquerda para a direita">↔ Espaço igual</button>
+        <button type="button" class="peq" data-al="espacoV" title="Distância igual entre eles, de cima para baixo (na mesma raia)">↕ Espaço igual</button></div>
+      <p class="cap" style="margin-bottom:14px">Marque os símbolos (dois cliques no fundo e arraste) e escolha. Setas do teclado movem o grupo.</p>`:"";
+    props.innerHTML=blocoAlinhar+`<div class="fx-pt">Raias (quem executa)</div>
       <div class="fx-raias">${F.raias.map((r,i)=>`<div class="fx-raia${S.tipo==="raia"&&S.id===r.id?" sel":""}"><input data-rn="${r.id}" value="${esc(r.nome)}" aria-label="Nome da raia">
         <button type="button" class="ib" data-up="${i}" ${i?"":"disabled"} title="Subir">▲</button><button type="button" class="ib" data-dn="${i}" ${i<F.raias.length-1?"":"disabled"} title="Descer">▼</button><button type="button" class="ib" data-rd="${r.id}" title="Excluir raia">🗑</button></div>`).join("")||'<p class="cap">Nenhuma raia ainda.</p>'}</div>
       <div class="acoes"><button type="button" class="peq" id="pRaiaAdd">＋ Raia</button>${setor&&(setor.subsetores||[]).length?'<button type="button" class="peq" id="pRaiaSub">Raias pelos subsetores</button>':""}</div>
@@ -2007,6 +2081,7 @@ function abaFluxo(c,p,d,sv){
       <p class="cap">${temPassos?"Cria uma raia por “quem faz” e um símbolo por passo, já ligados em sequência. Depois é só ajustar (decisões, documentos, desvios).":"Cadastre os passos primeiro para gerar o desenho automaticamente."}</p>
       ${FX.ver==="tobe"&&!F.nos.length&&d.fluxo.asis.nos.length?'<button type="button" class="peq" id="pCopiar" style="width:100%">Copiar o desenho do AS IS para começar</button>':""}
       <p class="cap" style="margin-top:12px">${F.nos.length} símbolo(s) · ${F.ligacoes.length} ligação(ões)</p>`;
+    props.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>alinharGrupo(b.dataset.al));
     props.querySelectorAll("[data-rn]").forEach(i=>{ i.onchange=()=>{ const r=F.raias.find(x=>x.id===i.dataset.rn); r.nome=tx(i.value)||r.nome; salvarFx(); redesenhar(); }; });
     props.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.up; [F.raias[i-1],F.raias[i]]=[F.raias[i],F.raias[i-1]]; salvarFx(); redesenhar(); });
     props.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.dn; [F.raias[i+1],F.raias[i]]=[F.raias[i],F.raias[i+1]]; salvarFx(); redesenhar(); });
@@ -2020,10 +2095,13 @@ function abaFluxo(c,p,d,sv){
 }
 document.addEventListener("keydown",e=>{ if(!document.getElementById("fxSvg")) return; if(e.target.closest&&e.target.closest("input,textarea,select")) return;
   if((e.key==="Delete"||e.key==="Backspace")&&(FX.sel.tipo||FX.multi.size)&&FX.excluir){ e.preventDefault(); FX.excluir(); }
+  const SETA={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(SETA&&(FX.sel.tipo==="no"||FX.multi.size)&&FX.mover){ e.preventDefault(); const k=e.shiftKey?1:10; FX.mover(SETA[0]*k,SETA[1]*k); return; }
   if(e.key==="Escape"&&(FX.sel.tipo||FX.multi.size||FX.modoArea)){ FX.sel={}; if(FX.limparMulti) FX.limparMulti(); FX.redesenhar?FX.redesenhar():render(); } });
 if(window.PQI_ESTAVEL){
-  PQI_ESTAVEL.aoCopiar=()=>!!(document.getElementById("fxSvg")&&FX.copiar&&FX.copiar());
-  PQI_ESTAVEL.aoColar=()=>!!(document.getElementById("fxSvg")&&FX.colar&&FX.colar());
+  const digitando=()=>{ const a=document.activeElement; return !!(a&&a.closest&&a.closest("input,textarea,select,[contenteditable]")); };
+  PQI_ESTAVEL.aoCopiar=()=>!digitando()&&!!(document.getElementById("fxSvg")&&FX.copiar&&FX.copiar());
+  PQI_ESTAVEL.aoColar=()=>!digitando()&&!!(document.getElementById("fxSvg")&&FX.colar&&FX.colar());
 }
 
 // ═══════════════════════════════════════════════════════════════════
