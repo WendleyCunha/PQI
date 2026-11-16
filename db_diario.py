@@ -39,6 +39,7 @@ excluiria silenciosamente qualquer atividade sem o campo usado pra
 ordenar) — sempre buscar tudo e ordenar em Python.
 """
 
+import re
 import os
 import json
 import datetime
@@ -438,6 +439,57 @@ def mapa_salvar(processo_id: str, dados: dict, versao_esperada: Optional[int], u
         return "ok", _mapa_publico(processo_id, {**atual, **novo})
 
     return _tx(transacao)
+
+
+def mapa_excluidos() -> list[dict]:
+    """[v7.6] Lixeira: processos excluídos (a exclusão só marca; nada é apagado)."""
+    saida = []
+    for doc in _col_mapa().stream(timeout=TIMEOUT_FS):
+        d = doc.to_dict() or {}
+        if d.get("excluido"):
+            saida.append({**_mapa_publico(doc.id, d), "excluido_por": d.get("excluido_por"), "excluido_em": d.get("excluido_em")})
+    saida.sort(key=lambda x: x.get("excluido_em") or "", reverse=True)
+    return saida
+
+
+def mapa_restaurar(processo_id: str, usuario: str) -> Optional[dict]:
+    """[v7.6] Desfaz a exclusão: o processo volta exatamente como estava (mesmo id, passos, fluxograma e IT)."""
+    ref = _col_mapa().document(processo_id)
+    snap = ref.get(timeout=TIMEOUT_FS)
+    if not snap.exists or not (snap.to_dict() or {}).get("excluido"):
+        return None
+    atual = snap.to_dict() or {}
+    dados = dict(atual.get("dados") or {})
+    codigo = str(dados.get("codigo") or "").strip()
+    mudou = {"excluido": False, "restaurado_por": usuario, "restaurado_em": _now_iso()}
+    codigo_anterior = None
+    # Já existe processo ATIVO com o mesmo código → o restaurado ganha o próximo número livre
+    # (o maior número entre todos, inclusive os da lixeira, para não colidir depois).
+    ativos, maior = set(), 0
+    for doc in _col_mapa().stream(timeout=TIMEOUT_FS):
+        if doc.id == processo_id:
+            continue
+        d = doc.to_dict() or {}
+        c = str((d.get("dados") or {}).get("codigo") or "").strip()
+        m = re.search(r"(\d+)$", c)
+        if m:
+            maior = max(maior, int(m.group(1)))
+        if c and not d.get("excluido"):
+            ativos.add(c.upper())
+    m = re.search(r"(\d+)$", codigo)
+    if m:
+        maior = max(maior, int(m.group(1)))
+    if codigo and codigo.upper() in ativos:
+        codigo_anterior = codigo
+        prefixo = re.sub(r"\d+$", "", codigo) or "PROC-"
+        dados["codigo"] = f"{prefixo}{maior + 1:03d}"
+        mudou.update({"dados": dados, "codigo_anterior": codigo_anterior,
+                      "versao": int(atual.get("versao", 1)) + 1, "atualizado_por": usuario, "atualizado_em": _now_iso()})
+    ref.update(mudou, timeout=TIMEOUT_FS)
+    reg = _mapa_publico(processo_id, ref.get(timeout=TIMEOUT_FS).to_dict() or {})
+    if codigo_anterior:
+        reg["codigo_anterior"] = codigo_anterior
+    return reg
 
 
 def mapa_excluir(processo_id: str, usuario: str) -> bool:
