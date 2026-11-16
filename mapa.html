@@ -352,6 +352,13 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   <footer class="doc-foot">Processos · Conhecer a empresa antes de automatizar a empresa · TI 2027 — King Star Conectada</footer>
 </div>
 
+<dialog id="dlgLixeira" style="max-width:640px">
+  <h3>🗑️ Lixeira — processos excluídos</h3>
+  <p class="muted" style="margin:0 0 10px;font-size:13px">Excluir só tira o processo da lista: o passo a passo, o fluxograma e a IT ficam guardados. Restaurar traz tudo de volta como estava.</p>
+  <div id="lxLista" style="max-height:55vh;overflow:auto"></div>
+  <p class="msg" id="lxMsg" style="margin:8px 0 0"></p>
+  <div class="acts"><button type="button" id="lxFechar">Fechar</button></div>
+</dialog>
 <dialog id="dlgNovo">
   <h3>Novo processo</h3>
   <p class="origem-box" id="npOrigem" hidden></p>
@@ -1804,6 +1811,7 @@ function svgFluxo(F, op={}){
       <g class="fx-raia-cab" data-r="${r.id}"><rect x="0" y="${r.y}" width="${RAIA_W}" height="${r.h}" fill="${ativa?"#CFDDF2":"#E3EAF5"}" stroke="#B8C4D8"/>
       ${fxQuebrar(r.nome,RAIA_W-10,r.h,13).map((l,k,arr)=>`<text x="${RAIA_W/2}" y="${r.y+r.h/2-(arr.length-1)*8+k*16}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600" fill="#1B2436">${esc(l)}</text>`).join("")}</g>`; });
   if(!G.raias.length) s+=`<text x="${G.W/2}" y="70" text-anchor="middle" font-size="14" fill="#7A8599">Crie uma raia (quem executa) e adicione os símbolos.</text>`;
+  let topo="";   // [v5.13.1] alças da linha selecionada (pontas e meio) ficam por cima dos cards — senão o ● do card pega o clique
   F.ligacoes.forEach(l=>{ const pts=R[l.id]; if(!pts) return; const ativo=sel.tipo==="lig"&&sel.id===l.id, d=caminhoSVG(pts);
     s+=`<path d="${d}" fill="none" stroke="${ativo?"#2B63B0":"#4A5568"}" stroke-width="${ativo?2.4:1.6}" stroke-linejoin="round" marker-end="url(#${ativo?"fxSetaSel":"fxSeta"})"/>`;
     if(op.edicao) s+=`<path class="fx-hit" data-l="${l.id}" d="${d}" fill="none" stroke="transparent" stroke-width="14" style="cursor:pointer"/>`;
@@ -1818,7 +1826,7 @@ function svgFluxo(F, op={}){
       if(mx==null){ let best=[pts[0],pts[1]],bl=0; for(let i=0;i<pts.length-1;i++){ const len=Math.abs(pts[i+1].x-pts[i].x)+Math.abs(pts[i+1].y-pts[i].y); if(len>bl){ bl=len; best=[pts[i],pts[i+1]]; } } mx=(best[0].x+best[1].x)/2; my=(best[0].y+best[1].y)/2; }
       s+=`<g class="fx-rot" data-l="${l.id}"><rect x="${mx-tw/2}" y="${my-10}" width="${tw}" height="20" rx="4" fill="#FFFFFF" stroke="#D9DEE7"/><text x="${mx}" y="${my+1}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="#1B2436">${esc(l.rotulo)}</text></g>`; }
     if(op.edicao&&ativo){ const mid=l.via||(()=>{ const i=Math.floor((pts.length-1)/2); return {x:(pts[i].x+pts[i+1].x)/2,y:(pts[i].y+pts[i+1].y)/2}; })();
-      s+=`<circle class="fx-mid" data-l="${l.id}" cx="${mid.x}" cy="${mid.y}" r="7" fill="#2B63B0" stroke="#FFFFFF" stroke-width="2" style="cursor:move"><title>Arraste para desviar a ligação</title></circle>
+      topo+=`<circle class="fx-mid" data-l="${l.id}" cx="${mid.x}" cy="${mid.y}" r="7" fill="#2B63B0" stroke="#FFFFFF" stroke-width="2" style="cursor:move"><title>Arraste para desviar a ligação</title></circle>
         <rect class="fx-ponta" data-l="${l.id}" data-p="de" x="${pts[0].x-6}" y="${pts[0].y-6}" width="12" height="12" fill="#FFFFFF" stroke="#2B63B0" stroke-width="2" style="cursor:crosshair"><title>Arraste para ligar a outro símbolo</title></rect>
         <rect class="fx-ponta" data-l="${l.id}" data-p="para" x="${pts[pts.length-1].x-6}" y="${pts[pts.length-1].y-6}" width="12" height="12" fill="#FFFFFF" stroke="#2B63B0" stroke-width="2" style="cursor:crosshair"><title>Arraste para ligar a outro símbolo</title></rect>`; }
   });
@@ -1826,7 +1834,7 @@ function svgFluxo(F, op={}){
     s+=`<g class="fx-no" data-n="${n.id}" transform="translate(${o.x},${o.y})" style="${op.edicao?"cursor:move":""}">${fxForma(n.tipo,o.w,o.h)}${fxTexto(n,o.w,o.h)}
       ${ativo?`<rect x="-5" y="-5" width="${o.w+10}" height="${o.h+10}" rx="8" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4"/>`:""}
       ${op.edicao?["top","right","bottom","left"].map(ld=>{ const p=fxPorta({x:0,y:0,w:o.w,h:o.h},ld); return `<circle class="fx-port" data-n="${n.id}" data-lado="${ld}" cx="${p.x}" cy="${p.y}" r="6"><title>Puxe para ligar a outro símbolo</title></circle>`; }).join(""):""}</g>`; });
-  s+=`<path id="fxTemp" d="" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4" pointer-events="none"/></svg>`;
+  s+=topo+`<path id="fxTemp" d="" fill="none" stroke="#2B63B0" stroke-width="2" stroke-dasharray="5 4" pointer-events="none"/></svg>`;
   return s;
 }
 // modo "pessoa": uma raia por "quem faz" · modo "subsetor": a pessoa vira o subsetor dela (Organograma)
@@ -1964,7 +1972,9 @@ function abaFluxo(c,p,d,sv){
     const s=$("#fxSvg"); if(!s) return;
     s.onpointerdown=e=>{
       if(e.button!==0) return;
-      const porta=e.target.closest(".fx-port"), mid=e.target.closest(".fx-mid"), ponta=e.target.closest(".fx-ponta"), hit=e.target.closest(".fx-hit,.fx-rot"), no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab");
+      // [v5.13.1] o editor roda num quadro dentro do painel: sem isto o Delete/setas iam para a página de fora
+      try{ const a=document.activeElement; if(a&&a!==document.body&&a.blur&&!a.closest(".fx-edit")) a.blur(); window.focus(); }catch(_){}
+      const ponta0=e.target.closest(".fx-ponta"), porta=ponta0?null:e.target.closest(".fx-port"), mid=e.target.closest(".fx-mid"), ponta=e.target.closest(".fx-ponta"), hit=e.target.closest(".fx-hit,.fx-rot"), no=e.target.closest(".fx-no"), cab=e.target.closest(".fx-raia-cab");
       const temp=$("#fxTemp"); e.preventDefault();
       const acompanhar=(mov,fim)=>{ const m=ev=>mov(ev), f=ev=>{ window.removeEventListener("pointermove",m); window.removeEventListener("pointerup",f); fim(ev); };
         window.addEventListener("pointermove",m); window.addEventListener("pointerup",f); };
@@ -2430,7 +2440,7 @@ $("#npSim").onclick=async()=>{
 function renderLista(c){
   const T=totaisGerais(), areas=ordenar([...new Set([...PROCS.map(p=>tx(p.dados.area)),...(BASE?BASE.setores.map(x=>tx(x.nome)):[])].filter(Boolean))]);   // [v6.3] + setores do Organograma
   c.innerHTML=`<div class="lista-topo"><h1>Processos mapeados</h1>
-      <div class="lista-acoes"><button type="button" id="lsArq">${ICO.arq} Áreas (Fase 1)</button><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button>
+      <div class="lista-acoes"><button type="button" id="lsArq">${ICO.arq} Áreas (Fase 1)</button><button type="button" id="lsGeral">${ICO.painel} Visão geral</button><button type="button" id="lsExp">${ICO.exportar} Exportar tudo (Excel)</button><button type="button" id="lsLix" title="Processos excluídos — restaurar">🗑️ Lixeira</button>
       <button type="button" class="primary" id="lsNovo">${ICO.mais} Novo processo</button></div>
       <p>Cada processo percorre as 7 fases: visão macro, levantamento AS IS, validação, diagnóstico, desenho TO BE, aprovação e planejamento da implantação. Clique num processo para registrar e acompanhar.</p></div>
     ${PROCS.length?blocoResumo(T.indice,T.conforme,T.cls,`${PROCS.filter(p=>estadoFases(p).f3.ok).length} de ${PROCS.length} processo(s) com AS IS validado · ${areasCfg().filter(a=>a.mapeado).length} área(s) 100% mapeada(s)`,T):""}
@@ -2441,6 +2451,7 @@ function renderLista(c){
   $("#lsNovo",c).onclick=abrirNovoProcesso;
   $("#lsGeral",c).onclick=()=>ir("geral",null,"painel");
   $("#lsArq",c).onclick=()=>ir("geral",null,"arquitetura");
+  $("#lsLix",c).onclick=()=>abrirLixeira();
   $("#lsExp",c).onclick=async()=>{ try{ await salvarTudo(); await excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS)); }catch(e){ alert(e.message); } };
   const desenhar=()=>{
     const t=filtro.busca.toLowerCase();
@@ -2650,7 +2661,33 @@ function desenharHistorico(box, p, limite){
 // ═══════════════════════════════════════════════════════════════════
 // VISÃO GERAL (todos os processos) — mesmo menu vertical
 // ═══════════════════════════════════════════════════════════════════
+// [v7.6] LIXEIRA: lista os processos excluídos e restaura (se o código já estiver em uso, ganha um número novo)
+async function abrirLixeira(){
+  const dl=$("#dlgLixeira"), lst=$("#lxLista"), msg=$("#lxMsg"); msg.textContent=""; lst.innerHTML='<p class="muted">Carregando…</p>'; if(!dl.open) dl.showModal();
+  const {r,j}=await api("/api/mapa/excluidos");
+  if(!r.ok){ lst.innerHTML=`<p class="msg erro">${esc(j.detail||"Não foi possível abrir a lixeira.")}</p>`; return; }
+  if(!j.length){ lst.innerHTML='<p class="muted">A lixeira está vazia.</p>'; return; }
+  const quando=v=>{ try{ return new Date(v).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }catch(_){ return v||""; } };
+  lst.innerHTML=j.map(p=>{ const d=p.dados||{}, cod=d.codigo||"(sem código)";
+    return `<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rule)">
+      <div><b>${esc(cod)}</b> · ${esc(d.nome||"(sem nome)")}<br><span class="muted" style="font-size:12px">${esc(d.area||"sem área")} · ${(d.passos_real||[]).length} passo(s) · excluído por ${esc(p.excluido_por||"?")} em ${esc(quando(p.excluido_em))}</span></div>
+      <button type="button" class="peq primary" data-restaurar="${esc(p.id)}">Restaurar ${esc(cod)}</button></div>`; }).join("");
+  lst.querySelectorAll("[data-restaurar]").forEach(b=>b.onclick=async()=>{
+    const reg=j.find(x=>x.id===b.dataset.restaurar), cod=String((reg.dados||{}).codigo||"").trim();
+    const igual=cod&&PROCS.find(p=>String(p.dados.codigo||"").trim().toUpperCase()===cod.toUpperCase());
+    const pergunta=igual?`Já existe um processo ativo com o código ${cod} (${igual.dados.nome||"sem nome"}).\n\nO processo restaurado vai ganhar um NÚMERO NOVO. Continuar?`:`Restaurar ${cod||"este processo"} — ${(reg.dados||{}).nome||""}?`;
+    if(!confirm(pergunta)) return;
+    b.disabled=true; msg.className="msg"; msg.textContent="Restaurando…";
+    const x=await api("/api/mapa/excluidos/"+encodeURIComponent(reg.id),{method:"DELETE"});
+    if(!x.r.ok){ b.disabled=false; msg.className="msg erro"; msg.textContent=x.j.detail||"Não foi possível restaurar."; return; }
+    x.j.dados=normalizar(x.j.dados); PROCS.push(x.j);
+    const novo=x.j.dados.codigo; dl.close();
+    PQI_ESTAVEL.aviso(x.j.codigo_anterior?`✓ Restaurado como ${novo} (o ${x.j.codigo_anterior} já estava em uso).`:`✓ ${novo} restaurado como estava.`);
+    ir("processo",x.j.id); });
+}
+$("#lxFechar").onclick=()=>$("#dlgLixeira").close();
 function renderGeralShell(c){
+  botaoBar("Lixeira",abrirLixeira,"","🗑️");
   botaoBar("Exportar tudo (Excel)",async()=>{ await salvarTudo(); await excelMulti("mapa_digital_king_star_"+hojeISO(),linhasExport(PROCS)); },"",ICO.exportar);
   c.innerHTML=`<div class="shell-item">${menuVertical(SECOES_GERAL,secGeral,null)}<div class="conteudo-item">
     <section><header><h2>${esc(TITULOS_GERAL[secGeral][0])}</h2><p>Todos os processos mapeados.</p></header><div id="secBody"></div></section></div></div>`;

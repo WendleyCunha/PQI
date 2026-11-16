@@ -3268,6 +3268,22 @@ def _resumo_diario_da_atividade(diario: list, atividade) -> dict:
             "analistas": contar("analista"), "sistemas": contar("sistemas"), "origens": contar("origem"), "passos": passos[:40]}
 
 
+# [v7.6] LIXEIRA do Fluxo interno: excluir só marca o processo; daqui ele volta igual.
+@app.get("/api/mapa/excluidos")
+def mapa_excluidos():
+    return db.mapa_excluidos()
+
+
+# DELETE de propósito: desfazer uma exclusão exige o mesmo nível de quem pode excluir.
+@app.delete("/api/mapa/excluidos/{processo_id}")
+def mapa_restaurar(processo_id: str, request: Request):
+    reg = db.mapa_restaurar(processo_id, _nome_de(request))
+    if not reg:
+        raise HTTPException(status_code=404, detail="Processo não está na lixeira.")
+    _agente_do_mapa(reg, quem=f"Processos · {_nome_de(request)} (restaurado)")
+    return reg
+
+
 @app.delete("/api/mapa/processos/{processo_id}")
 def mapa_excluir(processo_id: str, request: Request):
     if not db.mapa_excluir(processo_id, _nome_de(request)):
