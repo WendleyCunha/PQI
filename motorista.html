@@ -108,6 +108,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .foot>div{max-width:640px;margin:0 auto}
 .inst{background:var(--steel-soft);color:var(--steel);border-radius:14px;padding:12px;display:grid;gap:8px;font-size:14px}
 a.nav{color:var(--steel);font-weight:600;text-decoration:none}
+.vizinho{background:#0E7490;color:#fff;border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+.vizinho b{font-size:20px;letter-spacing:.04em} .vizinho span{font-size:14px} .vizinho a{color:#fff;font-weight:700}
+.p-viz{background:#0E7490;color:#fff}
 .aviso{background:var(--bad-soft);color:var(--bad);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -187,7 +190,7 @@ function barraStatus() {
   const g = S.gps.estado;
   const n = fila().length;
   st.innerHTML = `<span class="${S.online ? "on" : "off"}"><i class="dot"></i>${S.online ? "Com sinal" : "Sem sinal"}</span>
-    <span class="${g === "ativo" ? "on" : g === "negado" ? "off" : ""}"><i class="dot"></i>GPS ${g === "ativo" ? "ligado" : g === "negado" ? "bloqueado" : g === "erro" ? "sem posição" : "desligado"}</span>
+    <span class="${g === "ativo" ? "on" : g === "negado" ? "off" : g === "rede" ? "warn" : ""}"><i class="dot"></i>GPS ${g === "ativo" ? "ligado" : g === "rede" ? "desligado · posição pela rede" : g === "negado" ? "bloqueado" : g === "erro" ? "sem posição" : "desligado"}</span>
     ${n ? `<span class="warn">${n} registro(s) esperando sinal</span>` : ""}
     ${S.cacheEm ? `<span class="warn">Dados guardados no celular (${new Date(S.cacheEm).toLocaleString("pt-BR", { hour: "2-digit", minute: "2-digit" })})</span>` : ""}
     <span>${esc(S.me.motorista.nome)}</span>`;
@@ -298,10 +301,11 @@ function telaCarga() {
       <p class="cap">${esc(c.transportadora || "")} · ${c.total} entrega(s)${c.palavra_ligada ? ' · <b style="color:var(--amber)">palavra da entrega ligada</b>' : ""}</p>
       <div class="prog"><i style="width:${100 * ent / c.total}%;background:var(--ok)"></i><i style="width:${100 * ret / c.total}%;background:var(--bad)"></i></div>
       <p class="cap"><b>${ent}</b> entregue(s) · <b>${ret}</b> com retorno · <b>${pend}</b> pendente(s)</p>
-      ${!c.saida && !c.chegada ? `<button type="button" class="warnb big" id="btSaida">🚚 Iniciar rota</button><p class="cap">Liga o GPS e avisa o PCL que a carga saiu.</p>` : ""}
+      ${!c.saida && !c.chegada ? `<button type="button" class="warnb big" id="btSaida">🚚 Iniciar rota</button><p class="cap">Liga o GPS, avisa o PCL que a carga saiu e baixa os dados das entregas. <b>Precisa de internet neste momento</b> — depois os dados ficam guardados no celular, mesmo sem sinal.</p>` : ""}
+      ${c.saida && !c.chegada && ["rede", "negado", "erro"].includes(S.gps.estado) ? `<div class="aviso">${S.gps.estado === "rede" ? "📶 GPS do celular desligado: a frota acompanha pela localização da rede (aproximada). Ligue o GPS para ficar preciso." : "📵 GPS desligado ou sem posição. Ligue a localização do celular — sem ela a frota vê só uma posição estimada pelos clientes atendidos."}</div>` : ""}
       ${c.chegada ? `<p class="cap">Chegada avisada às ${hora(c.chegada.em)}. O Retorno confere as peças no CD.</p>` : ""}
     </div>
-    ${(() => { const bt = p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}${p.cotacao ? " cot" : ""}${novoChat(p) ? " chat-novo" : ""}" data-p="${esc(p.pv)}">${novoChat(p) ? '<i class="bolinha" aria-label="A frota respondeu"></i>' : ""}<span class="c">${pillCot(p)}<b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`;
+    ${(() => { const bt = p => `<button type="button" class="ped ${p.desfecho ? "feito" : ""}${p.cotacao ? " cot" : ""}${novoChat(p) ? " chat-novo" : ""}" data-p="${esc(p.pv)}">${novoChat(p) ? '<i class="bolinha" aria-label="A frota respondeu"></i>' : ""}<span class="c">${pillCot(p)}${p.vizinho && !p.desfecho ? '<span class="pill p-viz">🏠 VIZINHO</span>' : ""}<b>${esc(p.nome)}</b><span>${esc([p.endereco, p.bairro].filter(Boolean).join(" · "))}</span></span>${(p.chat || {}).nao_lidas ? `<span class="pill p-bad">💬 ${p.chat.nao_lidas}</span>` : ""}${pillPed(p)}</button>`;
       const pend = c.pedidos.filter(p => !p.desfecho), feitos = c.pedidos.filter(p => p.desfecho);   // [v5.7] pendentes em cima
       return (pend.length ? `<h3 class="grupo">Pendentes (${pend.length})</h3>${pend.map(bt).join("")}` : "")
         + (feitos.length ? `<h3 class="grupo">Já registrados (${feitos.length})</h3>${feitos.map(bt).join("")}` : ""); })()}
@@ -317,8 +321,10 @@ function telaCarga() {
   document.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { abrirPedido(b.dataset.p); });
   $("#btSair").onclick = sair;
   const bs = $("#btSaida"); if (bs) bs.onclick = async () => {
+    if (!navigator.onLine) { avisar("Sem internet. Para iniciar a rota e baixar os dados das entregas, o celular precisa de conexão."); return; }
+    bs.disabled = true;
     try { const pos = S.gps.ult || {}; atualizarCarga(await api(`/cargas/${c.numero}/saida`, { lat: pos.lat, lng: pos.lng })); ligarGps(); render(); }
-    catch (e) { if (!e.tratado) avisar(e.message); } };
+    catch (e) { bs.disabled = false; if (!e.tratado) avisar(e.offline ? "Sem internet. Para iniciar a rota e baixar os dados das entregas, o celular precisa de conexão." : e.message); } };
 }
 
 function abrirPedido(pv) { S.ped = pv; S.chat = false; S.modo = ""; S.erro = ""; S.msg = ""; S.foto = null; S.linhas = {}; S.palavra = ""; S.motivo = ""; S.obs = ""; render(); window.scrollTo(0, 0); }
@@ -346,18 +352,20 @@ function telaPedido() {
       <div class="f" style="display:grid;gap:6px"><span style="font-size:14px;font-weight:600;color:var(--ink-2)">Foto da peça (obrigatória)</span>
         <div class="foto"><label class="pri" style="padding:12px 14px;border-radius:12px;cursor:pointer">📷 Tirar foto<input id="pFoto" type="file" accept="image/*" capture="environment" hidden></label>${S.foto ? `<img src="${S.foto}" alt="foto da peça">` : ""}</div></div>
       <label class="f">Observação<textarea id="pObs" rows="2">${esc(S.obs)}</textarea></label>
-      ${c.palavra_ligada && parc ? blocoPalavra(c, p, bloqueio) : ""}
+      ${c.palavra_ligada && parc && !(p.vizinho && p.vizinho.sem_palavra) ? blocoPalavra(c, p, bloqueio) : ""}
       <p class="msg erro">${esc(S.erro)}</p>
       <div class="row"><button type="button" id="pCanc">Voltar</button><button type="button" class="${parc ? "warnb" : "bad"}" id="pConf">Confirmar ${parc ? "parcial" : "retorno"}</button></div>
       <p class="cap">A peça volta para o CD e ganha etiqueta na conferência, mesmo se estiver perfeita.</p></div>`;
   } else {
-    acao = `${blocoChegou(c, p)}${c.palavra_ligada ? blocoPalavra(c, p, bloqueio) : ""}<p class="msg erro">${esc(S.erro)}</p>
+    acao = `${blocoChegou(c, p)}${c.palavra_ligada && !(p.vizinho && p.vizinho.sem_palavra) ? blocoPalavra(c, p, bloqueio) : ""}<p class="msg erro">${esc(S.erro)}</p>
       <button type="button" class="ok big" id="btEnt" ${bloqueio || (c.palavra_ligada && p.liberacao === "pendente") ? "disabled" : ""}>✓ Entregue</button>
       <div class="row"><button type="button" class="bad" id="btRet">↩ Retorno</button><button type="button" class="warnb" id="btPar">½ Parcial</button></div>`;
   }
   const nl = (p.chat || {}).nao_lidas || 0;
   $("#app").innerHTML = `<div class="row"><button type="button" class="ghost" id="btVolta">‹ Voltar</button>
       <button type="button" class="${(p.chat || {}).aberto ? "warnb" : ""}${nl ? " chat-novo" : ""}" id="btChat">💬 Chat com a frota${nl ? ` <span class="pill p-bad">${nl}</span><i class="bolinha" aria-label="A frota respondeu"></i>` : (p.chat || {}).aberto ? " (aberto)" : ""}</button></div>
+    ${p.vizinho && !p.desfecho ? `<div class="vizinho"><b>🏠 ENTREGAR AO VIZINHO</b><span>Casa/apto <b style="font-size:16px">${esc(p.vizinho.numero)}</b>${p.vizinho.tel ? ` · <a href="tel:${esc(p.vizinho.tel)}">📞 ${esc(p.vizinho.tel)}</a>` : ""}</span>
+      <span>${p.vizinho.sem_palavra ? "O cliente pediu sem palavra-chave." : "Peça ao vizinho o NOME dele — é a palavra da entrega."}</span></div>` : ""}
     ${p.cotacao ? `<div class="cotacao"><b>📦 COTAÇÃO</b><span>${esc(p.cotacao.motivo)}.</span><span>Entregue no endereço abaixo, em SP — a mercadoria segue para outro estado.</span></div>` : ""}
     <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Pedido <span class="mono">${esc(p.pv)}</span>${p.nf ? ` · NF ${esc(p.nf)}` : ""}</span>${pillPed(p)}</div>
       <h2 style="font-size:22px">${esc(p.nome)}</h2>
@@ -401,7 +409,7 @@ function conferirChegada() {   // roda a cada posição do GPS: pedido pendente 
 
 function blocoPalavra(c, p, bloqueio) {
   if (p.liberacao === "liberada") return `<div class="word"><b>Liberado pelo PCL</b><span class="cap" style="color:var(--ink)">Pode registrar sem a palavra.</span></div>`;
-  return `<div class="word"><b>Palavra da entrega</b><span class="cap" style="color:var(--ink)">Peça ao cliente a palavra que ele recebeu. Sem ela o registro não sai.</span>
+  return `<div class="word"><b>${p.vizinho ? "Nome do vizinho" : "Palavra da entrega"}</b><span class="cap" style="color:var(--ink)">${p.vizinho ? "Digite o nome que o vizinho disser. Sem ele o registro não sai." : "Peça ao cliente a palavra que ele recebeu. Sem ela o registro não sai."}</span>
     <input id="pPal" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" value="${esc(S.palavra)}" ${bloqueio || p.liberacao === "pendente" ? "disabled" : ""} aria-label="Palavra da entrega">
     ${bloqueio ? `<span class="msg erro">Tentativas esgotadas.</span>` : `<span class="cap">Tentativas: ${p.tentativas} de ${c.tentativas_max}</span>`}
     ${p.liberacao === "pendente" ? '<span class="pill p-aco">Pedido enviado ao PCL — aguarde, a tela atualiza sozinha</span>' :
@@ -569,15 +577,31 @@ async function enviarChat(corpo) {
 }
 
 // ═══ GPS (só com o app aberto — o navegador não deixa rastrear com a tela apagada) ═══
+function usarPosicao(pos, fonte) {
+  const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, prec: pos.coords.accuracy, t: Date.now(), fonte };
+  const ant = S.gps.ult; S.gps.ult = p; S.gps.estado = fonte === "rede" ? "rede" : "ativo"; S.gps.fixT = Date.now(); barraStatus();
+  const moveu = !ant || Math.hypot(p.lat - ant.lat, p.lng - ant.lng) > 0.0004;
+  if (Date.now() - S.gps.enviado > (moveu ? 30000 : 90000)) { S.gps.enviado = Date.now(); api("/gps", { lat: p.lat, lng: p.lng, prec: p.prec, fonte }).catch(() => {}); }
+  conferirChegada();   // [v6.1] pendente → CHEGOU ao entrar no raio do endereço
+}
 function ligarGps() {
   if (S.gps.watch != null || !("geolocation" in navigator)) { if (!("geolocation" in navigator)) S.gps.estado = "erro"; return; }
-  S.gps.watch = navigator.geolocation.watchPosition(pos => {
-    const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, prec: pos.coords.accuracy, t: Date.now() };
-    const ant = S.gps.ult; S.gps.ult = p; S.gps.estado = "ativo"; barraStatus();
-    const moveu = !ant || Math.hypot(p.lat - ant.lat, p.lng - ant.lng) > 0.0004;
-    if (Date.now() - S.gps.enviado > (moveu ? 30000 : 90000)) { S.gps.enviado = Date.now(); api("/gps", { lat: p.lat, lng: p.lng, prec: p.prec }).catch(() => {}); }
-    conferirChegada();   // [v6.1] pendente → CHEGOU ao entrar no raio do endereço
-  }, err => { S.gps.estado = err.code === 1 ? "negado" : "erro"; barraStatus(); }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+  S.gps.watch = navigator.geolocation.watchPosition(pos => usarPosicao(pos, "gps"),
+    err => { if (!(S.gps.estado === "rede" && Date.now() - (S.gps.fixT || 0) < 120000)) S.gps.estado = err.code === 1 ? "negado" : "erro"; barraStatus(); posicaoPelaRede(); }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+}
+// [v6.6] GPS desligado mas com internet: tenta a localização da REDE (Wi-Fi/antenas, sem o GPS) e, de qualquer jeito,
+// avisa o servidor que o app está com internet — a frota e o cliente seguem com a posição aproximada ou estimada.
+function posicaoPelaRede() {
+  if (!("geolocation" in navigator) || S.gps.redeBusca || (S.gps.estado === "ativo" && Date.now() - (S.gps.fixT || 0) < 120000)) return;
+  S.gps.redeBusca = true;
+  navigator.geolocation.getCurrentPosition(pos => { S.gps.redeBusca = false; if (S.gps.estado !== "ativo" || Date.now() - (S.gps.fixT || 0) > 120000) usarPosicao(pos, "rede"); },
+    err => { S.gps.redeBusca = false; if (err.code === 1) S.gps.estado = "negado"; barraStatus(); }, { enableHighAccuracy: false, maximumAge: 120000, timeout: 20000 });
+}
+function sinalVida() {
+  const c = cargaAtual(); if (!c || !c.saida || c.chegada || !navigator.onLine) return;
+  if (S.gps.estado !== "ativo" || Date.now() - (S.gps.fixT || 0) > 120000) posicaoPelaRede();
+  if (Date.now() - (S.gps.sinalT || 0) < 55000) return; S.gps.sinalT = Date.now();
+  api("/sinal", { gps: S.gps.estado || "" }).catch(() => {});
 }
 function pararGps() { if (S.gps.watch != null) navigator.geolocation.clearWatch(S.gps.watch); S.gps.watch = null; S.gps.estado = "parado"; barraStatus(); }
 // [v5.5] a tela fica SEMPRE ligada com o motorista logado (sem opção na tela): o GPS só funciona com o app aberto
@@ -617,7 +641,7 @@ function podeAtualizar() {   // não redesenha enquanto o motorista digita — s
   const c = cargaAtual(), p = c && c.pedidos.find(x => x.pv === S.ped);
   return !!(p && p.liberacao === "pendente" && !S.modo);
 }
-setInterval(() => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { enviarFila().then(() => { if (podeAtualizar()) carregar(); }); } }, 15000);
+setInterval(() => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { sinalVida(); enviarFila().then(() => { if (podeAtualizar()) carregar(); }); } }, 15000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.me && S.me.motorista) { enviarFila(); carregar(); manterTela(); } });
 window.addEventListener("online", () => { S.online = true; barraStatus(); enviarFila().then(carregar); });
 window.addEventListener("offline", () => { S.online = false; barraStatus(); });

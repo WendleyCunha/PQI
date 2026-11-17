@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2436">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Sua entrega · King Star</title>
+<link rel="icon" href="/motorista/icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+/* [v6.6] Link de acompanhamento do cliente — RouterKing. Mesmo visual do app do motorista. */
+:root{
+  --paper:#F4F6F9; --sheet:#FFFFFF; --ink:#1B2436; --ink-2:#4A5568; --ink-3:#7A8599; --rule:#D9DEE7; --rule-2:#EBEEF3;
+  --steel:#2E4A7A; --steel-soft:#E3EAF5; --amber:#C98A0B; --amber-soft:#FBF1D9; --ok:#2F7D4F; --ok-soft:#E1F2E7;
+  --bad:#B83232; --bad-soft:#F9E2E2; --gold:#E8B04A; --laranja:#EA580C; --laranja-soft:#FFEDD5; --verm:#DC2626; --verm-soft:#FEE2E2;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#121722; --sheet:#1A2130; --ink:#E6EAF2; --ink-2:#B4BCCB; --ink-3:#8791A3; --rule:#2F384A; --rule-2:#252D3D;
+  --steel:#8FB0E6; --steel-soft:#22304A; --amber:#E8B04A; --amber-soft:#3A2F17; --ok:#6BC28E; --ok-soft:#1D3527; --bad:#EE8080; --bad-soft:#3E2020;
+  --laranja:#FB923C; --laranja-soft:#3B2414; --verm:#F87171; --verm-soft:#3E1C1C; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.45 "IBM Plex Sans",system-ui,Roboto,Arial,sans-serif}
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;margin:0;line-height:1.15}
+.bar{background:#1B2436;color:#fff;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;font:700 19px "IBM Plex Sans Condensed",sans-serif;letter-spacing:.02em}
+.bar b{color:var(--gold)}
+main{padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 30px);display:grid;gap:12px;max-width:560px;margin:0 auto}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:16px;display:grid;gap:10px}
+.cap{font-size:13.5px;color:var(--ink-3);margin:0}
+.km{border-radius:16px;padding:18px 16px;display:grid;gap:4px;text-align:center;background:var(--steel-soft);color:var(--steel);border:2px solid transparent}
+.km b{font:700 58px/1 "IBM Plex Sans Condensed","Arial Narrow",sans-serif;letter-spacing:-.01em}
+.km span{font-size:15px;font-weight:600}
+.km.laranja{background:var(--laranja-soft);color:var(--laranja);border-color:var(--laranja)}
+.km.vermelho{background:var(--verm-soft);color:var(--verm);border-color:var(--verm)}
+.fase{display:flex;gap:10px;align-items:center;font-weight:600}
+.fase i{font-style:normal;font-size:26px}
+.palavra{border:2px dashed var(--gold);background:var(--amber-soft);border-radius:14px;padding:14px;text-align:center;display:grid;gap:4px}
+.palavra b{font:700 30px "IBM Plex Mono",monospace;letter-spacing:.14em;color:var(--ink)}
+.pill{display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-warn{background:var(--amber-soft);color:var(--amber)} .p-aco{background:var(--steel-soft);color:var(--steel)}
+.it{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--rule-2);font-size:15px}
+.it:last-child{border-bottom:0}
+label.f{display:grid;gap:4px;font-size:14px;font-weight:600;color:var(--ink-2)}
+label.f small{font-weight:400;color:var(--ink-3)}
+input{font:inherit;font-size:17px;padding:12px;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);width:100%}
+input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button{font:inherit;cursor:pointer;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);border-radius:12px;padding:13px 14px;font-weight:600;width:100%}
+.pri{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.ghost{background:transparent;border-color:transparent;color:var(--steel);padding:8px 4px}
+.msg{font-size:14px;font-weight:600;min-height:1em;color:var(--bad);margin:0}
+.viz{background:var(--steel-soft);color:var(--steel);border-radius:12px;padding:12px;display:grid;gap:4px}
+.erro{text-align:center;padding:40px 16px}
+</style>
+</head>
+<body>
+<div class="bar">KING <b>STAR</b> · Sua entrega</div>
+<main id="app"><div class="card"><p class="cap">Carregando…</p></div></main>
+<script>
+"use strict";
+/* [v6.6] Página do link de acompanhamento: /entrega/<código> → /api/entrega/<código> (pública; o código é a chave). */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TOKEN = decodeURIComponent(location.pathname.split("/").filter(Boolean).pop() || "");
+const hora = iso => iso ? String(iso).slice(11, 16) : "";
+const dataBR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
+const kmTxt = k => k < 1 ? `${Math.round(k * 1000)} m` : `${k.toFixed(1).replace(".", ",")} km`;
+const haQuanto = s => s == null ? "" : s < 90 ? "agora há pouco" : s < 3600 ? `há ${Math.round(s / 60)} min` : `há ${Math.round(s / 3600)} h`;
+const S = { d: null, form: false, erro: "", enviando: false };
+
+async function api(url, corpo) {
+  const r = await fetch(url, corpo ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) } : { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.detail || "Não foi possível carregar agora."); e.status = r.status; throw e; }
+  return j;
+}
+async function carregar() {
+  try { S.d = await api(`/api/entrega/${encodeURIComponent(TOKEN)}`); }
+  catch (e) { if (!S.d || e.status === 404 || e.status === 410) { $("#app").innerHTML = `<div class="card erro"><h2>${e.status === 410 ? "Link expirado" : e.status === 404 ? "Link não encontrado" : "Sem conexão"}</h2><p class="cap">${esc(e.message)}</p></div>`; return; } }
+  if (!S.form) render();
+}
+const DESF = { entregue: ["Entregue", "p-ok"], retorno: ["Não entregue", "p-bad"], parcial: ["Entregue em parte", "p-warn"] };
+function render() {
+  const d = S.d; if (!d) return;
+  const pend = d.pedidos.filter(p => !p.desfecho), chegou = pend.find(p => p.chegou);
+  const viz = (pend.find(p => p.vizinho) || {}).vizinho;
+  const palavras = [...new Set(pend.map(p => p.palavra).filter(Boolean))];
+  let situ = "";
+  if (!pend.length) situ = `<div class="fase"><i>✅</i><span>Entrega concluída.</span></div>`;
+  else if (chegou) situ = `<div class="km vermelho"><b>📍</b><span>O motorista chegou ao seu endereço às ${hora(chegou.chegou)}.</span></div>`;
+  else if (d.fase === "rua" && d.km != null) situ = `<div class="km ${d.km_cor === "normal" ? "" : esc(d.km_cor)}"><b>${kmTxt(d.km)}</b>
+      <span>${d.km_cor === "vermelho" ? "O motorista está bem perto!" : d.km_cor === "laranja" ? "O motorista está se aproximando." : "Distância do motorista até o seu endereço"}</span>
+      <small class="cap" style="color:inherit;opacity:.85">em linha reta${d.km_aprox ? " · aproximada" : ""}${d.pos_ha_seg != null ? " · atualizado " + haQuanto(d.pos_ha_seg) : ""}</small></div>`;
+  else if (d.fase === "rua") situ = `<div class="fase"><i>🚚</i><span>Sua entrega saiu para a rota. A distância aparece aqui assim que tivermos a localização do motorista.</span></div>`;
+  else situ = `<div class="fase"><i>📦</i><span>Sua entrega${d.data_iso ? ` de ${dataBR(d.data_iso)}` : ""} está sendo preparada. A distância aparece quando o motorista iniciar a rota.</span></div>`;
+  $("#app").innerHTML = `<div class="card"><h1 style="font-size:26px">Olá${d.nome ? ", " + esc(d.nome) : ""}!</h1>
+      <p class="cap">${esc(d.endereco)}${d.cep ? " · CEP " + esc(d.cep) : ""}</p>${situ}</div>
+    ${pend.length && palavras.length ? `<div class="palavra"><span class="cap" style="color:var(--ink-2)">Sua palavra-chave — diga ao motorista na entrega</span>${palavras.map(w => `<b>${esc(w)}</b>`).join("")}<span class="cap">Não compartilhe com ninguém além do motorista.</span></div>` : ""}
+    ${pend.length && viz ? `<div class="viz"><b>🏠 Entrega ao vizinho</b><span>Casa/apto <b>${esc(viz.numero)}</b>${viz.tel ? " · tel. " + esc(viz.tel) : ""}</span>
+        <span>${viz.nome ? `O vizinho <b>${esc(viz.nome)}</b> deve dizer o próprio nome ao motorista.` : "Sem palavra-chave: o motorista entrega ao vizinho sem pedir palavra."}</span>
+        ${d.pode_vizinho ? `<button type="button" class="ghost" id="vzCanc" style="justify-self:start">Cancelar — vou receber eu mesmo</button>` : ""}</div>` : ""}
+    ${d.pode_vizinho && !viz ? (S.form ? formVizinho() : `<button type="button" id="vzAbrir">🏠 Entregar ao vizinho</button>`) : ""}
+    <div class="card"><b>Seu pedido${d.pedidos.length > 1 ? "s" : ""}</b>
+      ${d.pedidos.map(p => `<div style="display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="cap">Pedido ${esc(p.pv)}</span>
+        ${p.desfecho ? `<span class="pill ${DESF[p.desfecho][1]}">${DESF[p.desfecho][0]} ${hora(p.em)}</span>` : p.chegou ? '<span class="pill p-aco">Motorista no local</span>' : d.fase === "rua" ? '<span class="pill p-warn">A caminho</span>' : '<span class="pill p-aco">Preparando</span>'}</div>
+        ${p.pecas.map(x => `<div class="it"><span>${esc(x.desc)}</span><b>${x.qtd}</b></div>`).join("")}</div>`).join("")}</div>
+    <p class="cap" style="text-align:center">Esta página atualiza sozinha. Dúvidas? Fale com a central King Star.</p>`;
+  const ab = $("#vzAbrir"); if (ab) ab.onclick = () => { S.form = true; S.erro = ""; render(); const n = $("#vzNum"); if (n) n.focus(); };
+  const vc = $("#vzCanc"); if (vc) vc.onclick = () => enviar({ cancelar: true });
+  const fc = $("#vzFechar"); if (fc) fc.onclick = () => { S.form = false; render(); };
+  const ok = $("#vzOk"); if (ok) ok.onclick = () => enviar({ nome: $("#vzNome").value, tel: $("#vzTel").value, numero: $("#vzNum").value });
+}
+function formVizinho() {
+  return `<div class="card"><h2 style="font-size:20px">🏠 Entregar ao vizinho</h2>
+    <label class="f">Número da casa ou apartamento do vizinho *<input id="vzNum" autocomplete="off" placeholder="Ex.: 125 ou apto 42"></label>
+    <label class="f">Nome do vizinho <small>Vira a palavra-chave: o vizinho diz o nome ao motorista. Em branco = entrega sem palavra-chave.</small><input id="vzNome" autocomplete="off"></label>
+    <label class="f">Telefone do vizinho <small>(opcional)</small><input id="vzTel" type="tel" inputmode="tel" autocomplete="off" placeholder="(11) 90000-0000"></label>
+    <p class="msg" id="vzMsg">${esc(S.erro)}</p>
+    <button type="button" class="pri" id="vzOk"${S.enviando ? " disabled" : ""}>Confirmar entrega ao vizinho</button>
+    <button type="button" class="ghost" id="vzFechar">Voltar</button></div>`;
+}
+async function enviar(corpo) {
+  if (!corpo.cancelar && !String(corpo.numero || "").trim()) { S.erro = "Informe o número da casa ou apartamento do vizinho."; const m = $("#vzMsg"); if (m) m.textContent = S.erro; return; }
+  S.enviando = true;
+  try { S.d = await api(`/api/entrega/${encodeURIComponent(TOKEN)}/vizinho`, corpo); S.form = false; S.erro = ""; S.enviando = false; render(); }
+  catch (e) { S.enviando = false; S.erro = e.message;
+    if (corpo.cancelar || !S.form) { alert(e.message); return; }
+    const m = $("#vzMsg"); if (m) m.textContent = e.message; }   // mantém o que o cliente digitou
+}
+carregar();
+setInterval(() => { if (document.visibilityState === "visible") carregar(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") carregar(); });
+</script>
+</body>
+</html>

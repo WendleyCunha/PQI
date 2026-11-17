@@ -236,13 +236,16 @@ def teste_fluxo():
     ok(mot.post("/api/motorista/login", json={"placa": "ABC1D23", "senha": M.SENHA_INICIAL}).status_code == 429, "5 erros bloqueiam a placa por alguns minutos")
 
 
-def entrar(cli, placa, nome, senha_nova="rota2026"):
+def entrar(cli, placa, nome, senha_nova="rota2026", iniciar=False):
     r = cli.post("/api/motorista/login", json={"placa": placa, "senha": M.SENHA_INICIAL})
     assert r.status_code == 200, r.text
     r = cli.post("/api/motorista/senha", json={"nova": senha_nova, "repetir": senha_nova})
     ms = {m["nome"]: m["id"] for m in r.json()["motoristas"]}
     r = cli.post("/api/motorista/quem", json={"id": ms[nome]})
     assert r.status_code == 200, r.text
+    if iniciar:   # [v6.6] os dados das entregas só descem para o celular depois do "Iniciar rota"
+        for c in cli.get("/api/motorista/cargas").json()["cargas"]:
+            cli.post(f"/api/motorista/cargas/{c['numero']}/saida", json={})
 
 
 def teste_placas():
@@ -327,7 +330,7 @@ def teste_chat():
     importar("064501", "ABC1D23", [("739812", "Ana Rocha", 1), ("739835", "Carlos Dias", 2)])
     app = montar()
     mot, pq = TestClient(app), TestClient(app)
-    entrar(mot, "ABC1D23", "João Ferreira")
+    entrar(mot, "ABC1D23", "João Ferreira", iniciar=True)
     base = "/api/motorista/cargas/064501/pedido/739812/chat"
     r = mot.get(base).json()
     ok(r["atual"] is None and r["motivos"] == ["Ausente", "Avaria", "Escadas"], "sem chat aberto: o app mostra os 3 motivos padrão")
@@ -419,7 +422,7 @@ def teste_sem_sinal_e_cotacao():
     Q.gravar(c)
     app = montar()
     mot, pq = TestClient(app), TestClient(app)
-    entrar(mot, "ABC1D23", "João Ferreira")
+    entrar(mot, "ABC1D23", "João Ferreira", iniciar=True)
     USUARIO["abas"] = {"motoristas": 3}
     mid = next(m["id"] for m in pq.get("/api/routerking/motoristas").json()["motoristas"] if m["nome"] == "João Ferreira")
     pq.put(f"/api/routerking/motoristas/{mid}", json={"nome": "João Ferreira", "placas": ["ABC1D23"], "palavra": True, "ativo": True})
@@ -487,7 +490,7 @@ def teste_chegou_e_fotos():
     try:
         app = montar()
         mot, pq = TestClient(app), TestClient(app)
-        entrar(mot, "ABC1D23", "João Ferreira")
+        entrar(mot, "ABC1D23", "João Ferreira", iniciar=True)
         mot.get("/api/motorista/cargas")
         ok(len(M.GEO_FILA) == 3, "ao abrir as cargas, os endereços entram na fila de coordenadas")
         M._geo_trabalhar()
@@ -552,7 +555,7 @@ def teste_chat_frota():
     importar("064601", "ABC1D23", [("739812", "Ana Rocha", 1), ("739835", "Carlos Dias", 2)])
     app = montar()
     mot, pq = TestClient(app), TestClient(app)
-    entrar(mot, "ABC1D23", "João Ferreira")
+    entrar(mot, "ABC1D23", "João Ferreira", iniciar=True)
     USUARIO.update(email="ana@ks", nome="Ana PCL", abas={"aovivo": 2})
     rk = "/api/routerking/cargas/064601/pedido/739835"
     ok(pq.post(rk + "/chat", json={"texto": "oi"}).status_code == 409, "sem 'iniciar' continua sem escrever em cliente sem chat")
@@ -596,10 +599,108 @@ def teste_chat_frota():
     USUARIO.update(email="pcl@ks", nome="Ana PCL", abas={})
 
 
+def teste_link_cliente():
+    """[v6.6] Link do cliente (cliente + CEP), entregar ao vizinho, distância em km com cores e posição sem GPS."""
+    print("Link do cliente, vizinho e distância")
+    ligar_memoria()
+    Q.placas()["ABC1D23"] = {"motorista": "João Ferreira"}
+    importar("064901", "ABC1D23", [("900001", "Maria Souza", 1), ("900002", "Maria Souza", 1), ("900003", "Maria Souza", 2), ("900004", "Pedro Alves", 1)])
+    c = Q.carga("064901")
+    for i, (cli, cep) in enumerate([("C9", "04001-000"), ("C9", "04001000"), ("C9", "05002-000"), ("C7", "04001-000")]):
+        c["pedidos"][i]["cliente"], c["pedidos"][i]["cep"] = cli, cep
+    Q.gravar(c)
+    app = montar()
+    mot, pq, cli = TestClient(app), TestClient(app), TestClient(app)
+    entrar(mot, "ABC1D23", "João Ferreira")
+    USUARIO["abas"] = {"aovivo": 2, "motoristas": 3}
+    mid = next(m["id"] for m in pq.get("/api/routerking/motoristas").json()["motoristas"] if m["nome"] == "João Ferreira")
+    pq.put(f"/api/routerking/motoristas/{mid}", json={"nome": "João Ferreira", "placas": ["ABC1D23"], "palavra": True, "ativo": True})
+    ps = {p["pv"]: p for p in pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"]}
+    ok(ps["900001"]["link"] and ps["900001"]["link"] == ps["900002"]["link"], "mesmo cliente e MESMO CEP (com ou sem traço): um link só")
+    ok(ps["900003"]["link"] != ps["900001"]["link"], "mesmo cliente com CEP diferente: outro link")
+    ok(ps["900004"]["link"] not in (ps["900001"]["link"], ps["900003"]["link"]), "outro cliente no mesmo CEP: link próprio")
+    ok(len(ps["900001"]["link"]) >= 12, "código do link difícil de adivinhar")
+    t1, t3, t4 = ps["900001"]["link"], ps["900003"]["link"], ps["900004"]["link"]
+    ok(cli.get("/api/entrega/naoexiste123").status_code == 404, "código errado não abre nada")
+    e = cli.get(f"/api/entrega/{t1}").json()
+    pal = BANCO[Q.COL_CARGAS]["064901"]["rua"]["palavras"]
+    ok([p["pv"] for p in e["pedidos"]] == ["900001", "900002"], "o link mostra os 2 pedidos do mesmo endereço")
+    ok(e["pedidos"][0]["palavra"] == pal["900001"] and e["pedidos"][1]["palavra"] == pal["900002"], "o link mostra a palavra-chave de cada pedido")
+    ok(e["fase"] == "aguardando" and e["km"] is None, "antes do Iniciar rota: sem km")
+    ok(e["nome"] == "Maria" and "Rua A" in e["endereco"], "cumprimenta pelo primeiro nome e mostra o endereço")
+    car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+    ok(car["pedidos"] == [] and car["total"] == 4, "app: os dados das entregas só aparecem depois do Iniciar rota")
+    ok(not any(w in str(car) for w in pal.values()), "o app continua sem nenhuma palavra")
+
+    print("Entregar ao vizinho")
+    ok(cli.post(f"/api/entrega/{t1}/vizinho", json={"nome": "Ana", "tel": ""}).status_code == 400, "vizinho exige o número da casa")
+    e = cli.post(f"/api/entrega/{t1}/vizinho", json={"nome": "Clara Mendes", "tel": "(11) 98888-7777", "numero": "125"}).json()
+    ok(e["pedidos"][0]["vizinho"]["numero"] == "125" and e["pedidos"][0]["palavra"] == "", "o cliente pede o vizinho: a palavra antiga some do link")
+    ps = {p["pv"]: p for p in pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"]}
+    ok(ps["900001"]["palavra"] == "Clara Mendes" and ps["900001"]["palavra_original"] == pal["900001"], "Ao vivo: a palavra passa a ser o nome do vizinho (mostra a original)")
+    mot.post("/api/motorista/cargas/064901/saida", json={})
+    car = mot.get("/api/motorista/cargas").json()["cargas"][0]
+    app_p = {p["pv"]: p for p in car["pedidos"]}
+    ok(len(car["pedidos"]) == 4, "depois do Iniciar rota o app recebe as entregas")
+    ok(app_p["900001"]["vizinho"] == {"numero": "125", "tel": "11988887777", "sem_palavra": False}, "app vê ENTREGAR AO VIZINHO (número e telefone)")
+    ok("Clara" not in str(car), "o nome do vizinho (que é a palavra) não vai para o app")
+    r = mot.post("/api/motorista/cargas/064901/pedido/900001", json={"desfecho": "entregue", "palavra": pal["900001"]}).json()
+    ok(r["resultado"] == "palavra_errada", "a palavra antiga deixa de valer")
+    r = mot.post("/api/motorista/cargas/064901/pedido/900001", json={"desfecho": "entregue", "palavra": "clara", "cid": "v1"}).json()
+    ok(r["resultado"] == "ok", "o nome do vizinho (o primeiro nome basta) libera a entrega")
+    ok(cli.post(f"/api/entrega/{t4}/vizinho", json={"nome": "", "numero": "apto 12"}).status_code == 200, "vizinho sem nome")
+    r = mot.post("/api/motorista/cargas/064901/pedido/900004", json={"desfecho": "entregue", "cid": "v2"}).json()
+    ok(r["resultado"] == "ok", "vizinho sem nome: entrega sem palavra")
+    e = cli.post(f"/api/entrega/{t1}/vizinho", json={"cancelar": True}).json()
+    ok(e["pedidos"][1]["vizinho"] is None and e["pedidos"][1]["palavra"] == pal["900002"], "cliente cancela o vizinho: volta a palavra original no que falta")
+    ok(cli.post(f"/api/entrega/{t4}/vizinho", json={"numero": "1"}).status_code == 409, "depois da entrega não muda mais")
+    ok(any("vizinho" in h["acao"] for h in BANCO[Q.COL_CARGAS]["064901"]["historico"]), "o pedido do cliente fica no histórico da carga")
+
+    print("Distância (km) e posição sem GPS")
+    c = Q.carga("064901")
+    geo = M.rua(c).setdefault("geo", {})
+    for k in ("900001", "900002", "900003", "900004"):
+        geo[k] = {"lat": -23.550000, "lng": -46.630000, "fonte": "endereço"}
+    Q.gravar(c)
+    mot.post("/api/motorista/gps", json={"lat": -23.550000 - 0.09, "lng": -46.630000, "prec": 10})   # ~10 km
+    e = cli.get(f"/api/entrega/{t1}").json()
+    ok(e["fase"] == "rua" and 9.5 < e["km"] < 10.5 and e["km_cor"] == "normal", "depois do Iniciar rota: km aparece (10 km = cor normal)")
+    mot.post("/api/motorista/gps", json={"lat": -23.550000 - 0.045, "lng": -46.630000, "prec": 10})   # ~5 km
+    ok(cli.get(f"/api/entrega/{t1}").json()["km_cor"] == "laranja", "menos de 7 km: laranja")
+    mot.post("/api/motorista/gps", json={"lat": -23.550000 - 0.012, "lng": -46.630000, "prec": 10})   # ~1,3 km
+    ok(cli.get(f"/api/entrega/{t1}").json()["km_cor"] == "vermelho", "menos de 2 km: vermelho")
+    p3 = next(p for p in pq.get("/api/routerking/ao-vivo").json()["cargas"][0]["pedidos"] if p["pv"] == "900003")
+    ok(p3["km_cor"] == "vermelho" and p3["km"] < 2, "o Ao vivo mostra o mesmo km com a cor")
+    ok("lat" not in str(cli.get(f"/api/entrega/{t1}").json()), "o cliente vê só o km, não a posição do caminhão")
+    mot.post("/api/motorista/gps", json={"lat": -23.560000, "lng": -46.630000, "prec": 900, "fonte": "rede"})
+    g = pq.get("/api/routerking/ao-vivo").json()["cargas"][0]
+    ok(g["pos"]["fonte"] == "rede" and g["pos"]["aprox"], "GPS desligado: posição pela rede, marcada como aproximada")
+    M.GPS.clear()
+    c = Q.carga("064901"); M.rua(c).pop("gps", None); M.rua(c)["saida"]["lat"] = None; Q.gravar(c)
+    for k in ("900001", "900004"):
+        M.rua(c)["pedidos"][k]["lat"] = None
+    M.rua(c)["pedidos"]["900001"]["em"] = (M.datetime.now() - M.timedelta(minutes=20)).isoformat(timespec="seconds")
+    M.rua(c)["pedidos"]["900004"]["em"] = M.agora()
+    ok(mot.post("/api/motorista/sinal", json={"gps": "negado"}).json()["ok"], "app sem GPS avisa que está com internet")
+    g = pq.get("/api/routerking/ao-vivo").json()["cargas"][0]
+    ok(g["pos"]["fonte"] == "estimada" and "Pedro Alves" in g["pos"]["ref"], "sem GPS nem rede: posição ESTIMADA pelo último cliente atendido")
+    ok(g["sinal"]["gps"] == "negado" and g["sinal"]["ha_seg"] < 5, "Ao vivo vê que o app está com internet e o GPS desligado")
+    ok(cli.get(f"/api/entrega/{t3}").json()["km"] == 0.0, "e o km continua saindo (estimado)")
+
+    print("Link para o ERP e validade")
+    lst = pq.get("/api/routerking/palavras").json()
+    x = next(i for i in lst if i["pv"] == "900002")
+    ok(x["link"].endswith("/entrega/" + t1) and x["link"].startswith("http"), "a ponte do ERP recebe o link completo de cada pedido")
+    c = Q.carga("064901"); c["data_iso"] = "2020-01-01"; Q.gravar(c)
+    ok(cli.get(f"/api/entrega/{t1}").status_code == 410, "link de carga antiga expira")
+    USUARIO.update(abas={})
+
+
 def teste_paginas():
     print("Páginas do app")
     app = montar()
     t = TestClient(app)
+    ok(t.get("/entrega/abcdefghijkl").status_code == 200, "/entrega/<código> abre a página do cliente")
     for rota in ("/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest", "/motorista/icone-192.png", "/motorista/icone-512.png"):
         ok(t.get(rota).status_code == 200, f"{rota} abre")
     for rota in ("/qualidade-app/sw.js", "/qualidade-app/manifest.webmanifest", "/qualidade-app/icone-192.png", "/qualidade-app/icone-512.png"):
@@ -620,5 +721,6 @@ if __name__ == "__main__":
     teste_excluir_motorista()
     teste_sem_sinal_e_cotacao()
     teste_chegou_e_fotos()
+    teste_link_cliente()
     teste_paginas()
     print(f"\n{OK} verificações ok.")
