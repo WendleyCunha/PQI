@@ -134,7 +134,8 @@ ROTAS_PUBLICAS = {"/", "/healthz", "/_stcore/health", "/favicon.ico",
                   "/api/auth/login", "/api/auth/logout", "/api/auth/me",
                   "/api/auth/esqueci", "/api/auth/config-login"}          # [v4.2] Esqueci minha senha
 ROTAS_PUBLICAS_PREFIXO = ("/api/auth/esqueci/",                      # [v4.2] consulta/conclusão do pedido
-                          "/api/motorista/")                         # [v5.2] app do motorista: o login é a PLACA (motorista.py)
+                          "/api/motorista/",                         # [v5.2] app do motorista: o login é a PLACA (motorista.py)
+                          "/entrega/", "/api/entrega/")              # [v6.6] link de acompanhamento do cliente (o código do link é a chave)
 # [v5.2] App do motorista (instalável no Android). Não dá acesso a nada do PQI: tem cookie próprio.
 ROTAS_PUBLICAS |= {"/motorista", "/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest",
                    "/motorista/icone-192.png", "/motorista/icone-512.png"}

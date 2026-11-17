@@ -82,6 +82,8 @@ qld.H["cotacao_cfg"] = lambda: app_cfg()["cfg"].get("cotacao")   # [v5.11] regra
 def ligar(app) -> None:
     app.include_router(api)
     app.include_router(painel_api)
+    app.include_router(entrega_api)   # [v6.6] link de acompanhamento do cliente
+    app.add_api_route("/entrega/{token}", _servir("entrega.html", "text/html"), methods=["GET", "HEAD"], include_in_schema=False)
     for rota, arq, tipo in (("/motorista/", "motorista.html", "text/html"),
                             ("/motorista/sw.js", "motorista-sw.js", "application/javascript"),
                             ("/motorista/manifest.webmanifest", "motorista.webmanifest", "application/manifest+json"),
@@ -130,6 +132,7 @@ def _servir(arq: str, tipo: str):
 ROTAS_PUBLICAS = {"/motorista", "/motorista/", "/motorista/sw.js", "/motorista/manifest.webmanifest",
                   "/motorista/icone-192.png", "/motorista/icone-512.png"}
 PREFIXO_PUBLICO = "/api/motorista/"
+PREFIXOS_CLIENTE = ("/entrega/", "/api/entrega/")   # [v6.6] link do cliente: público, o código do link é a chave
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -597,15 +600,18 @@ def _pedido_app(c: dict, p: dict, mid: str) -> dict:
             "chat": _chat_resumo(c, p, "motorista"), "motivo_chat": motivo_do_chat(c, p),
             "nf": p.get("nf"), "cliente": p.get("cliente"), "obs": p.get("obs") or [], "cotacao": qld.cotacao(p),
             "validar_palavra": (ev.get("validar_palavra") or {}).get("status") or "",
-            "destino": destino(c, p), "chegou": ev.get("chegou")}   # [v6.1] conferir a chegada pelo GPS
+            "destino": destino(c, p), "chegou": ev.get("chegou"),   # [v6.1] conferir a chegada pelo GPS
+            "vizinho": ({"numero": (ev.get("vizinho") or {}).get("numero") or "", "tel": (ev.get("vizinho") or {}).get("tel") or "",
+                         "sem_palavra": not str((ev.get("vizinho") or {}).get("nome") or "").strip()} if ev.get("vizinho") else None)}   # [v6.6] o NOME é a palavra: não vai para o app
 
 
 def carga_app(c: dict, mid: str) -> dict:
     r = rua(c)
-    peds = [_pedido_app(c, p, mid) for p in c.get("pedidos") or []]
+    todos = [_pedido_app(c, p, mid) for p in c.get("pedidos") or []]
+    peds = todos if r.get("saida") else []   # [v6.6] os dados das entregas só descem para o celular no "Iniciar rota"
     return {"numero": c["numero"], "data_iso": c.get("data_iso"), "transportadora": c.get("transportadora"), "status": c.get("status"),
             "saida": r.get("saida"), "chegada": r.get("chegada"), "pedidos": peds,
-            "feitos": sum(1 for p in peds if p["desfecho"]), "total": len(peds),
+            "feitos": sum(1 for p in todos if p["desfecho"]), "total": len(todos),
             "palavra_ligada": palavra_ligada(mid), "tentativas_max": int(app_cfg()["cfg"].get("tentativas") or 5),
             "motivos": motivos_chat(), "motivos_chat": motivos_chat(),   # [v5.7] retorno/parcial usam os MESMOS motivos do chat
             "raio_chegada_m": raio_chegada()}
@@ -651,6 +657,7 @@ class Posicao(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     prec: Optional[float] = None
+    fonte: Optional[str] = ""        # [v6.6] gps | rede (Wi-Fi/antenas, com o GPS do celular desligado)
 
 
 class Desfecho(Posicao):
@@ -679,6 +686,7 @@ def rota_saida(numero: str, payload: Posicao, request: Request):
         r = rua(c)
         if not r.get("saida"):
             garantir_palavras(c)
+            garantir_links(c)
             r["saida"] = {"em": agora(), "mid": s["mid"], "nome": s["nome"], "lat": payload.lat, "lng": payload.lng}
             _hist(c, s, "saiu para entrega (app)", f"{len(c.get('pedidos') or [])} pedido(s)")
             qld.gravar(c)
@@ -707,10 +715,13 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
         palavra_ok = None
         validar = None
         offline = bool(payload.offline_em)
-        if payload.desfecho in ("entregue", "parcial") and palavra_ligada(s["mid"]):
+        vz = ev.get("vizinho")
+        if payload.desfecho in ("entregue", "parcial") and palavra_ligada(s["mid"]) and vz and not str(vz.get("nome") or "").strip():
+            pass   # [v6.6] o cliente pediu entregar ao vizinho SEM nome: entrega sem palavra
+        elif payload.desfecho in ("entregue", "parcial") and palavra_ligada(s["mid"]):
             lib = (ev.get("liberacao") or {}).get("status")
             if lib != "liberada":
-                certa = norm(payload.palavra) == norm(r["palavras"].get(k)) and bool(str(payload.palavra or "").strip())
+                certa = palavra_confere(payload.palavra, palavra_efetiva(c, k), bool(vz))
                 if offline and not certa:
                     # [v5.10] entregou SEM SINAL e a palavra não confere (ou não foi digitada): o registro vale,
                     # mas a FROTA precisa validar no Ao vivo
@@ -761,6 +772,7 @@ def rota_desfecho(numero: str, pv: str, payload: Desfecho, request: Request):
         rot = {"entregue": "ENTREGUE", "retorno": "RETORNO", "parcial": "ENTREGA PARCIAL"}[payload.desfecho]
         _hist(c, s, f"{rot} (app)", f"PV {p.get('pv')} · {p.get('nome')}" + (f" · {motivo}" if motivo and payload.desfecho != "entregue" else "")
               + (" · palavra conferida" if palavra_ok else (" · liberado pelo PCL" if palavra_ok is False else ""))
+              + ((" · entregue ao VIZINHO (nº " + str(vz.get("numero") or "") + ")") if vz and payload.desfecho != "retorno" else "")
               + (f" · registrado SEM SINAL às {str(payload.offline_em)[11:16]}" if offline else "")
               + (" · PALAVRA NÃO CONFERIU: frota precisa validar" if validar else ""))
         qld.gravar(c)
@@ -906,9 +918,11 @@ def rota_gps(payload: Posicao, request: Request):
     s = sessao(request)
     if payload.lat is None or payload.lng is None or not (-90 <= payload.lat <= 90 and -180 <= payload.lng <= 180):
         raise HTTPException(400, "Posição inválida.")
+    fonte = "rede" if payload.fonte == "rede" else "gps"
     pos = {"lat": round(payload.lat, 6), "lng": round(payload.lng, 6), "prec": round(payload.prec or 0), "em": agora(),
-           "t": time.time(), "nome": s["nome"]}
+           "t": time.time(), "nome": s["nome"], "fonte": fonte}
     GPS[s["placa"]] = pos
+    SINAL[s["placa"]] = {"t": time.time(), "gps": "ativo" if fonte == "gps" else "rede"}
     with TRAVA:
         for c in cargas_da_placa(s["placa"]):
             r = rua(c)
@@ -917,9 +931,270 @@ def rota_gps(payload: Posicao, request: Request):
                 if not ult or time.time() - float(ult[3] if len(ult) > 3 else 0) >= TRILHA_SEG:
                     r["trilha"].append([pos["lat"], pos["lng"], pos["em"][11:16], round(time.time())])
                     r["trilha"] = r["trilha"][-400:]
-                    r["gps"] = {k: pos[k] for k in ("lat", "lng", "prec", "em")}
+                    r["gps"] = {k: pos[k] for k in ("lat", "lng", "prec", "em", "fonte")}
                     qld.gravar(c)
     return {"ok": True}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [v6.6] LINK DO CLIENTE · ENTREGAR AO VIZINHO · DISTÂNCIA EM KM · POSIÇÃO SEM GPS
+#   · Cada cliente da carga ganha um link próprio (/entrega/<código>). Mesmo cliente com o MESMO CEP = um link
+#     só (com os pedidos dele); CEP diferente = outro link. O link mostra a palavra-chave (se o motorista usa
+#     palavra), a situação e, depois do "Iniciar rota", a distância em km (linha reta) até o endereço.
+#   · Entregar ao vizinho: o cliente informa nome, telefone e número da casa. O NOME vira a palavra da entrega
+#     (a original deixa de valer); nome em branco = entrega sem palavra.
+#   · Posição: GPS do app → localização pela rede (Wi-Fi/antenas, quando o GPS do celular está desligado) →
+#     ESTIMADA pelo último cliente atendido (o app continua avisando que está com internet). Sempre com a fonte.
+# ══════════════════════════════════════════════════════════════════════════
+KM_LARANJA = 7.0     # abaixo disso: laranja
+KM_VERMELHO = 2.0    # abaixo disso: vermelho
+LINK_DIAS = 7        # o link abre até 7 dias depois da data do Mapa
+SINAL: dict = {}     # placa → {"t", "gps": ativo|rede|negado|erro|desligado} — o app avisa que está com internet
+
+
+def _grupo_link(p: dict) -> str:
+    quem = norm(p.get("cliente")) or norm(p.get("nome"))
+    return f"{quem}|{_so_digitos(p.get('cep'))}"
+
+
+def garantir_links(c: dict) -> bool:
+    """Um código por cliente + CEP da carga (sem repetir). True = mudou."""
+    r = rua(c)
+    links = r.setdefault("links", {})
+    por_grupo = {v.get("grupo"): t for t, v in links.items()}
+    mudou = False
+    for p in c.get("pedidos") or []:
+        k = chave_pv(p.get("pv"))
+        if not k:
+            continue
+        g = _grupo_link(p)
+        t = por_grupo.get(g)
+        if not t:
+            t = secrets.token_urlsafe(9)
+            links[t] = {"grupo": g, "pvs": [], "em": agora()}
+            por_grupo[g] = t
+            mudou = True
+        if k not in links[t]["pvs"]:
+            for v in links.values():   # pedido que mudou de cliente/CEP sai do link antigo
+                if k in v["pvs"]:
+                    v["pvs"].remove(k)
+            links[t]["pvs"].append(k)
+            mudou = True
+    return mudou
+
+
+def link_do_pedido(c: dict, p: dict) -> str:
+    k = chave_pv(p.get("pv"))
+    return next((t for t, v in ((c.get("rua") or {}).get("links") or {}).items() if k in (v.get("pvs") or [])), "")
+
+
+def palavra_efetiva(c: dict, k: str) -> str:
+    """A palavra que vale para o pedido: a do sistema ou, se o cliente pediu para entregar ao vizinho, o NOME do vizinho."""
+    r = rua(c)
+    vz = (r["pedidos"].get(k) or {}).get("vizinho")
+    if vz:
+        return str(vz.get("nome") or "")
+    return r["palavras"].get(k, "")
+
+
+def palavra_confere(digitada, certa: str, vizinho: bool) -> bool:
+    d = norm(digitada)
+    if not d or not certa:
+        return False
+    if d == norm(certa):
+        return True
+    return vizinho and d == norm(str(certa).split()[0])   # vizinho: o primeiro nome também vale
+
+
+def _ts(iso) -> float:
+    try:
+        return datetime.fromisoformat(str(iso)).timestamp()
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def posicao_atual(c: dict) -> Optional[dict]:
+    """Onde o caminhão está (o mais recente entre GPS, rede e o último cliente atendido). None antes do Iniciar rota."""
+    r = rua(c)
+    if r.get("chegada") or not r.get("saida"):
+        return None
+    cands = []
+    g = GPS.get(norm_placa(c.get("placa")))
+    if g:
+        cands.append({"lat": g["lat"], "lng": g["lng"], "prec": g.get("prec") or 0, "em": g["em"], "t": g["t"], "fonte": g.get("fonte") or "gps"})
+    elif r.get("gps"):
+        x = r["gps"]
+        cands.append({"lat": x["lat"], "lng": x["lng"], "prec": x.get("prec") or 0, "em": x["em"], "t": _ts(x["em"]), "fonte": x.get("fonte") or "gps"})
+    s = r.get("saida") or {}
+    if s.get("lat") is not None:
+        cands.append({"lat": s["lat"], "lng": s["lng"], "prec": 0, "em": s["em"], "t": _ts(s["em"]), "fonte": "gps"})
+    for p in c.get("pedidos") or []:
+        ev = r["pedidos"].get(chave_pv(p.get("pv"))) or {}
+        dest = destino(c, p)
+        for marco, em, la, ln in (("chegou", (ev.get("chegou") or {}).get("em"), (ev.get("chegou") or {}).get("lat"), (ev.get("chegou") or {}).get("lng")),
+                                  ("atendeu", ev.get("em") if ev.get("desfecho") else None, ev.get("lat"), ev.get("lng"))):
+            if not em:
+                continue
+            if la is not None and ln is not None:
+                cands.append({"lat": la, "lng": ln, "prec": 0, "em": em, "t": _ts(em), "fonte": "gps"})
+            elif dest:   # registrou sem GPS: estava no endereço do cliente
+                cands.append({"lat": dest["lat"], "lng": dest["lng"], "prec": 0, "em": em, "t": _ts(em), "fonte": "estimada",
+                              "ref": f"{p.get('nome') or 'cliente'} ({marco} às {str(em)[11:16]})"})
+    if not cands:
+        return None
+    best = max(cands, key=lambda x: x["t"])
+    out = {k: best.get(k) for k in ("lat", "lng", "prec", "em", "fonte", "ref")}
+    out["ha_seg"] = int(max(0, time.time() - best["t"])) if best["t"] else None
+    out["aprox"] = best["fonte"] != "gps" or (best.get("prec") or 0) > 1000
+    return out
+
+
+def km_ate(pos: Optional[dict], dest: Optional[dict]) -> Optional[float]:
+    if not pos or not dest:
+        return None
+    return round(distancia_m(pos["lat"], pos["lng"], dest["lat"], dest["lng"]) / 1000, 1)
+
+
+def cor_km(km: Optional[float]) -> str:
+    if km is None:
+        return ""
+    return "vermelho" if km < KM_VERMELHO else "laranja" if km < KM_LARANJA else "normal"
+
+
+def sinal_pub(placa) -> Optional[dict]:
+    s = SINAL.get(norm_placa(placa))
+    return {"ha_seg": int(time.time() - s["t"]), "gps": s.get("gps") or ""} if s else None
+
+
+def _distancia_pedido(c: dict, p: dict, pos: Optional[dict]) -> dict:
+    ev = rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}
+    if ev.get("desfecho") or not pos:
+        return {"km": None, "km_cor": ""}
+    km = km_ate(pos, destino(c, p))
+    return {"km": km, "km_cor": cor_km(km), "km_aprox": bool(pos.get("aprox")) if km is not None else False}
+
+
+def url_publica(request: Request) -> str:
+    base = os.environ.get("PQI_URL_PUBLICA", "").strip().rstrip("/")
+    if base:
+        return base
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}"
+
+
+class Sinal(BaseModel):
+    gps: Optional[str] = ""
+
+
+@api.post("/sinal")
+def rota_sinal(payload: Sinal, request: Request):
+    """O app está com internet (mesmo com o GPS desligado): o PCL vê e a posição passa a ser estimada."""
+    s = sessao(request)
+    SINAL[s["placa"]] = {"t": time.time(), "gps": str(payload.gps or "")[:12]}
+    return {"ok": True}
+
+
+# ── página e API do CLIENTE (públicas: o código do link é a chave) ────────
+def _carga_do_link(token: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,20}", str(token or "")):
+        raise HTTPException(404, "Link não encontrado.")
+    qld._carregar()
+    for c in qld.CARGAS.values():
+        v = ((c.get("rua") or {}).get("links") or {}).get(token)
+        if v:
+            if (c.get("data_iso") or "") < (datetime.now() - timedelta(days=LINK_DIAS)).strftime("%Y-%m-%d"):
+                raise HTTPException(410, "Este link de acompanhamento expirou.")
+            peds = [p for p in c.get("pedidos") or [] if chave_pv(p.get("pv")) in v["pvs"]]
+            if peds:
+                return c, peds
+    raise HTTPException(404, "Link não encontrado.")
+
+
+def _mid_carga(c: dict) -> str:
+    return (rua(c).get("saida") or {}).get("mid") or mid_da_placa(norm_placa(c.get("placa")))
+
+
+def entrega_pub(c: dict, peds: list) -> dict:
+    r = rua(c)
+    pos = posicao_atual(c)
+    exige = palavra_ligada(_mid_carga(c))
+    fase = "cd" if r.get("chegada") else ("rua" if r.get("saida") else "aguardando")
+    if c.get("status") not in STATUS_RUA and not r.get("saida"):
+        fase = "preparando"
+    itens = []
+    for p in peds:
+        k = chave_pv(p.get("pv"))
+        ev = r["pedidos"].get(k) or {}
+        vz = ev.get("vizinho")
+        dist = _distancia_pedido(c, p, pos)
+        itens.append({"pv": p.get("pv"), "desfecho": ev.get("desfecho") or "", "em": ev.get("em") or "",
+                      "chegou": (ev.get("chegou") or {}).get("em") if ev.get("chegou") and not ev.get("desfecho") else "",
+                      "pecas": [{"desc": it.get("desc"), "qtd": int(it.get("qtd") or 0)} for it in p.get("entregar") or []],
+                      "palavra": (palavra_efetiva(c, k) if not vz else "") if exige and not ev.get("desfecho") else "",
+                      "vizinho": {"nome": vz.get("nome") or "", "tel": vz.get("tel") or "", "numero": vz.get("numero") or "", "em": vz.get("em")} if vz else None,
+                      **dist})
+    pend = [x for x in itens if not x["desfecho"]]
+    kms = [x["km"] for x in pend if x["km"] is not None]
+    km = min(kms) if kms else None
+    p0 = peds[0]
+    return {"nome": str(p0.get("nome") or "").split(" ")[0].title(), "endereco": ", ".join(x for x in (p0.get("endereco"), p0.get("compl"), p0.get("bairro"), p0.get("cidade")) if x),
+            "cep": p0.get("cep") or "", "data_iso": c.get("data_iso"), "fase": fase, "exige_palavra": exige,
+            "km": km if fase == "rua" else None, "km_cor": cor_km(km) if fase == "rua" else "",
+            "km_aprox": bool(pos and pos.get("aprox")) and km is not None, "pos_ha_seg": pos.get("ha_seg") if pos and fase == "rua" else None,
+            "pode_vizinho": bool(pend) and fase in ("preparando", "aguardando", "rua"), "pedidos": itens, "servidor": agora()}
+
+
+entrega_api = APIRouter(prefix="/api/entrega")
+
+
+@entrega_api.get("/{token}")
+def rota_entrega(token: str):
+    with TRAVA:
+        c, peds = _carga_do_link(token)
+        if garantir_palavras(c):
+            qld.gravar(c)
+        return entrega_pub(c, peds)
+
+
+class Vizinho(BaseModel):
+    nome: Optional[str] = ""
+    tel: Optional[str] = ""
+    numero: Optional[str] = ""
+    cancelar: bool = False
+
+
+@entrega_api.post("/{token}/vizinho")
+def rota_vizinho(token: str, payload: Vizinho):
+    with TRAVA:
+        c, peds = _carga_do_link(token)
+        r = rua(c)
+        if r.get("chegada"):
+            raise HTTPException(409, "Esta entrega já foi encerrada.")
+        abertos = [p for p in peds if not (r["pedidos"].get(chave_pv(p.get("pv"))) or {}).get("desfecho")]
+        if not abertos:
+            raise HTTPException(409, "A entrega já foi registrada pelo motorista.")
+        nome = re.sub(r"\s+", " ", str(payload.nome or "")).strip()[:60]
+        tel = _so_digitos(payload.tel)[:13]
+        numero = re.sub(r"\s+", " ", str(payload.numero or "")).strip()[:30]
+        q = {"por": "Cliente (link de acompanhamento)", "email": "cliente:link"}
+        for p in abertos:
+            ev = r["pedidos"].setdefault(chave_pv(p.get("pv")), {})
+            if payload.cancelar:
+                if ev.pop("vizinho", None):
+                    ev.setdefault("vizinho_hist", []).append({"cancelado": True, "em": agora()})
+                continue
+            if not numero:
+                raise HTTPException(400, "Informe o número da casa (ou apartamento) do vizinho.")
+            if len(ev.get("vizinho_hist") or []) >= 10:
+                raise HTTPException(429, "Muitas alterações. Fale com a central de atendimento.")
+            ev["vizinho"] = {"nome": nome, "tel": tel, "numero": numero, "em": agora()}
+            ev.setdefault("vizinho_hist", []).append(dict(ev["vizinho"]))
+        qld.hist(c, q, "cliente cancelou a entrega ao vizinho" if payload.cancelar else "cliente pediu entregar ao vizinho",
+                 f"PV {', '.join(str(p.get('pv')) for p in abertos)}" + ("" if payload.cancelar else
+                 f" · nº {numero}{' · tel ' + tel if tel else ''} · {'com nome (vira a palavra)' if nome else 'SEM nome: entrega sem palavra'}"))
+        qld.gravar(c)
+        return entrega_pub(c, peds)
 
 
 # ── FOTOS ─────────────────────────────────────────────────────────────────
@@ -958,27 +1233,25 @@ def _ev_pub(c: dict, p: dict, com_palavra: bool) -> dict:
            "linhas": ev.get("linhas") or [], "palavra_ok": ev.get("palavra_ok"), "tentativas": int(ev.get("tentativas") or 0),
            "liberacao": ev.get("liberacao"), "baixa_erp": ev.get("baixa_erp"), "corrigidos": len(ev.get("corrigidos") or []),
            "retorno_esperado": esperado, "retorno_recebido": len(cd), "chat": _chat_resumo(c, p, "frota"),
-           "chegou": ev.get("chegou"), "destino": destino(c, p)}   # [v6.1]
+           "chegou": ev.get("chegou"), "destino": destino(c, p),   # [v6.1]
+           "vizinho": ev.get("vizinho"), "link": link_do_pedido(c, p)}   # [v6.6]
     if com_palavra:
-        out["palavra"] = r["palavras"].get(k, "")
+        out["palavra"] = palavra_efetiva(c, k)
+        if ev.get("vizinho"):
+            out["palavra_original"] = r["palavras"].get(k, "")
     return out
 
 
 def _carga_viva(c: dict, com_palavra: bool) -> dict:
     r = rua(c)
-    peds = [_ev_pub(c, p, com_palavra) for p in c.get("pedidos") or []]
+    pos_pub = posicao_atual(c)   # [v6.6] GPS → rede → estimada pelo último cliente atendido
+    peds = [{**_ev_pub(c, p, com_palavra), **_distancia_pedido(c, p, pos_pub)} for p in c.get("pedidos") or []]
     mot = (r.get("saida") or {}).get("nome") or c.get("motorista") or ""
     mid = (r.get("saida") or {}).get("mid")
-    pos = GPS.get(norm_placa(c.get("placa")))
-    if r.get("chegada") or not r.get("saida"):
-        pos_pub = None
-    else:
-        pos_pub = {**{k: pos[k] for k in ("lat", "lng", "prec", "em")}, "ha_seg": int(time.time() - pos["t"])} if pos else (
-            {**r["gps"], "ha_seg": None} if r.get("gps") else None)
     fase = "chegou" if r.get("chegada") else ("rua" if r.get("saida") else "aguardando")
     return {"numero": c["numero"], "data_iso": c.get("data_iso"), "placa": c.get("placa"), "transportadora": c.get("transportadora"),
             "motorista": mot, "palavra_ligada": palavra_ligada(mid) if mid else None, "status": c.get("status"), "fase": fase,
-            "saida": r.get("saida"), "chegada": r.get("chegada"), "pos": pos_pub,
+            "saida": r.get("saida"), "chegada": r.get("chegada"), "pos": pos_pub, "sinal": sinal_pub(c.get("placa")) if r.get("saida") and not r.get("chegada") else None,
             "trilha": [t[:3] for t in r.get("trilha") or []], "pedidos": peds,
             "cont": {"total": len(peds), "entregue": sum(1 for p in peds if p["desfecho"] == "entregue"),
                      "retorno": sum(1 for p in peds if p["desfecho"] == "retorno"), "parcial": sum(1 for p in peds if p["desfecho"] == "parcial"),
@@ -1006,13 +1279,13 @@ def rota_ao_vivo(request: Request, data: str = ""):
                 datetime.fromisoformat(dia) - timedelta(days=DIAS_APP)).strftime("%Y-%m-%d")
             do_dia = any(str((x or {}).get("em", ""))[:10] == dia for x in (r.get("saida"), r.get("chegada"))) or (c.get("data_iso") == dia)
             if (dia == qld.hoje() and ativa) or do_dia:
-                if garantir_palavras(c):
+                if garantir_palavras(c) | garantir_links(c):
                     qld.gravar(c)
                 cs.append(c)
         lista = [_carga_viva(c, com_palavra) for c in sorted(cs, key=lambda x: (x.get("data_iso") or "", x.get("numero") or ""))]
     soma = lambda k: sum(x["cont"][k] for x in lista)
     q = qld.quem(request)
-    return {"data": dia, "servidor": agora(), "pode_tratar": rk_nivel(request, "aovivo") >= 2,
+    return {"data": dia, "servidor": agora(), "pode_tratar": rk_nivel(request, "aovivo") >= 2, "km_laranja": KM_LARANJA, "km_vermelho": KM_VERMELHO,
             "eu": {"por": q["por"], "email": str(q.get("email") or "").lower()}, "motivos": motivos_chat(), "motivo_frota": FROTA_MOTIVO,
             "kpi": {"na_rua": sum(1 for x in lista if x["fase"] == "rua"), "aguardando_saida": sum(1 for x in lista if x["fase"] == "aguardando"),
                     "chegaram": sum(1 for x in lista if x["fase"] == "chegou"), "entregues": soma("entregue"), "retornos": soma("retorno") + soma("parcial"),
@@ -1226,7 +1499,8 @@ def _dados_cliente(c: dict, p: dict) -> dict:
     r = rua(c)
     k = chave_pv(p.get("pv"))
     return {"carga": c["numero"], "placa": c.get("placa"), "motorista": ((r.get("saida") or {}).get("nome") or c.get("motorista") or ""),
-            "transportadora": c.get("transportadora"), "palavra": r["palavras"].get(k, ""),
+            "transportadora": c.get("transportadora"), "palavra": palavra_efetiva(c, k),
+            "palavra_original": r["palavras"].get(k, ""), "vizinho": (r["pedidos"].get(k) or {}).get("vizinho"), "link": link_do_pedido(c, p),
             **{x: p.get(x) for x in ("seq", "tipo", "pv", "nf", "serie", "cliente", "nome", "endereco", "compl", "bairro", "cidade", "cep",
                                      "despesas", "troca", "pv_retira", "nf_troca", "protocolo", "obs")},
             "itens": [{"desc": it.get("desc"), "sku": it.get("sku"), "qtd": int(it.get("qtd") or 0)} for it in p.get("entregar") or []],
@@ -1501,13 +1775,16 @@ def rota_palavras(request: Request, data: str = ""):
     out = []
     with TRAVA:
         for c in qld.no_periodo(dia, dia) + [x for x in qld.CARGAS.values() if x.get("status") in STATUS_RUA and not (x.get("rua") or {}).get("chegada")]:
-            if garantir_palavras(c):
+            if garantir_palavras(c) | garantir_links(c):
                 qld.gravar(c)
+            base = url_publica(request)
             mids = {m for m, v in app_cfg()["motoristas"].items() if norm_placa(c.get("placa")) in (v.get("placas") or [])}
             for p in c.get("pedidos") or []:
                 out.append({"carga": c["numero"], "data_iso": c.get("data_iso"), "placa": c.get("placa"), "pv": p.get("pv"), "cliente": p.get("cliente"),
-                            "nome": p.get("nome"), "bairro": p.get("bairro"), "palavra": rua(c)["palavras"].get(chave_pv(p.get("pv")), ""),
-                            "exigida": any(palavra_ligada(m) for m in mids)})
+                            "nome": p.get("nome"), "bairro": p.get("bairro"), "palavra": palavra_efetiva(c, chave_pv(p.get("pv"))),
+                            "exigida": any(palavra_ligada(m) for m in mids),
+                            "vizinho": bool((rua(c)["pedidos"].get(chave_pv(p.get("pv"))) or {}).get("vizinho")),
+                            "link": f"{base}/entrega/{link_do_pedido(c, p)}" if link_do_pedido(c, p) else ""})   # [v6.6]
     vistos, unicos = set(), []
     for x in out:
         if (x["carga"], x["pv"]) not in vistos:

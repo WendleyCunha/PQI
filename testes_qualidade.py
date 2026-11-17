@@ -226,7 +226,7 @@ def teste_retorno_do_app():
     T.importar("070201", "ABC1D23", [("810001", "Ana", 2), ("810002", "Beto", 1)])
     app = T.montar()
     mot, t = TestClient(app), TestClient(app)
-    T.entrar(mot, "ABC1D23", "João Ferreira")
+    T.entrar(mot, "ABC1D23", "João Ferreira", iniciar=True)
     base = "/api/motorista/cargas/070201/pedido/810001"
     mot.post(base + "/chat", json={"motivo": "Ausente"})
     car = mot.get("/api/motorista/cargas").json()["cargas"][0]

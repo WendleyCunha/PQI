@@ -202,3 +202,21 @@ Testes: `python testes_qualidade.py` (74) · `python testes_motorista.py` (143)
   qualquer número da rua). Vale na hora para o app, Ao vivo, Histórico e PDF.
 - **⏱ Tempo do atendimento** (mesma tela): minutos do chat (padrão 15). A cor é dividida em **3 terços**:
   verde → laranja → vermelho (15 min: verde até faltar 10, laranja até faltar 5, vermelho nos últimos 5 e quando estoura).
+
+# v6.6 — LINK DO CLIENTE, ENTREGAR AO VIZINHO, DISTÂNCIA EM KM E POSIÇÃO SEM GPS
+
+- **Link de acompanhamento** (`/entrega/<código>`, público — o código é a chave, difícil de adivinhar):
+  um por **cliente + CEP** da carga (mesmo cliente e mesmo CEP = um link com os pedidos dele; CEP diferente = outro link).
+  Mostra a **palavra-chave** (só se o motorista usa palavra), a situação e, depois do **Iniciar rota**, a **distância em km**
+  (linha reta, sem previsão de horário). Expira 7 dias depois da data do Mapa. Não mostra a posição do caminhão.
+- No **Ao vivo**: coluna **Distância** e **Link do cliente** (🔗 Copiar · WhatsApp com a mensagem pronta — quem envia é o atendente)
+  e a caixa **🚨 Chegando** (pendentes a menos de 7 km, os mais perto primeiro). Ponte do ERP: `GET /api/routerking/palavras`
+  agora traz `link` (endereço completo) e `vizinho`.
+- **Cores**: menos de **7 km laranja**, menos de **2 km vermelho** (`KM_LARANJA`/`KM_VERMELHO` em motorista.py).
+- **Entregar ao vizinho** (no link): número da casa/apto (obrigatório), nome e telefone. O **nome vira a palavra** (o primeiro
+  nome também vale) e a palavra original deixa de valer; **nome em branco = entrega sem palavra**. O app do motorista mostra
+  "🏠 ENTREGAR AO VIZINHO" com número e telefone, nunca o nome. O cliente pode cancelar até o motorista registrar. Fica no histórico.
+- **App: dados das entregas só depois do Iniciar rota** (precisa de internet nesse momento); depois ficam guardados no celular.
+- **Sem GPS, com internet**: o app tenta a localização **da rede** (Wi-Fi/antenas — "📶 rede", aproximada) e avisa o servidor a cada
+  minuto que está online (`POST /api/motorista/sinal`). Sem nenhuma posição, o Ao vivo e o link usam a posição **≈ estimada** pelo
+  último cliente atendido. O Ao vivo mostra a fonte (GPS · rede · estimada) e "GPS desligado".
