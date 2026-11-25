@@ -199,32 +199,60 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   .lote-item:last-child{break-after:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ══════════════ Edição direta (sem botão Editar) ══════════════ */
+.doc-head .titulo-in{font:700 28px/1.15 "IBM Plex Sans Condensed",sans-serif;padding:4px 6px;background:transparent;border:1px dashed transparent}
+.doc-head .titulo-in:hover,.doc-head .titulo-in:focus{border-color:var(--rule);background:var(--paper)}
+.doc-head .obj-in{margin-top:8px;color:var(--ink-2);background:transparent;border:1px dashed transparent;min-height:64px}
+.doc-head .obj-in:hover,.doc-head .obj-in:focus{border-color:var(--rule);background:var(--paper)}
+td input,td select,td textarea{background:transparent;border-color:transparent}
+td input:hover,td select:hover,td textarea:hover,td input:focus,td select:focus,td textarea:focus{background:var(--paper);border-color:var(--rule)}
+td textarea{min-height:38px}
+td select{min-width:128px}
+.doc-head .titulo-in{width:100%}
+td textarea[data-p$=".nome"]{min-width:130px;font-weight:600}
+td textarea{overflow:hidden}
+.acoes-etapa{display:flex;gap:4px;white-space:nowrap}
+.acoes-etapa button{padding:5px 7px;font-size:12px}
+.acoes-etapa button:disabled{opacity:.35;cursor:default}
+.nome-in{width:140px;padding:4px 8px;font-size:13px}
+.salvo{font-size:12px;color:var(--ok)}
+.salvo:empty{display:none}
+.conclusao textarea{min-height:90px;background:var(--sheet)}
+.modelo-desc{font-size:13px;color:var(--ink-3);margin-top:6px}
+@media print{
+  .so-tela{display:none!important}
+  .doc-head{border:0;padding:0 0 10px}
+  .chain{overflow:visible}
+}
 </style>
 </head>
 <body>
 <div class="bar"><div class="bar-in">
   <button id="btnVoltarLista" hidden>← Itens</button>
   <span class="who" id="who"></span>
-  <button id="btnEdit" hidden>Editar</button>
-  <button id="btnCancel" hidden>Descartar alterações</button>
-  <button id="btnSave" class="primary" hidden>Salvar nova versão</button>
-  <button id="btnDownload" hidden>Baixar cópia para arquivo</button>
-  <button id="btnPrint">Imprimir ou salvar PDF</button>
+  <span class="salvo" id="salvo"></span>
+  <input id="fNome" class="nome-in" placeholder="Seu nome" title="Vai para o histórico de versões" autocomplete="name">
+  <button id="btnExportar" hidden title="Baixa este item em .json — pode ser importado em outro navegador">Exportar item</button>
+  <button id="btnDownload">Baixar cópia completa</button>
+  <button id="btnPrint" class="primary" hidden title="Gera o PDF só da Linha de vida deste item">PDF da Linha de vida</button>
 </div></div>
 <div class="wrap">
   <p class="banner" id="banner"></p>
   <div id="root"></div>
 </div>
 
-<dialog id="dlg">
-  <h3>Salvar nova versão</h3>
-  <p class="muted" style="margin:0">Todos que têm o link passam a ver esta versão. O registro fica no histórico.</p>
-  <label for="fPor">Seu nome</label>
-  <input id="fPor" autocomplete="name">
-  <label for="fNota">O que mudou nesta versão</label>
-  <textarea id="fNota" placeholder="Ex.: cenário E03 executado e reprovado; GAP 04 aberto"></textarea>
-  <div class="acts"><button id="dlgNo">Voltar</button><button id="dlgYes" class="primary">Salvar</button></div>
+<dialog id="dlgNovo">
+  <h3>Novo item de teste</h3>
+  <p class="muted" style="margin:0">Escolha um modelo de etapas. Depois tudo pode ser mudado: nomes, ordem, incluir e remover etapas.</p>
+  <label for="fModelo">Modelo da Linha de vida</label>
+  <select id="fModelo"></select>
+  <div class="modelo-desc" id="fModeloDesc"></div>
+  <label for="fTitulo">Título do teste</label>
+  <input id="fTitulo" placeholder="Ex.: Faturamento de pedido com carga mista">
+  <div class="acts"><button id="dlgNovoNo">Voltar</button><button id="dlgNovoYes" class="primary">Criar item</button></div>
 </dialog>
+<input type="file" id="fImportar" accept=".json,application/json" hidden>
 
 <script type="application/json" id="state">
 {
@@ -278,24 +306,7 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   ],
   "log":[{"v":1,"data":"2026-09-24","por":"Criação do documento","nota":"Estrutura inicial: cronograma, cenários de teste, GAPs e aprovações."}]
 },
-"itens":[
-  {
-    "codigo":"PTR-RG-001","item":"","versao":1,"situacao":"Em execução","dono":"",
-    "inicio":"2026-09-28","atualizadoEm":"2026-09-24","atualizadoPor":"Criação do documento",
-    "etapas":[
-      {"id":"1","nome":"Pedido origem","conferir":"ID gerado; saldo reservado; disponível para venda reduzido","status":"Não iniciado","doc":"","obs":""},
-      {"id":"2","nome":"Agendamento","conferir":"Data e janela vinculadas ao pedido, sem duplicar reserva","status":"Não iniciado","doc":"","obs":""},
-      {"id":"3","nome":"Carga","conferir":"Item amarrado à carga e ao veículo; não entra em duas cargas","status":"Não iniciado","doc":"","obs":""},
-      {"id":"4","nome":"Faturamento","conferir":"NF referencia pedido e item; lote/série na NF","status":"Não iniciado","doc":"","obs":""},
-      {"id":"5","nome":"Recusa na entrega","conferir":"Motivo registrado; peça com status de retorno em trânsito","status":"Não iniciado","doc":"","obs":""},
-      {"id":"6","nome":"Retorno (NF devolução)","conferir":"NF de entrada vinculada à NF original","status":"Não iniciado","doc":"","obs":""},
-      {"id":"7","nome":"Armazenagem","conferir":"Armazém/endereço correto: bom, avariado ou quarentena","status":"Não iniciado","doc":"","obs":""},
-      {"id":"8","nome":"Reenvio","conferir":"Pedido de reenvio vinculado ao origem, sem nova venda/receita","status":"Não iniciado","doc":"","obs":""},
-      {"id":"9","nome":"Entrega final","conferir":"Ciclo encerrado; histórico completo consultável","status":"Não iniciado","doc":"","obs":""}
-    ],
-    "log":[{"v":1,"data":"2026-09-24","por":"Criação do documento","nota":"Linha de vida inicial deste item."}]
-  }
-]
+"itens":[]
 }
 </script>
 
@@ -303,26 +314,28 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 <div class="bar"><div class="bar-in">
   <button id="btnVoltarLista" hidden>← Itens</button>
   <span class="who" id="who"></span>
-  <button id="btnEdit" hidden>Editar</button>
-  <button id="btnCancel" hidden>Descartar alterações</button>
-  <button id="btnSave" class="primary" hidden>Salvar nova versão</button>
-  <button id="btnDownload" hidden>Baixar cópia para arquivo</button>
-  <button id="btnPrint">Imprimir ou salvar PDF</button>
+  <span class="salvo" id="salvo"></span>
+  <input id="fNome" class="nome-in" placeholder="Seu nome" title="Vai para o histórico de versões" autocomplete="name">
+  <button id="btnExportar" hidden title="Baixa este item em .json — pode ser importado em outro navegador">Exportar item</button>
+  <button id="btnDownload">Baixar cópia completa</button>
+  <button id="btnPrint" class="primary" hidden title="Gera o PDF só da Linha de vida deste item">PDF da Linha de vida</button>
 </div></div>
 <div class="wrap">
   <p class="banner" id="banner"></p>
   <div id="root"></div>
 </div>
 
-<dialog id="dlg">
-  <h3>Salvar nova versão</h3>
-  <p class="muted" style="margin:0">Todos que têm o link passam a ver esta versão. O registro fica no histórico.</p>
-  <label for="fPor">Seu nome</label>
-  <input id="fPor" autocomplete="name">
-  <label for="fNota">O que mudou nesta versão</label>
-  <textarea id="fNota" placeholder="Ex.: cenário E03 executado e reprovado; GAP 04 aberto"></textarea>
-  <div class="acts"><button id="dlgNo">Voltar</button><button id="dlgYes" class="primary">Salvar</button></div>
+<dialog id="dlgNovo">
+  <h3>Novo item de teste</h3>
+  <p class="muted" style="margin:0">Escolha um modelo de etapas. Depois tudo pode ser mudado: nomes, ordem, incluir e remover etapas.</p>
+  <label for="fModelo">Modelo da Linha de vida</label>
+  <select id="fModelo"></select>
+  <div class="modelo-desc" id="fModeloDesc"></div>
+  <label for="fTitulo">Título do teste</label>
+  <input id="fTitulo" placeholder="Ex.: Faturamento de pedido com carga mista">
+  <div class="acts"><button id="dlgNovoNo">Voltar</button><button id="dlgNovoYes" class="primary">Criar item</button></div>
 </dialog>
+<input type="file" id="fImportar" accept=".json,application/json" hidden>
 
 </script>
 <script id="app">
@@ -334,12 +347,60 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
   var CHAVE_ITENS   = "rg_v2_itens";
   var CHAVE_ANTIGA  = "rg_doc_PTR-RG-001"; // versão anterior, documento único
 
+  // ── Modelos de Linha de vida. Cada teste escolhe um ao nascer e
+  // depois ajusta livremente (nomes, ordem, incluir/remover etapas). ──
+  function et(nome, conferir){ return {nome:nome, conferir:conferir}; }
+  var MODELOS = [
+    {id:"rg", nome:"Ciclo completo do RG (pedido → reenvio)", titulo:TITULO, objetivo:OBJETIVO,
+     desc:"As 9 etapas originais: do pedido origem à entrega final.",
+     etapas:[
+      et("Pedido origem","ID gerado; saldo reservado; disponível para venda reduzido"),
+      et("Agendamento","Data e janela vinculadas ao pedido, sem duplicar reserva"),
+      et("Carga","Item amarrado à carga e ao veículo; não entra em duas cargas"),
+      et("Faturamento","NF referencia pedido e item; lote/série na NF"),
+      et("Recusa na entrega","Motivo registrado; peça com status de retorno em trânsito"),
+      et("Retorno (NF devolução)","NF de entrada vinculada à NF original"),
+      et("Armazenagem","Armazém/endereço correto: bom, avariado ou quarentena"),
+      et("Reenvio","Pedido de reenvio vinculado ao origem, sem nova venda/receita"),
+      et("Entrega final","Ciclo encerrado; histórico completo consultável")]},
+    {id:"loja", nome:"Loja de origem (troca / SSAC / cópia)", titulo:"Loja de origem do pedido: herança nos pedidos gerados",
+     objetivo:"Conferir se o pedido gerado a partir de outro (troca, retira, reenvio, cópia, Alt. PV, Call Center/SSAC, Ouvidoria) mantém a loja da venda original (C5_XLJORI / Fil. Venda) e não cai na filial 01. Regra: se o PV origem é da filial X, todos os pedidos gerados em cima dele precisam ser X.",
+     desc:"Pedido origem → atendimento → novo pedido → loja herdada → agenda/monitor → BI.",
+     etapas:[
+      et("Pedido origem","PV da venda identificado e loja da venda conhecida (orçamento C5_ORCRES → L1_FILRES ou cadeia de pedidos)"),
+      et("Atendimento (SSAC / Call Center)","Atendimento aberto sobre o PV origem com o motivo correto"),
+      et("Geração do novo pedido","Novo PV gerado com os produtos certos e vínculo ao PV origem"),
+      et("Loja de origem no novo pedido","C5_XLJORI / Fil. Venda igual à loja da venda, não 01 – Nações Unidas"),
+      et("Agenda e monitor","PA2_FILVND no KINA024 e coluna Loja Origem no KSLOJM07 com a loja da venda"),
+      et("Relatório / BI","Relatório mostra a mesma loja de origem do Protheus")]},
+    {id:"fat", nome:"Faturamento", titulo:"Faturamento do pedido",
+     objetivo:"Conferir se o faturamento gera a NF correta, vinculada ao pedido e à carga, com estoque e fiscal certos.",
+     desc:"Pedido liberado → NF → SEFAZ → fiscal → estoque.",
+     etapas:[
+      et("Pedido liberado","Pedido sem bloqueio de crédito/estoque e apto a faturar"),
+      et("Carga vinculada","Pedido está na carga certa e a carga está liberada para faturar"),
+      et("Geração da NF","NF gerada referencia pedido, itens e quantidades"),
+      et("Autorização SEFAZ","NF transmitida e autorizada, sem rejeição"),
+      et("Conferência fiscal","TES/CFOP, impostos e valores corretos"),
+      et("Baixa de estoque","Saldo baixado no armazém certo, sem duplicar"),
+      et("Documentos da entrega","DANFE e romaneio emitidos e conferidos")]},
+    {id:"carga", nome:"Montagem de carga", titulo:"Montagem de carga",
+     objetivo:"Conferir se a montagem de carga junta os pedidos certos, sem duplicar pedido, e libera para faturamento.",
+     desc:"Pedidos aptos → carga → veículo → roteiro → liberação.",
+     etapas:[
+      et("Pedidos aptos","Só entram pedidos liberados e agendados para a data"),
+      et("Montagem da carga","Carga criada com os pedidos/itens corretos"),
+      et("Pedido não duplica","O mesmo pedido/item não entra em duas cargas"),
+      et("Veículo e motorista","Veículo, capacidade e motorista vinculados"),
+      et("Sequência de entrega","Roteiro/ordem de entrega coerente"),
+      et("Separação e conferência","Itens separados batem com a carga"),
+      et("Liberação para faturamento","Carga liberada e visível no faturamento")]},
+    {id:"branco", nome:"Em branco", titulo:"", objetivo:"", desc:"Começa com uma etapa vazia; você monta o resto.",
+     etapas:[et("","")]}
+  ];
+
   var seed = JSON.parse(document.getElementById('state').textContent);
 
-  // ── Migração da versão anterior (documento único) pra esta versão
-  // (vários itens) — só roda se ainda não existir nada salvo na versão
-  // nova. O item único de antes vira o primeiro item da lista agora,
-  // e cronograma/cenários/GAPs/aprovações viram os dados do projeto. ──
   function migrarVersaoAnterior(){
     try{
       var antigo = localStorage.getItem(CHAVE_ANTIGA);
@@ -359,42 +420,65 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
     }catch(_){ return null; }
   }
 
-  var PROJETO, ITENS;
-  var migrouAgora = false;
-  try{
-    var pSalvo = localStorage.getItem(CHAVE_PROJETO), iSalvo = localStorage.getItem(CHAVE_ITENS);
-    if (pSalvo && iSalvo){
-      PROJETO = JSON.parse(pSalvo); ITENS = JSON.parse(iSalvo);
-    } else {
-      var migrado = migrarVersaoAnterior();
-      if (migrado){ PROJETO = migrado.projeto; ITENS = migrado.itens; migrouAgora = true; }
-      else { PROJETO = seed.projeto; ITENS = seed.itens; }
-    }
-  }catch(_){ PROJETO = seed.projeto; ITENS = seed.itens; }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 
-  var PROJETO_SALVO = JSON.parse(JSON.stringify(PROJETO));
-  var ITENS_SALVOS  = JSON.parse(JSON.stringify(ITENS));
-
-  function persistir(){
-    try{
-      localStorage.setItem(CHAVE_PROJETO, JSON.stringify(PROJETO_SALVO));
-      localStorage.setItem(CHAVE_ITENS, JSON.stringify(ITENS_SALVOS));
-    }catch(err){ banner("Não foi possível salvar — armazenamento local bloqueado ou cheio."); }
+  function etapasDoModelo(m){
+    return m.etapas.map(function(e,i){ return {id:String(i+1), nome:e.nome, conferir:e.conferir, status:"Não iniciado", data:"", doc:"", obs:""}; });
+  }
+  function itemPadraoInicial(){
+    var m = MODELOS[0];
+    return {codigo:"PTR-RG-001", item:"", versao:1, situacao:"Em execução", dono:"", inicio:today(),
+      atualizadoEm:today(), atualizadoPor:"Criação do documento", titulo:m.titulo, objetivo:m.objetivo,
+      dados:[], conclusao:"", etapas:etapasDoModelo(m),
+      log:[{v:1,data:today(),por:"Criação do documento",nota:"Linha de vida inicial deste item."}]};
   }
 
-  // [FIX] Sem isto, uma migração só existia na memória — se a pessoa
-  // fechasse a aba sem clicar em "Salvar" em nada, nada ficava gravado
-  // de verdade no formato novo, e a próxima visita migraria tudo de
-  // novo (inofensivo, mas desnecessário). Grava assim que migra.
+  // Itens antigos não têm título/objetivo/dados/conclusão próprios —
+  // completa sem perder nada do que já estava gravado.
+  function normalizarItem(it){
+    if (it.titulo == null) it.titulo = TITULO;
+    if (it.objetivo == null) it.objetivo = OBJETIVO;
+    if (!Array.isArray(it.dados)) it.dados = [];
+    if (it.conclusao == null) it.conclusao = "";
+    if (!Array.isArray(it.etapas)) it.etapas = [];
+    if (!Array.isArray(it.log)) it.log = [];
+    it.etapas.forEach(function(e,i){
+      e.id = String(i+1);
+      ["nome","conferir","doc","obs","data"].forEach(function(k){ if (e[k]==null) e[k]=""; });
+      if (!e.status) e.status = "Não iniciado";
+    });
+    if (!it.versao) it.versao = 1;
+    return it;
+  }
+
+  var PROJETO, ITENS, migrouAgora = false;
+  try{
+    var pSalvo = localStorage.getItem(CHAVE_PROJETO), iSalvo = localStorage.getItem(CHAVE_ITENS);
+    if (pSalvo && iSalvo){ PROJETO = JSON.parse(pSalvo); ITENS = JSON.parse(iSalvo); }
+    else {
+      var migrado = migrarVersaoAnterior();
+      if (migrado){ PROJETO = migrado.projeto; ITENS = migrado.itens; migrouAgora = true; }
+      else { PROJETO = seed.projeto; ITENS = seed.itens.length ? seed.itens : [itemPadraoInicial()]; }
+    }
+  }catch(_){ PROJETO = seed.projeto; ITENS = seed.itens.length ? seed.itens : [itemPadraoInicial()]; }
+  ITENS.forEach(normalizarItem);
+  if (!Array.isArray(PROJETO.log)) PROJETO.log = [];
+
+  var tSalvo = null;
+  function persistir(){
+    try{
+      localStorage.setItem(CHAVE_PROJETO, JSON.stringify(PROJETO));
+      localStorage.setItem(CHAVE_ITENS, JSON.stringify(ITENS));
+      var s = document.getElementById('salvo'); s.textContent = "✓ salvo";
+      clearTimeout(tSalvo); tSalvo = setTimeout(function(){ s.textContent = ""; }, 1800);
+    }catch(err){ banner("Não foi possível salvar — armazenamento local bloqueado ou cheio."); }
+  }
   if (migrouAgora) persistir();
 
   // ── Navegação ──
-  // telaAtual: 'lista' | 'item'
-  // secaoAtiva (só importa quando telaAtual==='item'): 'linha'|'cronograma'|'cenarios'|'gaps'|'aprovacao'|'historico'
-  var telaAtual = 'lista';
-  var itemAtivoIdx = null;
-  var secaoAtiva = 'linha';
-  var editing = false, readOnly = false;
+  var telaAtual = 'lista', itemAtivoIdx = null, secaoAtiva = 'linha';
+  var imprimindo = false; // true = monta a tela só com texto (PDF)
 
   var ST_TESTE = ["Não iniciado","Em andamento","Aprovado","Reprovado","Bloqueado"];
   var ST_FASE  = ["Não iniciada","Em andamento","Concluída","Atrasada","Suspensa"];
@@ -404,7 +488,6 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
 
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function br(d){if(!d)return "";var p=String(d).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d;}
-  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
   function cls(st){
     if(/Aprovado|Concluída|Resolvido/.test(st))return "ok";
     if(/Reprovado|Atrasada|Confirmado|Alta/.test(st))return "bad";
@@ -414,8 +497,8 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
     return "idle";
   }
   function pill(st){return '<span class="pill p-'+cls(st)+'">'+esc(st)+'</span>';}
+  function sitCls(s){return s==="Encerrado"?"fim":(s==="Suspenso"?"susp":"exec");}
 
-  // ── Cálculos (mesma lógica validada isoladamente antes de entrar aqui) ──
   function calcPctEtapas(etapas){
     var aprovadas = etapas.filter(function(e){return e.status==="Aprovado";}).length;
     return {aprovadas:aprovadas, total:etapas.length, pct: etapas.length?Math.round(aprovadas/etapas.length*100):0};
@@ -424,26 +507,20 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
     if (!fases.length) return 0;
     return Math.round(fases.reduce(function(a,f){return a+(+f.pct||0);},0)/fases.length);
   }
-  function calcPctGenerico(lista, statusOk){
-    statusOk = statusOk || "Aprovado";
-    var ok = lista.filter(function(x){return x.status===statusOk;}).length;
+  function calcPctGenerico(lista){
+    var ok = lista.filter(function(x){return x.status==="Aprovado";}).length;
     return {aprovados:ok, total:lista.length, pct: lista.length?Math.round(ok/lista.length*100):0};
   }
-  function calcMacro(item){
-    var todos = item.etapas.concat(PROJETO.cenarios);
-    var ok = todos.filter(function(x){return x.status==="Aprovado";}).length;
-    return {aprovados:ok, total:todos.length, pct: todos.length?Math.round(ok/todos.length*100):0};
-  }
 
-  // Campos editáveis — operam sobre `obj` (PROJETO ou o item ativo,
-  // dependendo de qual seção está sendo editada no momento).
+  // ── Campos: sempre editáveis na tela; só texto quando imprimindo ──
   function get(obj,path){var p=path.split("."),o=obj;for(var i=0;i<p.length;i++)o=o[p[i]];return o;}
   function set(obj,path,v){var p=path.split("."),o=obj;for(var i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=v;}
-  function txt(obj,path,ph){var v=get(obj,path);return editing?'<input data-p="'+path+'" value="'+esc(v)+'" placeholder="'+esc(ph||"")+'">':(v?esc(v):'<span class="muted">—</span>');}
-  function area(obj,path,ph){var v=get(obj,path);return editing?'<textarea data-p="'+path+'" placeholder="'+esc(ph||"")+'">'+esc(v)+'</textarea>':(v?esc(v):'<span class="muted">—</span>');}
-  function date(obj,path){var v=get(obj,path);return editing?'<input type="date" data-p="'+path+'" value="'+esc(v)+'">':(v?br(v):'<span class="muted">—</span>');}
-  function sel(obj,path,opts){var v=get(obj,path);if(!editing)return pill(v);return '<select data-p="'+path+'">'+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join("")+'</select>';}
-  function num(obj,path){var v=get(obj,path)||0;if(editing)return '<input type="number" min="0" max="100" step="5" data-p="'+path+'" data-num="1" value="'+v+'">';return '<div class="pct"><div class="track"><i style="width:'+v+'%"></i></div><span>'+v+'%</span></div>';}
+  function vazio(){return '<span class="muted">—</span>';}
+  function txt(obj,path,ph,extra){var v=get(obj,path);return imprimindo?(v?esc(v):vazio()):'<input data-p="'+path+'" value="'+esc(v)+'" placeholder="'+esc(ph||"")+'"'+(extra||'')+'>';}
+  function area(obj,path,ph,extra){var v=get(obj,path);return imprimindo?(v?esc(v).replace(/\n/g,"<br>"):vazio()):'<textarea data-p="'+path+'" placeholder="'+esc(ph||"")+'"'+(extra||'')+'>'+esc(v)+'</textarea>';}
+  function date(obj,path){var v=get(obj,path);return imprimindo?(v?br(v):vazio()):'<input type="date" data-p="'+path+'" value="'+esc(v)+'">';}
+  function sel(obj,path,opts,vazioOk){var v=get(obj,path);if(imprimindo)return v?pill(v):'';return '<select data-p="'+path+'">'+(vazioOk?'<option value=""></option>':'')+opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join("")+'</select>';}
+  function num(obj,path){var v=get(obj,path)||0;if(!imprimindo)return '<input type="number" min="0" max="100" step="5" data-p="'+path+'" data-num="1" value="'+v+'">';return '<div class="pct"><div class="track"><i style="width:'+v+'%"></i></div><span>'+v+'%</span></div>';}
 
   var ICONES = {
     linha:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6m12-9a3 3 0 11-6 0 3 3 0 016 0zM9 6h3a6 6 0 016 6v0"/></svg>',
@@ -452,51 +529,48 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
     gaps:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>',
     aprovacao:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
     historico:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-7 3L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>',
-    mais:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
-    imprimir:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>',
+    mais:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align:-2px"><path d="M12 5v14M5 12h14"/></svg>',
   };
 
-  // ═══════════════════════════════════════════════════════════
-  // RENDER — despacha pra lista de itens ou pra um item aberto
-  // ═══════════════════════════════════════════════════════════
+  // ═══════════════ RENDER ═══════════════
   function render(){
     document.getElementById('btnVoltarLista').hidden = (telaAtual !== 'item');
-    if (telaAtual === 'lista') renderLista();
-    else renderItem();
+    if (telaAtual === 'lista') renderLista(); else renderItem();
     syncBar();
+  }
+  // Re-render sem tirar a pessoa do campo onde ela acabou de clicar.
+  function renderMantendoFoco(){
+    setTimeout(function(){
+      var a = document.activeElement, p = a && a.getAttribute && a.getAttribute('data-p');
+      render();
+      if (p){ var n = document.querySelector('[data-p="'+p+'"]'); if (n) n.focus(); }
+    }, 0);
   }
 
   function renderLista(){
     var h = '<div class="lista-topo"><h1>Itens em teste</h1><div class="lista-acoes">';
-    h += '<button data-acao-lote>'+ICONES.imprimir+' Imprimir todos</button>';
+    h += '<button data-importar title="Carrega um item exportado em .json">Importar item</button>';
+    h += '<button data-acao-lote>Imprimir todos</button>';
     h += '<button class="primary" data-novo-item>'+ICONES.mais+' Novo item</button></div>';
-    h += '<p>Cada item é uma "Linha de vida" independente — seu próprio código, versão e histórico. Cronograma, Cenários de exceção, GAPs e Aprovação final são compartilhados entre todos os itens.</p></div>';
-
+    h += '<p>Cada item é uma Linha de vida independente, com etapas próprias (escolha um modelo ou monte do zero). Cronograma, Cenários de exceção, GAPs e Aprovação final são compartilhados entre todos os itens.</p></div>';
     h += '<div class="lista-grid">';
     if (!ITENS.length){
       h += '<div class="vazio-lista">Nenhum item cadastrado ainda. Clique em "Novo item" para começar.</div>';
     } else {
       ITENS.forEach(function(it, idx){
-        var macro = calcMacro(it);
+        var st = calcPctEtapas(it.etapas);
         h += '<div class="item-card" data-abrir-item="'+idx+'">';
         h += '<div class="ic-codigo">'+esc(it.codigo)+'</div>';
-        h += '<div class="ic-item">'+(it.item?esc(it.item):'<span class="muted">Item não identificado</span>')+'</div>';
-        h += '<div class="ic-macro"><b>'+macro.pct+'%</b><span>dos testes aprovados ('+macro.aprovados+' de '+macro.total+')</span></div>';
-        h += '<div class="ic-track track"><i style="width:'+macro.pct+'%"></i></div>';
-        h += '<div class="ic-rodape"><span class="sit '+(it.situacao==="Encerrado"?"fim":(it.situacao==="Suspenso"?"susp":"exec"))+'">'+esc(it.situacao)+'</span><span>v'+it.versao+' · '+br(it.atualizadoEm)+'</span></div>';
+        h += '<div class="ic-item">'+(it.titulo?esc(it.titulo):'<span class="muted">Sem título</span>')+'</div>';
+        if (it.item) h += '<div class="ic-item muted">'+esc(it.item)+'</div>';
+        h += '<div class="ic-macro"><b>'+st.pct+'%</b><span>das etapas aprovadas ('+st.aprovadas+' de '+st.total+')</span></div>';
+        h += '<div class="ic-track track"><i style="width:'+st.pct+'%"></i></div>';
+        h += '<div class="ic-rodape"><span class="sit '+sitCls(it.situacao)+'">'+esc(it.situacao)+'</span><span>v'+it.versao+' · '+br(it.atualizadoEm)+'</span></div>';
         h += '</div>';
       });
     }
     h += '</div>';
     document.getElementById('root').innerHTML = h;
-
-    document.querySelectorAll('[data-abrir-item]').forEach(function(el){
-      el.addEventListener('click', function(){ abrirItem(+el.getAttribute('data-abrir-item')); });
-    });
-    var btnNovo = document.querySelector('[data-novo-item]');
-    if (btnNovo) btnNovo.addEventListener('click', novoItem);
-    var btnLote = document.querySelector('[data-acao-lote]');
-    if (btnLote) btnLote.addEventListener('click', imprimirTodos);
   }
 
   function renderItem(){
@@ -510,241 +584,315 @@ footer.doc-foot{margin-top:40px;color:var(--ink-3);font-size:12px;border-top:1px
     h += sideBtn('aprovacao', ICONES.aprovacao, 'Aprovação final');
     h += sideBtn('historico', ICONES.historico, 'Histórico de versões');
     h += '</div><div class="conteudo-item">';
-
     if (secaoAtiva === 'linha') h += renderLinha(it);
     else if (secaoAtiva === 'cronograma') h += renderCronograma();
     else if (secaoAtiva === 'cenarios') h += renderCenarios();
     else if (secaoAtiva === 'gaps') h += renderGaps();
     else if (secaoAtiva === 'aprovacao') h += renderAprovacao();
     else if (secaoAtiva === 'historico') h += renderHistoricoItem(it);
-
     h += '</div></div>';
     document.getElementById('root').innerHTML = h;
-
-    document.querySelectorAll('[data-secao]').forEach(function(el){
-      el.addEventListener('click', function(){
-        if (editing){ banner('Salve ou descarte as alterações antes de trocar de seção.'); return; }
-        secaoAtiva = el.getAttribute('data-secao'); render();
-      });
+    ajustarAlturas();
+  }
+  // Caixas de texto crescem com o conteúdo — nada fica cortado.
+  function ajustarAlturas(alvo){
+    (alvo ? [alvo] : document.querySelectorAll('#root textarea')).forEach(function(t){
+      t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px';
     });
   }
-
   function sideBtn(secao, icone, rotulo){
     return '<button class="side-btn'+(secaoAtiva===secao?' ativo':'')+'" data-secao="'+secao+'" title="'+rotulo+'">'+icone+'<span>'+rotulo+'</span></button>';
   }
 
-  // ── Linha de vida (página principal de cada item) ──
+  // ── Linha de vida (o que vai para o PDF) ──
   function renderLinha(it){
-    var macro = calcMacro(it);
-    var fasePct = calcFasePct(PROJETO.fases);
-    var h = '<header class="doc-head"><div><h1>'+esc(TITULO)+'</h1><p class="obj">'+esc(OBJETIVO)+'</p></div>';
-    h += '<div class="stamp"><div class="code">'+esc(it.codigo)+'</div><dl>';
+    var st = calcPctEtapas(it.etapas);
+    var bloq = it.etapas.filter(function(e){return e.status==="Bloqueado";}).length;
+    var repr = it.etapas.filter(function(e){return e.status==="Reprovado";}).length;
+    var pend = it.etapas.filter(function(e){return e.status==="Não iniciado"||e.status==="Em andamento";}).length;
+
+    var h = '<header class="doc-head"><div>';
+    if (imprimindo){
+      h += '<h1>'+esc(it.titulo||"Teste sem título")+'</h1>'+(it.objetivo?'<p class="obj">'+esc(it.objetivo).replace(/\n/g,"<br>")+'</p>':'');
+    } else {
+      h += '<input class="titulo-in" data-p="titulo" value="'+esc(it.titulo)+'" placeholder="Título do teste">';
+      h += '<textarea class="obj-in" data-p="objetivo" placeholder="Objetivo: o que este teste precisa provar">'+esc(it.objetivo)+'</textarea>';
+    }
+    h += '</div><div class="stamp"><div class="code">'+esc(it.codigo)+'</div><dl>';
     h += '<dt>Versão</dt><dd>'+it.versao+'</dd>';
-    h += '<dt>Situação</dt><dd>'+(editing?'<select data-p="situacao">'+SIT.map(function(o){return '<option'+(o===it.situacao?' selected':'')+'>'+o+'</option>';}).join("")+'</select>':'<span class="sit '+(it.situacao==="Encerrado"?"fim":(it.situacao==="Suspenso"?"susp":"exec"))+'">'+esc(it.situacao)+'</span>')+'</dd>';
-    h += '<dt>Item / documento</dt><dd>'+txt(it,"item","Ex.: 85KLA8")+'</dd>';
+    h += '<dt>Situação</dt><dd>'+(imprimindo?'<span class="sit '+sitCls(it.situacao)+'">'+esc(it.situacao)+'</span>':sel(it,"situacao",SIT))+'</dd>';
+    h += '<dt>Item / documento</dt><dd>'+txt(it,"item","Ex.: PV 674509")+'</dd>';
     h += '<dt>Responsável</dt><dd>'+txt(it,"dono","Nome do responsável")+'</dd>';
     h += '<dt>Início</dt><dd>'+date(it,"inicio")+'</dd>';
     h += '<dt>Atualizado</dt><dd>'+br(it.atualizadoEm)+'<br><span class="muted">'+esc(it.atualizadoPor)+'</span></dd>';
-    h += '</dl></div></header>';
+    h += '</dl>'+(imprimindo?'':'<button class="del warn so-tela" data-excluir-item style="margin-top:10px">Excluir item</button>')+'</div></header>';
 
-    h += '<div class="summary"><div class="meter"><div class="big">'+macro.pct+'%</div><div class="lbl">dos testes aprovados ('+macro.aprovados+' de '+macro.total+')</div><div class="track"><i style="width:'+macro.pct+'%"></i></div><div class="lbl" style="margin-top:10px">Cronograma do projeto: '+fasePct+'% concluído</div></div>';
-    var etStats = calcPctEtapas(it.etapas);
-    h += '<div class="counts"><div class="count"><b style="color:var(--ok)">'+etStats.aprovadas+'</b><span>etapas aprovadas deste item (de '+etStats.total+')</span></div>';
-    h += '<div class="count"><b style="color:var(--steel)">'+etStats.pct+'%</b><span>Linha de vida isolada</span></div></div></div>';
+    h += '<div class="summary"><div class="meter"><div class="big">'+st.pct+'%</div><div class="lbl">das etapas aprovadas ('+st.aprovadas+' de '+st.total+')</div><div class="track"><i style="width:'+st.pct+'%"></i></div></div>';
+    h += '<div class="counts"><div class="count"><b style="color:var(--ok)">'+st.aprovadas+'</b><span>aprovadas</span></div>';
+    h += '<div class="count"><b style="color:var(--bad)">'+repr+'</b><span>reprovadas</span></div>';
+    h += '<div class="count"><b style="color:var(--block)">'+bloq+'</b><span>bloqueadas</span></div>';
+    h += '<div class="count"><b style="color:var(--ink-2)">'+pend+'</b><span>pendentes</span></div></div></div>';
 
-    h += '<section><header><h2>Linha de vida do item (cenário principal)</h2><p>Cada etapa deve carregar o mesmo identificador do pedido origem.</p></header>';
-    h += '<div class="chain">'+it.etapas.map(function(e){var c=cls(e.status);return '<div class="link st-'+c+'"><div class="knot">'+esc(e.id)+'</div><div class="nm">'+esc(e.nome)+'</div><div class="st">'+pill(e.status)+'</div><div class="doc">'+(e.doc?esc(e.doc):'')+'</div></div>';}).join("")+'</div>';
-    h += '<div class="chain-detail scroll"><table><thead><tr><th>Etapa</th><th>O que conferir</th><th>Status</th><th>Nº documento / evidência</th><th>Observação</th></tr></thead><tbody>';
+    // Dados do teste
+    if (!imprimindo || it.dados.length){
+      h += '<section><header><h2>Dados do teste</h2><p>Pedidos, cliente, documentos, ambiente — o que identifica este teste.</p>'+(imprimindo?'':'<button class="add so-tela" data-dado="add">Adicionar dado</button>')+'</header>';
+      h += '<div class="scroll"><table style="min-width:560px"><thead><tr><th style="width:30%">Dado</th><th>Valor</th>'+(imprimindo?'':'<th class="so-tela" style="width:1%"></th>')+'</tr></thead><tbody>';
+      if (!it.dados.length) h += '<tr><td colspan="3" class="muted">Nenhum dado ainda.</td></tr>';
+      it.dados.forEach(function(d,i){
+        h += '<tr><td class="id">'+txt(it,"dados."+i+".campo","Ex.: PV origem")+'</td><td>'+area(it,"dados."+i+".valor","Ex.: 674509 – emissão 10/04/2026")+'</td>'+(imprimindo?'':'<td class="so-tela"><button class="del warn" data-dado="del" data-i="'+i+'" title="Remover">✕</button></td>')+'</tr>';
+      });
+      h += '</tbody></table></div></section>';
+    }
+
+    // Linha de vida
+    h += '<section><header><h2>Linha de vida</h2><p>Etapas próprias deste teste — renomeie, reordene, inclua ou remova.</p>'+(imprimindo?'':'<button class="add so-tela" data-etapa="add">Adicionar etapa</button>')+'</header>';
+    var n = Math.max(it.etapas.length,1);
+    h += '<div class="chain" style="grid-template-columns:repeat('+n+',minmax(110px,1fr))">'+it.etapas.map(function(e){var c=cls(e.status);return '<div class="link st-'+c+'"><div class="knot">'+esc(e.id)+'</div><div class="nm">'+(e.nome?esc(e.nome):'<span class="muted">Sem nome</span>')+'</div><div class="st">'+pill(e.status)+'</div><div class="doc">'+(e.doc?esc(e.doc):'')+'</div></div>';}).join("")+'</div>';
+    h += '<div class="chain-detail scroll"><table><thead><tr><th style="width:3%">#</th><th style="width:15%">Etapa</th><th style="width:22%">O que conferir</th><th>Status</th><th>Data</th><th style="width:15%">Nº documento / evidência</th><th style="width:22%">Observação</th>'+(imprimindo?'':'<th class="so-tela"></th>')+'</tr></thead><tbody>';
     it.etapas.forEach(function(e,i){
-      h += '<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(e.id)+'. '+esc(e.nome)+'</td><td>'+esc(e.conferir)+'</td><td>'+sel(it,"etapas."+i+".status",ST_TESTE)+'</td><td>'+txt(it,"etapas."+i+".doc","Ex.: PV 012345 / NF 98765")+'</td><td>'+area(it,"etapas."+i+".obs")+'</td></tr>';
+      var p = "etapas."+i+".";
+      h += '<tr><td class="id">'+esc(e.id)+'</td><td>'+area(it,p+"nome","Nome da etapa",' data-rerender="1" rows="1"')+'</td><td>'+area(it,p+"conferir","O que precisa estar certo")+'</td><td>'+sel(it,p+"status",ST_TESTE)+'</td><td>'+date(it,p+"data")+'</td><td>'+area(it,p+"doc","Ex.: PV 012345 / NF 98765",' data-rerender="1" rows="1"')+'</td><td>'+area(it,p+"obs")+'</td>';
+      if (!imprimindo) h += '<td class="so-tela"><div class="acoes-etapa"><button data-etapa="up" data-i="'+i+'" title="Subir"'+(i===0?' disabled':'')+'>↑</button><button data-etapa="down" data-i="'+i+'" title="Descer"'+(i===it.etapas.length-1?' disabled':'')+'>↓</button><button class="warn" data-etapa="del" data-i="'+i+'" title="Remover etapa">✕</button></div></td>';
+      h += '</tr>';
     });
+    if (!it.etapas.length) h += '<tr><td colspan="8" class="muted">Nenhuma etapa. Clique em "Adicionar etapa".</td></tr>';
     h += '</tbody></table></div></section>';
+
+    // Conclusão
+    if (!imprimindo || it.conclusao){
+      h += '<section class="conclusao"><header><h2>Conclusão / parecer</h2><p>Resultado do teste e o que falta.</p></header>'+area(it,"conclusao","Ex.: aprovado em homologação; falta conferir o BI")+'</section>';
+    }
+    if (imprimindo) h += '<footer class="doc-foot">'+esc(it.codigo)+' · versão '+it.versao+' · atualizado em '+br(it.atualizadoEm)+(it.atualizadoPor?' por '+esc(it.atualizadoPor):'')+' · gerado em '+br(today())+'</footer>';
     return h;
   }
 
-  // ── Seções do PROJETO (compartilhadas entre todos os itens) ──
+  // ── Seções do PROJETO (compartilhadas) ──
+  function btnAdd(lista, rotulo){ return '<button class="add" data-add="'+lista+'">'+rotulo+'</button>'; }
+  function btnDel(lista, i){ return '<td><button class="del warn" data-del="'+lista+'.'+i+'" title="Remover">✕</button></td>'; }
   function renderCronograma(){
     var pct = calcFasePct(PROJETO.fases);
-    var h = '<section><header><h2>Cronograma</h2><p>'+pct+'% concluído · fases da análise, compartilhadas entre todos os itens.</p>'+(editing?'<button class="add" data-add="fases">Adicionar fase</button>':'')+'</header><div class="scroll"><table><thead><tr><th>Fase</th><th>Descrição</th><th>Semana</th><th>Início</th><th>Fim</th><th>Responsável</th><th>Status</th><th>Andamento</th><th>Observação</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
-    PROJETO.fases.forEach(function(f,i){var p="fases."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(f.id)+'</td><td>'+txt(PROJETO,p+"nome")+'</td><td>'+txt(PROJETO,p+"semana")+'</td><td>'+date(PROJETO,p+"inicio")+'</td><td>'+date(PROJETO,p+"fim")+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+sel(PROJETO,p+"status",ST_FASE)+'</td><td>'+num(PROJETO,p+"pct")+'</td><td>'+area(PROJETO,p+"obs")+'</td>'+(editing?'<td><button class="del warn" data-del="fases.'+i+'">Remover</button></td>':'')+'</tr>';});
-    h += '</tbody></table></div></section>';
-    return h;
+    var h = '<section><header><h2>Cronograma</h2><p>'+pct+'% concluído · compartilhado entre todos os itens.</p>'+btnAdd("fases","Adicionar fase")+'</header><div class="scroll"><table><thead><tr><th>Fase</th><th>Descrição</th><th>Semana</th><th>Início</th><th>Fim</th><th>Responsável</th><th>Status</th><th>Andamento</th><th>Observação</th><th></th></tr></thead><tbody>';
+    PROJETO.fases.forEach(function(f,i){var p="fases."+i+".";h+='<tr><td class="id">'+esc(f.id)+'</td><td>'+txt(PROJETO,p+"nome")+'</td><td>'+txt(PROJETO,p+"semana")+'</td><td>'+date(PROJETO,p+"inicio")+'</td><td>'+date(PROJETO,p+"fim")+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+sel(PROJETO,p+"status",ST_FASE)+'</td><td>'+num(PROJETO,p+"pct")+'</td><td>'+area(PROJETO,p+"obs")+'</td>'+btnDel("fases",i)+'</tr>';});
+    return h + '</tbody></table></div></section>';
   }
   function renderCenarios(){
     var st = calcPctGenerico(PROJETO.cenarios);
-    var h = '<section><header><h2>Cenários de exceção</h2><p>'+st.pct+'% aprovados ('+st.aprovados+' de '+st.total+') · compartilhados entre todos os itens.</p>'+(editing?'<button class="add" data-add="cenarios">Adicionar cenário</button>':'')+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Cenário</th><th>Resultado esperado</th><th>Resultado obtido</th><th>Status</th><th>Responsável</th><th>Data</th><th>Evidência</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
-    PROJETO.cenarios.forEach(function(c,i){var p="cenarios."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(c.id)+'</td><td>'+txt(PROJETO,p+"titulo")+'</td><td>'+area(PROJETO,p+"esperado")+'</td><td>'+area(PROJETO,p+"obtido","O que aconteceu no teste")+'</td><td>'+sel(PROJETO,p+"status",ST_TESTE)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+date(PROJETO,p+"data")+'</td><td>'+area(PROJETO,p+"evid","Nº de documentos, link do print")+'</td>'+(editing?'<td><button class="del warn" data-del="cenarios.'+i+'">Remover</button></td>':'')+'</tr>';});
-    h += '</tbody></table></div></section>';
-    return h;
+    var h = '<section><header><h2>Cenários de exceção</h2><p>'+st.pct+'% aprovados ('+st.aprovados+' de '+st.total+') · compartilhados entre todos os itens.</p>'+btnAdd("cenarios","Adicionar cenário")+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Cenário</th><th>Resultado esperado</th><th>Resultado obtido</th><th>Status</th><th>Responsável</th><th>Data</th><th>Evidência</th><th></th></tr></thead><tbody>';
+    PROJETO.cenarios.forEach(function(c,i){var p="cenarios."+i+".";h+='<tr><td class="id">'+esc(c.id)+'</td><td>'+txt(PROJETO,p+"titulo")+'</td><td>'+area(PROJETO,p+"esperado")+'</td><td>'+area(PROJETO,p+"obtido","O que aconteceu no teste")+'</td><td>'+sel(PROJETO,p+"status",ST_TESTE)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+date(PROJETO,p+"data")+'</td><td>'+area(PROJETO,p+"evid","Nº de documentos, link do print")+'</td>'+btnDel("cenarios",i)+'</tr>';});
+    return h + '</tbody></table></div></section>';
   }
   function renderGaps(){
     var abertos = PROJETO.gaps.filter(function(g){return !/Resolvido|Descartado|Aceito/.test(g.status);}).length;
-    var h = '<section><header><h2>Registro de GAPs</h2><p>'+abertos+' em aberto de '+PROJETO.gaps.length+' · compartilhado entre todos os itens.</p>'+(editing?'<button class="add" data-add="gaps">Adicionar GAP</button>':'')+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Severidade</th><th>Status</th><th>Responsável</th><th>Ação / correção</th>'+(editing?'<th></th>':'')+'</tr></thead><tbody>';
-    PROJETO.gaps.forEach(function(g,i){var p="gaps."+i+".";h+='<tr'+(editing?' class="editing"':'')+'><td class="id">'+esc(g.id)+'</td><td>'+area(PROJETO,p+"desc")+'</td><td>'+sel(PROJETO,p+"sev",SEV)+'</td><td>'+sel(PROJETO,p+"status",ST_GAP)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+area(PROJETO,p+"acao")+'</td>'+(editing?'<td><button class="del warn" data-del="gaps.'+i+'">Remover</button></td>':'')+'</tr>';});
-    h += '</tbody></table></div></section>';
-    return h;
+    var h = '<section><header><h2>Registro de GAPs</h2><p>'+abertos+' em aberto de '+PROJETO.gaps.length+' · compartilhado entre todos os itens.</p>'+btnAdd("gaps","Adicionar GAP")+'</header><div class="scroll"><table><thead><tr><th>ID</th><th>Descrição</th><th>Severidade</th><th>Status</th><th>Responsável</th><th>Ação / correção</th><th></th></tr></thead><tbody>';
+    PROJETO.gaps.forEach(function(g,i){var p="gaps."+i+".";h+='<tr><td class="id">'+esc(g.id)+'</td><td>'+area(PROJETO,p+"desc")+'</td><td>'+sel(PROJETO,p+"sev",SEV)+'</td><td>'+sel(PROJETO,p+"status",ST_GAP)+'</td><td>'+txt(PROJETO,p+"resp")+'</td><td>'+area(PROJETO,p+"acao")+'</td>'+btnDel("gaps",i)+'</tr>';});
+    return h + '</tbody></table></div></section>';
   }
   function renderAprovacao(){
     var h = '<section><header><h2>Aprovação final</h2><p>Compartilhada entre todos os itens — preenchida no encerramento do projeto.</p></header><div class="sign">';
-    PROJETO.aprovacoes.forEach(function(a,i){var p="aprovacoes."+i+".";h+='<div class="sig"><div class="area">'+esc(a.area)+'</div><div class="line">'+txt(PROJETO,p+"nome","Nome do aprovador")+'</div><div class="cap">Nome</div><div class="line">'+(editing?'<select data-p="'+p+'parecer"><option value=""></option>'+["Aprovado","Aprovado com ressalvas","Reprovado"].map(function(o){return '<option'+(o===a.parecer?' selected':'')+'>'+o+'</option>';}).join("")+'</select>':(a.parecer?pill(a.parecer):''))+'</div><div class="cap">Parecer</div><div class="line">'+date(PROJETO,p+"data")+'</div><div class="cap">Data</div></div>';});
-    h += '</div></section>';
-    return h;
+    PROJETO.aprovacoes.forEach(function(a,i){var p="aprovacoes."+i+".";h+='<div class="sig"><div class="area">'+esc(a.area)+'</div><div class="line">'+txt(PROJETO,p+"nome","Nome do aprovador")+'</div><div class="cap">Nome</div><div class="line">'+sel(PROJETO,p+"parecer",["Aprovado","Aprovado com ressalvas","Reprovado"],true)+'</div><div class="cap">Parecer</div><div class="line">'+date(PROJETO,p+"data")+'</div><div class="cap">Data</div></div>';});
+    return h + '</div></section>';
   }
   function renderHistoricoItem(it){
-    return '<section><header><h2>Histórico de versões</h2><p>Específico deste item ('+esc(it.codigo)+').</p></header><ul class="log">'+it.log.slice().reverse().map(function(l){return '<li><span class="v">v'+l.v+'</span>'+br(l.data)+' · '+esc(l.por)+'<div class="muted">'+esc(l.nota)+'</div></li>';}).join("")+'</ul></section>';
+    var h = '<section><header><h2>Histórico de versões</h2><p>Deste item ('+esc(it.codigo)+'). Uma versão nova por dia e por pessoa, automaticamente — escreva o que mudou na nota.</p></header><ul class="log">';
+    for (var i = it.log.length-1; i >= 0; i--){
+      var l = it.log[i];
+      h += '<li><span class="v">v'+l.v+'</span>'+br(l.data)+' · '+esc(l.por)+'<div style="margin-top:4px">'+area(it,"log."+i+".nota","O que mudou nesta versão")+'</div></li>';
+    }
+    return h + '</ul></section>';
   }
 
   function syncBar(){
-    var canEdit = !readOnly;
-    document.getElementById('btnEdit').hidden = !canEdit || editing || telaAtual !== 'item';
-    document.getElementById('btnCancel').hidden = !editing;
-    document.getElementById('btnSave').hidden = !editing;
-    document.getElementById('btnDownload').hidden = editing;
-    document.getElementById('btnPrint').hidden = telaAtual !== 'item';
-    var msg;
-    if (editing) msg = 'Editando. Clique em "Salvar nova versão" pra gravar de vez no seu navegador.';
-    else if (telaAtual === 'lista') msg = 'Documento local — salvo neste navegador';
-    else msg = canEdit ? 'Documento local — salvo neste navegador' : 'Somente leitura';
-    document.getElementById('who').textContent = msg;
+    var noItem = telaAtual === 'item';
+    document.getElementById('btnPrint').hidden = !noItem;
+    document.getElementById('btnExportar').hidden = !noItem;
+    document.getElementById('who').textContent = noItem
+      ? 'Edição direta — tudo é salvo neste navegador ao sair do campo'
+      : 'Documento local — salvo neste navegador';
   }
   function banner(t){ document.getElementById('banner').textContent = t || ""; }
 
+  // ── Versão automática: 1 versão nova por dia por pessoa ──
+  function nomeAtual(){ try{ return (localStorage.getItem('rg-nome')||"").trim(); }catch(_){ return ""; } }
+  function registrar(obj){
+    var hoje = today(), por = nomeAtual() || "Sem nome";
+    var ult = obj.log[obj.log.length-1];
+    if (!(ult && ult.data === hoje && ult.por === por && ult.auto)){
+      obj.versao = (+obj.versao || 1) + 1;
+      obj.log.push({v:obj.versao, data:hoje, por:por, nota:"", auto:true});
+    }
+    obj.atualizadoEm = hoje; obj.atualizadoPor = por;
+    if (!nomeAtual()) banner('Dica: preencha "Seu nome" na barra de cima — ele vai para o histórico.');
+  }
+  function alvoAtual(){ return (secaoAtiva === 'linha' || secaoAtiva === 'historico') ? ITENS[itemAtivoIdx] : PROJETO; }
+  function alterou(alvo){ registrar(alvo); persistir(); }
+
   // ── Navegação entre telas ──
-  function abrirItem(idx){
-    itemAtivoIdx = idx; telaAtual = 'item'; secaoAtiva = 'linha'; editing = false;
-    render();
+  function abrirItem(idx){ itemAtivoIdx = idx; telaAtual = 'item'; secaoAtiva = 'linha'; banner(""); render(); window.scrollTo(0,0); }
+  function voltarLista(){ telaAtual = 'lista'; itemAtivoIdx = null; banner(""); render(); }
+  function proximoCodigo(){
+    var maxN = ITENS.reduce(function(mx,it){ var m = String(it.codigo).match(/(\d+)$/); return Math.max(mx, m ? +m[1] : 0); }, 0);
+    return "PTR-RG-" + String(maxN+1).padStart(3,"0");
   }
-  function voltarLista(){
-    if (editing){ banner('Salve ou descarte as alterações antes de voltar.'); return; }
-    telaAtual = 'lista'; itemAtivoIdx = null; render();
-  }
-  function novoItem(){
-    var maxN = ITENS.reduce(function(mx,it){
-      var m = String(it.codigo).match(/(\d+)$/); return Math.max(mx, m ? +m[1] : 0);
-    }, 0);
-    var novoCodigo = "PTR-RG-" + String(maxN+1).padStart(3,"0");
-    var novo = {
-      codigo: novoCodigo, item: "", versao: 1, situacao: "Em execução", dono: "",
-      inicio: today(), atualizadoEm: today(), atualizadoPor: "Criação do item",
-      etapas: [
-        {id:"1",nome:"Pedido origem",conferir:"ID gerado; saldo reservado; disponível para venda reduzido",status:"Não iniciado",doc:"",obs:""},
-        {id:"2",nome:"Agendamento",conferir:"Data e janela vinculadas ao pedido, sem duplicar reserva",status:"Não iniciado",doc:"",obs:""},
-        {id:"3",nome:"Carga",conferir:"Item amarrado à carga e ao veículo; não entra em duas cargas",status:"Não iniciado",doc:"",obs:""},
-        {id:"4",nome:"Faturamento",conferir:"NF referencia pedido e item; lote/série na NF",status:"Não iniciado",doc:"",obs:""},
-        {id:"5",nome:"Recusa na entrega",conferir:"Motivo registrado; peça com status de retorno em trânsito",status:"Não iniciado",doc:"",obs:""},
-        {id:"6",nome:"Retorno (NF devolução)",conferir:"NF de entrada vinculada à NF original",status:"Não iniciado",doc:"",obs:""},
-        {id:"7",nome:"Armazenagem",conferir:"Armazém/endereço correto: bom, avariado ou quarentena",status:"Não iniciado",doc:"",obs:""},
-        {id:"8",nome:"Reenvio",conferir:"Pedido de reenvio vinculado ao origem, sem nova venda/receita",status:"Não iniciado",doc:"",obs:""},
-        {id:"9",nome:"Entrega final",conferir:"Ciclo encerrado; histórico completo consultável",status:"Não iniciado",doc:"",obs:""}
-      ],
-      log: [{v:1, data:today(), por:"Criação do item", nota:"Linha de vida inicial deste item."}],
-    };
-    ITENS.push(novo); ITENS_SALVOS.push(JSON.parse(JSON.stringify(novo)));
-    persistir();
-    abrirItem(ITENS.length - 1);
+  function criarItem(modeloId, titulo){
+    var m = MODELOS.filter(function(x){return x.id===modeloId;})[0] || MODELOS[0];
+    var por = nomeAtual() || "Criação do item";
+    var novo = normalizarItem({
+      codigo: proximoCodigo(), item:"", versao:1, situacao:"Em execução", dono: nomeAtual(),
+      inicio: today(), atualizadoEm: today(), atualizadoPor: por,
+      titulo: titulo || m.titulo, objetivo: m.objetivo, dados: [], conclusao: "",
+      etapas: etapasDoModelo(m),
+      log: [{v:1, data:today(), por:por, nota:"Criado a partir do modelo “"+m.nome+"”."}],
+    });
+    ITENS.push(novo); persistir(); abrirItem(ITENS.length - 1);
   }
 
-  // ── Edição ──
-  document.getElementById('root').addEventListener('change', function(e){
-    var el = e.target, p = el.getAttribute('data-p'); if (!p) return;
-    var alvo = (secaoAtiva === 'linha' || secaoAtiva === 'historico') ? ITENS[itemAtivoIdx] : PROJETO;
-    set(alvo, p, el.hasAttribute('data-num') ? Math.max(0,Math.min(100,+el.value||0)) : el.value);
-    if (el.tagName === "SELECT") render();
-    try{ sessionStorage.setItem('rg-draft-'+secaoAtiva, JSON.stringify(alvo)); }catch(_){}
+  // Diálogo de novo item
+  var dlgNovo = document.getElementById('dlgNovo'), fModelo = document.getElementById('fModelo');
+  fModelo.innerHTML = MODELOS.map(function(m){return '<option value="'+m.id+'">'+esc(m.nome)+'</option>';}).join("");
+  function descModelo(){ var m = MODELOS.filter(function(x){return x.id===fModelo.value;})[0]; document.getElementById('fModeloDesc').textContent = m ? m.desc+" ("+m.etapas.length+" etapa"+(m.etapas.length>1?"s":"")+")" : ""; }
+  fModelo.addEventListener('change', descModelo);
+  document.getElementById('dlgNovoNo').onclick = function(){ dlgNovo.close(); };
+  document.getElementById('dlgNovoYes').onclick = function(){ dlgNovo.close(); criarItem(fModelo.value, document.getElementById('fTitulo').value.trim()); };
+  function novoItem(){ fModelo.value = MODELOS[0].id; document.getElementById('fTitulo').value = ""; descModelo(); dlgNovo.showModal(); }
+
+  // ── Importar / exportar item (.json) ──
+  var fImportar = document.getElementById('fImportar');
+  fImportar.addEventListener('change', function(){
+    var f = fImportar.files && fImportar.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try{
+        var dado = JSON.parse(r.result);
+        var lista = Array.isArray(dado) ? dado : (dado.rg_itens || (dado.rg_item ? [dado.rg_item] : [dado]));
+        var n = 0;
+        lista.forEach(function(it){
+          if (!it || !Array.isArray(it.etapas)) return;
+          it = normalizarItem(clone(it));
+          var existe = ITENS.some(function(x){return x.codigo === it.codigo;});
+          if (!it.codigo || existe) it.codigo = proximoCodigo();
+          it.log.push({v:it.versao, data:today(), por:nomeAtual()||"Importação", nota:"Item importado de arquivo ("+f.name+")."});
+          ITENS.push(it); n++;
+        });
+        if (!n){ banner("Esse arquivo não tem um item do RG válido."); return; }
+        persistir(); banner(n+" item(ns) importado(s).");
+        if (n === 1) abrirItem(ITENS.length-1); else render();
+      }catch(_){ banner("Não consegui ler esse arquivo (.json inválido)."); }
+      fImportar.value = "";
+    };
+    r.readAsText(f);
   });
-  document.getElementById('root').addEventListener('click', function(e){
-    var a = e.target.getAttribute('data-add'), d = e.target.getAttribute('data-del');
-    if (!a && !d) return;
-    var alvo = PROJETO; // adicionar/remover linha só existe nas seções do projeto (fases/cenarios/gaps)
+  function baixar(nome, conteudo, tipo){
+    var blob = new Blob([conteudo], {type:tipo}), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+  document.getElementById('btnExportar').onclick = function(){
+    var it = ITENS[itemAtivoIdx];
+    baixar(it.codigo+"_v"+it.versao+".json", JSON.stringify({rg_item:it}, null, 2), "application/json");
+    banner("Item exportado. Para carregar em outro navegador: lista de itens → Importar item.");
+  };
+
+  // ── Eventos de edição (autosave ao sair do campo) ──
+  var root = document.getElementById('root');
+  root.addEventListener('change', function(e){
+    var el = e.target, p = el.getAttribute('data-p'); if (!p) return;
+    var alvo = alvoAtual();
+    set(alvo, p, el.hasAttribute('data-num') ? Math.max(0,Math.min(100,+el.value||0)) : el.value);
+    if (/^log\./.test(p)) persistir(); else alterou(alvo);
+    if (el.tagName === "SELECT" || el.hasAttribute('data-rerender') || el.type === "number") renderMantendoFoco();
+  });
+  root.addEventListener('input', function(e){ if (e.target.tagName === 'TEXTAREA') ajustarAlturas(e.target); });
+  root.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('button,[data-abrir-item]') : e.target;
+    if (!b) return;
+    if (b.hasAttribute('data-abrir-item')){ abrirItem(+b.getAttribute('data-abrir-item')); return; }
+    if (b.hasAttribute('data-novo-item')){ novoItem(); return; }
+    if (b.hasAttribute('data-acao-lote')){ imprimirTodos(); return; }
+    if (b.hasAttribute('data-importar')){ fImportar.click(); return; }
+    if (b.hasAttribute('data-secao')){ secaoAtiva = b.getAttribute('data-secao'); banner(""); render(); return; }
+
+    var it = ITENS[itemAtivoIdx];
+    if (b.hasAttribute('data-excluir-item')){
+      if (!confirm('Excluir o item '+it.codigo+' e toda a Linha de vida dele? Isso não pode ser desfeito.')) return;
+      ITENS.splice(itemAtivoIdx,1); persistir(); voltarLista(); banner("Item excluído."); return;
+    }
+    var ae = b.getAttribute('data-etapa');
+    if (ae){
+      var i = +b.getAttribute('data-i');
+      if (ae === 'add') it.etapas.push({id:"", nome:"", conferir:"", status:"Não iniciado", data:"", doc:"", obs:""});
+      if (ae === 'up' && i > 0){ var t = it.etapas[i-1]; it.etapas[i-1] = it.etapas[i]; it.etapas[i] = t; }
+      if (ae === 'down' && i < it.etapas.length-1){ var t2 = it.etapas[i+1]; it.etapas[i+1] = it.etapas[i]; it.etapas[i] = t2; }
+      if (ae === 'del'){
+        var nm = it.etapas[i].nome || ("etapa "+(i+1));
+        if (!confirm('Remover "'+nm+'" da Linha de vida?')) return;
+        it.etapas.splice(i,1);
+      }
+      it.etapas.forEach(function(x,k){ x.id = String(k+1); });
+      alterou(it); render();
+      if (ae === 'add'){ var nn = document.querySelector('[data-p="etapas.'+(it.etapas.length-1)+'.nome"]'); if (nn) nn.focus(); }
+      return;
+    }
+    var ad = b.getAttribute('data-dado');
+    if (ad){
+      if (ad === 'add') it.dados.push({campo:"", valor:""});
+      if (ad === 'del') it.dados.splice(+b.getAttribute('data-i'),1);
+      alterou(it); render();
+      if (ad === 'add'){ var nd = document.querySelector('[data-p="dados.'+(it.dados.length-1)+'.campo"]'); if (nd) nd.focus(); }
+      return;
+    }
+    var a = b.getAttribute('data-add'), d = b.getAttribute('data-del');
     if (a){
-      var list = alvo[a], pre = {fases:"F",cenarios:"E",gaps:"G"}[a];
+      var list = PROJETO[a], pre = {fases:"F",cenarios:"E",gaps:"G"}[a];
       var n = list.reduce(function(mx,x){var k=parseInt(String(x.id).replace(/\D/g,""),10)||0;return Math.max(mx,k);},0)+1;
       var id = pre + (a==="fases" ? n : String(n).padStart(2,"0"));
       if (a==="fases") list.push({id:id,nome:"",semana:"",inicio:"",fim:"",resp:"",status:"Não iniciada",pct:0,obs:""});
       if (a==="cenarios") list.push({id:id,titulo:"",esperado:"",obtido:"",status:"Não iniciado",resp:"",data:"",evid:""});
       if (a==="gaps") list.push({id:id,desc:"",sev:"Média",status:"A verificar",resp:"",acao:""});
-      render();
+      alterou(PROJETO); render(); return;
     }
-    if (d){ var q=d.split("."); alvo[q[0]].splice(+q[1],1); render(); }
+    if (d){
+      var q = d.split(".");
+      if (!confirm('Remover '+(PROJETO[q[0]][+q[1]].id||'esta linha')+'?')) return;
+      PROJETO[q[0]].splice(+q[1],1); alterou(PROJETO); render();
+    }
   });
 
+  var fNome = document.getElementById('fNome');
+  fNome.value = nomeAtual();
+  fNome.addEventListener('change', function(){ try{ localStorage.setItem('rg-nome', fNome.value.trim()); }catch(_){} banner(""); });
+
   document.getElementById('btnVoltarLista').onclick = voltarLista;
-  document.getElementById('btnEdit').onclick = function(){ editing = true; render(); };
-  document.getElementById('btnCancel').onclick = function(){
-    editing = false;
-    if (secaoAtiva === 'linha' || secaoAtiva === 'historico') ITENS[itemAtivoIdx] = JSON.parse(JSON.stringify(ITENS_SALVOS[itemAtivoIdx]));
-    else PROJETO = JSON.parse(JSON.stringify(PROJETO_SALVO));
-    try{ sessionStorage.removeItem('rg-draft-'+secaoAtiva); }catch(_){}
-    render();
-  };
+
+  // ── PDF: sempre só a Linha de vida do item aberto, em texto (sem
+  // campos), independente da aba em que a pessoa está. ──
+  function imprimirHtml(html){
+    var anterior = document.title;
+    imprimindo = false;
+    root.innerHTML = html;
+    function restaurar(){ window.removeEventListener('afterprint', restaurar); document.title = anterior; render(); }
+    window.addEventListener('afterprint', restaurar);
+    setTimeout(function(){ try{ window.print(); }catch(_){ banner('Impressão não disponível aqui.'); restaurar(); } }, 30);
+  }
+  function linhaParaPdf(it){ imprimindo = true; var h = renderLinha(it); imprimindo = false; return h; }
   document.getElementById('btnPrint').onclick = function(){
-    try{ window.print(); }catch(_){ banner('A impressão não está disponível aqui. Use "Baixar cópia para arquivo" e imprima a partir do arquivo.'); }
-  };
-
-  var dlg = document.getElementById('dlg');
-  document.getElementById('btnSave').onclick = function(){
-    try{ document.getElementById('fPor').value = localStorage.getItem('rg-nome') || ""; }catch(_){}
-    document.getElementById('fNota').value = "";
-    dlg.showModal();
-  };
-  document.getElementById('dlgNo').onclick = function(){ dlg.close(); };
-  document.getElementById('dlgYes').onclick = function(){
-    var por = document.getElementById('fPor').value.trim(), nota = document.getElementById('fNota').value.trim();
-    if (!por){ document.getElementById('fPor').focus(); return; }
-    try{ localStorage.setItem('rg-nome', por); }catch(_){}
-    dlg.close();
-
-    try{
-      if (secaoAtiva === 'linha' || secaoAtiva === 'historico'){
-        var it = ITENS[itemAtivoIdx];
-        it.versao = (+ITENS_SALVOS[itemAtivoIdx].versao || 1) + 1;
-        it.atualizadoEm = today(); it.atualizadoPor = por;
-        it.log.push({v: it.versao, data: today(), por: por, nota: nota || "Atualização sem descrição."});
-        ITENS_SALVOS[itemAtivoIdx] = JSON.parse(JSON.stringify(it));
-      } else {
-        PROJETO.versao = (+PROJETO_SALVO.versao || 1) + 1;
-        PROJETO.atualizadoEm = today(); PROJETO.atualizadoPor = por;
-        PROJETO.log.push({v: PROJETO.versao, data: today(), por: por, nota: nota || "Atualização sem descrição."});
-        PROJETO_SALVO = JSON.parse(JSON.stringify(PROJETO));
-      }
-      persistir();
-      editing = false;
-      try{ sessionStorage.removeItem('rg-draft-'+secaoAtiva); }catch(_){}
-      banner("Versão salva neste navegador.");
-      render();
-    }catch(err){
-      banner("Não foi possível salvar — armazenamento local bloqueado ou cheio.");
-    }
-  };
-
-  document.getElementById('btnDownload').onclick = function(){
+    var a = document.activeElement; if (a && a.blur) a.blur(); // grava o campo em edição antes
     var it = ITENS[itemAtivoIdx];
-    var blob = new Blob([buildDoc()], {type:"text/html"});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = it.codigo+"_v"+it.versao+"_"+it.atualizadoEm+".html";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-    banner("Cópia baixada (inclui todos os itens e o projeto).");
+    var html = linhaParaPdf(it);
+    document.title = it.codigo+" - "+(it.titulo||"Linha de vida")+" - v"+it.versao;
+    imprimirHtml(html);
   };
-
-  // ── Impressão em lote: monta a Linha de vida de TODOS os itens, um
-  // por página, imprime, e depois restaura a tela normal. ──
   function imprimirTodos(){
     if (!ITENS.length){ banner('Nenhum item pra imprimir ainda.'); return; }
-    var h = ITENS.map(function(it){ return '<div class="lote-item">' + renderLinha(it) + '</div>'; }).join('');
-    var root = document.getElementById('root');
-    var anterior = root.innerHTML;
-    root.innerHTML = h;
-    function restaurar(){ root.innerHTML = anterior; window.removeEventListener('afterprint', restaurar); render(); }
-    window.addEventListener('afterprint', restaurar);
-    setTimeout(function(){
-      try{ window.print(); }catch(_){ banner('Impressão não disponível aqui.'); restaurar(); }
-    }, 30);
+    imprimirHtml(ITENS.map(function(it){ return '<div class="lote-item">'+linhaParaPdf(it)+'</div>'; }).join(''));
   }
 
+  document.getElementById('btnDownload').onclick = function(){
+    var nome = telaAtual === 'item' ? ITENS[itemAtivoIdx].codigo+"_v"+ITENS[itemAtivoIdx].versao : "RG_todos";
+    baixar(nome+"_"+today()+".html", buildDoc(), "text/html");
+    banner("Cópia baixada (inclui todos os itens e o projeto).");
+  };
   function buildDoc(){
-    var estado = { projeto: PROJETO_SALVO, itens: ITENS_SALVOS };
+    var estado = { projeto: PROJETO, itens: ITENS };
     var json = JSON.stringify(estado).replace(/</g,"\\u003c");
     var css = document.getElementById('css').textContent;
     var js = document.getElementById('app').textContent;
